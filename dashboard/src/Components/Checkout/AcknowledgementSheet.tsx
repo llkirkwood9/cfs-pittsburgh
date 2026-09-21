@@ -15,7 +15,6 @@ type Props = {
 type Acknowledgement = {
     key: "warrantyInitials" | "dropShipInitials" | "advisoryInitials";
     heading: string;
-    summary: string;
     detail: string;
 };
 
@@ -28,32 +27,29 @@ const acknowledgements: Acknowledgement[] = [
     {
         key: "warrantyInitials",
         heading: "Warranty & mattress protectors",
-        summary: "Your warranty is with the manufacturer, and it needs a protector to stay valid.",
         detail:
-            "Customer service and warranty issues are handled by the manufacturer, not by CFS. " +
-            "Every manufacturer requires a mattress protector, and they can refuse service or void " +
-            "the warranty if the bed has any stains, tears, burns, odours or pet hair - even if the " +
-            "product itself is faulty. A warranty claim covers the replacement item only, not " +
-            "delivery or set-up.",
+            "All products come with a manufacturer warranty. Customer service and warranty issues are the responsibility of the manufacturer. " +
+            "All manufacturers require the use of mattress protectors. They reserve the right to refuse service or invalidate the warranty if there are any stains or soils present " +
+            "even if the product is defective. Customer has been notified that sleep sets must be clean, free of tears, burns, odors, pet hair and " +
+            "stains of any kind for the warranty to be valid. In addition, manufacturer warranties only cover the cost of the replacement item, " +
+            "not additional expenses such as delivery or set-up.",
     },
     {
         key: "dropShipInitials",
         heading: "How your bed arrives",
-        summary: "It ships straight to your door, boxed, and no one needs to be home to sign.",
         detail:
-            "All items are drop shipped directly to you unless noted otherwise, and no signature is " +
-            "needed at delivery. The mattress arrives compressed, vacuum sealed and boxed. It can be " +
-            "heavy, so you may need a second pair of hands to move it. Once opened it recovers fully " +
-            "within 24 to 48 hours, though sleeping on it sooner will not harm it.",
+            "ALL ITEMS WILL BE DROP SHIPPED DIRECTLY TO THE CUSTOMER UNLESS OTHERWISE NOTED. " + 
+            "Items do not require a signature when delivered. The mattress will be compressed, vacuum sealed and boxed. " +
+            "The product may be heavy and may require additoinal persons to move it. Once open, the bed will completely recover " +
+            "within 24-48 hours, however, sleeping on it sooner will not damage the bed.",
     },
     {
         key: "advisoryInitials",
         heading: "All sales are final",
-        summary: "This is a fundraiser, and part of what you pay goes straight to the organization.",
         detail:
-            "This is a sanctioned fundraising event and a portion of the proceeds is allocated " +
-            "directly to the organization named on your receipt. Because of that, all sales and " +
-            "transactions are final.",
+            "Customer acknowledges and understands that this is a sanctioned fundraising event with a " +
+            "portion of the proceeds allocated directly to the above mentioned organization and therefore, " +
+            "ALL SALES AND TRANSACTIONS ARE FINAL.",
     },
 ];
 
@@ -142,9 +138,6 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
                             <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
                                 {current.heading}
                             </h2>
-                            <p className="mt-2 text-lg font-medium text-sky-800 dark:text-sky-300">
-                                {current.summary}
-                            </p>
                             <p className="mt-4 text-base leading-relaxed text-zinc-700 dark:text-zinc-300">
                                 {current.detail}
                             </p>
