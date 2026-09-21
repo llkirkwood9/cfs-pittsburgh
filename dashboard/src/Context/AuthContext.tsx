@@ -1,7 +1,11 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
 import { getAccessToken, getRefreshToken, setTokens, subscribeTokenChanged } from "../Lib/api";
-import { GetCurrentUser, Login as LoginRequest, Logout as LogoutRequest } from "../Services/AuthServices";
+import {
+    GetCurrentUser,
+    Login as LoginRequest,
+    Logout as LogoutRequest,
+} from "../Services/AuthServices";
 import type { User, UserRole } from "../Models/User";
 
 type AuthState = {
@@ -76,16 +80,31 @@ export const AuthProvider = ({ children }: Props) => {
         setUser(profile);
     };
 
-    // Admin is deliberately a superset: one person often covers both tables at a small event.
+    // Admin is deliberately a superset. Sales & Checkout covers both tables but never the admin
+    // screens, for a crew member working the whole cart at a small event.
     const hasRole = (...roles: UserRole[]): boolean => {
         if (!user?.role) return false;
         if (user.role === "Admin") return true;
+        if (
+            user.role === "SalesCheckout" &&
+            (roles.includes("Sales") || roles.includes("Checkout"))
+        )
+            return true;
         return roles.includes(user.role);
     };
 
     return (
         <AuthContext.Provider
-            value={{ user, accessToken, refreshToken, loading, login, logout, fetchUserProfile, hasRole }}
+            value={{
+                user,
+                accessToken,
+                refreshToken,
+                loading,
+                login,
+                logout,
+                fetchUserProfile,
+                hasRole,
+            }}
         >
             {children}
         </AuthContext.Provider>

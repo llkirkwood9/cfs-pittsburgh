@@ -8,14 +8,16 @@ import Modal from "../Components/Elements/Modal";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
 import { Toast } from "../Lib/Toast";
+import { UserRoleLabels } from "../Models/User";
 import type { User, UserRole } from "../Models/User";
 import { AddUser, DeleteUser, GetUsers, UpdateUser } from "../Services/UserServices";
 
-const roles: UserRole[] = ["Sales", "Checkout", "Admin"];
+const roles: UserRole[] = ["Sales", "Checkout", "SalesCheckout", "Admin"];
 
 const roleBlurb: Record<UserRole, string> = {
     Sales: "Takes orders on the floor",
     Checkout: "Takes payment and prints receipts",
+    SalesCheckout: "Both tables, without the admin screens",
     Admin: "Everything, plus catalog and crew",
 };
 
@@ -140,7 +142,8 @@ const CrewPage = () => {
                                 )}
                             </p>
                             <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                                {crew.username} &middot; {crew.role}
+                                {crew.username} &middot;{" "}
+                                {crew.role ? UserRoleLabels[crew.role] : ""}
                                 {crew.email ? ` · ${crew.email}` : ""}
                             </p>
                         </div>
@@ -214,7 +217,7 @@ const CrewPage = () => {
                             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                                 Role
                             </p>
-                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                 {roles.map((r) => (
                                     <button
                                         key={r}
@@ -227,7 +230,9 @@ const CrewPage = () => {
                                                     : "bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-600"
                                             }`}
                                     >
-                                        <span className="text-sm font-semibold">{r}</span>
+                                        <span className="text-sm font-semibold">
+                                            {UserRoleLabels[r]}
+                                        </span>
                                         <span className="text-[11px] opacity-80">
                                             {roleBlurb[r]}
                                         </span>

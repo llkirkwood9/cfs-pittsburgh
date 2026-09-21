@@ -104,5 +104,11 @@ namespace api.Models
 
         /// <summary>Full access including catalog and event administration.</summary>
         Admin = 2,
+
+        /// <summary>
+        /// Works both tables - takes orders on the floor and payment at checkout - without the
+        /// catalog, event and crew administration. For a small event run by one or two people.
+        /// </summary>
+        SalesCheckout = 3,
     }
 }

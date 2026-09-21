@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import Icon from "../Elements/Icon";
 import { useAuth } from "../../Context/AuthContext";
 import { DASHBOARD_VERSION } from "../../Lib/Version";
+import { UserRoleLabels } from "../../Models/User";
 
 /**
  * Shows who is signed in on this tablet and offers sign-out. The crew shares devices, so the
@@ -59,7 +60,8 @@ const UserProfileDropdown = () => {
                             {user?.name}
                         </p>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {user?.role} &middot; v{DASHBOARD_VERSION}
+                            {user?.role ? UserRoleLabels[user.role] : ""} &middot; v
+                            {DASHBOARD_VERSION}
                         </p>
                     </div>
                     <button
