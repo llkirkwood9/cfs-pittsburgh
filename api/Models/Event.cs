@@ -38,9 +38,9 @@ namespace api.Models
         public decimal SalesTaxRate { get; set; } = 0.07m;
 
         /// <summary>
-        /// Credit card processing fee rate, stored as a decimal fraction. 0 disables the fee.
+        /// Credit card processing fee rate, stored as a decimal fraction. 0 disables the fee. (0.02 = 2%)
         /// </summary>
-        public decimal CcProcessingFeeRate { get; set; } = 0m;
+        public decimal CcProcessingFeeRate { get; set; } = 0.02m;
 
         /// <summary>
         /// Next order number to hand out. Mirrors the pre-printed number on the paper sheets.

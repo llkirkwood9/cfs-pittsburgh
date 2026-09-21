@@ -27,13 +27,6 @@
       "isTaxable": true,
       "isTakeWith": false,
       "sortOrder": 40
-    },
-    {
-      "name": "Local Delivery",
-      "price": 0,
-      "isTaxable": true,
-      "isTakeWith": false,
-      "sortOrder": 50
     }
   ],
   "products": [
@@ -4193,7 +4186,7 @@
     "organization": "Sample School Band",
     "cartName": "Pittsburgh",
     "salesTaxRate": 0.07,
-    "ccProcessingFeeRate": 0.0,
+    "ccProcessingFeeRate": 0.02,
     "nextOrderNumber": 1001
   },
   "users": [

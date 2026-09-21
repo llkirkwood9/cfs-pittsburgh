@@ -48,7 +48,7 @@ const TextField = ({
                     text-zinc-900 outline-none transition-colors
                     focus:border-sky-600 focus:ring-2 focus:ring-sky-600/30
                     disabled:opacity-60
-                    dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-sky-500"
+                    dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-sky-500 dark:[color-scheme:dark]"
             />
         </label>
     );

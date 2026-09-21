@@ -2,10 +2,20 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Hide native clear button across Webkit browsers */
+input[type="search"]::-webkit-search-decoration,
+input[type="search"]::-webkit-search-cancel-button,
+input[type="search"]::-webkit-search-results-button,
+input[type="search"]::-webkit-search-results-decoration {
+    display: none;
+}
+
 body {
     margin: 0;
     -webkit-tap-highlight-color: transparent;
     -webkit-text-size-adjust: 100%;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* Tablets live in landscape on a cart; never let a stray wide element scroll the page sideways. */
