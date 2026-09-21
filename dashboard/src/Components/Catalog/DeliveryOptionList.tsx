@@ -27,6 +27,7 @@ const DeliveryOptionList = ({ options, onSave, onDelete }: Props) => {
     const [price, setPrice] = useState<string>("");
     const [isTaxable, setIsTaxable] = useState<boolean>(true);
     const [isTakeWith, setIsTakeWith] = useState<boolean>(false);
+    const [showOnSalesSheet, setShowOnSalesSheet] = useState<boolean>(true);
     const [isActive, setIsActive] = useState<boolean>(true);
 
     const open = (option: DeliveryOption) => {
@@ -35,6 +36,7 @@ const DeliveryOptionList = ({ options, onSave, onDelete }: Props) => {
         setPrice(option.price === undefined ? "" : String(option.price));
         setIsTaxable(option.isTaxable ?? true);
         setIsTakeWith(option.isTakeWith ?? false);
+        setShowOnSalesSheet(option.showOnSalesSheet ?? true);
         setIsActive(option.isActive ?? true);
     };
 
@@ -51,6 +53,7 @@ const DeliveryOptionList = ({ options, onSave, onDelete }: Props) => {
             price: parsed,
             isTaxable,
             isTakeWith,
+            showOnSalesSheet,
             isActive,
             sortOrder: editing?.sortOrder ?? options.length * 10,
         });
@@ -65,7 +68,9 @@ const DeliveryOptionList = ({ options, onSave, onDelete }: Props) => {
                 <Button
                     text="Add"
                     icon="fa-solid fa-plus"
-                    onClick={() => open({ price: 0, isTaxable: true, isActive: true })}
+                    onClick={() =>
+                        open({ price: 0, isTaxable: true, isActive: true, showOnSalesSheet: true })
+                    }
                     className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                 />
             </div>
@@ -82,6 +87,9 @@ const DeliveryOptionList = ({ options, onSave, onDelete }: Props) => {
                                 <span>{FormatCurrency(option.price)}</span>
                                 <span>{option.isTaxable ? "Taxable" : "Not taxable"}</span>
                                 {option.isTakeWith && <span>Ticks Take With</span>}
+                                {option.showOnSalesSheet === false && (
+                                    <span>Not on sales sheet</span>
+                                )}
                                 {!option.isActive && (
                                     <span className="font-semibold text-amber-700 dark:text-amber-400">
                                         Archived
@@ -156,6 +164,22 @@ const DeliveryOptionList = ({ options, onSave, onDelete }: Props) => {
                                 className="h-5 w-5 accent-sky-600"
                             />
                             <span className="text-sm font-medium">Ticks the Take With box</span>
+                        </label>
+
+                        <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-zinc-100 px-3 sm:col-span-2 dark:bg-zinc-700">
+                            <input
+                                type="checkbox"
+                                checked={showOnSalesSheet}
+                                onChange={(e) => setShowOnSalesSheet(e.target.checked)}
+                                className="h-5 w-5 accent-sky-600"
+                            />
+                            <span className="text-sm">
+                                <span className="font-medium">Show on sales sheet</span>
+                                <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                                    When off, the row stays on the order but is left off the printed
+                                    sheet. A row with a charge always prints.
+                                </span>
+                            </span>
                         </label>
 
                         <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-zinc-100 px-3 sm:col-span-2 dark:bg-zinc-700">

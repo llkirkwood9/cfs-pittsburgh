@@ -2,6 +2,7 @@ import {
     FormatCurrency,
     FormatShortDate,
     PaymentMethodLabels,
+    PrintsOnSalesSheet,
     SortLinesForPrint,
 } from "../../Lib/ModelHelpers";
 import type { Order, OrderStatus } from "../../Models/Order";
@@ -38,7 +39,7 @@ const label = "text-[8px] font-bold uppercase leading-none";
  * black on white with hard borders because it is photocopied and filed, not read on a screen.
  */
 const ReceiptSheet = ({ order }: Props) => {
-    const lines = SortLinesForPrint(order.lines ?? []);
+    const lines = SortLinesForPrint(order.lines ?? []).filter(PrintsOnSalesSheet);
     const notice = unfinished[order.status ?? "Draft"];
     const blanks = Math.max(0, MIN_ITEM_ROWS - lines.length);
 

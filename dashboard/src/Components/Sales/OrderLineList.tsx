@@ -1,6 +1,6 @@
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
-import { FormatCurrency, SortLinesForPrint } from "../../Lib/ModelHelpers";
+import { FormatCurrency, PrintsOnSalesSheet, SortLinesForPrint } from "../../Lib/ModelHelpers";
 import type { OrderLine } from "../../Models/OrderLine";
 
 type Props = {
@@ -76,6 +76,11 @@ const OrderLineList = ({ lines, readOnly = false, onEdit, onAddService, onRemove
                                     {(line.discountPercent ?? 0) > 0 && (
                                         <span className="rounded bg-green-100 px-1.5 py-0.5 font-semibold text-green-800 dark:bg-green-900/50 dark:text-green-300">
                                             -{line.discountPercent}%
+                                        </span>
+                                    )}
+                                    {!PrintsOnSalesSheet(line) && (
+                                        <span className="rounded bg-zinc-200 px-1.5 py-0.5 font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
+                                            Not on sales sheet
                                         </span>
                                     )}
                                     {line.takeWith && (

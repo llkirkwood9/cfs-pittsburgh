@@ -5,28 +5,32 @@
       "price": 0,
       "isTaxable": false,
       "isTakeWith": false,
-      "sortOrder": 10
+      "sortOrder": 10,
+      "showOnSalesSheet": true
     },
     {
       "name": "Take With",
       "price": 0,
       "isTaxable": false,
       "isTakeWith": true,
-      "sortOrder": 20
+      "sortOrder": 20,
+      "showOnSalesSheet": false
     },
     {
       "name": "White Glove",
       "price": 79,
       "isTaxable": true,
       "isTakeWith": false,
-      "sortOrder": 30
+      "sortOrder": 30,
+      "showOnSalesSheet": true
     },
     {
       "name": "Haul Away",
       "price": 99,
       "isTaxable": true,
       "isTakeWith": false,
-      "sortOrder": 40
+      "sortOrder": 40,
+      "showOnSalesSheet": true
     }
   ],
   "products": [

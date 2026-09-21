@@ -35,6 +35,13 @@ namespace api.Models
         public bool IsTakeWith { get; set; }
 
         /// <summary>
+        /// Whether a row for this option prints on the sales sheet. Take With is off by default:
+        /// the Take With column on the item's own row already says it. A row that carries a
+        /// charge always prints, so the sheet's subtotal still adds up.
+        /// </summary>
+        public bool ShowOnSalesSheet { get; set; } = true;
+
+        /// <summary>
         /// Ordering on the delivery picker
         /// </summary>
         public int SortOrder { get; set; }

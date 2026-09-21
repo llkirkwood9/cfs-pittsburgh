@@ -199,7 +199,12 @@ carry different delivery choices at different prices.
 **Shipping is always its own row.** Choosing a shipping method for an item adds a `Delivery`
 line under it, whatever it costs, so the sheet always says how each item is leaving - Drop Ship
 at $0.00 included. Take With also ticks the Take With box on the item, and removing the Take
-With row clears it again.
+With row clears it again. Each delivery option has a **Show on sales sheet** setting (Catalog ->
+Delivery): when it is off the row stays on the order and on screen, marked "Not on sales sheet",
+but is left off the printed sheet and the CSV. Take With is off by default, since the Take With
+column on the item already says it. A row that carries a charge always prints, so the sheet's
+subtotal adds up, and the setting is copied onto each row when it is added, so changing it later
+never alters a sheet that has already been printed.
 
 **Bundles are real catalog items.** Any size of any product can include one or more other
 catalog items at no extra charge (`ProductVariantComponent`). The seeded mattress-and-base sets

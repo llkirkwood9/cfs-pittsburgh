@@ -117,6 +117,12 @@ namespace api.Models
         public bool IncludesAdjustableBase { get; set; }
 
         /// <summary>
+        /// Snapshot of the delivery option's Show on sales sheet setting when the row was added,
+        /// so changing the setting later never changes a printed sheet
+        /// </summary>
+        public bool ShowOnSalesSheet { get; set; } = true;
+
+        /// <summary>
         /// Whether this row feeds the taxable subtotal
         /// </summary>
         public bool IsTaxable { get; set; } = true;

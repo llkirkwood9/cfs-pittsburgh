@@ -91,6 +91,11 @@ namespace api.Dtos
         public bool? IncludesAdjustableBase { get; set; }
 
         /// <summary>
+        /// Whether a delivery row prints on the sales sheet
+        /// </summary>
+        public bool? ShowOnSalesSheet { get; set; }
+
+        /// <summary>
         /// Whether this row feeds the taxable subtotal
         /// </summary>
         public bool? IsTaxable { get; set; }

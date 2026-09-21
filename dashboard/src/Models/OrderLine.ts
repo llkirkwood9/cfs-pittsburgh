@@ -20,6 +20,7 @@ export type OrderLine = {
     salePrice?: number;
     lineTotal?: number;
     includesAdjustableBase?: boolean;
+    showOnSalesSheet?: boolean;
     isTaxable?: boolean;
     sortOrder?: number;
 };

@@ -148,6 +148,7 @@ namespace api.Controllers
                     line.UnitPrice = request.UnitPrice ?? option.Price;
                     line.IsTaxable = request.IsTaxable ?? option.IsTaxable;
                     line.TakeWith = option.IsTakeWith;
+                    line.ShowOnSalesSheet = option.ShowOnSalesSheet;
                     line.ParentLineId = request.ParentLineId;
 
                     var parentLine = order.Lines.FirstOrDefault(l => l.Id == request.ParentLineId);
@@ -1091,6 +1092,7 @@ namespace api.Controllers
                 UnitPrice = price < 0 ? 0 : price,
                 IsTaxable = option.IsTaxable,
                 TakeWith = option.IsTakeWith,
+                ShowOnSalesSheet = option.ShowOnSalesSheet,
                 SortOrder = parent.SortOrder + 2,
             });
 
@@ -1339,6 +1341,7 @@ namespace api.Controllers
                         SalePrice = l.SalePrice,
                         LineTotal = l.LineTotal,
                         IncludesAdjustableBase = l.IncludesAdjustableBase,
+                        ShowOnSalesSheet = l.ShowOnSalesSheet,
                         IsTaxable = l.IsTaxable,
                         SortOrder = l.SortOrder,
                     })
