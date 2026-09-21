@@ -44,12 +44,6 @@ namespace api.Models
         public decimal? Price { get; set; }
 
         /// <summary>
-        /// True when the price includes a powered adjustable base. The stat sheet tallies bases
-        /// separately from mattresses, so a set sold on one line counts in both columns.
-        /// </summary>
-        public bool IncludesAdjustableBase { get; set; }
-
-        /// <summary>
         /// Ordering within the product
         /// </summary>
         public int SortOrder { get; set; }
@@ -58,5 +52,11 @@ namespace api.Models
         /// Inactive variants are hidden from the floor but retained on past orders
         /// </summary>
         public bool IsActive { get; set; } = true;
+
+        /// <summary>
+        /// Other catalog items that come with this one at no extra charge, e.g. the adjustable
+        /// base in a mattress-and-base set. Empty for anything sold on its own.
+        /// </summary>
+        public List<ProductVariantComponent> Components { get; set; } = new();
     }
 }

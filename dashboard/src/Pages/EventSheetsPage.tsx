@@ -4,12 +4,15 @@ import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
 import LoadingPage from "../Components/Elements/LoadingPage";
 import ReceiptSheet from "../Components/Checkout/ReceiptSheet";
+import StatSheet from "../Components/Dashboard/StatSheet";
 import { useAuth } from "../Context/AuthContext";
 import { FormatCurrency, FormatShortDate } from "../Lib/ModelHelpers";
 import { BuildSalesCsv, DownloadCsv } from "../Lib/SalesExport";
 import { Toast } from "../Lib/Toast";
+import type { DashboardStats } from "../Models/DashboardStats";
 import type { Event } from "../Models/Event";
 import type { Order } from "../Models/Order";
+import { GetStatsForEvent } from "../Services/DashboardServices";
 import { GetEvent } from "../Services/EventServices";
 import { GetSalesSheetsForEvent } from "../Services/OrderServices";
 
@@ -26,6 +29,7 @@ const EventSheetsPage = () => {
 
     const [saleEvent, setSaleEvent] = useState<Event | null>(null);
     const [orders, setOrders] = useState<Order[]>([]);
+    const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
 
     useEffect(() => {
@@ -33,9 +37,14 @@ const EventSheetsPage = () => {
             const id = Number(eventId);
             if (!id) return setLoading(false);
 
-            const [found, sheets] = await Promise.all([GetEvent(id), GetSalesSheetsForEvent(id)]);
+            const [found, sheets, figures] = await Promise.all([
+                GetEvent(id),
+                GetSalesSheetsForEvent(id),
+                GetStatsForEvent(id),
+            ]);
             setSaleEvent(found);
             setOrders(sheets);
+            setStats(figures);
             setLoading(false);
         };
 
@@ -89,7 +98,11 @@ const EventSheetsPage = () => {
                             onClick={handleDownload}
                             className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                         />
-                        <Button text="Print / Save PDF" icon="fa-solid fa-print" onClick={handlePrint} />
+                        <Button
+                            text="Print / Save PDF"
+                            icon="fa-solid fa-print"
+                            onClick={handlePrint}
+                        />
                     </div>
                 </div>
 
@@ -98,12 +111,13 @@ const EventSheetsPage = () => {
                         {saleEvent?.schoolName} {saleEvent?.organization}
                     </h1>
                     <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                        {FormatShortDate(saleEvent?.eventDate)} &middot; {orders.length} completed sale
+                        {FormatShortDate(saleEvent?.eventDate)} &middot; {orders.length} completed
+                        sale
                         {orders.length === 1 ? "" : "s"} &middot; {FormatCurrency(total)}
                     </p>
                     <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                        Each sheet prints on its own page. To save a PDF, choose Save as PDF as the
-                        printer.
+                        The School Stat Sheet prints first, then each sales sheet on its own page.
+                        To save a PDF, choose Save as PDF as the printer.
                     </p>
                 </div>
             </div>
@@ -118,11 +132,19 @@ const EventSheetsPage = () => {
                     </div>
                 </div>
             ) : (
-                orders.map((order) => (
-                    <div key={order.id} className="mb-6 break-after-page last:break-after-auto print:mb-0">
-                        <ReceiptSheet order={order} />
+                <>
+                    <div className="mb-6 break-after-page print:mb-0">
+                        <StatSheet saleEvent={saleEvent} stats={stats} orders={orders} />
                     </div>
-                ))
+                    {orders.map((order) => (
+                        <div
+                            key={order.id}
+                            className="mb-6 break-after-page last:break-after-auto print:mb-0"
+                        >
+                            <ReceiptSheet order={order} />
+                        </div>
+                    ))}
+                </>
             )}
         </div>
     );

@@ -247,13 +247,20 @@ const CheckoutPage = () => {
                     <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                         Waiting to pay
                     </h2>
-                    <CheckoutQueue orders={queue} activeId={order?.id ?? null} onSelect={openOrder} />
+                    <CheckoutQueue
+                        orders={queue}
+                        activeId={order?.id ?? null}
+                        onSelect={openOrder}
+                    />
                 </section>
 
                 <section className="lg:col-span-3">
                     {!order ? (
                         <div className="rounded-xl border-2 border-dashed border-zinc-300 py-16 text-center dark:border-zinc-700">
-                            <Icon icon="fa-solid fa-hand-point-left" className="text-3xl text-zinc-400" />
+                            <Icon
+                                icon="fa-solid fa-hand-point-left"
+                                className="text-3xl text-zinc-400"
+                            />
                             <p className="mt-3 text-base font-semibold">Pick a customer</p>
                         </div>
                     ) : (
@@ -261,7 +268,8 @@ const CheckoutPage = () => {
                             <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
                                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                                     <h2 className="text-lg font-bold">
-                                        #{order.orderNumber} &middot; {order.billingName || "No name"}
+                                        #{order.orderNumber} &middot;{" "}
+                                        {order.billingName || "No name"}
                                     </h2>
                                     <div className="flex flex-wrap items-center gap-2">
                                         <span className="rounded-full bg-amber-100 px-3 py-1 text-xs font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
@@ -313,6 +321,20 @@ const CheckoutPage = () => {
                                     {order.billingState ? ` ${order.billingState}` : ""}
                                     {order.billingZip ? ` ${order.billingZip}` : ""}
                                 </p>
+                                {!(order.deliverySameAsBilling ?? true) && (
+                                    <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
+                                        <Icon icon="fa-solid fa-truck" /> Deliver to{" "}
+                                        {[
+                                            order.deliveryName,
+                                            order.deliveryAddress,
+                                            order.deliveryCity,
+                                            order.deliveryState,
+                                            order.deliveryZip,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(", ")}
+                                    </p>
+                                )}
                                 {order.referralName && (
                                     <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
                                         Referred by {order.referralName}
@@ -417,9 +439,14 @@ const CheckoutPage = () => {
                                         <Button
                                             text="Print sales sheet"
                                             icon="fa-solid fa-print"
-                                            onClick={() => navigate(`/receipt/${order.id}`, {
-                                                    state: { from: "/checkout", label: "Back to checkout" },
-                                                })}
+                                            onClick={() =>
+                                                navigate(`/receipt/${order.id}`, {
+                                                    state: {
+                                                        from: "/checkout",
+                                                        label: "Back to checkout",
+                                                    },
+                                                })
+                                            }
                                             className="flex-1 sm:flex-none"
                                         />
                                     ) : (

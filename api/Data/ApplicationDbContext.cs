@@ -26,6 +26,11 @@ namespace api.Data
         public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
 
         /// <summary>
+        /// Items bundled with a variant at no extra charge
+        /// </summary>
+        public DbSet<ProductVariantComponent> ProductVariantComponents => Set<ProductVariantComponent>();
+
+        /// <summary>
         /// Delivery and in-home service options
         /// </summary>
         public DbSet<DeliveryOption> DeliveryOptions => Set<DeliveryOption>();
@@ -93,6 +98,24 @@ namespace api.Data
                     .WithOne(d => d.Product)
                     .HasForeignKey(d => d.ProductId)
                     .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ProductVariantComponent>(entity =>
+            {
+                entity.HasIndex(c => new { c.BundleVariantId, c.ComponentVariantId }).IsUnique();
+
+                // Removing a bundle variant removes its component list with it.
+                entity.HasOne(c => c.BundleVariant)
+                    .WithMany(v => v.Components)
+                    .HasForeignKey(c => c.BundleVariantId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // A second cascade path into ProductVariants is refused by SQL Server, and a
+                // component still in use by a bundle should not vanish silently anyway.
+                entity.HasOne(c => c.ComponentVariant)
+                    .WithMany()
+                    .HasForeignKey(c => c.ComponentVariantId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<ProductDeliveryOption>(entity =>

@@ -56,6 +56,10 @@ namespace api.Controllers
                     IsActive = request.IsActive ?? true,
                 };
 
+                var componentError = await ValidateComponentsAsync(null, request.Variants);
+                if (componentError != null)
+                    return BadRequest(new { error = componentError });
+
                 ApplyVariants(product, request.Variants);
                 ApplyDeliveryOptions(product, request.DeliveryOptions);
 
@@ -88,6 +92,9 @@ namespace api.Controllers
             {
                 var query = DB.Products
                     .Include(p => p.Variants)
+                    .ThenInclude(v => v.Components)
+                    .ThenInclude(c => c.ComponentVariant)
+                    .ThenInclude(cv => cv!.Product)
                     .Include(p => p.DeliveryOptions)
                     .ThenInclude(d => d.DeliveryOption)
                     .AsNoTracking()
@@ -175,11 +182,16 @@ namespace api.Controllers
 
                 var product = await DB.Products
                     .Include(p => p.Variants)
+                    .ThenInclude(v => v.Components)
                     .Include(p => p.DeliveryOptions)
                     .FirstOrDefaultAsync(p => p.Id == request.Id.Value);
 
                 if (product == null)
                     return NotFound(new { error = "Product not found." });
+
+                var componentError = await ValidateComponentsAsync(product.Id, request.Variants);
+                if (componentError != null)
+                    return BadRequest(new { error = componentError });
 
                 if (request.Name != null)
                 {
@@ -223,7 +235,12 @@ namespace api.Controllers
 
                     foreach (var variant in dropped)
                     {
-                        if (await DB.OrderLines.AnyAsync(l => l.ProductVariantId == variant.Id))
+                        // A variant still bundled into another product is kept too, so that
+                        // bundle does not lose its component.
+                        var inUse = await DB.OrderLines.AnyAsync(l => l.ProductVariantId == variant.Id)
+                                    || await DB.ProductVariantComponents.AnyAsync(c => c.ComponentVariantId == variant.Id);
+
+                        if (inUse)
                             variant.IsActive = false;
                         else
                             DB.ProductVariants.Remove(variant);
@@ -244,9 +261,15 @@ namespace api.Controllers
                         variant.Size = dto.Size ?? string.Empty;
                         variant.Configuration = string.IsNullOrWhiteSpace(dto.Configuration) ? null : dto.Configuration;
                         variant.Price = dto.Price;
-                        variant.IncludesAdjustableBase = dto.IncludesAdjustableBase ?? false;
                         variant.SortOrder = dto.SortOrder ?? 0;
                         variant.IsActive = dto.IsActive ?? true;
+
+                        if (dto.Components != null)
+                        {
+                            DB.ProductVariantComponents.RemoveRange(variant.Components);
+                            variant.Components.Clear();
+                            SetComponents(variant, dto.Components);
+                        }
                     }
                 }
 
@@ -294,7 +317,12 @@ namespace api.Controllers
                 var isSold = await DB.OrderLines.AnyAsync(l => l.ProductVariantId != null
                                                                && variantIds.Contains(l.ProductVariantId.Value));
 
-                if (isSold)
+                // Something else still ships this product as part of a bundle.
+                var isBundled = await DB.ProductVariantComponents
+                    .AnyAsync(c => variantIds.Contains(c.ComponentVariantId)
+                                   && !variantIds.Contains(c.BundleVariantId));
+
+                if (isSold || isBundled)
                 {
                     product.IsActive = false;
                     await DB.SaveChangesAsync();
@@ -329,16 +357,82 @@ namespace api.Controllers
 
             foreach (var dto in variants)
             {
-                product.Variants.Add(new ProductVariant
+                var variant = new ProductVariant
                 {
                     Size = dto.Size ?? string.Empty,
                     Configuration = string.IsNullOrWhiteSpace(dto.Configuration) ? null : dto.Configuration,
                     Price = dto.Price,
-                    IncludesAdjustableBase = dto.IncludesAdjustableBase ?? false,
                     SortOrder = dto.SortOrder ?? 0,
                     IsActive = dto.IsActive ?? true,
+                };
+
+                SetComponents(variant, dto.Components);
+                product.Variants.Add(variant);
+            }
+        }
+
+        /// <summary>
+        /// Replaces a variant's bundle with the supplied components, merging duplicates.
+        /// </summary>
+        /// <param name="variant">The bundle variant</param>
+        /// <param name="components">Component DTOs, may be null</param>
+        private static void SetComponents(ProductVariant variant, List<ProductVariantComponentDto>? components)
+        {
+            if (components == null)
+                return;
+
+            foreach (var group in components
+                         .Where(c => c.ComponentVariantId != null)
+                         .GroupBy(c => c.ComponentVariantId!.Value))
+            {
+                variant.Components.Add(new ProductVariantComponent
+                {
+                    ComponentVariantId = group.Key,
+                    Quantity = Math.Max(1, group.Sum(c => c.Quantity ?? 1)),
                 });
             }
+        }
+
+        /// <summary>
+        /// Checks every bundle component in a save request. A product cannot include itself, and
+        /// a bundle cannot include another bundle - one level keeps the sheet and the stat
+        /// tallies predictable.
+        /// </summary>
+        /// <param name="productId">The product being saved, or null when it is new</param>
+        /// <param name="variants">Variant DTOs from the request</param>
+        /// <returns>An error message, or null when everything is valid.</returns>
+        private async Task<string?> ValidateComponentsAsync(int? productId, List<ProductVariantDto>? variants)
+        {
+            var requested = (variants ?? new List<ProductVariantDto>())
+                .SelectMany(v => v.Components ?? new List<ProductVariantComponentDto>())
+                .ToList();
+
+            if (requested.Count == 0)
+                return null;
+
+            if (requested.Any(c => c.ComponentVariantId == null))
+                return "Pick an item and size for every bundled product.";
+
+            if (requested.Any(c => c.Quantity is < 1 or > 20))
+                return "A bundled item's quantity must be between 1 and 20.";
+
+            var ids = requested.Select(c => c.ComponentVariantId!.Value).Distinct().ToList();
+
+            var found = await DB.ProductVariants
+                .Where(v => ids.Contains(v.Id))
+                .Select(v => new { v.Id, v.ProductId, IsBundle = v.Components.Any() })
+                .ToListAsync();
+
+            if (found.Count != ids.Count)
+                return "A bundled item no longer exists in the catalog.";
+
+            if (productId != null && found.Any(v => v.ProductId == productId.Value))
+                return "A product cannot be bundled with itself.";
+
+            if (found.Any(v => v.IsBundle))
+                return "A bundle cannot include another bundle. Pick the individual items instead.";
+
+            return null;
         }
 
         /// <summary>
@@ -374,6 +468,9 @@ namespace api.Controllers
         {
             var product = await DB.Products
                 .Include(p => p.Variants)
+                .ThenInclude(v => v.Components)
+                .ThenInclude(c => c.ComponentVariant)
+                .ThenInclude(cv => cv!.Product)
                 .Include(p => p.DeliveryOptions)
                 .ThenInclude(d => d.DeliveryOption)
                 .AsNoTracking()
@@ -409,9 +506,23 @@ namespace api.Controllers
                         Size = v.Size,
                         Configuration = v.Configuration,
                         Price = v.Price,
-                        IncludesAdjustableBase = v.IncludesAdjustableBase,
                         SortOrder = v.SortOrder,
                         IsActive = v.IsActive,
+                        Components = v.Components
+                            .Where(c => c.ComponentVariant?.Product != null)
+                            .Select(c => new ProductVariantComponentDto
+                            {
+                                Id = c.Id,
+                                ComponentVariantId = c.ComponentVariantId,
+                                Quantity = c.Quantity,
+                                ProductId = c.ComponentVariant!.ProductId,
+                                ProductName = c.ComponentVariant.Product!.Name,
+                                Brand = c.ComponentVariant.Product.Brand,
+                                Category = c.ComponentVariant.Product.Category.ToString(),
+                                Size = c.ComponentVariant.Size,
+                                Configuration = c.ComponentVariant.Configuration,
+                            })
+                            .ToList(),
                     })
                     .ToList(),
                 DeliveryOptions = product.DeliveryOptions

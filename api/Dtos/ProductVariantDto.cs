@@ -31,11 +31,6 @@ namespace api.Dtos
         public decimal? Price { get; set; }
 
         /// <summary>
-        /// Whether the price includes a powered adjustable base
-        /// </summary>
-        public bool? IncludesAdjustableBase { get; set; }
-
-        /// <summary>
         /// Ordering within the product
         /// </summary>
         public int? SortOrder { get; set; }
@@ -44,5 +39,11 @@ namespace api.Dtos
         /// Whether the variant is offered on the floor
         /// </summary>
         public bool? IsActive { get; set; }
+
+        /// <summary>
+        /// Items that come with this variant at no extra charge. Null on write leaves the
+        /// existing list alone; an empty list clears it.
+        /// </summary>
+        public List<ProductVariantComponentDto>? Components { get; set; }
     }
 }

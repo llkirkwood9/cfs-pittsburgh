@@ -523,9 +523,6 @@ namespace api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
-                    b.Property<bool>("IncludesAdjustableBase")
-                        .HasColumnType("bit");
-
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -548,6 +545,33 @@ namespace api.Migrations
                     b.HasIndex("ProductId");
 
                     b.ToTable("ProductVariants");
+                });
+
+            modelBuilder.Entity("api.Models.ProductVariantComponent", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("BundleVariantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("ComponentVariantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Quantity")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ComponentVariantId");
+
+                    b.HasIndex("BundleVariantId", "ComponentVariantId")
+                        .IsUnique();
+
+                    b.ToTable("ProductVariantComponents");
                 });
 
             modelBuilder.Entity("api.Models.User", b =>
@@ -697,6 +721,25 @@ namespace api.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("api.Models.ProductVariantComponent", b =>
+                {
+                    b.HasOne("api.Models.ProductVariant", "BundleVariant")
+                        .WithMany("Components")
+                        .HasForeignKey("BundleVariantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("api.Models.ProductVariant", "ComponentVariant")
+                        .WithMany()
+                        .HasForeignKey("ComponentVariantId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("BundleVariant");
+
+                    b.Navigation("ComponentVariant");
+                });
+
             modelBuilder.Entity("api.Models.DeliveryOption", b =>
                 {
                     b.Navigation("Products");
@@ -719,6 +762,11 @@ namespace api.Migrations
                     b.Navigation("DeliveryOptions");
 
                     b.Navigation("Variants");
+                });
+
+            modelBuilder.Entity("api.Models.ProductVariant", b =>
+                {
+                    b.Navigation("Components");
                 });
 #pragma warning restore 612, 618
         }

@@ -252,6 +252,7 @@ const CatalogPage = () => {
             {editing && (
                 <EditProductForm
                     product={editing}
+                    catalog={products.filter((p) => p.isActive)}
                     categories={categories}
                     deliveryOptions={deliveryOptions.filter((o) => o.isActive)}
                     onSave={handleSaveProduct}

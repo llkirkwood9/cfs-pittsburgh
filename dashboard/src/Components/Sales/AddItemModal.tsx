@@ -179,7 +179,11 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
             {!selected && !customMode && (
                 <>
                     <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
-                        <TabButton text="All" active={tab === "All"} onClick={() => setTab("All")} />
+                        <TabButton
+                            text="All"
+                            active={tab === "All"}
+                            onClick={() => setTab("All")}
+                        />
                         {categories.map((category) => (
                             <TabButton
                                 key={category}
@@ -310,6 +314,18 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                     <span className="text-xs opacity-80">
                                         {NeedsPrice(v) ? "Inquire" : FormatCurrency(v.price)}
                                     </span>
+                                    {(v.components ?? []).length > 0 && (
+                                        <span className="mt-0.5 text-[11px] font-medium opacity-90">
+                                            +{" "}
+                                            {(v.components ?? [])
+                                                .map((c) =>
+                                                    (c.quantity ?? 1) > 1
+                                                        ? `${c.quantity} x ${c.productName}`
+                                                        : c.productName
+                                                )
+                                                .join(", ")}
+                                        </span>
+                                    )}
                                 </button>
                             ))}
                         </div>
@@ -345,7 +361,8 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                         }`}
                                     >
                                         {option.name}
-                                        {(option.price ?? 0) > 0 && ` +${FormatCurrency(option.price)}`}
+                                        {(option.price ?? 0) > 0 &&
+                                            ` +${FormatCurrency(option.price)}`}
                                     </button>
                                 ))}
                             </div>

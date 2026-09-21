@@ -92,13 +92,20 @@ export const CompleteOrder = async (orderId: number): Promise<Order | null> => {
 };
 
 /**
- * Sends an order back to the sales floor.
+ * Sends an order back to the sales floor or the checkout table. Reopening a completed sale is
+ * admin only.
  * @param orderId The order id.
+ * @param to Where the order goes; defaults to the sales floor.
  * @returns The reopened order, or null on failure.
  */
-export const ReopenOrder = async (orderId: number): Promise<Order | null> => {
+export const ReopenOrder = async (
+    orderId: number,
+    to: "floor" | "checkout" = "floor"
+): Promise<Order | null> => {
     try {
-        const response = await api.post<Order>(`/api/Order/order/${orderId}/reopen`);
+        const response = await api.post<Order>(`/api/Order/order/${orderId}/reopen`, null, {
+            params: { to },
+        });
         return response.data;
     } catch (error) {
         HandleAxiosError(error);

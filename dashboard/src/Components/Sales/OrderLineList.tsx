@@ -68,7 +68,7 @@ const OrderLineList = ({ lines, readOnly = false, onEdit, onAddService, onRemove
                                     {!isService && <span>Qty {line.quantity}</span>}
                                     {isIncluded ? (
                                         <span className="rounded bg-violet-100 px-1.5 py-0.5 font-semibold text-violet-800 dark:bg-violet-900/50 dark:text-violet-300">
-                                            Included with mattress
+                                            Included
                                         </span>
                                     ) : (
                                         <span>{FormatCurrency(line.unitPrice)} ea</span>

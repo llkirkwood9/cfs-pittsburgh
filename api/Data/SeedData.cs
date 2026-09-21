@@ -33,7 +33,8 @@ namespace api.Data
             await SeedUsersAsync(db, tokenService, seed);
             await SeedEventAsync(db, seed);
             var deliveryByName = await SeedDeliveryOptionsAsync(db, seed);
-            await SeedProductsAsync(db, seed, deliveryByName);
+            var created = await SeedProductsAsync(db, seed, deliveryByName);
+            await SeedBundlesAsync(db, created);
         }
 
         #endregion
@@ -153,11 +154,13 @@ namespace api.Data
         /// <param name="db">EF context</param>
         /// <param name="seed">Parsed seed file</param>
         /// <param name="deliveryByName">Delivery option lookup</param>
-        private static async Task SeedProductsAsync(
+        private static async Task<List<(SeedProduct Seed, Product Entity)>> SeedProductsAsync(
             ApplicationDbContext db, SeedFile seed, Dictionary<string, DeliveryOption> deliveryByName)
         {
+            var created = new List<(SeedProduct Seed, Product Entity)>();
+
             if (seed.Products == null)
-                return;
+                return created;
 
             var existingNames = await db.Products
                 .Select(p => p.Name + "|" + p.Brand)
@@ -195,7 +198,6 @@ namespace api.Data
                             Size = v.Size ?? string.Empty,
                             Configuration = v.Configuration,
                             Price = v.Price,
-                            IncludesAdjustableBase = v.IncludesAdjustableBase ?? false,
                             SortOrder = v.SortOrder ?? 0,
                             IsActive = true,
                         });
@@ -218,6 +220,61 @@ namespace api.Data
                 }
 
                 db.Products.Add(product);
+                created.Add((p, product));
+            }
+
+            await db.SaveChangesAsync();
+            return created;
+        }
+
+        /// <summary>
+        /// Links each newly seeded bundle variant to the items it includes, matched by product
+        /// name and size. Only products created in this run are touched, so a catalog an admin
+        /// has already edited is never rewritten.
+        /// </summary>
+        /// <param name="db">EF context</param>
+        /// <param name="created">Seed products created in this run, with their entities</param>
+        private static async Task SeedBundlesAsync(ApplicationDbContext db, List<(SeedProduct Seed, Product Entity)> created)
+        {
+            var wanted = created
+                .SelectMany(c => (c.Seed.Variants ?? new List<SeedVariant>())
+                    .Where(v => v.Includes is { Count: > 0 })
+                    .Select(v => (Entity: c.Entity, Seed: v)))
+                .ToList();
+
+            if (wanted.Count == 0)
+                return;
+
+            var names = wanted.SelectMany(w => w.Seed.Includes!).Select(i => i.Product).Distinct().ToList();
+            var components = await db.ProductVariants
+                .Include(v => v.Product)
+                .Where(v => v.Product != null && names.Contains(v.Product.Name))
+                .ToListAsync();
+
+            foreach (var (entity, seedVariant) in wanted)
+            {
+                var bundle = entity.Variants.FirstOrDefault(v =>
+                    v.Size == (seedVariant.Size ?? string.Empty)
+                    && v.Configuration == seedVariant.Configuration);
+
+                if (bundle == null)
+                    continue;
+
+                foreach (var include in seedVariant.Includes!)
+                {
+                    var component = components.FirstOrDefault(v =>
+                        string.Equals(v.Product!.Name, include.Product, StringComparison.OrdinalIgnoreCase)
+                        && string.Equals(v.Size, include.Size, StringComparison.OrdinalIgnoreCase));
+
+                    if (component == null || component.ProductId == entity.Id)
+                        continue;
+
+                    bundle.Components.Add(new ProductVariantComponent
+                    {
+                        ComponentVariantId = component.Id,
+                        Quantity = Math.Max(1, include.Quantity ?? 1),
+                    });
+                }
             }
 
             await db.SaveChangesAsync();
@@ -310,11 +367,26 @@ namespace api.Data
             /// <summary>Price, null when the card says Inquire.</summary>
             public decimal? Price { get; set; }
 
-            /// <summary>Whether the price includes an adjustable base.</summary>
-            public bool? IncludesAdjustableBase { get; set; }
+            /// <summary>Items bundled with this variant, by product name and size.</summary>
+            public List<SeedComponent>? Includes { get; set; }
 
             /// <summary>Display order.</summary>
             public int? SortOrder { get; set; }
+        }
+
+        /// <summary>
+        /// One bundled item in the seed file.
+        /// </summary>
+        private class SeedComponent
+        {
+            /// <summary>Name of the product that comes with the bundle.</summary>
+            public string? Product { get; set; }
+
+            /// <summary>Which size of it.</summary>
+            public string? Size { get; set; }
+
+            /// <summary>How many come with one bundle.</summary>
+            public int? Quantity { get; set; }
         }
 
         /// <summary>

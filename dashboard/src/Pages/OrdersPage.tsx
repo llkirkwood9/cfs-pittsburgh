@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
+import ReopenOrderModal from "../Components/Admin/ReopenOrderModal";
 import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
@@ -7,11 +8,12 @@ import TabButton from "../Components/Elements/TabButton";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
 import { FormatCurrency, FormatShortDate, FormatTime } from "../Lib/ModelHelpers";
+import { Toast } from "../Lib/Toast";
 import type { Event } from "../Models/Event";
 import type { OrderStatus } from "../Models/Order";
 import type { OrderSummary } from "../Models/OrderSummary";
 import { GetActiveEvent, GetEvents } from "../Services/EventServices";
-import { GetAllOrders, GetOrdersForEvent } from "../Services/OrderServices";
+import { GetAllOrders, GetOrdersForEvent, ReopenOrder } from "../Services/OrderServices";
 
 type Scope = { kind: "event"; eventId: number } | { kind: "all" };
 
@@ -45,40 +47,35 @@ const OrdersPage = () => {
     const [statusFilter, setStatusFilter] = useState<OrderStatus | "All">("All");
     const [search, setSearch] = useState<string>("");
     const [loading, setLoading] = useState<boolean>(true);
+    const [reopening, setReopening] = useState<OrderSummary | null>(null);
 
-    const load = useCallback(
-        async (target: Scope, status: OrderStatus | "All", term: string) => {
-            setLoading(true);
+    const load = useCallback(async (target: Scope, status: OrderStatus | "All", term: string) => {
+        setLoading(true);
 
-            const rows =
-                target.kind === "all"
-                    ? await GetAllOrders({
-                          status: status === "All" ? undefined : status,
-                          search: term,
-                      })
-                    : await GetOrdersForEvent(
-                          target.eventId,
-                          status === "All" ? undefined : status
-                      );
+        const rows =
+            target.kind === "all"
+                ? await GetAllOrders({
+                      status: status === "All" ? undefined : status,
+                      search: term,
+                  })
+                : await GetOrdersForEvent(target.eventId, status === "All" ? undefined : status);
 
-            // The per-event endpoint has no search of its own, so narrow it here rather than
-            // making every caller pay for a query parameter only this page uses.
-            const term_ = term.trim().toLowerCase();
-            setOrders(
-                term_ && target.kind === "event"
-                    ? rows.filter(
-                          (o) =>
-                              (o.billingName ?? "").toLowerCase().includes(term_) ||
-                              (o.cfsRepName ?? "").toLowerCase().includes(term_) ||
-                              String(o.orderNumber ?? "").includes(term_)
-                      )
-                    : rows
-            );
+        // The per-event endpoint has no search of its own, so narrow it here rather than
+        // making every caller pay for a query parameter only this page uses.
+        const term_ = term.trim().toLowerCase();
+        setOrders(
+            term_ && target.kind === "event"
+                ? rows.filter(
+                      (o) =>
+                          (o.billingName ?? "").toLowerCase().includes(term_) ||
+                          (o.cfsRepName ?? "").toLowerCase().includes(term_) ||
+                          String(o.orderNumber ?? "").includes(term_)
+                  )
+                : rows
+        );
 
-            setLoading(false);
-        },
-        []
-    );
+        setLoading(false);
+    }, []);
 
     useEffect(() => {
         const boot = async () => {
@@ -114,6 +111,19 @@ const OrdersPage = () => {
 
     const runSearch = async () => {
         if (scope) await load(scope, statusFilter, search);
+    };
+
+    const handleReopen = async (to: "floor" | "checkout") => {
+        if (!reopening?.id) return;
+
+        const result = await ReopenOrder(reopening.id, to);
+        if (!result) return;
+
+        setReopening(null);
+        Toast.Success(
+            `Order #${result.orderNumber} sent ${to === "checkout" ? "to checkout" : "to the sales floor"}.`
+        );
+        await runSearch();
     };
 
     return (
@@ -153,7 +163,9 @@ const OrdersPage = () => {
                             key={event.id}
                             text={`${event.schoolName} ${event.organization ?? ""}`.trim()}
                             active={scope?.kind === "event" && scope.eventId === event.id}
-                            onClick={() => event.id && switchScope({ kind: "event", eventId: event.id })}
+                            onClick={() =>
+                                event.id && switchScope({ kind: "event", eventId: event.id })
+                            }
                         />
                     ))}
                 </div>
@@ -198,8 +210,10 @@ const OrdersPage = () => {
                             key={order.id}
                             className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800"
                         >
-                            <span className="flex h-12 w-14 shrink-0 items-center justify-center rounded-lg
-                                bg-zinc-100 text-sm font-bold dark:bg-zinc-700">
+                            <span
+                                className="flex h-12 w-14 shrink-0 items-center justify-center rounded-lg
+                                bg-zinc-100 text-sm font-bold dark:bg-zinc-700"
+                            >
                                 #{order.orderNumber}
                             </span>
 
@@ -213,7 +227,9 @@ const OrdersPage = () => {
                                             {order.eventSchoolName} {order.eventOrganization}
                                         </span>
                                     )}
-                                    <span>{FormatShortDate(order.eventDate ?? order.createdAt)}</span>
+                                    <span>
+                                        {FormatShortDate(order.eventDate ?? order.createdAt)}
+                                    </span>
                                     {order.cfsRepName && <span>{order.cfsRepName}</span>}
                                     <span>
                                         {order.lineCount ?? 0} item
@@ -254,9 +270,27 @@ const OrdersPage = () => {
                                 }
                                 className="min-h-[44px] px-3 text-sm"
                             />
+                            {isAdmin &&
+                                (order.status === "Completed" ||
+                                    order.status === "AwaitingCheckout") && (
+                                    <Button
+                                        text="Reopen"
+                                        icon="fa-solid fa-arrow-rotate-left"
+                                        onClick={() => setReopening(order)}
+                                        className="min-h-[44px] bg-amber-600 px-3 text-sm hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700"
+                                    />
+                                )}
                         </li>
                     ))}
                 </ul>
+            )}
+
+            {reopening && (
+                <ReopenOrderModal
+                    order={reopening}
+                    onReopen={handleReopen}
+                    onClose={() => setReopening(null)}
+                />
             )}
         </div>
     );

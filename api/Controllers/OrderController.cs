@@ -109,6 +109,9 @@ namespace api.Controllers
                 {
                     var variant = await DB.ProductVariants
                         .Include(v => v.Product)
+                        .Include(v => v.Components)
+                        .ThenInclude(c => c.ComponentVariant)
+                        .ThenInclude(cv => cv!.Product)
                         .FirstOrDefaultAsync(v => v.Id == request.ProductVariantId.Value);
 
                     if (variant == null)
@@ -124,7 +127,8 @@ namespace api.Controllers
                     line.Size = request.Size ?? variant.Size;
                     line.Description = request.Description ?? BuildDescription(variant);
                     line.UnitPrice = request.UnitPrice ?? variant.Price ?? 0m;
-                    line.IncludesAdjustableBase = variant.IncludesAdjustableBase;
+                    line.IncludesAdjustableBase = variant.Components.Any(c =>
+                        c.ComponentVariant?.Product?.Category == ProductCategory.AdjustableBase);
                     soldVariant = variant;
                 }
                 else if (lineType == OrderLineType.Delivery && request.DeliveryOptionId != null)
@@ -185,10 +189,11 @@ namespace api.Controllers
                 order.Lines.Add(line);
                 await DB.SaveChangesAsync();
 
-                // A mattress sold as a set with an adjustable base gets the base on its own row
-                // underneath, so the sheet shows exactly what is being delivered.
-                if (line.LineType == OrderLineType.Product && soldVariant is { IncludesAdjustableBase: true })
-                    await AddIncludedBaseLineAsync(order, line, soldVariant);
+                // A bundle - such as a mattress sold as a set with an adjustable base - gets each
+                // included item on its own row underneath, so the sheet shows exactly what is being
+                // delivered. Anything sold on its own has no components and adds nothing here.
+                if (line.LineType == OrderLineType.Product && soldVariant is { Components.Count: > 0 })
+                    AddBundleComponentLines(order, line, soldVariant);
 
                 // A product line may carry its delivery choice with it, so the floor can add both
                 // in one tap without a second round trip.
@@ -349,13 +354,17 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// Sends an order back to the sales floor, for when checkout spots something wrong.
+        /// Sends an order back to the checkout table or the sales floor. Checkout uses this when it
+        /// spots something wrong; an administrator can also use it on a completed sale, which takes
+        /// it out of the day's totals until it is completed again. Payments already recorded stay
+        /// on the order.
         /// </summary>
         /// <param name="id">Order id</param>
+        /// <param name="to">"floor" (the default) or "checkout"</param>
         /// <returns>The reopened order.</returns>
         [HttpPost("order/{id}/reopen")]
         [Authorize(AuthenticationSchemes = "Bearer")]
-        public async Task<IActionResult> ReopenOrder(int id)
+        public async Task<IActionResult> ReopenOrder(int id, [FromQuery] string? to = null)
         {
             try
             {
@@ -366,8 +375,27 @@ namespace api.Controllers
                 if (order.Status == OrderStatus.Voided)
                     return BadRequest(new { error = "This order has been voided." });
 
-                order.Status = OrderStatus.Draft;
-                order.SubmittedAt = null;
+                var target = string.IsNullOrWhiteSpace(to) || to.Equals("floor", StringComparison.OrdinalIgnoreCase)
+                    ? OrderStatus.Draft
+                    : to.Equals("checkout", StringComparison.OrdinalIgnoreCase)
+                        ? OrderStatus.AwaitingCheckout
+                        : (OrderStatus?)null;
+
+                if (target == null)
+                    return BadRequest(new { error = "Invalid parameter." });
+
+                if (order.Status == OrderStatus.Completed && !IsInRole(UserRole.Admin))
+                    return StatusCode(403, new { error = "Only an administrator may reopen a completed sale." });
+
+                if (order.Status == target)
+                    return BadRequest(new { error = target == OrderStatus.Draft
+                        ? "This order is already on the sales floor."
+                        : "This order is already at checkout." });
+
+                order.Status = target.Value;
+                order.SubmittedAt = target == OrderStatus.AwaitingCheckout
+                    ? DateTime.UtcNow
+                    : null;
                 order.CompletedAt = null;
                 order.CompletedByUserId = null;
                 order.UpdatedAt = DateTime.UtcNow;
@@ -731,7 +759,7 @@ namespace api.Controllers
                 var line = order.Lines.First(l => l.Id == request.Id.Value);
 
                 if (line.LineType == OrderLineType.Included)
-                    return BadRequest(new { error = "This base comes with the mattress. Edit or remove the mattress line instead." });
+                    return BadRequest(new { error = "This item comes with a bundle. Edit or remove the bundle line instead." });
 
                 if (request.Description != null)
                 {
@@ -758,12 +786,17 @@ namespace api.Controllers
 
                 if (request.Quantity != null)
                 {
+                    var previous = Math.Max(1, line.Quantity);
                     line.Quantity = request.Quantity.Value;
 
-                    // An included base always matches the number of sets sold.
+                    // Included items scale with the number of bundles sold: two pillows per set
+                    // stays two pillows per set.
                     foreach (var included in order.Lines.Where(l => l.ParentLineId == line.Id
                                                                     && l.LineType == OrderLineType.Included))
-                        included.Quantity = line.Quantity;
+                    {
+                        var perBundle = Math.Max(1, included.Quantity / previous);
+                        included.Quantity = perBundle * line.Quantity;
+                    }
                 }
 
                 if (request.TakeWith != null)
@@ -924,7 +957,7 @@ namespace api.Controllers
 
                 var target = order.Lines.First(l => l.Id == id);
                 if (target.LineType == OrderLineType.Included)
-                    return BadRequest(new { error = "This base comes with the mattress. Remove the mattress line instead." });
+                    return BadRequest(new { error = "This item comes with a bundle. Remove the bundle line instead." });
 
                 var doomed = order.Lines.Where(l => l.Id == id || l.ParentLineId == id).ToList();
                 foreach (var line in doomed)
@@ -1060,40 +1093,38 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// Adds the adjustable base that comes with a mattress-and-base set as its own no-charge row.
-        /// The base is named after the matching standalone base in the catalog when there is one
-        /// (IMC61, ES200), otherwise after the configuration the set was sold as.
+        /// Adds a no-charge Included row for every item in a bundle, directly under the bundle
+        /// line and ahead of its shipping row. Each row snapshots the component's brand, size,
+        /// name and category, so it prints correctly and counts in its own stat sheet column.
         /// </summary>
         /// <param name="order">Owning order</param>
-        /// <param name="parent">The mattress line sold as a set</param>
-        /// <param name="variant">The variant that was sold</param>
-        private async Task AddIncludedBaseLineAsync(Order order, OrderLine parent, ProductVariant variant)
+        /// <param name="parent">The bundle line</param>
+        /// <param name="variant">The bundle variant, with components and their products loaded</param>
+        private static void AddBundleComponentLines(Order order, OrderLine parent, ProductVariant variant)
         {
-            var configuration = string.IsNullOrWhiteSpace(variant.Configuration)
-                ? "Adjustable"
-                : variant.Configuration.Trim();
-
-            var model = configuration.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
-
-            var baseProduct = await DB.Products
-                .Where(p => p.Category == ProductCategory.AdjustableBase && p.Name.Contains(model))
-                .OrderBy(p => p.SortOrder)
-                .FirstOrDefaultAsync();
-
-            order.Lines.Add(new OrderLine
+            foreach (var component in variant.Components.Where(c => c.ComponentVariant?.Product != null))
             {
-                OrderId = order.Id,
-                LineType = OrderLineType.Included,
-                Category = ProductCategory.AdjustableBase,
-                ParentLineId = parent.Id,
-                Brand = baseProduct?.Brand ?? parent.Brand,
-                Size = parent.Size,
-                Description = baseProduct?.Name ?? $"{configuration} Base",
-                Quantity = parent.Quantity,
-                UnitPrice = 0m,
-                IsTaxable = false,
-                SortOrder = parent.SortOrder + 1,
-            });
+                var item = component.ComponentVariant!;
+                var product = item.Product!;
+
+                order.Lines.Add(new OrderLine
+                {
+                    OrderId = order.Id,
+                    LineType = OrderLineType.Included,
+                    Category = product.Category,
+                    ProductVariantId = item.Id,
+                    ParentLineId = parent.Id,
+                    Brand = product.Brand,
+                    Size = item.Size,
+                    Description = string.IsNullOrWhiteSpace(item.Configuration)
+                        ? product.Name
+                        : $"{product.Name} - {item.Configuration}",
+                    Quantity = parent.Quantity * Math.Max(1, component.Quantity),
+                    UnitPrice = 0m,
+                    IsTaxable = false,
+                    SortOrder = parent.SortOrder + 1,
+                });
+            }
         }
 
         /// <summary>

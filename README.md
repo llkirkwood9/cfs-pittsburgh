@@ -17,12 +17,14 @@ The catalog and the printed receipt are both built from the supplied source docu
   shipping method. Quantity, percentage discount and a price override for "Inquire" sizes are all
   on the same screen. Every item gets a shipping row underneath it, including no-charge ones such
   as Drop Ship and Take With.
-- A mattress sold as a set with an adjustable base (IMC61, ES200) gets the base as its own
-  "included" row, so the sheet shows exactly what is being delivered.
+- A bundle - such as a mattress sold as a set with an adjustable base - gets each included item
+  as its own no-charge "included" row, so the sheet shows exactly what is being delivered. The
+  size chips show what each bundle includes.
 - A second in-home service (White Glove *and* Haul Away, as on the paper sheets) is attached to a
   line with **Add service**.
 - **Hand tablet to customer** opens a plain-language, oversized form for the customer to type
-  their own address and the name of whoever referred them. No prices, no line items and no
+  their own address, a separate delivery address if the bed is going somewhere else, and the
+  name of whoever referred them. No prices, no line items and no
   navigation are on screen while they have it.
 - Pressing **Complete** hands the order to the checkout table.
 
@@ -58,9 +60,16 @@ The catalog and the printed receipt are both built from the supplied source docu
   order number, with the printable sales sheet one tap away.
 - An administrator additionally gets an **All events** tab and a per-event picker, so a past
   fundraiser can be looked back over weeks later.
+- An administrator can **Reopen** a completed (or at-checkout) order and send it to the checkout
+  table - to fix a payment, initials or signature - or back to the sales floor to change what was
+  sold. Payments already recorded stay on the order; a reopened sale leaves the event's totals and
+  printed sheets until it is completed again.
 
 **Event sales sheets** (`/events/:id/sheets`, Admin role)
-- Every completed sales sheet for an event, one per printed page. **Print / Save PDF** sends the
+- A filled-in School Stat Sheet first, laid out like the paper form: unit counts, each
+  financing, check, layaway and cash sale itemised, and the summary box. As on the paper form,
+  AVERAGE SALE is total sales divided by the number of mattresses and adjustable bases.
+- Then every completed sales sheet for the event, one per printed page. **Print / Save PDF** sends the
   whole stack to a printer or, with Save as PDF as the printer, downloads it as a single PDF.
   **Download CSV** exports the same sales as a spreadsheet: one row per sale with customer,
   items, totals and each payment method.
@@ -73,7 +82,8 @@ The catalog and the printed receipt are both built from the supplied source docu
   figures; drafts and voided orders are reported separately so nothing is counted twice.
 
 **Admin** (Admin role)
-- `/catalog` — products, their sizes and prices, and which delivery services each offers.
+- `/catalog` — products, their sizes and prices, what each size includes as a bundle, and which
+  delivery services each offers.
 - `/events` — sales tax rate, card processing fee, order number sequence, active event.
 - `/crew` — accounts and roles.
 
@@ -190,13 +200,18 @@ line under it, whatever it costs, so the sheet always says how each item is leav
 at $0.00 included. Take With also ticks the Take With box on the item, and removing the Take
 With row clears it again.
 
-**A set's adjustable base is its own row, and counted once.** The stat sheet tallies mattresses
-and adjustable bases in separate columns, but the price cards sell them as a set at one price. A
-variant carries `IncludesAdjustableBase`; selling it adds an `Included` line for the base (named
-after the matching standalone base in the catalog) at no charge, which follows the set's
-quantity and cannot be edited or removed on its own. The stat sheet counts that row as the base,
-so a `Queen / IMC61 Adjustable` counts as one mattress *and* one base. Orders taken before the
-base row existed are still counted from the flag.
+**Bundles are real catalog items.** Any size of any product can include one or more other
+catalog items at no extra charge (`ProductVariantComponent`). The seeded mattress-and-base sets
+are bundles: `Agility 3000 / Queen / IMC61 Adjustable` includes `IMC61 Adjustable Base / Queen`.
+In the catalog editor, **Include item** picks the product and size, how many come with each
+bundle, and optionally repeats it on every other size of the same configuration by matching
+size. Selling a bundle adds an `Included` line per item under it, snapshotting the item's name,
+brand, size and category; those lines scale with the bundle's quantity and cannot be edited or
+removed on their own. Because the included item keeps its own category, a bundled base counts
+as an adjustable base and a bundled pillow as a pillow on the stat sheet, so a set counts as one
+mattress *and* one base. A product cannot include itself, and a bundle cannot include another
+bundle. Anything sold on its own - including a standalone adjustable base - adds just its own
+line.
 
 **Lines are snapshots.** Brand, size, description, price and category are copied onto the order
 line when it is added. Editing or retiring a catalog product never rewrites a printed receipt. A

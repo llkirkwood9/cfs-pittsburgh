@@ -1,4 +1,6 @@
 import { useState } from "react";
+import BundlePickerModal from "./BundlePickerModal";
+import type { BundlePick } from "./BundlePickerModal";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
@@ -12,6 +14,7 @@ import type { ProductVariant } from "../../Models/ProductVariant";
 
 type Props = {
     product: Product;
+    catalog: Product[];
     categories: ProductCategory[];
     deliveryOptions: DeliveryOption[];
     onSave: (product: Product) => Promise<void>;
@@ -25,7 +28,14 @@ type DraftVariant = ProductVariant & { priceText: string };
  * delivery services are offered with what price. This is what makes delivery types differ from
  * one mattress to the next.
  */
-const EditProductForm = ({ product, categories, deliveryOptions, onSave, onClose }: Props) => {
+const EditProductForm = ({
+    product,
+    catalog,
+    categories,
+    deliveryOptions,
+    onSave,
+    onClose,
+}: Props) => {
     const [name, setName] = useState<string>(product.name ?? "");
     const [brand, setBrand] = useState<string>(product.brand ?? "");
     const [category, setCategory] = useState<ProductCategory>(product.category ?? "Misc");
@@ -40,7 +50,10 @@ const EditProductForm = ({ product, categories, deliveryOptions, onSave, onClose
         }))
     );
 
-    const [delivery, setDelivery] = useState<ProductDeliveryOption[]>(product.deliveryOptions ?? []);
+    const [delivery, setDelivery] = useState<ProductDeliveryOption[]>(
+        product.deliveryOptions ?? []
+    );
+    const [bundlingIndex, setBundlingIndex] = useState<number | null>(null);
 
     const setVariant = (index: number, changes: Partial<DraftVariant>) =>
         setVariants((rows) => rows.map((row, i) => (i === index ? { ...row, ...changes } : row)));
@@ -52,7 +65,7 @@ const EditProductForm = ({ product, categories, deliveryOptions, onSave, onClose
                 size: "",
                 configuration: "",
                 priceText: "",
-                includesAdjustableBase: false,
+                components: [],
                 isActive: true,
                 sortOrder: rows.length + 1,
             },
@@ -60,6 +73,71 @@ const EditProductForm = ({ product, categories, deliveryOptions, onSave, onClose
 
     const removeVariant = (index: number) =>
         setVariants((rows) => rows.filter((_, i) => i !== index));
+
+    /**
+     * Adds a picked item to one size's bundle, and optionally to every other size of the same
+     * configuration using the picked product's matching size. Sizes the item does not come in
+     * are skipped rather than given a mismatched size.
+     */
+    const applyBundlePick = (index: number, pick: BundlePick) => {
+        const source = variants[index];
+        const sameConfig = (v: DraftVariant) =>
+            (v.configuration ?? "").trim().toLowerCase() ===
+            (source.configuration ?? "").trim().toLowerCase();
+
+        let skipped = 0;
+
+        const next = variants.map((row, i) => {
+            const isSource = i === index;
+            if (!isSource && !(pick.matchSizes && sameConfig(row))) return row;
+
+            const component = isSource
+                ? pick.variant
+                : pick.product.variants?.find(
+                      (v) =>
+                          (v.components ?? []).length === 0 &&
+                          (v.size ?? "").toLowerCase() === (row.size ?? "").toLowerCase()
+                  );
+
+            if (!component?.id) {
+                skipped++;
+                return row;
+            }
+
+            const others = (row.components ?? []).filter(
+                (c) => c.componentVariantId !== component.id
+            );
+
+            return {
+                ...row,
+                components: [
+                    ...others,
+                    {
+                        componentVariantId: component.id,
+                        quantity: pick.quantity,
+                        productId: pick.product.id,
+                        productName: pick.product.name,
+                        brand: pick.product.brand,
+                        category: pick.product.category,
+                        size: component.size,
+                        configuration: component.configuration,
+                    },
+                ],
+            };
+        });
+
+        setVariants(next);
+
+        if (skipped > 0)
+            Toast.Info(`${pick.product.name} has no matching size for ${skipped} of these sizes.`);
+    };
+
+    const removeComponent = (index: number, componentVariantId?: number) =>
+        setVariant(index, {
+            components: (variants[index].components ?? []).filter(
+                (c) => c.componentVariantId !== componentVariantId
+            ),
+        });
 
     const toggleDelivery = (option: DeliveryOption) => {
         const existing = delivery.find((d) => d.deliveryOptionId === option.id);
@@ -116,7 +194,10 @@ const EditProductForm = ({ product, categories, deliveryOptions, onSave, onClose
                 // A blank price is stored as null, which the floor shows as "Inquire" and forces
                 // the rep to key a price in rather than sell at a guess.
                 price: v.priceText.trim() === "" ? null : ParseMoney(v.priceText),
-                includesAdjustableBase: v.includesAdjustableBase ?? false,
+                components: (v.components ?? []).map((c) => ({
+                    componentVariantId: c.componentVariantId,
+                    quantity: c.quantity ?? 1,
+                })),
                 isActive: v.isActive ?? true,
                 sortOrder: index + 1,
             })),
@@ -138,7 +219,12 @@ const EditProductForm = ({ product, categories, deliveryOptions, onSave, onClose
                         onClick={onClose}
                         className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                     />
-                    <Button text="Save" icon="fa-solid fa-check" onClick={handleSave} loading={saving} />
+                    <Button
+                        text="Save"
+                        icon="fa-solid fa-check"
+                        onClick={handleSave}
+                        loading={saving}
+                    />
                 </>
             }
         >
@@ -201,7 +287,9 @@ const EditProductForm = ({ product, categories, deliveryOptions, onSave, onClose
 
                     <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
                         Leave a price blank to mark it Inquire - the rep will have to key a price in
-                        before that size can be sold.
+                        before that size can be sold. Use Include item to make a size a bundle, such
+                        as a mattress sold with an adjustable base: the included items print as
+                        their own rows on the sales sheet at no extra charge.
                     </p>
 
                     <ul className="space-y-2">
@@ -214,14 +302,16 @@ const EditProductForm = ({ product, categories, deliveryOptions, onSave, onClose
                                     label="Size"
                                     value={variant.size ?? ""}
                                     onChange={(value) => setVariant(index, { size: value })}
-                                    className="sm:col-span-2"
+                                    className="sm:col-span-3"
                                     maxLength={50}
                                 />
                                 <TextField
                                     label="Configuration"
                                     value={variant.configuration ?? ""}
-                                    onChange={(value) => setVariant(index, { configuration: value })}
-                                    className="sm:col-span-4"
+                                    onChange={(value) =>
+                                        setVariant(index, { configuration: value })
+                                    }
+                                    className="sm:col-span-5"
                                     maxLength={100}
                                     placeholder="Mattress Only"
                                 />
@@ -230,23 +320,9 @@ const EditProductForm = ({ product, categories, deliveryOptions, onSave, onClose
                                     value={variant.priceText}
                                     onChange={(value) => setVariant(index, { priceText: value })}
                                     inputMode="decimal"
-                                    className="sm:col-span-2"
+                                    className="sm:col-span-3"
                                     placeholder="Inquire"
                                 />
-
-                                <label className="flex min-h-[48px] cursor-pointer items-center gap-2 rounded-xl bg-white px-2 text-xs sm:col-span-3 dark:bg-zinc-800">
-                                    <input
-                                        type="checkbox"
-                                        checked={variant.includesAdjustableBase ?? false}
-                                        onChange={(e) =>
-                                            setVariant(index, {
-                                                includesAdjustableBase: e.target.checked,
-                                            })
-                                        }
-                                        className="h-5 w-5 accent-sky-600"
-                                    />
-                                    <span>Includes adjustable base</span>
-                                </label>
 
                                 <button
                                     type="button"
@@ -257,10 +333,54 @@ const EditProductForm = ({ product, categories, deliveryOptions, onSave, onClose
                                 >
                                     <Icon icon="fa-solid fa-trash" />
                                 </button>
+
+                                <div className="col-span-full flex flex-wrap items-center gap-2">
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                        Bundle
+                                    </span>
+                                    {(variant.components ?? []).map((c) => (
+                                        <span
+                                            key={c.componentVariantId}
+                                            className="inline-flex min-h-[36px] items-center gap-1 rounded-lg bg-violet-100 pl-3 text-sm
+                                                font-medium text-violet-900 dark:bg-violet-900/50 dark:text-violet-200"
+                                        >
+                                            {(c.quantity ?? 1) > 1 && `${c.quantity} x `}
+                                            {c.productName}
+                                            {c.size ? ` - ${c.size}` : ""}
+                                            <button
+                                                type="button"
+                                                onClick={() =>
+                                                    removeComponent(index, c.componentVariantId)
+                                                }
+                                                aria-label={`Remove ${c.productName} from the bundle`}
+                                                className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-violet-200 dark:hover:bg-violet-800"
+                                            >
+                                                <Icon icon="fa-solid fa-xmark" />
+                                            </button>
+                                        </span>
+                                    ))}
+                                    <Button
+                                        text="Include item"
+                                        icon="fa-solid fa-link"
+                                        onClick={() => setBundlingIndex(index)}
+                                        className="min-h-[36px] bg-violet-700 px-3 text-sm hover:bg-violet-800 dark:bg-violet-600 dark:hover:bg-violet-700"
+                                    />
+                                </div>
                             </li>
                         ))}
                     </ul>
                 </section>
+
+                {bundlingIndex !== null && (
+                    <BundlePickerModal
+                        catalog={catalog}
+                        excludeProductId={product.id}
+                        size={variants[bundlingIndex]?.size}
+                        configuration={variants[bundlingIndex]?.configuration}
+                        onPick={(pick) => applyBundlePick(bundlingIndex, pick)}
+                        onClose={() => setBundlingIndex(null)}
+                    />
+                )}
 
                 <section>
                     <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
