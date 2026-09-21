@@ -1,0 +1,46 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+    margin: 0;
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+}
+
+/* Tablets live in landscape on a cart; never let a stray wide element scroll the page sideways. */
+html,
+body {
+    overscroll-behavior-y: none;
+}
+
+code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* The receipt is the one place the on-screen chrome has to disappear entirely. */
+@media print {
+    .no-print {
+        display: none !important;
+    }
+
+    .print-sheet {
+        box-shadow: none !important;
+        border: none !important;
+        margin: 0 !important;
+        padding: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+
+    @page {
+        size: letter portrait;
+        margin: 0.35in;
+    }
+
+    html,
+    body {
+        background: #fff !important;
+        color: #000 !important;
+    }
+}

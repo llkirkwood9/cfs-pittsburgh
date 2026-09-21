@@ -1,0 +1,248 @@
+import { useCallback, useEffect, useState } from "react";
+import { Navigate, useNavigate } from "react-router-dom";
+import Button from "../Components/Elements/Button";
+import Icon from "../Components/Elements/Icon";
+import ListSkeleton from "../Components/Elements/ListSkeleton";
+import TabButton from "../Components/Elements/TabButton";
+import TextField from "../Components/Elements/TextField";
+import { useAuth } from "../Context/AuthContext";
+import { FormatCurrency, FormatShortDate, FormatTime } from "../Lib/ModelHelpers";
+import type { Event } from "../Models/Event";
+import type { OrderStatus } from "../Models/Order";
+import type { OrderSummary } from "../Models/OrderSummary";
+import { GetActiveEvent, GetEvents } from "../Services/EventServices";
+import { GetAllOrders, GetOrdersForEvent } from "../Services/OrderServices";
+
+type Scope = { kind: "event"; eventId: number } | { kind: "all" };
+
+const statusStyles: Record<OrderStatus, string> = {
+    Draft: "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200",
+    AwaitingCheckout: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300",
+    Completed: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300",
+    Voided: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300",
+};
+
+const statusLabels: Record<OrderStatus, string> = {
+    Draft: "On the floor",
+    AwaitingCheckout: "At checkout",
+    Completed: "Completed",
+    Voided: "Voided",
+};
+
+/**
+ * Past orders. Everyone can look back over the event they are working and open any sales sheet
+ * for reprinting; an administrator can additionally search across every event that has ever run.
+ */
+const OrdersPage = () => {
+    const { user, hasRole } = useAuth();
+    const navigate = useNavigate();
+
+    const isAdmin = hasRole("Admin");
+
+    const [events, setEvents] = useState<Event[]>([]);
+    const [scope, setScope] = useState<Scope | null>(null);
+    const [orders, setOrders] = useState<OrderSummary[]>([]);
+    const [statusFilter, setStatusFilter] = useState<OrderStatus | "All">("All");
+    const [search, setSearch] = useState<string>("");
+    const [loading, setLoading] = useState<boolean>(true);
+
+    const load = useCallback(
+        async (target: Scope, status: OrderStatus | "All", term: string) => {
+            setLoading(true);
+
+            const rows =
+                target.kind === "all"
+                    ? await GetAllOrders({
+                          status: status === "All" ? undefined : status,
+                          search: term,
+                      })
+                    : await GetOrdersForEvent(
+                          target.eventId,
+                          status === "All" ? undefined : status
+                      );
+
+            // The per-event endpoint has no search of its own, so narrow it here rather than
+            // making every caller pay for a query parameter only this page uses.
+            const term_ = term.trim().toLowerCase();
+            setOrders(
+                term_ && target.kind === "event"
+                    ? rows.filter(
+                          (o) =>
+                              (o.billingName ?? "").toLowerCase().includes(term_) ||
+                              (o.cfsRepName ?? "").toLowerCase().includes(term_) ||
+                              String(o.orderNumber ?? "").includes(term_)
+                      )
+                    : rows
+            );
+
+            setLoading(false);
+        },
+        []
+    );
+
+    useEffect(() => {
+        const boot = async () => {
+            const [list, active] = await Promise.all([
+                isAdmin ? GetEvents() : Promise.resolve([]),
+                GetActiveEvent(),
+            ]);
+
+            setEvents(list);
+
+            const target: Scope = active?.id
+                ? { kind: "event", eventId: active.id }
+                : { kind: "all" };
+
+            setScope(target);
+            await load(target, "All", "");
+        };
+
+        boot();
+    }, [isAdmin, load]);
+
+    if (!user) return <Navigate to="/unauthorized" replace />;
+
+    const switchScope = async (target: Scope) => {
+        setScope(target);
+        await load(target, statusFilter, search);
+    };
+
+    const switchStatus = async (status: OrderStatus | "All") => {
+        setStatusFilter(status);
+        if (scope) await load(scope, status, search);
+    };
+
+    const runSearch = async () => {
+        if (scope) await load(scope, statusFilter, search);
+    };
+
+    return (
+        <div className="mx-auto max-w-screen-2xl p-3 sm:p-4">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h1 className="text-xl font-bold">Orders</h1>
+                <Button
+                    text="Refresh"
+                    icon="fa-solid fa-rotate"
+                    onClick={runSearch}
+                    className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                />
+            </div>
+
+            {isAdmin && (
+                <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
+                    <TabButton
+                        text="All events"
+                        active={scope?.kind === "all"}
+                        onClick={() => switchScope({ kind: "all" })}
+                    />
+                    {events.map((event) => (
+                        <TabButton
+                            key={event.id}
+                            text={`${event.schoolName} ${event.organization ?? ""}`.trim()}
+                            active={scope?.kind === "event" && scope.eventId === event.id}
+                            onClick={() => event.id && switchScope({ kind: "event", eventId: event.id })}
+                        />
+                    ))}
+                </div>
+            )}
+
+            <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
+                {(["All", "Completed", "AwaitingCheckout", "Draft", "Voided"] as const).map((s) => (
+                    <TabButton
+                        key={s}
+                        text={s === "All" ? "All" : statusLabels[s]}
+                        active={statusFilter === s}
+                        onClick={() => switchStatus(s)}
+                    />
+                ))}
+            </div>
+
+            <div className="mb-3 flex max-w-xl items-end gap-2">
+                <TextField
+                    label="Search"
+                    value={search}
+                    onChange={setSearch}
+                    placeholder="Customer, rep or order number"
+                    className="flex-1"
+                />
+                <Button icon="fa-solid fa-magnifying-glass" onClick={runSearch} className="px-5" />
+            </div>
+
+            {loading ? (
+                <ListSkeleton rows={6} />
+            ) : orders.length === 0 ? (
+                <div className="rounded-xl border-2 border-dashed border-zinc-300 py-14 text-center dark:border-zinc-700">
+                    <Icon icon="fa-solid fa-inbox" className="text-3xl text-zinc-400" />
+                    <p className="mt-3 text-base font-semibold">No orders here</p>
+                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                        Nothing matches that filter.
+                    </p>
+                </div>
+            ) : (
+                <ul className="space-y-2">
+                    {orders.map((order) => (
+                        <li
+                            key={order.id}
+                            className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800"
+                        >
+                            <span className="flex h-12 w-14 shrink-0 items-center justify-center rounded-lg
+                                bg-zinc-100 text-sm font-bold dark:bg-zinc-700">
+                                #{order.orderNumber}
+                            </span>
+
+                            <div className="min-w-0 flex-1">
+                                <p className="truncate font-semibold">
+                                    {order.billingName || "No name"}
+                                </p>
+                                <p className="flex flex-wrap gap-x-2 text-xs text-zinc-500 dark:text-zinc-400">
+                                    {scope?.kind === "all" && order.eventSchoolName && (
+                                        <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                                            {order.eventSchoolName} {order.eventOrganization}
+                                        </span>
+                                    )}
+                                    <span>{FormatShortDate(order.eventDate ?? order.createdAt)}</span>
+                                    {order.cfsRepName && <span>{order.cfsRepName}</span>}
+                                    <span>
+                                        {order.lineCount ?? 0} item
+                                        {(order.lineCount ?? 0) === 1 ? "" : "s"}
+                                    </span>
+                                    {order.completedAt && (
+                                        <span>{FormatTime(order.completedAt)}</span>
+                                    )}
+                                </p>
+                            </div>
+
+                            <span
+                                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                                    statusStyles[order.status ?? "Draft"]
+                                }`}
+                            >
+                                {statusLabels[order.status ?? "Draft"]}
+                            </span>
+
+                            <div className="shrink-0 text-right">
+                                <p className="font-bold tabular-nums">
+                                    {FormatCurrency(order.total)}
+                                </p>
+                                {(order.balanceDue ?? 0) > 0 && (
+                                    <p className="text-xs text-amber-700 dark:text-amber-400">
+                                        {FormatCurrency(order.balanceDue)} due
+                                    </p>
+                                )}
+                            </div>
+
+                            <Button
+                                text="Sales sheet"
+                                icon="fa-solid fa-file-lines"
+                                onClick={() => navigate(`/receipt/${order.id}`)}
+                                className="min-h-[44px] px-3 text-sm"
+                            />
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+};
+
+export default OrdersPage;

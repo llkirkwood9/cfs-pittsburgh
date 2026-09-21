@@ -1,0 +1,147 @@
+import { useState } from "react";
+import Button from "../Elements/Button";
+import Modal from "../Elements/Modal";
+import TextField from "../Elements/TextField";
+import { ParseMoney } from "../../Lib/ModelHelpers";
+import { Toast } from "../../Lib/Toast";
+import type { OrderLine } from "../../Models/OrderLine";
+
+type Props = {
+    line: OrderLine;
+    onSave: (line: OrderLine) => Promise<void>;
+    onClose: () => void;
+};
+
+/**
+ * Line editor. Everything the Brand / Size / Description / Qty / Take With / Unit Price /
+ * Discount columns of the paper sheet can hold is editable here.
+ */
+const EditLineModal = ({ line, onSave, onClose }: Props) => {
+    const [brand, setBrand] = useState<string>(line.brand ?? "");
+    const [size, setSize] = useState<string>(line.size ?? "");
+    const [description, setDescription] = useState<string>(line.description ?? "");
+    const [quantity, setQuantity] = useState<number>(line.quantity ?? 1);
+    const [takeWith, setTakeWith] = useState<boolean>(line.takeWith ?? false);
+    const [unitPrice, setUnitPrice] = useState<string>(String(line.unitPrice ?? 0));
+    const [discount, setDiscount] = useState<string>(
+        line.discountPercent ? String(line.discountPercent) : ""
+    );
+    const [isTaxable, setIsTaxable] = useState<boolean>(line.isTaxable ?? true);
+    const [saving, setSaving] = useState<boolean>(false);
+
+    const handleSave = async () => {
+        if (!description.trim()) return Toast.Warning("The description cannot be blank.");
+
+        const price = ParseMoney(unitPrice);
+        if (price === null || price < 0) return Toast.Warning("Enter a valid unit price.");
+
+        const discountPercent = ParseMoney(discount);
+        if (discountPercent !== null && (discountPercent < 0 || discountPercent > 100))
+            return Toast.Warning("The discount must be between 0 and 100 percent.");
+
+        setSaving(true);
+        await onSave({
+            id: line.id,
+            brand: brand.trim(),
+            size: size.trim(),
+            description: description.trim(),
+            quantity,
+            takeWith,
+            unitPrice: price,
+            discountPercent: discountPercent ?? 0,
+            isTaxable,
+        });
+        setSaving(false);
+        onClose();
+    };
+
+    return (
+        <Modal
+            title="Edit line"
+            onClose={onClose}
+            footer={
+                <>
+                    <Button
+                        text="Cancel"
+                        onClick={onClose}
+                        className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                    />
+                    <Button text="Save" icon="fa-solid fa-check" onClick={handleSave} loading={saving} />
+                </>
+            }
+        >
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <TextField
+                    label="Description"
+                    value={description}
+                    onChange={setDescription}
+                    className="sm:col-span-2"
+                    maxLength={300}
+                />
+                <TextField label="Brand" value={brand} onChange={setBrand} maxLength={100} />
+                <TextField label="Size" value={size} onChange={setSize} maxLength={50} />
+                <TextField
+                    label="Unit price"
+                    value={unitPrice}
+                    onChange={setUnitPrice}
+                    inputMode="decimal"
+                />
+                <TextField
+                    label="Discount %"
+                    value={discount}
+                    onChange={setDiscount}
+                    inputMode="decimal"
+                    placeholder="0"
+                />
+
+                <label className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                        Quantity
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <Button
+                            icon="fa-solid fa-minus"
+                            onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                            className="bg-zinc-500 px-4 hover:bg-zinc-600"
+                        />
+                        <span className="min-w-[3ch] text-center text-xl font-bold tabular-nums">
+                            {quantity}
+                        </span>
+                        <Button
+                            icon="fa-solid fa-plus"
+                            onClick={() => setQuantity((q) => q + 1)}
+                            className="bg-zinc-500 px-4 hover:bg-zinc-600"
+                        />
+                    </div>
+                </label>
+
+                <div className="flex flex-col justify-end gap-2">
+                    <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-zinc-100 px-3 dark:bg-zinc-700">
+                        <input
+                            type="checkbox"
+                            checked={takeWith}
+                            onChange={(e) => setTakeWith(e.target.checked)}
+                            className="h-5 w-5 accent-sky-600"
+                        />
+                        <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                            Take with
+                        </span>
+                    </label>
+                    <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-zinc-100 px-3 dark:bg-zinc-700">
+                        <input
+                            type="checkbox"
+                            checked={isTaxable}
+                            onChange={(e) => setIsTaxable(e.target.checked)}
+                            className="h-5 w-5 accent-sky-600"
+                        />
+                        <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
+                            Taxable
+                        </span>
+                    </label>
+                </div>
+            </div>
+        </Modal>
+    );
+};
+
+export default EditLineModal;

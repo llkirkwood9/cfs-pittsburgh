@@ -1,0 +1,16 @@
+# Build output
+[Bb]in/
+[Oo]bj/
+dist/
+node_modules/
+
+# Local secrets - never commit
+api/appsettings.local.json
+api/appsettings.local.*.json
+dashboard/.env.local
+
+# IDE / OS
+.vs/
+.idea/
+*.user
+.DS_Store

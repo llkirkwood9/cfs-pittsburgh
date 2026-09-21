@@ -1,0 +1,3891 @@
+{
+  "deliveryOptions": [
+    {
+      "name": "Drop Ship",
+      "price": 0,
+      "isTaxable": false,
+      "isTakeWith": false,
+      "sortOrder": 10
+    },
+    {
+      "name": "Take With",
+      "price": 0,
+      "isTaxable": false,
+      "isTakeWith": true,
+      "sortOrder": 20
+    },
+    {
+      "name": "White Glove",
+      "price": 79,
+      "isTaxable": true,
+      "isTakeWith": false,
+      "sortOrder": 30
+    },
+    {
+      "name": "Haul Away",
+      "price": 99,
+      "isTaxable": true,
+      "isTakeWith": false,
+      "sortOrder": 40
+    },
+    {
+      "name": "Local Delivery",
+      "price": 0,
+      "isTaxable": true,
+      "isTakeWith": false,
+      "sortOrder": 50
+    }
+  ],
+  "products": [
+    {
+      "name": "Kozy ET",
+      "brand": "TSS",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 1,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 499,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 549,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 629,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 749,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 999,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 658,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 718,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 828,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 958,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 1248,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 1998,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 2248,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 2998,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Embody",
+      "brand": "TSS",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 2,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 349,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 449,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 479,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 499,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 699,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 508,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 618,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 678,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 708,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 948,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 1943,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 1998,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 2698,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Langley Firm",
+      "brand": "Southerland",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 3,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 299,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 329,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 349,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 399,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 499,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 458,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 498,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 548,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 608,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 748,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 1828,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 1898,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 1999,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Kensington Firm",
+      "brand": "TSS",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 4,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 439,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 529,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 599,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 699,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 899,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 598,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 698,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 798,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 908,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 1148,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 2028,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 2198,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 2898,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Addison",
+      "brand": "Therapedic",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 5,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 539,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 629,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 699,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 799,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 999,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 698,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 798,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 898,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 1008,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 1248,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 2128,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 2298,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 2998,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Solana Firm",
+      "brand": "Southerland",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 6,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 649,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 749,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 849,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 949,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 1149,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 808,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 918,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 1048,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 1158,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 1398,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 2248,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 2448,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 3148,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Callista Extra Firm",
+      "brand": "Southerland",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 7,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 699,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 799,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 949,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 1099,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 1349,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 858,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 968,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 1148,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 1308,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 1598,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 2298,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 2598,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 3348,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Callista X Firm",
+      "brand": "Southerland",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 8,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 699,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 799,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 949,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 1099,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 1349,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 858,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 968,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 1148,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 1308,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 1598,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 2298,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 2598,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 3348,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Carlisle Firm",
+      "brand": "Southerland",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 9,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 799,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 999,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 1099,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 1299,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 1499,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 958,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 1168,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 1298,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 1508,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 1748,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 2498,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 2798,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 3498,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Bixby Firm",
+      "brand": "Southerland",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 10,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 999,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 1049,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 1199,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 1499,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 1699,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 1158,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 1218,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 1398,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 1708,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 1948,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 2548,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 2998,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 3698,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Agility 3000",
+      "brand": "Therapedic",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 11,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 1699,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 1899,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 2049,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 2299,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 2499,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 2758,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 2868,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 2998,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 3108,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 3848,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 3398,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 3798,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 4498,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        },
+        {
+          "size": "Queen",
+          "configuration": "ES200 Flex Head",
+          "price": 4098,
+          "includesAdjustableBase": true,
+          "sortOrder": 15
+        },
+        {
+          "size": "King",
+          "configuration": "ES200 Flex Head",
+          "price": 4798,
+          "includesAdjustableBase": true,
+          "sortOrder": 16
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Bermuda Luxury Firm",
+      "brand": "Therapedic",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 12,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 1249,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 1499,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 1599,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 1799,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 2099,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 1408,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 1668,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 1798,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 2008,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 2348,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 2998,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 3298,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 4098,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Moonlight PT",
+      "brand": "Therapedic",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 13,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 1399,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 1599,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 1699,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 1899,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 2199,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 1558,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 1768,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 1898,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 2108,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 2448,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 3098,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 3398,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 4198,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Agility 5000",
+      "brand": "Therapedic",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 14,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 1799,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 1999,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 2199,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 2499,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 2899,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 2758,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 2868,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 2998,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 3108,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 3848,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 3498,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 3998,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 4898,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        },
+        {
+          "size": "Queen",
+          "configuration": "ES200 Flex Head",
+          "price": 4298,
+          "includesAdjustableBase": true,
+          "sortOrder": 15
+        },
+        {
+          "size": "King",
+          "configuration": "ES200 Flex Head",
+          "price": 5798,
+          "includesAdjustableBase": true,
+          "sortOrder": 16
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Juneberry Luxury Plush",
+      "brand": "Therapedic",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 15,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 2099,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 2399,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 2499,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 2699,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 3299,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 2258,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 2568,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 2698,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 2908,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 3548,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 3898,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 4198,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 5298,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        },
+        {
+          "size": "Queen",
+          "configuration": "ES200 Flex Head",
+          "price": 4198,
+          "includesAdjustableBase": true,
+          "sortOrder": 15
+        },
+        {
+          "size": "King",
+          "configuration": "ES200 Flex Head",
+          "price": 5298,
+          "includesAdjustableBase": true,
+          "sortOrder": 16
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Bristol Luxury Firm",
+      "brand": "Therapedic",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 16,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 1999,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 2299,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 2399,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 2599,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 3199,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 2158,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 2468,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 2598,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 2808,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 3448,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 3798,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 4098,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 5198,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        },
+        {
+          "size": "Queen",
+          "configuration": "ES200 Flex Head",
+          "price": 4198,
+          "includesAdjustableBase": true,
+          "sortOrder": 15
+        },
+        {
+          "size": "King",
+          "configuration": "ES200 Flex Head",
+          "price": 5198,
+          "includesAdjustableBase": true,
+          "sortOrder": 16
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Berkshire Plush",
+      "brand": "Therapedic",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 17,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 599,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 649,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 749,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 899,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 1049,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 758,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 818,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 948,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 1108,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 1298,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 2148,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 2398,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 3048,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Solana ET",
+      "brand": "Southerland",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 18,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 699,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 799,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 899,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 999,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 1199,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 858,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 968,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 1098,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 1208,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 1448,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 2298,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 2498,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 3198,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Callista ET",
+      "brand": "Southerland",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 19,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 799,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 899,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 999,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 1199,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 1399,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 958,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 1068,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 1198,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 1408,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 1648,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 2398,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 2698,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 3398,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Carlisle ET",
+      "brand": "Southerland",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 20,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 999,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 1049,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 1199,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 1399,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 1599,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 1158,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 1218,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 1398,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 1608,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 1848,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 2548,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 2898,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 3598,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Bixby Super Pillowtop",
+      "brand": "Southerland",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 21,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 1049,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 1099,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 1249,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 1599,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 1799,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 1208,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 1268,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 1448,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 1808,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 2048,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 2598,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 3098,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 3798,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Monarch Euro Top",
+      "brand": "Therapedic",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 22,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 2599,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 2699,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 2799,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 2899,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 3599,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 2758,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 2868,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 2998,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 3108,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 3848,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 4198,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 4398,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 5598,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        },
+        {
+          "size": "Queen",
+          "configuration": "ES200 Flex Head",
+          "price": 4698,
+          "includesAdjustableBase": true,
+          "sortOrder": 15
+        },
+        {
+          "size": "King",
+          "configuration": "ES200 Flex Head",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 16
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Ascent Luxury Plush",
+      "brand": "Therapedic",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 23,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 1999,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 2299,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 2399,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 2799,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 3499,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 2158,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 2468,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 2598,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 3008,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 3748,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 3798,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 4298,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 5498,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        },
+        {
+          "size": "Queen",
+          "configuration": "ES200 Flex Head",
+          "price": 4598,
+          "includesAdjustableBase": true,
+          "sortOrder": 15
+        },
+        {
+          "size": "King",
+          "configuration": "ES200 Flex Head",
+          "price": 5798,
+          "includesAdjustableBase": true,
+          "sortOrder": 16
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Heritage Cushion Firm",
+      "brand": "Therapedic",
+      "category": "Mattress",
+      "notes": null,
+      "sortOrder": 24,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 1799,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 2099,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 2199,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 2399,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 2899,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Twin",
+          "configuration": "Hi-Rise",
+          "price": 1958,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Hi-Rise",
+          "price": 2268,
+          "includesAdjustableBase": false,
+          "sortOrder": 7
+        },
+        {
+          "size": "Full",
+          "configuration": "Hi-Rise",
+          "price": 2398,
+          "includesAdjustableBase": false,
+          "sortOrder": 8
+        },
+        {
+          "size": "Queen",
+          "configuration": "Hi-Rise",
+          "price": 2608,
+          "includesAdjustableBase": false,
+          "sortOrder": 9
+        },
+        {
+          "size": "King",
+          "configuration": "Hi-Rise",
+          "price": 3148,
+          "includesAdjustableBase": false,
+          "sortOrder": 10
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "IMC61 Adjustable",
+          "price": 3598,
+          "includesAdjustableBase": true,
+          "sortOrder": 11
+        },
+        {
+          "size": "Full",
+          "configuration": "IMC61 Adjustable",
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 12
+        },
+        {
+          "size": "Queen",
+          "configuration": "IMC61 Adjustable",
+          "price": 3898,
+          "includesAdjustableBase": true,
+          "sortOrder": 13
+        },
+        {
+          "size": "King",
+          "configuration": "IMC61 Adjustable",
+          "price": 4898,
+          "includesAdjustableBase": true,
+          "sortOrder": 14
+        },
+        {
+          "size": "Queen",
+          "configuration": "ES200 Flex Head",
+          "price": 4198,
+          "includesAdjustableBase": true,
+          "sortOrder": 15
+        },
+        {
+          "size": "King",
+          "configuration": "ES200 Flex Head",
+          "price": 5198,
+          "includesAdjustableBase": true,
+          "sortOrder": 16
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Helix Midnight Luxe",
+      "brand": "Helix",
+      "category": "Mattress",
+      "notes": "25% off sale pricing",
+      "sortOrder": 25,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 1306,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 1486,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 1776,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 2061,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 2436,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "CA King",
+          "configuration": "Mattress Only",
+          "price": 2436,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Helix Sunset Elite",
+      "brand": "Helix",
+      "category": "Mattress",
+      "notes": "30% off sale pricing",
+      "sortOrder": 26,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 1836,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 2009,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 2405,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 2799,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 3324,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "CA King",
+          "configuration": "Mattress Only",
+          "price": 3324,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Purple Rejuvenate Luxe",
+      "brand": "Purple",
+      "category": "Mattress",
+      "notes": "Labor Day sale (Aug 11 - Sep 15); Twin XL / Queen / King-Cal King only",
+      "sortOrder": 27,
+      "variants": [
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 3790,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 4260,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 5500,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "CA King",
+          "configuration": "Mattress Only",
+          "price": 5500,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Purple RestorePlus Cool Touch Hybrid",
+      "brand": "Purple",
+      "category": "Mattress",
+      "notes": "Labor Day sale (Aug 11 - Sep 15)",
+      "sortOrder": 28,
+      "variants": [
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 2740,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 3060,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 3140,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 3800,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "CA King",
+          "configuration": "Mattress Only",
+          "price": 3800,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Purple Restore Premier Cool Touch Hybrid",
+      "brand": "Purple",
+      "category": "Mattress",
+      "notes": "Labor Day sale (Aug 11 - Sep 15); Twin XL / Queen / King-Cal King only",
+      "sortOrder": 29,
+      "variants": [
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 3410,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 3920,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 4600,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "CA King",
+          "configuration": "Mattress Only",
+          "price": 4600,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Aurora Cloud Pillow Top",
+      "brand": "Brooklyn Bedding",
+      "category": "Mattress",
+      "notes": "30% off sale pricing",
+      "sortOrder": 30,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 1025.5,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 1212.4,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 1445.5,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 1585.5,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 1959.3,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "CA King",
+          "configuration": "Mattress Only",
+          "price": 1959.3,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "ThermoBalance",
+      "brand": "Brooklyn Bedding",
+      "category": "Mattress",
+      "notes": "30% off sale pricing",
+      "sortOrder": 31,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": "Mattress Only",
+          "price": 1282.4,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 1352.4,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 1679.3,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 1772.4,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 2239.3,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "CA King",
+          "configuration": "Mattress Only",
+          "price": 2239.3,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Beautyrest Black Hybrid Series Three 14.5\" Plush",
+      "brand": "Beautyrest",
+      "category": "Mattress",
+      "notes": "Current pricing",
+      "sortOrder": 32,
+      "variants": [
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 2149,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 2429,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 2699,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 3499,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Beautyrest Black Hybrid Series One 12.5\" Plush",
+      "brand": "Beautyrest",
+      "category": "Mattress",
+      "notes": "Current pricing",
+      "sortOrder": 33,
+      "variants": [
+        {
+          "size": "Twin XL",
+          "configuration": "Mattress Only",
+          "price": 1549,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Full",
+          "configuration": "Mattress Only",
+          "price": 1829,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Queen",
+          "configuration": "Mattress Only",
+          "price": 1999,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "King",
+          "configuration": "Mattress Only",
+          "price": 2699,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "IMC61 Adjustable Base",
+      "brand": "Therapedic",
+      "category": "AdjustableBase",
+      "notes": "Base sold on its own - price not quoted on the 9/12/26 cards.",
+      "sortOrder": 34,
+      "variants": [
+        {
+          "size": "Twin XL",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 1
+        },
+        {
+          "size": "Full",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 2
+        },
+        {
+          "size": "Queen",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 3
+        },
+        {
+          "size": "King",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 4
+        },
+        {
+          "size": "Split King",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 5
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "ES200 Flex Head Adjustable Base",
+      "brand": "Therapedic",
+      "category": "AdjustableBase",
+      "notes": "Base sold on its own - price not quoted on the 9/12/26 cards.",
+      "sortOrder": 35,
+      "variants": [
+        {
+          "size": "Twin XL",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 1
+        },
+        {
+          "size": "Full",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 2
+        },
+        {
+          "size": "Queen",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 3
+        },
+        {
+          "size": "King",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 4
+        },
+        {
+          "size": "Split King",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": true,
+          "sortOrder": 5
+        }
+      ],
+      "deliveryOptions": [
+        "Drop Ship",
+        "Take With",
+        "White Glove",
+        "Haul Away",
+        "Local Delivery"
+      ],
+      "defaultDelivery": "Drop Ship"
+    },
+    {
+      "name": "Frio Mattress Protector",
+      "brand": "PureCare",
+      "category": "MattressProtector",
+      "notes": "Twin, Queen and King prices taken from the 9/12 order sheets.",
+      "sortOrder": 36,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": null,
+          "price": 69,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": null,
+          "price": 89,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": null,
+          "price": 99,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        }
+      ],
+      "deliveryOptions": [
+        "Take With",
+        "Drop Ship"
+      ],
+      "defaultDelivery": "Take With"
+    },
+    {
+      "name": "Shoulder Carbon Cool",
+      "brand": "PureCare",
+      "category": "Pillow",
+      "notes": "Price not on the supplied sheets - confirm before selling.",
+      "sortOrder": 37,
+      "variants": [
+        {
+          "size": "Standard",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Queen",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "King",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        }
+      ],
+      "deliveryOptions": [
+        "Take With",
+        "Drop Ship"
+      ],
+      "defaultDelivery": "Take With"
+    },
+    {
+      "name": "SoftCell Chill (2.0)",
+      "brand": "PureCare",
+      "category": "Pillow",
+      "notes": null,
+      "sortOrder": 38,
+      "variants": [
+        {
+          "size": "Standard",
+          "configuration": null,
+          "price": 149,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Queen",
+          "configuration": null,
+          "price": 149,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "King",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        }
+      ],
+      "deliveryOptions": [
+        "Take With",
+        "Drop Ship"
+      ],
+      "defaultDelivery": "Take With"
+    },
+    {
+      "name": "Sub 0 Down Complete",
+      "brand": "PureCare",
+      "category": "Pillow",
+      "notes": "Price not on the supplied sheets - confirm before selling.",
+      "sortOrder": 39,
+      "variants": [
+        {
+          "size": "Standard",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Queen",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "King",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        }
+      ],
+      "deliveryOptions": [
+        "Take With",
+        "Drop Ship"
+      ],
+      "defaultDelivery": "Take With"
+    },
+    {
+      "name": "Replenish",
+      "brand": "PureCare",
+      "category": "Pillow",
+      "notes": null,
+      "sortOrder": 40,
+      "variants": [
+        {
+          "size": "Standard",
+          "configuration": null,
+          "price": 129,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Queen",
+          "configuration": null,
+          "price": 129,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "King",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        }
+      ],
+      "deliveryOptions": [
+        "Take With",
+        "Drop Ship"
+      ],
+      "defaultDelivery": "Take With"
+    },
+    {
+      "name": "Shattered Ice",
+      "brand": "PureCare",
+      "category": "Pillow",
+      "notes": "Price not on the supplied sheets - confirm before selling.",
+      "sortOrder": 41,
+      "variants": [
+        {
+          "size": "Standard",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Queen",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "King",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        }
+      ],
+      "deliveryOptions": [
+        "Take With",
+        "Drop Ship"
+      ],
+      "defaultDelivery": "Take With"
+    },
+    {
+      "name": "Snowflake",
+      "brand": "PureCare",
+      "category": "Pillow",
+      "notes": "Price not on the supplied sheets - confirm before selling.",
+      "sortOrder": 42,
+      "variants": [
+        {
+          "size": "Standard",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Queen",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "King",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        }
+      ],
+      "deliveryOptions": [
+        "Take With",
+        "Drop Ship"
+      ],
+      "defaultDelivery": "Take With"
+    },
+    {
+      "name": "Sheet Set",
+      "brand": "PureCare",
+      "category": "Sheets",
+      "notes": "Prices not on the supplied sheets - confirm before selling.",
+      "sortOrder": 43,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Twin XL",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Full",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "Queen",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        },
+        {
+          "size": "King",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 5
+        },
+        {
+          "size": "Split King",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 6
+        }
+      ],
+      "deliveryOptions": [
+        "Take With",
+        "Drop Ship"
+      ],
+      "defaultDelivery": "Take With"
+    },
+    {
+      "name": "Bed Frame",
+      "brand": "CFS",
+      "category": "Frame",
+      "notes": "Prices not on the supplied sheets - confirm before selling.",
+      "sortOrder": 44,
+      "variants": [
+        {
+          "size": "Twin",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Full",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Queen",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        },
+        {
+          "size": "King",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 4
+        }
+      ],
+      "deliveryOptions": [
+        "Take With",
+        "Drop Ship"
+      ],
+      "defaultDelivery": "Take With"
+    },
+    {
+      "name": "Bean Bag Chair",
+      "brand": "CFS",
+      "category": "BeanBagChair",
+      "notes": "Prices not on the supplied sheets - confirm before selling.",
+      "sortOrder": 45,
+      "variants": [
+        {
+          "size": "Small",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 1
+        },
+        {
+          "size": "Medium",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 2
+        },
+        {
+          "size": "Large",
+          "configuration": null,
+          "price": null,
+          "includesAdjustableBase": false,
+          "sortOrder": 3
+        }
+      ],
+      "deliveryOptions": [
+        "Take With",
+        "Drop Ship"
+      ],
+      "defaultDelivery": "Take With"
+    }
+  ],
+  "event": {
+    "schoolName": "Sample School",
+    "organization": "Band",
+    "cartName": "Pittsburgh",
+    "salesTaxRate": 0.07,
+    "ccProcessingFeeRate": 0.0,
+    "nextOrderNumber": 1001
+  },
+  "users": [
+    {
+      "name": "Administrator",
+      "username": "admin",
+      "pin": "1234",
+      "role": "Admin"
+    },
+    {
+      "name": "Sales Rep",
+      "username": "sales",
+      "pin": "1111",
+      "role": "Sales"
+    },
+    {
+      "name": "Checkout",
+      "username": "checkout",
+      "pin": "2222",
+      "role": "Checkout"
+    }
+  ]
+}

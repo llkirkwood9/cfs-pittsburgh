@@ -1,0 +1,176 @@
+import { useState } from "react";
+import Button from "../Elements/Button";
+import Icon from "../Elements/Icon";
+import TextField from "../Elements/TextField";
+import { FormatCurrency, ParseMoney } from "../../Lib/ModelHelpers";
+import { Toast } from "../../Lib/Toast";
+import type { Order } from "../../Models/Order";
+import type { OrderPayment, PaymentMethod } from "../../Models/OrderPayment";
+
+type Props = {
+    order: Order;
+    onAdd: (payment: OrderPayment) => Promise<void>;
+    onRemove: (paymentId: number) => Promise<void>;
+    onMethodChange: (method: PaymentMethod) => Promise<void>;
+};
+
+const methods: { key: PaymentMethod; label: string; icon: string }[] = [
+    { key: "VisaMc", label: "Visa/MC", icon: "fa-solid fa-credit-card" },
+    { key: "Cash", label: "Cash", icon: "fa-solid fa-money-bill-wave" },
+    { key: "Check", label: "Check", icon: "fa-solid fa-money-check" },
+    { key: "Financing", label: "Financing", icon: "fa-solid fa-file-signature" },
+    { key: "Layaway", label: "Layaway", icon: "fa-solid fa-box-archive" },
+];
+
+/**
+ * The Payment Options box at the checkout table. An order can be split across several methods,
+ * and the amount field pre-fills with whatever is still owed so the common case is two taps.
+ */
+const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
+    const [method, setMethod] = useState<PaymentMethod | null>(
+        order.applyCcProcessingFee ? "VisaMc" : null
+    );
+    const [amount, setAmount] = useState<string>("");
+    const [checkNumber, setCheckNumber] = useState<string>("");
+    const [saving, setSaving] = useState<boolean>(false);
+
+    const balance = order.balanceDue ?? 0;
+    const feeRate = order.ccProcessingFeeRate ?? 0;
+
+    // Picking a method is what turns the card fee on and off, so the customer sees the real
+    // total before anything is keyed in rather than after.
+    const chooseMethod = async (next: PaymentMethod) => {
+        if (next === method) return;
+
+        setMethod(next);
+        setAmount("");
+        if (feeRate > 0) await onMethodChange(next);
+    };
+
+    const handleAdd = async () => {
+        if (!method) return Toast.Warning("Pick a payment method first.");
+
+        const parsed = ParseMoney(amount);
+        if (parsed === null || parsed <= 0) return Toast.Warning("Enter an amount to record.");
+
+        if (method === "Check" && !checkNumber.trim())
+            return Toast.Warning("Enter the check number.");
+
+        setSaving(true);
+        await onAdd({
+            method,
+            amount: parsed,
+            checkNumber: method === "Check" ? checkNumber.trim() : undefined,
+        });
+        setSaving(false);
+
+        setAmount("");
+        setCheckNumber("");
+    };
+
+    return (
+        <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {methods.map((m) => (
+                    <button
+                        key={m.key}
+                        type="button"
+                        onClick={() => chooseMethod(m.key)}
+                        className={`flex min-h-[56px] items-center justify-center gap-2 rounded-xl px-3
+                            text-sm font-semibold transition-colors ${
+                                method === m.key
+                                    ? "bg-sky-700 text-white dark:bg-sky-600"
+                                    : "bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-600"
+                            }`}
+                    >
+                        <Icon icon={m.icon} />
+                        {m.label}
+                    </button>
+                ))}
+            </div>
+
+            {feeRate > 0 && method === "VisaMc" && (
+                <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                    <Icon icon="fa-solid fa-circle-info" /> A {(feeRate * 100).toFixed(2).replace(/\.?0+$/, "")}%
+                    card processing fee of {FormatCurrency(order.ccProcessingFee)} is included in the
+                    total below. Switch to another method to remove it.
+                </p>
+            )}
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <TextField
+                    label="Amount"
+                    value={amount}
+                    onChange={setAmount}
+                    inputMode="decimal"
+                    placeholder={FormatCurrency(balance)}
+                />
+                {method === "Check" && (
+                    <TextField
+                        label="Check #"
+                        value={checkNumber}
+                        onChange={setCheckNumber}
+                        inputMode="numeric"
+                    />
+                )}
+            </div>
+
+            <div className="flex flex-wrap gap-2">
+                {balance > 0 && (
+                    <Button
+                        text={`Fill ${FormatCurrency(balance)}`}
+                        icon="fa-solid fa-wand-magic-sparkles"
+                        onClick={() => setAmount(balance.toFixed(2))}
+                        className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                    />
+                )}
+                <Button
+                    text="Record payment"
+                    icon="fa-solid fa-plus"
+                    onClick={handleAdd}
+                    loading={saving}
+                    className="flex-1 bg-green-700 hover:bg-green-800 sm:flex-none dark:bg-green-600 dark:hover:bg-green-700"
+                />
+            </div>
+
+            {(order.payments ?? []).length > 0 && (
+                <ul className="space-y-2 pt-1">
+                    {(order.payments ?? []).map((payment) => (
+                        <li
+                            key={payment.id}
+                            className="flex items-center gap-3 rounded-xl bg-zinc-100 px-3 py-2 dark:bg-zinc-700"
+                        >
+                            <div className="min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
+                                    {methods.find((m) => m.key === payment.method)?.label ??
+                                        payment.method}
+                                </p>
+                                {payment.checkNumber && (
+                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                        Check #{payment.checkNumber}
+                                    </p>
+                                )}
+                            </div>
+                            <p className="tabular-nums font-bold text-zinc-900 dark:text-zinc-100">
+                                {FormatCurrency(payment.amount)}
+                            </p>
+                            {order.status !== "Completed" && (
+                                <button
+                                    type="button"
+                                    onClick={() => payment.id && onRemove(payment.id)}
+                                    aria-label="Remove payment"
+                                    className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
+                                        hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
+                                >
+                                    <Icon icon="fa-solid fa-trash" />
+                                </button>
+                            )}
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </div>
+    );
+};
+
+export default PaymentPanel;

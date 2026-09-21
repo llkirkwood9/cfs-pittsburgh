@@ -1,0 +1,62 @@
+using System.ComponentModel.DataAnnotations;
+
+namespace api.Models
+{
+    /// <summary>
+    /// One priced line of a product: a size, optionally combined with a foundation or base
+    /// configuration. A mattress model typically has Mattress Only, Hi-Rise and adjustable base
+    /// variants for each of Twin through King.
+    /// </summary>
+    public class ProductVariant
+    {
+        /// <summary>
+        /// Primary Key - ID of variant
+        /// </summary>
+        public int Id { get; set; }
+
+        /// <summary>
+        /// FK to the owning product
+        /// </summary>
+        public int ProductId { get; set; }
+
+        /// <summary>
+        /// Navigation property
+        /// </summary>
+        public Product? Product { get; set; }
+
+        /// <summary>
+        /// Size printed in the Size column, e.g. "Queen", "Twin XL", "Standard"
+        /// </summary>
+        [MaxLength(50)]
+        public string Size { get; set; } = string.Empty;
+
+        /// <summary>
+        /// What the price includes, e.g. "Mattress Only", "Hi-Rise", "IMC61 Adjustable".
+        /// Null for accessories where size alone identifies the price.
+        /// </summary>
+        [MaxLength(100)]
+        public string? Configuration { get; set; }
+
+        /// <summary>
+        /// Price for this size/configuration. Null means the price card says "Inquire" and the
+        /// rep must key a price in by hand.
+        /// </summary>
+        public decimal? Price { get; set; }
+
+        /// <summary>
+        /// True when the price includes a powered adjustable base. The stat sheet tallies bases
+        /// separately from mattresses, so a set sold on one line counts in both columns.
+        /// </summary>
+        public bool IncludesAdjustableBase { get; set; }
+
+        /// <summary>
+        /// Ordering within the product
+        /// </summary>
+        public int SortOrder { get; set; }
+
+        /// <summary>
+        /// Inactive variants are hidden from the floor but retained on past orders
+        /// </summary>
+        public bool IsActive { get; set; } = true;
+    }
+}
