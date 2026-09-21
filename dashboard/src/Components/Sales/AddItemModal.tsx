@@ -18,6 +18,33 @@ type Props = {
 
 type CategoryTab = ProductCategory | "All";
 
+type SortKey = "name-asc" | "name-desc" | "price-asc" | "price-desc" | "brand";
+
+const sortOptions: { key: SortKey; label: string }[] = [
+    { key: "name-asc", label: "Name A-Z" },
+    { key: "name-desc", label: "Name Z-A" },
+    { key: "price-asc", label: "Price low-high" },
+    { key: "price-desc", label: "Price high-low" },
+    { key: "brand", label: "Brand" },
+];
+
+/** Natural, case-insensitive ordering, so "Agility 3000" sorts before "Agility 5000". */
+const byText = (a?: string | null, b?: string | null) =>
+    (a ?? "").localeCompare(b ?? "", undefined, { numeric: true, sensitivity: "base" });
+
+/**
+ * The cheapest priced size of a product, used for price sorting and the "from" label. Null when
+ * every size is Inquire.
+ * @param product The product.
+ * @returns The lowest price, or null.
+ */
+const lowestPrice = (product: Product): number | null => {
+    const prices = (product.variants ?? [])
+        .map((v) => v.price)
+        .filter((price): price is number => price !== null && price !== undefined);
+    return prices.length ? Math.min(...prices) : null;
+};
+
 const categoryLabels: Record<ProductCategory, string> = {
     Mattress: "Mattresses",
     AdjustableBase: "Bases",
@@ -36,6 +63,7 @@ const categoryLabels: Record<ProductCategory, string> = {
 const AddItemModal = ({ products, onAdd, onClose }: Props) => {
     const [tab, setTab] = useState<CategoryTab>("Mattress");
     const [search, setSearch] = useState<string>("");
+    const [sortKey, setSortKey] = useState<SortKey>("name-asc");
     const [selected, setSelected] = useState<Product | null>(null);
     const [variantId, setVariantId] = useState<number | null>(null);
     const [deliveryId, setDeliveryId] = useState<number | null>(null);
@@ -57,7 +85,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
 
     const filtered = useMemo(() => {
         const term = search.trim().toLowerCase();
-        return products.filter((product) => {
+        const matches = products.filter((product) => {
             if (tab !== "All" && product.category !== tab) return false;
             if (!term) return true;
             return (
@@ -65,7 +93,35 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                 (product.brand ?? "").toLowerCase().includes(term)
             );
         });
-    }, [products, tab, search]);
+
+        // Categories stay grouped - in the All tab each category is sorted on its own, in the same
+        // order as the tabs - and the chosen sort applies within each one.
+        const categoryOrder = Object.keys(categoryLabels) as ProductCategory[];
+        const categoryRank = (p: Product) => categoryOrder.indexOf(p.category ?? "Misc");
+
+        const compare = (a: Product, b: Product): number => {
+            switch (sortKey) {
+                case "name-desc":
+                    return byText(b.name, a.name);
+                case "price-asc":
+                case "price-desc": {
+                    const pa = lowestPrice(a);
+                    const pb = lowestPrice(b);
+                    // Inquire-only products have no price to sort by, so they go last either way.
+                    if (pa === null || pb === null)
+                        return pa === pb ? byText(a.name, b.name) : pa === null ? 1 : -1;
+                    const diff = sortKey === "price-asc" ? pa - pb : pb - pa;
+                    return diff !== 0 ? diff : byText(a.name, b.name);
+                }
+                case "brand":
+                    return byText(a.brand, b.brand) || byText(a.name, b.name);
+                default:
+                    return byText(a.name, b.name);
+            }
+        };
+
+        return [...matches].sort((a, b) => categoryRank(a) - categoryRank(b) || compare(a, b));
+    }, [products, tab, search, sortKey]);
 
     const variant: ProductVariant | undefined = selected?.variants?.find((v) => v.id === variantId);
     const needsPrice = variant ? NeedsPrice(variant) : false;
@@ -202,6 +258,20 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                         className="mb-3"
                     />
 
+                    <div className="-mx-1 mb-3 flex items-center gap-2 overflow-x-auto px-1 pb-1">
+                        <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                            Sort
+                        </span>
+                        {sortOptions.map((option) => (
+                            <TabButton
+                                key={option.key}
+                                text={option.label}
+                                active={sortKey === option.key}
+                                onClick={() => setSortKey(option.key)}
+                            />
+                        ))}
+                    </div>
+
                     <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                         {filtered.map((product) => (
                             <button
@@ -217,6 +287,8 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                 </span>
                                 <span className="text-xs text-zinc-500 dark:text-zinc-400">
                                     {product.brand}
+                                    {lowestPrice(product) !== null &&
+                                        ` - from ${FormatCurrency(lowestPrice(product))}`}
                                     {product.notes ? ` - ${product.notes}` : ""}
                                 </span>
                             </button>
