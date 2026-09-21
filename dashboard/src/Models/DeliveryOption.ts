@@ -4,6 +4,7 @@ export type DeliveryOption = {
     price?: number;
     isTaxable?: boolean;
     isTakeWith?: boolean;
+    showOnSalesSheet?: boolean;
     sortOrder?: number;
     isActive?: boolean;
 };

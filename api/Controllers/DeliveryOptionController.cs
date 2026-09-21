@@ -55,6 +55,8 @@ namespace api.Controllers
                     Price = request.Price ?? 0m,
                     IsTaxable = request.IsTaxable ?? true,
                     IsTakeWith = request.IsTakeWith ?? false,
+                    // Take With defaults to hidden: the item's own Take With column already says it.
+                    ShowOnSalesSheet = request.ShowOnSalesSheet ?? !(request.IsTakeWith ?? false),
                     SortOrder = request.SortOrder ?? 0,
                     IsActive = request.IsActive ?? true,
                 };
@@ -150,6 +152,9 @@ namespace api.Controllers
                 if (request.IsTakeWith != null)
                     option.IsTakeWith = request.IsTakeWith.Value;
 
+                if (request.ShowOnSalesSheet != null)
+                    option.ShowOnSalesSheet = request.ShowOnSalesSheet.Value;
+
                 if (request.SortOrder != null)
                     option.SortOrder = request.SortOrder.Value;
 
@@ -223,6 +228,7 @@ namespace api.Controllers
                 Price = option.Price,
                 IsTaxable = option.IsTaxable,
                 IsTakeWith = option.IsTakeWith,
+                ShowOnSalesSheet = option.ShowOnSalesSheet,
                 SortOrder = option.SortOrder,
                 IsActive = option.IsActive,
             };

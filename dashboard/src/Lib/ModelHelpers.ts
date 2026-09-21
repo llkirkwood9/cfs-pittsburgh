@@ -92,6 +92,16 @@ export const NeedsPrice = (variant: ProductVariant): boolean =>
     variant.price === null || variant.price === undefined;
 
 /**
+ * Whether a line prints on the sales sheet. Shipping rows whose option is set not to show (Take
+ * With, by default) are left off - unless they carry a charge, which always prints so the
+ * sheet's subtotal still adds up.
+ * @param line The order line.
+ * @returns True when the line belongs on the printed sheet.
+ */
+export const PrintsOnSalesSheet = (line: OrderLine): boolean =>
+    line.lineType !== "Delivery" || line.showOnSalesSheet !== false || (line.lineTotal ?? 0) !== 0;
+
+/**
  * Groups order lines so each delivery charge sits directly under the product it belongs to,
  * which is how the paper sheet reads.
  * @param lines The order's lines.

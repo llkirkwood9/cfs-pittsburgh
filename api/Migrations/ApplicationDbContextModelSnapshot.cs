@@ -47,6 +47,9 @@ namespace api.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<bool>("ShowOnSalesSheet")
+                        .HasColumnType("bit");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("int");
 
@@ -375,6 +378,9 @@ namespace api.Migrations
 
                     b.Property<decimal>("SalePrice")
                         .HasColumnType("decimal(18,4)");
+
+                    b.Property<bool>("ShowOnSalesSheet")
+                        .HasColumnType("bit");
 
                     b.Property<string>("Size")
                         .HasMaxLength(50)

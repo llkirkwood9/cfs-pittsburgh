@@ -132,6 +132,7 @@ namespace api.Data
                         Price = d.Price ?? 0m,
                         IsTaxable = d.IsTaxable ?? true,
                         IsTakeWith = d.IsTakeWith ?? false,
+                        ShowOnSalesSheet = d.ShowOnSalesSheet ?? true,
                         SortOrder = d.SortOrder ?? 0,
                         IsActive = true,
                     };
@@ -317,6 +318,9 @@ namespace api.Data
 
             /// <summary>Whether the option ticks Take With.</summary>
             public bool? IsTakeWith { get; set; }
+
+            /// <summary>Whether its row prints on the sales sheet.</summary>
+            public bool? ShowOnSalesSheet { get; set; }
 
             /// <summary>Display order.</summary>
             public int? SortOrder { get; set; }

@@ -1,4 +1,4 @@
-import { PaymentMethodLabels, SortLinesForPrint } from "./ModelHelpers";
+import { PaymentMethodLabels, PrintsOnSalesSheet, SortLinesForPrint } from "./ModelHelpers";
 import type { Order } from "../Models/Order";
 import type { PaymentMethod } from "../Models/OrderPayment";
 
@@ -63,6 +63,7 @@ export const BuildSalesCsv = (orders: Order[]): string => {
 
     const rows = orders.map((order) => {
         const items = SortLinesForPrint(order.lines ?? [])
+            .filter(PrintsOnSalesSheet)
             .map((line) => {
                 const prefix =
                     line.lineType === "Delivery"

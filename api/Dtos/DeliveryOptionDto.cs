@@ -31,6 +31,11 @@ namespace api.Dtos
         public bool? IsTakeWith { get; set; }
 
         /// <summary>
+        /// Whether a row for this option prints on the sales sheet
+        /// </summary>
+        public bool? ShowOnSalesSheet { get; set; }
+
+        /// <summary>
         /// Ordering on the delivery picker
         /// </summary>
         public int? SortOrder { get; set; }
