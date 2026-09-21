@@ -21,7 +21,7 @@ const heading = "border-b border-black px-1 py-[2px] text-center text-[9px] font
 const totalRow = "border-t border-black px-1 py-[2px] text-[10px] font-semibold";
 
 /**
- * The School Stat Sheet, filled in. Laid out like the paper form the crew completes at the end of
+ * The event's stat sheet, filled in. Laid out like the paper form the crew completes at the end of
  * an event: unit counts across the top, each financing, check, layaway and cash sale listed
  * underneath, and the summary box at the bottom. Printed as the first page of an event's sheets.
  */
@@ -106,10 +106,6 @@ const StatSheet = ({ saleEvent, stats, orders }: Props) => {
             <div className="mb-3 flex items-end justify-between">
                 <div className="space-y-0.5 text-[11px] font-bold">
                     <p>
-                        SCHOOL NAME:{" "}
-                        <span className="font-normal text-[13px]">{saleEvent?.schoolName}</span>
-                    </p>
-                    <p>
                         ORGANIZATION:{" "}
                         <span className="font-normal text-[13px]">{saleEvent?.organization}</span>
                     </p>
@@ -120,7 +116,7 @@ const StatSheet = ({ saleEvent, stats, orders }: Props) => {
                         </span>
                     </p>
                 </div>
-                <p className="text-[12px] font-bold tracking-wide">SCHOOL STAT SHEET</p>
+                <p className="text-[12px] font-bold tracking-wide">FUNDRAISER STAT SHEET</p>
             </div>
 
             {/* Unit counts */}

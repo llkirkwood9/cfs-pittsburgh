@@ -37,10 +37,10 @@ namespace api.Controllers
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(request.SchoolName) || request.EventDate == null)
+                if (string.IsNullOrWhiteSpace(request.Organization) || request.EventDate == null)
                     return BadRequest(new { error = "Missing parameter." });
 
-                if (request.SchoolName.Length > 150)
+                if (request.Organization.Length > 150)
                     return BadRequest(new { error = "Invalid parameter." });
 
                 if (request.SalesTaxRate is < 0 or > 1)
@@ -51,8 +51,7 @@ namespace api.Controllers
 
                 var newEvent = new Event
                 {
-                    SchoolName = request.SchoolName,
-                    Organization = request.Organization ?? string.Empty,
+                    Organization = request.Organization.Trim(),
                     EventDate = request.EventDate.Value.Date,
                     CartName = request.CartName,
                     SalesTaxRate = request.SalesTaxRate ?? 0.07m,
@@ -107,18 +106,21 @@ namespace api.Controllers
         /// <summary>
         /// Gets the event the floor app should default to.
         /// </summary>
-        /// <returns>The active event, or the most recent one when none is flagged active.</returns>
+        /// <returns>
+        /// The active event, or 204 No Content when none is active. There is deliberately no
+        /// fallback to the most recent event: with no active event, no new orders can be taken.
+        /// </returns>
         [HttpGet("event/active")]
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetActiveEvent()
         {
             try
             {
-                var active = await DB.Events.FirstOrDefaultAsync(e => e.IsActive)
-                             ?? await DB.Events.OrderByDescending(e => e.EventDate).FirstOrDefaultAsync();
+                var active = await DB.Events.FirstOrDefaultAsync(e => e.IsActive);
 
+                // Not an error: "no event running right now" is a normal state between fundraisers.
                 if (active == null)
-                    return NotFound(new { error = "No event has been set up yet." });
+                    return NoContent();
 
                 return Ok(ToDto(active));
             }
@@ -176,12 +178,12 @@ namespace api.Controllers
                 if (found == null)
                     return NotFound(new { error = "Event not found." });
 
-                if (request.SchoolName != null)
+                if (request.Organization != null)
                 {
-                    if (string.IsNullOrWhiteSpace(request.SchoolName) || request.SchoolName.Length > 150)
+                    if (string.IsNullOrWhiteSpace(request.Organization) || request.Organization.Length > 150)
                         return BadRequest(new { error = "Invalid parameter." });
 
-                    found.SchoolName = request.SchoolName;
+                    found.Organization = request.Organization.Trim();
                 }
 
                 if (request.SalesTaxRate is < 0 or > 1)
@@ -189,9 +191,6 @@ namespace api.Controllers
 
                 if (request.CcProcessingFeeRate is < 0 or > 1)
                     return BadRequest(new { error = "The card processing fee rate must be between 0 and 1." });
-
-                if (request.Organization != null)
-                    found.Organization = request.Organization;
 
                 if (request.CartName != null)
                     found.CartName = request.CartName;
@@ -280,7 +279,6 @@ namespace api.Controllers
             return new EventDto
             {
                 Id = entity.Id,
-                SchoolName = entity.SchoolName,
                 Organization = entity.Organization,
                 EventDate = entity.EventDate,
                 CartName = entity.CartName,

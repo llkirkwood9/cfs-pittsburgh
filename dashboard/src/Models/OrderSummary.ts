@@ -4,7 +4,6 @@ export type OrderSummary = {
     id?: number;
     eventId?: number;
     orderNumber?: number;
-    eventSchoolName?: string | null;
     eventOrganization?: string | null;
     eventDate?: string | null;
     status?: OrderStatus;

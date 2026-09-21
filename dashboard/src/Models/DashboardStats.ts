@@ -15,7 +15,6 @@ export type RepTally = {
 
 export type DashboardStats = {
     eventId?: number | null;
-    schoolName?: string | null;
     organization?: string | null;
     eventDate?: string | null;
 

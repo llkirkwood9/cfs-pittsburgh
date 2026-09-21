@@ -44,7 +44,6 @@ namespace api.Controllers
 
                 var stats = await BuildStatsAsync(o => o.EventId == eventId);
                 stats.EventId = saleEvent.Id;
-                stats.SchoolName = saleEvent.SchoolName;
                 stats.Organization = saleEvent.Organization;
                 stats.EventDate = saleEvent.EventDate;
 
@@ -174,7 +173,10 @@ namespace api.Controllers
                 AwaitingCheckoutCount = orders.Count(o => o.Status == OrderStatus.AwaitingCheckout),
                 VoidedOrderCount = orders.Count(o => o.Status == OrderStatus.Voided),
 
+                // Bundled items (a set's adjustable base, a free pillow) still count in their own
+                // columns above, but the set itself is what was sold, so only it is listed here.
                 TopProducts = productLines
+                    .Where(l => l.LineType != OrderLineType.Included)
                     .GroupBy(l => new { l.Description, l.Brand, l.Category })
                     .Select(g => new ProductTallyDto
                     {

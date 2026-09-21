@@ -14,11 +14,6 @@ namespace api.Dtos
         public int? EventId { get; set; }
 
         /// <summary>
-        /// School name of the event
-        /// </summary>
-        public string? SchoolName { get; set; }
-
-        /// <summary>
         /// Sponsoring organization
         /// </summary>
         public string? Organization { get; set; }

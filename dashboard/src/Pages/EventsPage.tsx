@@ -26,7 +26,6 @@ const EventsPage = () => {
     const [deleting, setDeleting] = useState<Event | null>(null);
     const [saving, setSaving] = useState<boolean>(false);
 
-    const [schoolName, setSchoolName] = useState<string>("");
     const [organization, setOrganization] = useState<string>("");
     const [cartName, setCartName] = useState<string>("");
     const [eventDate, setEventDate] = useState<string>("");
@@ -49,7 +48,6 @@ const EventsPage = () => {
 
     const open = (event: Event) => {
         setEditing(event);
-        setSchoolName(event.schoolName ?? "");
         setOrganization(event.organization ?? "");
         setCartName(event.cartName ?? "");
         setEventDate((event.eventDate ?? new Date().toISOString()).slice(0, 10));
@@ -60,7 +58,7 @@ const EventsPage = () => {
     };
 
     const handleSave = async () => {
-        if (!schoolName.trim()) return Toast.Warning("Enter the school name.");
+        if (!organization.trim()) return Toast.Warning("Enter the organization.");
         if (!eventDate) return Toast.Warning("Pick the event date.");
 
         const tax = ParseMoney(taxPercent);
@@ -73,7 +71,6 @@ const EventsPage = () => {
 
         const payload: Event = {
             id: editing?.id,
-            schoolName: schoolName.trim(),
             organization: organization.trim(),
             cartName: cartName.trim(),
             eventDate: new Date(`${eventDate}T00:00:00`).toISOString(),
@@ -89,7 +86,7 @@ const EventsPage = () => {
 
         if (!saved) return;
 
-        Toast.Success(`${saved.schoolName} saved.`);
+        Toast.Success(`${saved.organization} saved.`);
         setEditing(null);
         await load();
     };
@@ -142,10 +139,7 @@ const EventsPage = () => {
                     >
                         <div className="min-w-0 flex-1">
                             <p className="font-semibold">
-                                {event.schoolName}
-                                <span className="ml-2 font-normal text-zinc-500 dark:text-zinc-400">
-                                    {event.organization}
-                                </span>
+                                {event.organization}
                                 {event.isActive && (
                                     <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800 dark:bg-green-900/50 dark:text-green-300">
                                         Active
@@ -212,18 +206,19 @@ const EventsPage = () => {
                 >
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                         <TextField
-                            label="School name"
-                            value={schoolName}
-                            onChange={setSchoolName}
-                            maxLength={150}
-                        />
-                        <TextField
                             label="Organization"
                             value={organization}
                             onChange={setOrganization}
                             maxLength={150}
+                            placeholder="e.g. Hampton Band"
+                            className="sm:col-span-2"
                         />
-                        <TextField label="Cart" value={cartName} onChange={setCartName} maxLength={100} />
+                        <TextField
+                            label="Cart"
+                            value={cartName}
+                            onChange={setCartName}
+                            maxLength={100}
+                        />
                         <TextField
                             label="Event date"
                             value={eventDate}
@@ -270,7 +265,7 @@ const EventsPage = () => {
             {deleting && (
                 <ConfirmationModal
                     title="Delete event"
-                    message={`Delete ${deleting.schoolName}? Only an event with no orders against it can be deleted.`}
+                    message={`Delete ${deleting.organization}? Only an event with no orders against it can be deleted.`}
                     confirmText="Delete"
                     destructive
                     onConfirm={handleDelete}

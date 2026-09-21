@@ -40,13 +40,14 @@ export const GetEvents = async (): Promise<Event[]> => {
 };
 
 /**
- * Gets the event the floor app should default to.
- * @returns The active event, or null when none is set up.
+ * Gets the active event. New orders can only be taken while one is active.
+ * @returns The active event, or null when none is active.
  */
 export const GetActiveEvent = async (): Promise<Event | null> => {
     try {
         const response = await api.get<Event>("/api/Event/event/active");
-        return response.data;
+        // 204 No Content means no event is active right now, which is not an error.
+        return response.status === 204 ? null : response.data;
     } catch (error) {
         HandleAxiosError(error);
         return null;

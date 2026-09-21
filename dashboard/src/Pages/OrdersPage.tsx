@@ -86,6 +86,14 @@ const OrdersPage = () => {
 
             setEvents(list);
 
+            // Between fundraisers there is no active event. An admin falls back to every event;
+            // everyone else has nothing current to show, and all-events history is admin-only.
+            if (!active?.id && !isAdmin) {
+                setScope(null);
+                setLoading(false);
+                return;
+            }
+
             const target: Scope = active?.id
                 ? { kind: "event", eventId: active.id }
                 : { kind: "all" };
@@ -161,7 +169,7 @@ const OrdersPage = () => {
                     {events.map((event) => (
                         <TabButton
                             key={event.id}
-                            text={`${event.schoolName} ${event.organization ?? ""}`.trim()}
+                            text={event.organization ?? ""}
                             active={scope?.kind === "event" && scope.eventId === event.id}
                             onClick={() =>
                                 event.id && switchScope({ kind: "event", eventId: event.id })
@@ -195,6 +203,14 @@ const OrdersPage = () => {
 
             {loading ? (
                 <ListSkeleton rows={6} />
+            ) : !scope ? (
+                <div className="rounded-xl border-2 border-dashed border-zinc-300 py-14 text-center dark:border-zinc-700">
+                    <Icon icon="fa-solid fa-calendar-xmark" className="text-3xl text-zinc-400" />
+                    <p className="mt-3 text-base font-semibold">No active event</p>
+                    <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+                        Orders for the current fundraiser show here once an event is active.
+                    </p>
+                </div>
             ) : orders.length === 0 ? (
                 <div className="rounded-xl border-2 border-dashed border-zinc-300 py-14 text-center dark:border-zinc-700">
                     <Icon icon="fa-solid fa-inbox" className="text-3xl text-zinc-400" />
@@ -222,9 +238,9 @@ const OrdersPage = () => {
                                     {order.billingName || "No name"}
                                 </p>
                                 <p className="flex flex-wrap gap-x-2 text-xs text-zinc-500 dark:text-zinc-400">
-                                    {scope?.kind === "all" && order.eventSchoolName && (
+                                    {scope?.kind === "all" && order.eventOrganization && (
                                         <span className="font-medium text-zinc-600 dark:text-zinc-300">
-                                            {order.eventSchoolName} {order.eventOrganization}
+                                            {order.eventOrganization}
                                         </span>
                                     )}
                                     <span>

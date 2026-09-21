@@ -57,7 +57,7 @@ const EventSheetsPage = () => {
     const from = (location.state as { from?: string; label?: string } | null) ?? null;
     const goBack = () => navigate(from?.from ?? "/events");
 
-    const slug = `${saleEvent?.schoolName ?? "event"}-${saleEvent?.organization ?? ""}`
+    const slug = `${saleEvent?.organization || "event"}`
         .trim()
         .replace(/[^a-z0-9]+/gi, "-")
         .replace(/^-|-$/g, "")
@@ -107,17 +107,15 @@ const EventSheetsPage = () => {
                 </div>
 
                 <div className="mt-3 rounded-xl bg-white p-4 text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100">
-                    <h1 className="text-lg font-bold">
-                        {saleEvent?.schoolName} {saleEvent?.organization}
-                    </h1>
+                    <h1 className="text-lg font-bold">{saleEvent?.organization}</h1>
                     <p className="text-sm text-zinc-600 dark:text-zinc-400">
                         {FormatShortDate(saleEvent?.eventDate)} &middot; {orders.length} completed
                         sale
                         {orders.length === 1 ? "" : "s"} &middot; {FormatCurrency(total)}
                     </p>
                     <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                        The School Stat Sheet prints first, then each sales sheet on its own page.
-                        To save a PDF, choose Save as PDF as the printer.
+                        The stat sheet prints first, then each sales sheet on its own page. To save
+                        a PDF, choose Save as PDF as the printer.
                     </p>
                 </div>
             </div>

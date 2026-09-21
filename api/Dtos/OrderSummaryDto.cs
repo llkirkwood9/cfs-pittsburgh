@@ -22,11 +22,6 @@ namespace api.Dtos
         public int? OrderNumber { get; set; }
 
         /// <summary>
-        /// School name of the owning event, for the all-events history list
-        /// </summary>
-        public string? EventSchoolName { get; set; }
-
-        /// <summary>
         /// Organization of the owning event
         /// </summary>
         public string? EventOrganization { get; set; }

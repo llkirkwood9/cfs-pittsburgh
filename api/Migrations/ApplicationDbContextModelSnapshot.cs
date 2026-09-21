@@ -90,11 +90,6 @@ namespace api.Migrations
                     b.Property<decimal>("SalesTaxRate")
                         .HasColumnType("decimal(18,4)");
 
-                    b.Property<string>("SchoolName")
-                        .IsRequired()
-                        .HasMaxLength(150)
-                        .HasColumnType("nvarchar(150)");
-
                     b.HasKey("Id");
 
                     b.HasIndex("EventDate");

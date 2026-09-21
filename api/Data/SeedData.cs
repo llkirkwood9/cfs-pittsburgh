@@ -96,8 +96,7 @@ namespace api.Data
 
             db.Events.Add(new Event
             {
-                SchoolName = seed.Event.SchoolName ?? "New Event",
-                Organization = seed.Event.Organization ?? string.Empty,
+                Organization = seed.Event.Organization ?? "New Fundraiser",
                 CartName = seed.Event.CartName,
                 EventDate = DateTime.Today,
                 SalesTaxRate = seed.Event.SalesTaxRate ?? 0.07m,
@@ -394,9 +393,6 @@ namespace api.Data
         /// </summary>
         private class SeedEvent
         {
-            /// <summary>School name.</summary>
-            public string? SchoolName { get; set; }
-
             /// <summary>Organization.</summary>
             public string? Organization { get; set; }
 
