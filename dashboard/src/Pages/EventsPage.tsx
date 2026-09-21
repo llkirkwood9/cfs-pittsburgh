@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { Navigate, useNavigate } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
@@ -18,6 +18,7 @@ import { AddEvent, DeleteEvent, GetEvents, UpdateEvent } from "../Services/Event
  */
 const EventsPage = () => {
     const { user } = useAuth();
+    const navigate = useNavigate();
 
     const [events, setEvents] = useState<Event[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -160,6 +161,16 @@ const EventsPage = () => {
                             </p>
                         </div>
 
+                        <Button
+                            text="Sales sheets"
+                            icon="fa-solid fa-print"
+                            onClick={() =>
+                                navigate(`/events/${event.id}/sheets`, {
+                                    state: { from: "/events", label: "Back to events" },
+                                })
+                            }
+                            className="min-h-[40px] px-3 text-sm"
+                        />
                         <Button
                             text="Edit"
                             icon="fa-solid fa-pen"

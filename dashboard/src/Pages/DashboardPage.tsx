@@ -90,7 +90,7 @@ const DashboardPage = () => {
     ];
 
     const payments: { label: string; value: number }[] = [
-        { label: "Credit cards", value: stats?.creditCardTotal ?? 0 },
+        { label: "Credit/debit cards", value: stats?.creditCardTotal ?? 0 },
         { label: "Cash", value: stats?.cashTotal ?? 0 },
         { label: "Checks", value: stats?.checkTotal ?? 0 },
         { label: "Financing balance", value: stats?.financingTotal ?? 0 },

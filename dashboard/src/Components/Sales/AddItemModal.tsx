@@ -328,7 +328,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                     {(selected.deliveryOptions ?? []).length > 0 && (
                         <div>
                             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                                Delivery
+                                Shipping
                             </p>
                             <div className="flex flex-wrap gap-2">
                                 {(selected.deliveryOptions ?? []).map((option) => (
@@ -336,11 +336,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                         key={option.deliveryOptionId}
                                         type="button"
                                         onClick={() =>
-                                            setDeliveryId(
-                                                deliveryId === option.deliveryOptionId
-                                                    ? null
-                                                    : (option.deliveryOptionId ?? null)
-                                            )
+                                            setDeliveryId(option.deliveryOptionId ?? null)
                                         }
                                         className={`min-h-[48px] rounded-xl px-4 text-sm font-semibold transition-colors ${
                                             option.deliveryOptionId === deliveryId

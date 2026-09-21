@@ -14,8 +14,11 @@ The catalog and the printed receipt are both built from the supplied source docu
 - A rep holds as many drafts open at once as they have customers. Each one is a tab across the
   top; switching never loses anything because every change is saved server-side as it is made.
 - Items are added from the catalog: pick a category, a product, a size/configuration, and a
-  delivery method. Quantity, percentage discount and a price override for "Inquire" sizes are all
-  on the same screen.
+  shipping method. Quantity, percentage discount and a price override for "Inquire" sizes are all
+  on the same screen. Every item gets a shipping row underneath it, including no-charge ones such
+  as Drop Ship and Take With.
+- A mattress sold as a set with an adjustable base (IMC61, ES200) gets the base as its own
+  "included" row, so the sheet shows exactly what is being delivered.
 - A second in-home service (White Glove *and* Haul Away, as on the paper sheets) is attached to a
   line with **Add service**.
 - **Hand tablet to customer** opens a plain-language, oversized form for the customer to type
@@ -28,9 +31,11 @@ The catalog and the printed receipt are both built from the supplied source docu
   waiting. It refreshes itself every 8 seconds.
 - Items can still be added, edited and removed here, exactly as on the floor - a forgotten
   protector does not mean sending the customer back across the room.
-- Takes payment split across Visa/MC, cash, check, financing and layaway. Choosing Visa/MC puts
-  the card processing fee on the total straight away; switching to another method takes it back
-  off, so the figure quoted is the figure charged.
+- Comments can be read and added to here as well as on the floor.
+- Takes payment split across cash, check, credit/debit card, financing and layaway, with cash
+  selected by default. Choosing Credit/Debit Card puts the card processing fee on the total
+  straight away; switching to another method takes it back off, so the figure quoted is the
+  figure charged.
 - **Hand to customer** walks the customer through the three acknowledgements one at a time in
   plain language, taking initials for each, then a finger-drawn signature. The signature is
   stored with the order and printed on the sales sheet.
@@ -42,6 +47,10 @@ The catalog and the printed receipt are both built from the supplied source docu
   grid with blank rows, the comments and payment boxes, the three warranty/drop-ship/advisory
   paragraphs with initials, and the signature and received-by lines.
 - The customer's initials and drawn signature are printed in place.
+- A sheet for an order that is not completed is stamped NOT COMPLETED (or VOIDED) across the page
+  with a banner explaining why, on screen and on paper, so it can never pass for a final sale.
+- **Back** returns to wherever the sheet was opened from - the Orders list, the checkout table or
+  the event export.
 - Print-only CSS hides the app chrome, so the paper copy is just the sheet.
 
 **Orders** (`/orders`, all roles)
@@ -49,6 +58,13 @@ The catalog and the printed receipt are both built from the supplied source docu
   order number, with the printable sales sheet one tap away.
 - An administrator additionally gets an **All events** tab and a per-event picker, so a past
   fundraiser can be looked back over weeks later.
+
+**Event sales sheets** (`/events/:id/sheets`, Admin role)
+- Every completed sales sheet for an event, one per printed page. **Print / Save PDF** sends the
+  whole stack to a printer or, with Save as PDF as the printer, downloads it as a single PDF.
+  **Download CSV** exports the same sales as a spreadsheet: one row per sale with customer,
+  items, totals and each payment method.
+- Reached from **Sales sheets** on the Events page, or **Print all completed sheets** on Orders.
 
 **Dashboard** (`/dashboard`, all roles)
 - The School Stat Sheet, computed live: total and net sales, units by category, mattresses plus
@@ -64,6 +80,33 @@ The catalog and the printed receipt are both built from the supplied source docu
 ---
 
 ## 2. Running it
+
+### In Docker (one container)
+
+The `Dockerfile` in the repo root builds the whole app - SQL Server 2022 Express, the API and the
+dashboard - into a single image. The API serves the dashboard itself, so there is one port and
+one origin.
+
+```bash
+docker compose up -d --build
+```
+
+Then open `http://localhost:8080`. The first start takes about a minute while SQL Server
+initialises its data volume; after that it is ready in around 20 seconds. The database lives in
+the `cfs-data` volume and survives restarts and rebuilds.
+
+Set real secrets before a real event, in a `.env` file next to `docker-compose.yml`:
+
+```
+MSSQL_SA_PASSWORD=Use-A-Strong-Passw0rd
+JWT_KEY=a-long-random-string-of-at-least-32-characters
+```
+
+The SA password must meet SQL Server's complexity rules and must not contain `;`. The container
+needs about 2 GB of memory for SQL Server and runs on x86-64 hosts. `api/docker-compose.yml` is a
+separate, SQL-Server-only compose file for local development and is not used by the image.
+
+### Locally
 
 Prerequisites: .NET 10 SDK, Node 20+, SQL Server (LocalDB is fine).
 
@@ -97,6 +140,10 @@ The SPA listens on `http://localhost:3000` and reads the API URL from `dashboard
 ## 3. Repo layout
 
 ```
+Dockerfile                  Single-container image: SQL Server + API + dashboard
+docker-compose.yml          Runs that one container with a data volume on port 8080
+docker/start.sh             Container entrypoint: starts SQL Server, then the API
+
 api/                        ASP.NET Core 10 Web API (net10.0)
 ├── Controllers/            One controller per resource, all inheriting BasicController
 ├── Dtos/                   Request/response shapes; EF models are never exposed directly
@@ -138,10 +185,18 @@ White Glove $79, Haul Away $99, Local Delivery). `ProductDeliveryOption` joins a
 options it offers and can override the price for that product alone, so a Purple and a Langley can
 carry different delivery choices at different prices.
 
-**Adjustable bases are counted twice, on purpose.** The stat sheet tallies mattresses and
-adjustable bases in separate columns, but the price cards sell them as a set on one line. A
-variant carries `IncludesAdjustableBase`, so a `Queen / IMC61 Adjustable` line counts as one
-mattress *and* one base — the way the crew tallies it on paper.
+**Shipping is always its own row.** Choosing a shipping method for an item adds a `Delivery`
+line under it, whatever it costs, so the sheet always says how each item is leaving - Drop Ship
+at $0.00 included. Take With also ticks the Take With box on the item, and removing the Take
+With row clears it again.
+
+**A set's adjustable base is its own row, and counted once.** The stat sheet tallies mattresses
+and adjustable bases in separate columns, but the price cards sell them as a set at one price. A
+variant carries `IncludesAdjustableBase`; selling it adds an `Included` line for the base (named
+after the matching standalone base in the catalog) at no charge, which follows the set's
+quantity and cannot be edited or removed on its own. The stat sheet counts that row as the base,
+so a `Queen / IMC61 Adjustable` counts as one mattress *and* one base. Orders taken before the
+base row existed are still counted from the flag.
 
 **Lines are snapshots.** Brand, size, description, price and category are copied onto the order
 line when it is added. Editing or retiring a catalog product never rewrites a printed receipt. A
@@ -151,8 +206,9 @@ product that has already been sold is archived rather than deleted.
 under, so changing the rate on an event only affects orders taken from that point on.
 
 **The card fee follows the chosen method, not the recorded payment.** An order carries an
-`ApplyCcProcessingFee` flag that the checkout screen sets when Visa/MC is picked and clears when
-anything else is. Once a card payment is actually keyed in, that amount takes over and caps the
+`ApplyCcProcessingFee` flag that the checkout screen sets when Credit/Debit Card is picked and
+clears when anything else is. (The stored method is still `VisaMc`, so older orders read
+correctly; only the label changed.) Once a card payment is actually keyed in, that amount takes over and caps the
 fee at the pre-fee total, so a payment that already includes the fee never compounds it.
 
 **Money is computed in one place.** `Utils/OrderCalculator.cs` recalculates lines and totals on

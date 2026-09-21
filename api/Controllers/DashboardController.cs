@@ -122,9 +122,18 @@ namespace api.Controllers
 
             // A mattress sold on an adjustable-base variant counts in both columns, exactly as the
             // crew tallies it on the paper stat sheet.
+            // Sets now carry their base as a separate Included row, which UnitsIn already counts.
+            // Older orders taken before that row existed only have the flag on the mattress line,
+            // so those are still counted from the flag.
+            var setsWithBaseRow = lines
+                .Where(l => l.LineType == OrderLineType.Included && l.ParentLineId != null)
+                .Select(l => l.ParentLineId!.Value)
+                .ToHashSet();
+
             var baseCount = UnitsIn(ProductCategory.AdjustableBase)
                             + productLines.Where(l => l.IncludesAdjustableBase
-                                                      && l.Category != ProductCategory.AdjustableBase)
+                                                      && l.Category != ProductCategory.AdjustableBase
+                                                      && !setsWithBaseRow.Contains(l.Id))
                                 .Sum(l => l.Quantity);
 
             decimal PaidBy(PaymentMethod method) =>

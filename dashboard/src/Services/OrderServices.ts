@@ -205,6 +205,27 @@ export const GetAllOrders = async (options?: {
 };
 
 /**
+ * Full orders for an event, for printing every sales sheet at once or exporting. Admin only.
+ * @param eventId The event id.
+ * @param status Which orders to include; the API defaults to completed sales.
+ * @returns Full orders in order-number order, or an empty list on failure.
+ */
+export const GetSalesSheetsForEvent = async (
+    eventId: number,
+    status?: OrderStatus
+): Promise<Order[]> => {
+    try {
+        const response = await api.get<Order[]>(`/api/Order/orders/event/${eventId}/sheets`, {
+            params: status ? { status } : undefined,
+        });
+        return response.data;
+    } catch (error) {
+        HandleAxiosError(error);
+        return [];
+    }
+};
+
+/**
  * Gets a full order including lines and payments.
  * @param id The order id.
  * @returns The order, or null on failure.

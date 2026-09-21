@@ -4,8 +4,12 @@ import type { AxiosRequestConfig } from "axios";
 const ACCESS_TOKEN_KEY = "cfs.accessToken";
 const REFRESH_TOKEN_KEY = "cfs.refreshToken";
 
+// Empty when the dashboard is served by the API itself (the Docker image), so every call is
+// relative to the page's own origin.
+const API_URL: string = import.meta.env.VITE_API_URL ?? "";
+
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL,
+    baseURL: API_URL,
     headers: { "Content-Type": "application/json" },
 });
 
@@ -92,7 +96,7 @@ api.interceptors.response.use(
 
         try {
             const response = await axios.post(
-                `${import.meta.env.VITE_API_URL}/api/Auth/refresh`,
+                `${API_URL}/api/Auth/refresh`,
                 { refreshToken },
                 { headers: { "Content-Type": "application/json" } }
             );

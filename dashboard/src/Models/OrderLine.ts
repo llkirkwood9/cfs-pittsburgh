@@ -1,6 +1,6 @@
 import type { ProductCategory } from "./Product";
 
-export type OrderLineType = "Product" | "Delivery" | "Custom";
+export type OrderLineType = "Product" | "Delivery" | "Custom" | "Included";
 
 export type OrderLine = {
     id?: number;

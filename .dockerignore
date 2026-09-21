@@ -1,0 +1,15 @@
+# Keep the build context small and never bake local secrets into the image.
+.git
+.vs
+.idea
+.claude
+**/node_modules
+**/dist
+**/bin
+**/obj
+**/*.user
+dashboard/.env.local
+dashboard/.env.*.local
+api/appsettings.local.json
+api/appsettings.local.*.json
+api/docker-compose.yml

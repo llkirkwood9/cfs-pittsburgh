@@ -36,7 +36,7 @@ const AddServiceModal = ({ parentLine, options, onAdd, onClose }: Props) => {
 
     return (
         <Modal
-            title={`Add service to ${parentLine.description}`}
+            title={`Add shipping or service to ${parentLine.description}`}
             onClose={onClose}
             footer={
                 <>

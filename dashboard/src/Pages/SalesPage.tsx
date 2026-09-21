@@ -369,7 +369,7 @@ const SalesPage = () => {
             {servicingLine && (
                 <AddServiceModal
                     parentLine={servicingLine}
-                    options={deliveryOptions.filter((o) => !o.isTakeWith)}
+                    options={deliveryOptions}
                     onAdd={handleAddLine}
                     onClose={() => setServicingLine(null)}
                 />

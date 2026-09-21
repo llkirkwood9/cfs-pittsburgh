@@ -1,20 +1,33 @@
 import { useEffect, useState } from "react";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import LoadingPage from "../Components/Elements/LoadingPage";
 import ReceiptSheet from "../Components/Checkout/ReceiptSheet";
 import { useAuth } from "../Context/AuthContext";
+import { HomePathForRole } from "../Lib/RoleRoutes";
 import type { Order } from "../Models/Order";
 import { GetOrder } from "../Services/OrderServices";
 
 /**
- * The printable copy of a completed sale. The toolbar is marked no-print so the paper that comes
+ * The printable copy of a sale. Unfinished orders are stamped as such by the sheet itself. The toolbar is marked no-print so the paper that comes
  * out of the tray is just the sales sheet.
  */
 const ReceiptPage = () => {
     const { user } = useAuth();
     const { orderId } = useParams();
     const navigate = useNavigate();
+    const location = useLocation();
+
+    // Whoever opened the sheet says where they came from, so Back returns to the Orders list or
+    // the checkout table as appropriate. A sheet opened from a bookmark or a fresh tab falls back
+    // to the browser history, then to the user's home screen.
+    const from = (location.state as { from?: string; label?: string } | null) ?? null;
+    const goBack = () => {
+        if (from?.from) navigate(from.from);
+        else if (location.key !== "default") navigate(-1);
+        else navigate(HomePathForRole(user?.role));
+    };
+    const backLabel = from?.label ?? "Back";
 
     const [order, setOrder] = useState<Order | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
@@ -38,9 +51,9 @@ const ReceiptPage = () => {
             <div className="p-8 text-center">
                 <p className="text-base font-semibold">That order could not be found.</p>
                 <Button
-                    text="Back to checkout"
+                    text={backLabel}
                     icon="fa-solid fa-arrow-left"
-                    onClick={() => navigate("/checkout")}
+                    onClick={goBack}
                     className="mt-4"
                 />
             </div>
@@ -51,9 +64,9 @@ const ReceiptPage = () => {
         <div className="min-h-screen bg-zinc-200 py-4 dark:bg-zinc-900">
             <div className="no-print mx-auto mb-4 flex max-w-[8in] flex-wrap items-center gap-2 px-3">
                 <Button
-                    text="Back"
+                    text={backLabel}
                     icon="fa-solid fa-arrow-left"
-                    onClick={() => navigate("/checkout")}
+                    onClick={goBack}
                     className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                 />
                 <Button

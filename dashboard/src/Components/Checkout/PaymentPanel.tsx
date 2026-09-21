@@ -2,7 +2,7 @@ import { useState } from "react";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import TextField from "../Elements/TextField";
-import { FormatCurrency, ParseMoney } from "../../Lib/ModelHelpers";
+import { FormatCurrency, ParseMoney, PaymentMethodLabels } from "../../Lib/ModelHelpers";
 import { Toast } from "../../Lib/Toast";
 import type { Order } from "../../Models/Order";
 import type { OrderPayment, PaymentMethod } from "../../Models/OrderPayment";
@@ -14,12 +14,13 @@ type Props = {
     onMethodChange: (method: PaymentMethod) => Promise<void>;
 };
 
+// Cash and check first: they are the common case at a school fundraiser and carry no card fee.
 const methods: { key: PaymentMethod; label: string; icon: string }[] = [
-    { key: "VisaMc", label: "Visa/MC", icon: "fa-solid fa-credit-card" },
-    { key: "Cash", label: "Cash", icon: "fa-solid fa-money-bill-wave" },
-    { key: "Check", label: "Check", icon: "fa-solid fa-money-check" },
-    { key: "Financing", label: "Financing", icon: "fa-solid fa-file-signature" },
-    { key: "Layaway", label: "Layaway", icon: "fa-solid fa-box-archive" },
+    { key: "Cash", label: PaymentMethodLabels.Cash, icon: "fa-solid fa-money-bill-wave" },
+    { key: "Check", label: PaymentMethodLabels.Check, icon: "fa-solid fa-money-check" },
+    { key: "VisaMc", label: PaymentMethodLabels.VisaMc, icon: "fa-solid fa-credit-card" },
+    { key: "Financing", label: PaymentMethodLabels.Financing, icon: "fa-solid fa-file-signature" },
+    { key: "Layaway", label: PaymentMethodLabels.Layaway, icon: "fa-solid fa-box-archive" },
 ];
 
 /**
@@ -27,8 +28,10 @@ const methods: { key: PaymentMethod; label: string; icon: string }[] = [
  * and the amount field pre-fills with whatever is still owed so the common case is two taps.
  */
 const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
-    const [method, setMethod] = useState<PaymentMethod | null>(
-        order.applyCcProcessingFee ? "VisaMc" : null
+    // Cash is the default. It carries no card fee, so the selection shown always matches the
+    // total shown; an order already switched to card reopens on card.
+    const [method, setMethod] = useState<PaymentMethod>(
+        order.applyCcProcessingFee ? "VisaMc" : "Cash"
     );
     const [amount, setAmount] = useState<string>("");
     const [checkNumber, setCheckNumber] = useState<string>("");
@@ -48,8 +51,6 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
     };
 
     const handleAdd = async () => {
-        if (!method) return Toast.Warning("Pick a payment method first.");
-
         const parsed = ParseMoney(amount);
         if (parsed === null || parsed <= 0) return Toast.Warning("Enter an amount to record.");
 

@@ -1,5 +1,18 @@
 import type { OrderLine } from "../Models/OrderLine";
+import type { PaymentMethod } from "../Models/OrderPayment";
 import type { ProductVariant } from "../Models/ProductVariant";
+
+/**
+ * What each payment method is called on screen and on the printed sheet. The stored value stays
+ * VisaMc so older orders keep reading correctly.
+ */
+export const PaymentMethodLabels: Record<PaymentMethod, string> = {
+    Cash: "Cash",
+    Check: "Check",
+    VisaMc: "Credit/Debit Card",
+    Financing: "Financing",
+    Layaway: "Layaway",
+};
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 

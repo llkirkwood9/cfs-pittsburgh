@@ -120,12 +120,25 @@ const OrdersPage = () => {
         <div className="mx-auto max-w-screen-2xl p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h1 className="text-xl font-bold">Orders</h1>
-                <Button
-                    text="Refresh"
-                    icon="fa-solid fa-rotate"
-                    onClick={runSearch}
-                    className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
-                />
+                <div className="flex flex-wrap gap-2">
+                    {isAdmin && scope?.kind === "event" && (
+                        <Button
+                            text="Print all completed sheets"
+                            icon="fa-solid fa-print"
+                            onClick={() =>
+                                navigate(`/events/${scope.eventId}/sheets`, {
+                                    state: { from: "/orders", label: "Back to orders" },
+                                })
+                            }
+                        />
+                    )}
+                    <Button
+                        text="Refresh"
+                        icon="fa-solid fa-rotate"
+                        onClick={runSearch}
+                        className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                    />
+                </div>
             </div>
 
             {isAdmin && (
@@ -234,7 +247,11 @@ const OrdersPage = () => {
                             <Button
                                 text="Sales sheet"
                                 icon="fa-solid fa-file-lines"
-                                onClick={() => navigate(`/receipt/${order.id}`)}
+                                onClick={() =>
+                                    navigate(`/receipt/${order.id}`, {
+                                        state: { from: "/orders", label: "Back to orders" },
+                                    })
+                                }
                                 className="min-h-[44px] px-3 text-sm"
                             />
                         </li>

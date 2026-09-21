@@ -6,6 +6,7 @@ import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import AcknowledgementSheet from "../Components/Checkout/AcknowledgementSheet";
 import CheckoutQueue from "../Components/Checkout/CheckoutQueue";
+import CommentsCard from "../Components/Checkout/CommentsCard";
 import PaymentPanel from "../Components/Checkout/PaymentPanel";
 import AddItemModal from "../Components/Sales/AddItemModal";
 import AddServiceModal from "../Components/Sales/AddServiceModal";
@@ -158,7 +159,7 @@ const CheckoutPage = () => {
         await applyResult(await DeleteOrderPayment(paymentId));
     };
 
-    /** Choosing Visa/MC puts the card fee on the total; anything else takes it back off. */
+    /** Choosing a card puts the card fee on the total; anything else takes it back off. */
     const handleMethodChange = async (method: PaymentMethod) => {
         if (!order?.id) return;
         await saveOrder({ applyCcProcessingFee: method === "VisaMc" });
@@ -174,7 +175,9 @@ const CheckoutPage = () => {
         if (!result) return;
 
         Toast.Success(`Order #${result.orderNumber} completed.`);
-        navigate(`/receipt/${result.id}`);
+        navigate(`/receipt/${result.id}`, {
+            state: { from: "/checkout", label: "Back to checkout" },
+        });
     };
 
     const handleSendBack = async () => {
@@ -317,6 +320,13 @@ const CheckoutPage = () => {
                                 )}
                             </div>
 
+                            <CommentsCard
+                                key={order.id}
+                                order={order}
+                                readOnly={closed}
+                                onSave={saveOrder}
+                            />
+
                             <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
                                 <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                                     Payment
@@ -407,7 +417,9 @@ const CheckoutPage = () => {
                                         <Button
                                             text="Print sales sheet"
                                             icon="fa-solid fa-print"
-                                            onClick={() => navigate(`/receipt/${order.id}`)}
+                                            onClick={() => navigate(`/receipt/${order.id}`, {
+                                                    state: { from: "/checkout", label: "Back to checkout" },
+                                                })}
                                             className="flex-1 sm:flex-none"
                                         />
                                     ) : (
@@ -467,7 +479,7 @@ const CheckoutPage = () => {
             {servicingLine && (
                 <AddServiceModal
                     parentLine={servicingLine}
-                    options={deliveryOptions.filter((o) => !o.isTakeWith)}
+                    options={deliveryOptions}
                     onAdd={handleAddLine}
                     onClose={() => setServicingLine(null)}
                 />

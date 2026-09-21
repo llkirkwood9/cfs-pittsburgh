@@ -1,5 +1,10 @@
-import { FormatCurrency, FormatShortDate, SortLinesForPrint } from "../../Lib/ModelHelpers";
-import type { Order } from "../../Models/Order";
+import {
+    FormatCurrency,
+    FormatShortDate,
+    PaymentMethodLabels,
+    SortLinesForPrint,
+} from "../../Lib/ModelHelpers";
+import type { Order, OrderStatus } from "../../Models/Order";
 import type { PaymentMethod } from "../../Models/OrderPayment";
 
 type Props = {
@@ -10,6 +15,22 @@ type Props = {
 const MIN_ITEM_ROWS = 14;
 
 const cell = "border border-black px-1 py-[3px] align-top";
+
+/** What a sheet for an unfinished order is stamped with, on screen and on paper. */
+const unfinished: Partial<Record<OrderStatus, { stamp: string; detail: string }>> = {
+    Draft: {
+        stamp: "NOT COMPLETED",
+        detail: "This order is still being written up on the sales floor.",
+    },
+    AwaitingCheckout: {
+        stamp: "NOT COMPLETED",
+        detail: "This order is waiting at the checkout table and has not been paid.",
+    },
+    Voided: {
+        stamp: "VOIDED",
+        detail: "This order was voided and is not a valid sale.",
+    },
+};
 const label = "text-[8px] font-bold uppercase leading-none";
 
 /**
@@ -18,6 +39,7 @@ const label = "text-[8px] font-bold uppercase leading-none";
  */
 const ReceiptSheet = ({ order }: Props) => {
     const lines = SortLinesForPrint(order.lines ?? []);
+    const notice = unfinished[order.status ?? "Draft"];
     const blanks = Math.max(0, MIN_ITEM_ROWS - lines.length);
 
     const paidBy = (method: PaymentMethod): string => {
@@ -93,7 +115,20 @@ const ReceiptSheet = ({ order }: Props) => {
     };
 
     return (
-        <div className="print-sheet mx-auto w-full max-w-[8in] bg-white p-4 font-sans text-black shadow-lg">
+        <div className="print-sheet relative mx-auto w-full max-w-[8in] overflow-hidden bg-white p-4 font-sans text-black shadow-lg">
+            {/* An unfinished order is stamped across the whole sheet so a printed copy can never
+                be mistaken for a final sale. */}
+            {notice && (
+                <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
+                >
+                    <span className="-rotate-[30deg] select-none whitespace-nowrap text-[88px] font-black tracking-widest text-red-600/20">
+                        {notice.stamp}
+                    </span>
+                </div>
+            )}
+
             {/* Masthead */}
             <div className="flex items-start justify-between">
                 <div>
@@ -109,6 +144,12 @@ const ReceiptSheet = ({ order }: Props) => {
                     </p>
                 </div>
             </div>
+
+            {notice && (
+                <div className="mt-1 border-2 border-red-600 px-2 py-1 text-center text-[11px] font-bold text-red-700">
+                    {notice.stamp} - NOT A FINAL SALES SHEET. {notice.detail}
+                </div>
+            )}
 
             {/* Header row */}
             <table className="mt-1 w-full border-collapse text-center text-[10px]">
@@ -185,7 +226,17 @@ const ReceiptSheet = ({ order }: Props) => {
                         <tr key={line.id}>
                             <td className={`${cell} h-[20px]`}>{line.brand}</td>
                             <td className={`${cell} h-[20px] text-center`}>{line.size}</td>
-                            <td className={`${cell} h-[20px]`}>{line.description}</td>
+                            <td
+                                className={`${cell} h-[20px] ${line.parentLineId ? "pl-4" : ""}`}
+                            >
+                                {line.lineType === "Delivery" && (
+                                    <span className="text-[8px] font-bold uppercase">Ship: </span>
+                                )}
+                                {line.description}
+                                {line.lineType === "Included" && (
+                                    <span className="text-[9px] italic"> (included)</span>
+                                )}
+                            </td>
                             <td className={`${cell} h-[20px] text-center`}>
                                 {line.lineType === "Delivery" ? "" : line.quantity}
                             </td>
@@ -193,7 +244,7 @@ const ReceiptSheet = ({ order }: Props) => {
                                 {line.takeWith ? "X" : ""}
                             </td>
                             <td className={`${cell} h-[20px] text-right`}>
-                                {FormatCurrency(line.unitPrice)}
+                                {line.lineType === "Included" ? "Incl." : FormatCurrency(line.unitPrice)}
                             </td>
                             <td className={`${cell} h-[20px] text-center`}>
                                 {(line.discountPercent ?? 0) > 0 ? `${line.discountPercent}%` : ""}
@@ -202,7 +253,7 @@ const ReceiptSheet = ({ order }: Props) => {
                                 {(line.discountPercent ?? 0) > 0 ? FormatCurrency(line.salePrice) : ""}
                             </td>
                             <td className={`${cell} h-[20px] text-right font-semibold`}>
-                                {FormatCurrency(line.lineTotal)}
+                                {line.lineType === "Included" ? "Incl." : FormatCurrency(line.lineTotal)}
                             </td>
                         </tr>
                     ))}
@@ -242,7 +293,9 @@ const ReceiptSheet = ({ order }: Props) => {
                             <table className="w-full border-collapse text-[10px]">
                                 <tbody>
                                     <tr>
-                                        <td className={`${cell} w-[17%] font-semibold`}>Visa/MC</td>
+                                        <td className={`${cell} w-[17%] font-semibold`}>
+                                            {PaymentMethodLabels.VisaMc}
+                                        </td>
                                         <td className={`${cell} w-[13%] text-right`}>
                                             {paidBy("VisaMc")}
                                         </td>

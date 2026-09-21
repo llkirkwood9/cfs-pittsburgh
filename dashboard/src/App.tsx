@@ -19,8 +19,11 @@ const App = () => {
         setNavigateFunction(navigate);
     }, [navigate]);
 
+    // Printable pages drop the app chrome so the paper copy is just the sales sheets.
     const chromeless =
-        location.pathname === "/login" || location.pathname.startsWith("/receipt/");
+        location.pathname === "/login" ||
+        location.pathname.startsWith("/receipt/") ||
+        /^\/events\/\d+\/sheets$/.test(location.pathname);
 
     const showNavbar = Boolean(user) && !chromeless;
 

@@ -1,0 +1,22 @@
+# Runs the single CFS Fundraiser container (SQL Server + API + dashboard).
+#
+#   docker compose up -d --build
+#
+# Then open http://localhost:8080. Set real values for the two secrets below, either here or in a
+# .env file next to this one (MSSQL_SA_PASSWORD=..., JWT_KEY=...), before a real event.
+services:
+  cfs:
+    build: .
+    image: cfs-fundraiser:latest
+    container_name: cfs-fundraiser
+    ports:
+      - "8080:8080"
+    environment:
+      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-Change_Me_2026!}"
+      Jwt__Key: "${JWT_KEY:-CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_OF_AT_LEAST_32_CHARACTERS}"
+    volumes:
+      - cfs-data:/var/opt/mssql
+    restart: unless-stopped
+
+volumes:
+  cfs-data:

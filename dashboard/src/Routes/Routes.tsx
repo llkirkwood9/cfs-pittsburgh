@@ -7,6 +7,7 @@ import CheckoutPage from "../Pages/CheckoutPage";
 import CrewPage from "../Pages/CrewPage";
 import DashboardPage from "../Pages/DashboardPage";
 import ErrorPage from "../Pages/ErrorPage";
+import EventSheetsPage from "../Pages/EventSheetsPage";
 import EventsPage from "../Pages/EventsPage";
 import LoginPage from "../Pages/LoginPage";
 import NotFoundPage from "../Pages/NotFoundPage";
@@ -83,6 +84,14 @@ export const router = createBrowserRouter([
                 element: (
                     <ProtectedRoute roles={["Admin"]}>
                         <EventsPage />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "events/:eventId/sheets",
+                element: (
+                    <ProtectedRoute roles={["Admin"]}>
+                        <EventSheetsPage />
                     </ProtectedRoute>
                 ),
             },

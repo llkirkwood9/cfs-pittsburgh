@@ -103,6 +103,7 @@ namespace api.Controllers
 
                 var nextSort = order.Lines.Count == 0 ? 1 : order.Lines.Max(l => l.SortOrder) + 1;
                 var line = new OrderLine { OrderId = order.Id, LineType = lineType, SortOrder = nextSort };
+                ProductVariant? soldVariant = null;
 
                 if (request.ProductVariantId != null)
                 {
@@ -124,6 +125,7 @@ namespace api.Controllers
                     line.Description = request.Description ?? BuildDescription(variant);
                     line.UnitPrice = request.UnitPrice ?? variant.Price ?? 0m;
                     line.IncludesAdjustableBase = variant.IncludesAdjustableBase;
+                    soldVariant = variant;
                 }
                 else if (lineType == OrderLineType.Delivery && request.DeliveryOptionId != null)
                 {
@@ -138,6 +140,10 @@ namespace api.Controllers
                     line.IsTaxable = request.IsTaxable ?? option.IsTaxable;
                     line.TakeWith = option.IsTakeWith;
                     line.ParentLineId = request.ParentLineId;
+
+                    var parentLine = order.Lines.FirstOrDefault(l => l.Id == request.ParentLineId);
+                    if (parentLine != null && option.IsTakeWith)
+                        parentLine.TakeWith = true;
                 }
                 else
                 {
@@ -178,6 +184,11 @@ namespace api.Controllers
 
                 order.Lines.Add(line);
                 await DB.SaveChangesAsync();
+
+                // A mattress sold as a set with an adjustable base gets the base on its own row
+                // underneath, so the sheet shows exactly what is being delivered.
+                if (line.LineType == OrderLineType.Product && soldVariant is { IncludesAdjustableBase: true })
+                    await AddIncludedBaseLineAsync(order, line, soldVariant);
 
                 // A product line may carry its delivery choice with it, so the floor can add both
                 // in one tap without a second round trip.
@@ -565,6 +576,49 @@ namespace api.Controllers
         }
 
         /// <summary>
+        /// Full orders for an event, ready to print as a stack of sales sheets or export. Admin only.
+        /// Defaults to completed sales, which is what goes in the event's paperwork.
+        /// </summary>
+        /// <param name="eventId">Event id</param>
+        /// <param name="status">Status to include; defaults to Completed</param>
+        /// <returns>Full orders in order-number order.</returns>
+        [HttpGet("orders/event/{eventId}/sheets")]
+        [Authorize(AuthenticationSchemes = "Bearer")]
+        public async Task<IActionResult> GetSalesSheetsForEvent(int eventId, [FromQuery] string? status = null)
+        {
+            try
+            {
+                if (!IsInRole(UserRole.Admin))
+                    return StatusCode(403, new { error = "Only an administrator may export an event's sales sheets." });
+
+                if (!await DB.Events.AnyAsync(e => e.Id == eventId))
+                    return NotFound(new { error = "Event not found." });
+
+                var wanted = OrderStatus.Completed;
+                if (!string.IsNullOrWhiteSpace(status) && !Enum.TryParse(status, true, out wanted))
+                    return BadRequest(new { error = "Invalid parameter." });
+
+                var orders = await DB.Orders
+                    .Where(o => o.EventId == eventId && o.Status == wanted)
+                    .Include(o => o.Lines)
+                    .Include(o => o.Payments)
+                    .Include(o => o.Event)
+                    .Include(o => o.CreatedByUser)
+                    .Include(o => o.CompletedByUser)
+                    .AsNoTracking()
+                    .OrderBy(o => o.OrderNumber)
+                    .ToListAsync();
+
+                return Ok(orders.Select(ToDto).ToList());
+            }
+            catch (Exception e)
+            {
+                Trace(TraceEventType.Critical, e.Message);
+                return StatusCode(500, new { error = "Internal error occurred while getting the sales sheets.", exception = e.Message });
+            }
+        }
+
+        /// <summary>
         /// Gets a full order, including every line and payment, for editing and for the receipt.
         /// </summary>
         /// <param name="id">Order id</param>
@@ -676,6 +730,9 @@ namespace api.Controllers
 
                 var line = order.Lines.First(l => l.Id == request.Id.Value);
 
+                if (line.LineType == OrderLineType.Included)
+                    return BadRequest(new { error = "This base comes with the mattress. Edit or remove the mattress line instead." });
+
                 if (request.Description != null)
                 {
                     if (string.IsNullOrWhiteSpace(request.Description) || request.Description.Length > 300)
@@ -700,7 +757,14 @@ namespace api.Controllers
                     line.Size = request.Size;
 
                 if (request.Quantity != null)
+                {
                     line.Quantity = request.Quantity.Value;
+
+                    // An included base always matches the number of sets sold.
+                    foreach (var included in order.Lines.Where(l => l.ParentLineId == line.Id
+                                                                    && l.LineType == OrderLineType.Included))
+                        included.Quantity = line.Quantity;
+                }
 
                 if (request.TakeWith != null)
                     line.TakeWith = request.TakeWith.Value;
@@ -858,11 +922,25 @@ namespace api.Controllers
                 if (order.Status is OrderStatus.Completed or OrderStatus.Voided)
                     return BadRequest(new { error = "This order is closed and can no longer be changed." });
 
+                var target = order.Lines.First(l => l.Id == id);
+                if (target.LineType == OrderLineType.Included)
+                    return BadRequest(new { error = "This base comes with the mattress. Remove the mattress line instead." });
+
                 var doomed = order.Lines.Where(l => l.Id == id || l.ParentLineId == id).ToList();
                 foreach (var line in doomed)
                 {
                     order.Lines.Remove(line);
                     DB.OrderLines.Remove(line);
+                }
+
+                // Removing the last Take With row from an item clears its Take With box.
+                if (target.LineType == OrderLineType.Delivery && target.TakeWith && target.ParentLineId != null)
+                {
+                    var parent = order.Lines.FirstOrDefault(l => l.Id == target.ParentLineId);
+                    if (parent != null && !order.Lines.Any(l => l.ParentLineId == parent.Id
+                                                                && l.LineType == OrderLineType.Delivery
+                                                                && l.TakeWith))
+                        parent.TakeWith = false;
                 }
 
                 OrderCalculator.RecalculateOrder(order);
@@ -935,10 +1013,12 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// Creates the delivery line that belongs to a product line and links the two.
+        /// Creates the shipping row that belongs to a product line and links the two. Every method
+        /// gets a row, including no-charge ones such as Drop Ship, because the sheet has to say how
+        /// each item is leaving the building. Take With also ticks the box on the product row.
         /// </summary>
         /// <param name="order">Owning order</param>
-        /// <param name="parent">The product line the charge hangs off</param>
+        /// <param name="parent">The product line the shipping row belongs to</param>
         /// <param name="deliveryOptionId">Chosen delivery option</param>
         /// <returns>False when the delivery option does not exist.</returns>
         private async Task<bool> AddLinkedDeliveryLineAsync(Order order, OrderLine parent, int deliveryOptionId)
@@ -946,14 +1026,6 @@ namespace api.Controllers
             var option = await DB.DeliveryOptions.FindAsync(deliveryOptionId);
             if (option == null)
                 return false;
-
-            // Take With is a tick box on the product row rather than a charge of its own.
-            if (option.IsTakeWith)
-            {
-                parent.TakeWith = true;
-                parent.DeliveryOptionId = option.Id;
-                return true;
-            }
 
             var productDelivery = await DB.ProductDeliveryOptions
                 .FirstOrDefaultAsync(p => p.DeliveryOptionId == option.Id
@@ -966,10 +1038,8 @@ namespace api.Controllers
 
             parent.DeliveryOptionId = option.Id;
 
-            // A zero-cost method such as Drop Ship is recorded on the product row only, so the
-            // receipt does not carry a meaningless $0.00 line.
-            if (price <= 0)
-                return true;
+            if (option.IsTakeWith)
+                parent.TakeWith = true;
 
             order.Lines.Add(new OrderLine
             {
@@ -980,12 +1050,50 @@ namespace api.Controllers
                 ParentLineId = parent.Id,
                 Description = option.Name,
                 Quantity = 1,
-                UnitPrice = price,
+                UnitPrice = price < 0 ? 0 : price,
                 IsTaxable = option.IsTaxable,
-                SortOrder = parent.SortOrder + 1,
+                TakeWith = option.IsTakeWith,
+                SortOrder = parent.SortOrder + 2,
             });
 
             return true;
+        }
+
+        /// <summary>
+        /// Adds the adjustable base that comes with a mattress-and-base set as its own no-charge row.
+        /// The base is named after the matching standalone base in the catalog when there is one
+        /// (IMC61, ES200), otherwise after the configuration the set was sold as.
+        /// </summary>
+        /// <param name="order">Owning order</param>
+        /// <param name="parent">The mattress line sold as a set</param>
+        /// <param name="variant">The variant that was sold</param>
+        private async Task AddIncludedBaseLineAsync(Order order, OrderLine parent, ProductVariant variant)
+        {
+            var configuration = string.IsNullOrWhiteSpace(variant.Configuration)
+                ? "Adjustable"
+                : variant.Configuration.Trim();
+
+            var model = configuration.Split(' ', StringSplitOptions.RemoveEmptyEntries)[0];
+
+            var baseProduct = await DB.Products
+                .Where(p => p.Category == ProductCategory.AdjustableBase && p.Name.Contains(model))
+                .OrderBy(p => p.SortOrder)
+                .FirstOrDefaultAsync();
+
+            order.Lines.Add(new OrderLine
+            {
+                OrderId = order.Id,
+                LineType = OrderLineType.Included,
+                Category = ProductCategory.AdjustableBase,
+                ParentLineId = parent.Id,
+                Brand = baseProduct?.Brand ?? parent.Brand,
+                Size = parent.Size,
+                Description = baseProduct?.Name ?? $"{configuration} Base",
+                Quantity = parent.Quantity,
+                UnitPrice = 0m,
+                IsTaxable = false,
+                SortOrder = parent.SortOrder + 1,
+            });
         }
 
         /// <summary>

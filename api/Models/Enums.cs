@@ -82,6 +82,13 @@ namespace api.Models
 
         /// <summary>A free-text line typed by the rep for something not in the catalog.</summary>
         Custom = 2,
+
+        /// <summary>
+        /// A component that comes with its parent line at no extra charge, such as the adjustable
+        /// base in a mattress-and-base set. Printed as its own row so the sheet shows exactly
+        /// what is being delivered.
+        /// </summary>
+        Included = 3,
     }
 
     /// <summary>

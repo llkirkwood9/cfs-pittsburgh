@@ -18,6 +18,11 @@ type Props = {
 const OrderLineList = ({ lines, readOnly = false, onEdit, onAddService, onRemove }: Props) => {
     const ordered = SortLinesForPrint(lines);
 
+    // Sets sold since the base got its own row do not need the badge as well; older orders still do.
+    const hasBaseRow = new Set(
+        lines.filter((l) => l.lineType === "Included").map((l) => l.parentLineId)
+    );
+
     if (ordered.length === 0) {
         return (
             <div className="rounded-xl border-2 border-dashed border-zinc-300 py-10 text-center dark:border-zinc-700">
@@ -33,24 +38,41 @@ const OrderLineList = ({ lines, readOnly = false, onEdit, onAddService, onRemove
         <ul className="space-y-2">
             {ordered.map((line) => {
                 const isService = line.lineType === "Delivery";
+                const isIncluded = line.lineType === "Included";
+                const isChild = isService || isIncluded;
 
                 return (
                     <li
                         key={line.id}
                         className={`rounded-xl bg-white p-3 shadow-sm transition-colors dark:bg-zinc-800 ${
-                            isService ? "ml-4 border-l-4 border-sky-500/50" : ""
+                            isService
+                                ? "ml-4 border-l-4 border-sky-500/50"
+                                : isIncluded
+                                  ? "ml-4 border-l-4 border-violet-500/50"
+                                  : ""
                         }`}
                     >
                         <div className="flex items-start gap-3">
                             <div className="min-w-0 flex-1">
                                 <p className="truncate font-semibold text-zinc-900 dark:text-zinc-100">
+                                    {isService && (
+                                        <span className="mr-1 text-xs font-bold uppercase text-sky-700 dark:text-sky-400">
+                                            Ship
+                                        </span>
+                                    )}
                                     {line.description}
                                 </p>
                                 <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
                                     {line.brand && <span>{line.brand}</span>}
                                     {line.size && <span>{line.size}</span>}
-                                    <span>Qty {line.quantity}</span>
-                                    <span>{FormatCurrency(line.unitPrice)} ea</span>
+                                    {!isService && <span>Qty {line.quantity}</span>}
+                                    {isIncluded ? (
+                                        <span className="rounded bg-violet-100 px-1.5 py-0.5 font-semibold text-violet-800 dark:bg-violet-900/50 dark:text-violet-300">
+                                            Included with mattress
+                                        </span>
+                                    ) : (
+                                        <span>{FormatCurrency(line.unitPrice)} ea</span>
+                                    )}
                                     {(line.discountPercent ?? 0) > 0 && (
                                         <span className="rounded bg-green-100 px-1.5 py-0.5 font-semibold text-green-800 dark:bg-green-900/50 dark:text-green-300">
                                             -{line.discountPercent}%
@@ -61,7 +83,7 @@ const OrderLineList = ({ lines, readOnly = false, onEdit, onAddService, onRemove
                                             Take with
                                         </span>
                                     )}
-                                    {line.includesAdjustableBase && (
+                                    {line.includesAdjustableBase && !hasBaseRow.has(line.id) && (
                                         <span className="rounded bg-violet-100 px-1.5 py-0.5 font-semibold text-violet-800 dark:bg-violet-900/50 dark:text-violet-300">
                                             Incl. base
                                         </span>
@@ -71,12 +93,12 @@ const OrderLineList = ({ lines, readOnly = false, onEdit, onAddService, onRemove
 
                             <div className="shrink-0 text-right">
                                 <p className="text-lg font-bold tabular-nums text-zinc-900 dark:text-zinc-100">
-                                    {FormatCurrency(line.lineTotal)}
+                                    {isIncluded ? "Incl." : FormatCurrency(line.lineTotal)}
                                 </p>
                             </div>
                         </div>
 
-                        {!readOnly && (
+                        {!readOnly && !isIncluded && (
                             <div className="mt-2 flex flex-wrap gap-2">
                                 {onEdit && (
                                     <Button
@@ -86,7 +108,7 @@ const OrderLineList = ({ lines, readOnly = false, onEdit, onAddService, onRemove
                                         className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                                     />
                                 )}
-                                {onAddService && !isService && (
+                                {onAddService && !isChild && (
                                     <Button
                                         text="Add service"
                                         icon="fa-solid fa-truck"
