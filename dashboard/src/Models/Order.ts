@@ -71,6 +71,5 @@ export type Order = {
     lines?: OrderLine[];
     payments?: OrderPayment[];
 
-    eventSchoolName?: string | null;
     eventOrganization?: string | null;
 };

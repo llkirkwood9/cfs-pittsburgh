@@ -200,9 +200,10 @@ const SalesPage = () => {
         return (
             <div className="mx-auto max-w-lg p-6 text-center">
                 <Icon icon="fa-solid fa-calendar-xmark" className="text-3xl text-zinc-400" />
-                <h1 className="mt-3 text-xl font-bold">No event set up</h1>
+                <h1 className="mt-3 text-xl font-bold">No active event</h1>
                 <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                    An administrator needs to create an event before orders can be taken.
+                    New orders can only be taken while an event is active. An administrator can
+                    activate one under Events.
                 </p>
             </div>
         );
@@ -211,12 +212,7 @@ const SalesPage = () => {
     return (
         <div className="mx-auto max-w-screen-2xl p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
-                <h1 className="text-xl font-bold">
-                    {saleEvent.schoolName}
-                    <span className="ml-2 text-sm font-normal text-zinc-500 dark:text-zinc-400">
-                        {saleEvent.organization}
-                    </span>
-                </h1>
+                <h1 className="text-xl font-bold">{saleEvent.organization}</h1>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">
                     {drafts.length} open order{drafts.length === 1 ? "" : "s"}
                 </p>
@@ -323,7 +319,9 @@ const SalesPage = () => {
                                     loading={submitting}
                                     // The API rejects an empty or unnamed order anyway; greying
                                     // the button out saves the rep a round trip to find out.
-                                    disabled={(order.lines?.length ?? 0) === 0 || !order.billingName}
+                                    disabled={
+                                        (order.lines?.length ?? 0) === 0 || !order.billingName
+                                    }
                                     title={
                                         (order.lines?.length ?? 0) === 0
                                             ? "Add at least one item first"

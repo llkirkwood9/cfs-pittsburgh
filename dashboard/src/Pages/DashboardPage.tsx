@@ -16,7 +16,7 @@ import { GetActiveEvent, GetEvents } from "../Services/EventServices";
 const POLL_MS = 15000;
 
 /**
- * The School Stat Sheet, live. Only completed sales feed the money figures; work still on the
+ * The event's stat sheet, live. Only completed sales feed the money figures; work still on the
  * floor or at the checkout table is shown separately so nobody counts it twice.
  */
 const DashboardPage = () => {
@@ -78,10 +78,18 @@ const DashboardPage = () => {
 
     const units: { label: string; value: number; icon: string }[] = [
         { label: "Mattresses", value: stats?.mattressCount ?? 0, icon: "fa-solid fa-bed" },
-        { label: "Adjustable bases", value: stats?.adjustableBaseCount ?? 0, icon: "fa-solid fa-sliders" },
+        {
+            label: "Adjustable bases",
+            value: stats?.adjustableBaseCount ?? 0,
+            icon: "fa-solid fa-sliders",
+        },
         { label: "Purple", value: stats?.purpleCount ?? 0, icon: "fa-solid fa-star" },
         { label: "Helix", value: stats?.helixCount ?? 0, icon: "fa-solid fa-star" },
-        { label: "Protectors", value: stats?.mattressProtectorCount ?? 0, icon: "fa-solid fa-shield" },
+        {
+            label: "Protectors",
+            value: stats?.mattressProtectorCount ?? 0,
+            icon: "fa-solid fa-shield",
+        },
         { label: "Pillows", value: stats?.pillowCount ?? 0, icon: "fa-solid fa-cloud" },
         { label: "Sheets", value: stats?.sheetCount ?? 0, icon: "fa-solid fa-layer-group" },
         { label: "Frames", value: stats?.frameCount ?? 0, icon: "fa-solid fa-border-all" },
@@ -101,12 +109,7 @@ const DashboardPage = () => {
         <div className="mx-auto max-w-screen-2xl p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h1 className="text-xl font-bold">
-                    {scope === "day" ? "Today across all events" : stats?.schoolName}
-                    {scope === "event" && stats?.organization && (
-                        <span className="ml-2 text-sm font-normal text-zinc-500 dark:text-zinc-400">
-                            {stats.organization}
-                        </span>
-                    )}
+                    {scope === "day" ? "Today across all events" : stats?.organization}
                 </h1>
                 <Button
                     text="Refresh"
@@ -117,11 +120,15 @@ const DashboardPage = () => {
             </div>
 
             <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1">
-                <TabButton text="Today" active={scope === "day"} onClick={() => switchScope("day")} />
+                <TabButton
+                    text="Today"
+                    active={scope === "day"}
+                    onClick={() => switchScope("day")}
+                />
                 {events.map((event) => (
                     <TabButton
                         key={event.id}
-                        text={`${event.schoolName} ${event.organization ?? ""}`.trim()}
+                        text={event.organization ?? ""}
                         active={scope === "event" && event.id === eventId}
                         onClick={() => event.id && switchEvent(event.id)}
                     />
@@ -189,7 +196,10 @@ const DashboardPage = () => {
                     </h2>
                     <dl className="space-y-2">
                         {payments.map((row) => (
-                            <div key={row.label} className="flex items-baseline justify-between gap-4">
+                            <div
+                                key={row.label}
+                                className="flex items-baseline justify-between gap-4"
+                            >
                                 <dt className="text-sm text-zinc-600 dark:text-zinc-400">
                                     {row.label}
                                 </dt>
@@ -226,7 +236,7 @@ const DashboardPage = () => {
                 </section>
             </div>
 
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+            <div className="grid grid-cols-1 gap-4">
                 <section className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
                     <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                         Best sellers
@@ -253,38 +263,6 @@ const DashboardPage = () => {
                                     </span>
                                     <span className="shrink-0 text-sm font-semibold tabular-nums">
                                         {FormatCurrency(product.revenue)}
-                                    </span>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </section>
-
-                <section className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
-                    <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                        By rep
-                    </h2>
-                    {(stats?.repTotals ?? []).length === 0 ? (
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400">No sales yet.</p>
-                    ) : (
-                        <ul className="space-y-1">
-                            {(stats?.repTotals ?? []).map((rep) => (
-                                <li
-                                    key={rep.repName}
-                                    className="flex items-center gap-3 rounded-lg px-2 py-1.5 odd:bg-zinc-50 dark:odd:bg-zinc-700/40"
-                                >
-                                    <span className="min-w-0 flex-1">
-                                        <span className="block truncate text-sm font-medium">
-                                            {rep.repName}
-                                        </span>
-                                        <span className="block text-xs text-zinc-500 dark:text-zinc-400">
-                                            {rep.orderCount} sale
-                                            {rep.orderCount === 1 ? "" : "s"} &middot; avg{" "}
-                                            {FormatCurrency(rep.averageSale)}
-                                        </span>
-                                    </span>
-                                    <span className="shrink-0 text-sm font-semibold tabular-nums">
-                                        {FormatCurrency(rep.total)}
                                     </span>
                                 </li>
                             ))}

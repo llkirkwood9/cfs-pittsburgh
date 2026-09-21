@@ -335,11 +335,6 @@ namespace api.Dtos
         #region Event Snapshot
 
         /// <summary>
-        /// School name of the owning event, for the receipt header
-        /// </summary>
-        public string? EventSchoolName { get; set; }
-
-        /// <summary>
         /// Organization of the owning event
         /// </summary>
         public string? EventOrganization { get; set; }

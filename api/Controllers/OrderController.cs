@@ -45,6 +45,11 @@ namespace api.Controllers
                 if (saleEvent == null)
                     return NotFound(new { error = "Event not found." });
 
+                // New sales are only written against the active event, so nothing is taken under an
+                // event that has finished or not been set up yet.
+                if (!saleEvent.IsActive)
+                    return BadRequest(new { error = "There is no active event. An administrator needs to activate one before new orders can be taken." });
+
                 var order = new Order
                 {
                     EventId = saleEvent.Id,
@@ -1312,7 +1317,6 @@ namespace api.Controllers
                 SubmittedAt = order.SubmittedAt,
                 CompletedAt = order.CompletedAt,
                 UpdatedAt = order.UpdatedAt,
-                EventSchoolName = order.Event?.SchoolName,
                 EventOrganization = order.Event?.Organization,
                 Lines = order.Lines
                     .OrderBy(l => l.SortOrder)
@@ -1365,7 +1369,6 @@ namespace api.Controllers
                 Id = order.Id,
                 EventId = order.EventId,
                 OrderNumber = order.OrderNumber,
-                EventSchoolName = order.Event?.SchoolName,
                 EventOrganization = order.Event?.Organization,
                 EventDate = order.Event?.EventDate,
                 Status = order.Status.ToString(),

@@ -66,7 +66,7 @@ The catalog and the printed receipt are both built from the supplied source docu
   printed sheets until it is completed again.
 
 **Event sales sheets** (`/events/:id/sheets`, Admin role)
-- A filled-in School Stat Sheet first, laid out like the paper form: unit counts, each
+- A filled-in Fundraiser Stat Sheet first, laid out like the paper School Stat Sheet: unit counts, each
   financing, check, layaway and cash sale itemised, and the summary box. As on the paper form,
   AVERAGE SALE is total sales divided by the number of mattresses and adjustable bases.
 - Then every completed sales sheet for the event, one per printed page. **Print / Save PDF** sends the
@@ -76,8 +76,9 @@ The catalog and the printed receipt are both built from the supplied source docu
 - Reached from **Sales sheets** on the Events page, or **Print all completed sheets** on Orders.
 
 **Dashboard** (`/dashboard`, all roles)
-- The School Stat Sheet, computed live: total and net sales, units by category, mattresses plus
-  adjustable bases, average sale, payment breakdown, best sellers and per-rep totals.
+- The stat sheet, computed live: total and net sales, units by category, mattresses plus
+  adjustable bases, average sale, payment breakdown and best sellers. Items that come inside a
+  bundle count in their own unit column but are not listed as best sellers - the bundle is.
 - Scoped to one event or to a whole day across events. Only completed sales feed the money
   figures; drafts and voided orders are reported separately so nothing is counted twice.
 
@@ -216,6 +217,12 @@ line.
 **Lines are snapshots.** Brand, size, description, price and category are copied onto the order
 line when it is added. Editing or retiring a catalog product never rewrites a printed receipt. A
 product that has already been sold is archived rather than deleted.
+
+**An event is named by its organization.** A fundraiser is not always at a school, so an event
+has one name - the organization running it, e.g. "Hampton Band" - which heads the stat sheet and
+is copied onto each order. Only one event is active at a time, and new orders can only be taken
+while one is: with no active event the Sell and Checkout screens say so and the API refuses new
+orders. Existing orders can still be looked up, and an admin still sees every event's history.
 
 **Rates are snapshots too.** Each order stores the tax rate and card fee rate it was written
 under, so changing the rate on an event only affects orders taken from that point on.

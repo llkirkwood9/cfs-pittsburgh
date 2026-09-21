@@ -3,8 +3,9 @@ using System.ComponentModel.DataAnnotations;
 namespace api.Models
 {
     /// <summary>
-    /// A single fundraiser: one school/organization on one day, run by one cart crew.
-    /// Every order belongs to exactly one event.
+    /// A single fundraiser: one organization on one day, run by one cart crew. Every order belongs
+    /// to exactly one event. The organization is the event's name - a fundraiser is not always
+    /// held at a school.
     /// </summary>
     public class Event
     {
@@ -14,13 +15,8 @@ namespace api.Models
         public int Id { get; set; }
 
         /// <summary>
-        /// School name printed at the top of the stat sheet
-        /// </summary>
-        [MaxLength(150)]
-        public string SchoolName { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Sponsoring organization, e.g. "Band"
+        /// Organization running the fundraiser, e.g. "Hampton Band". Printed at the top of the
+        /// stat sheet and copied onto each order's Organization cell.
         /// </summary>
         [MaxLength(150)]
         public string Organization { get; set; } = string.Empty;

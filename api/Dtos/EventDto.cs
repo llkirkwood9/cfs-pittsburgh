@@ -11,12 +11,7 @@ namespace api.Dtos
         public int? Id { get; set; }
 
         /// <summary>
-        /// School name printed at the top of the stat sheet
-        /// </summary>
-        public string? SchoolName { get; set; }
-
-        /// <summary>
-        /// Sponsoring organization
+        /// Organization running the fundraiser; the event's name
         /// </summary>
         public string? Organization { get; set; }
 

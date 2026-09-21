@@ -4190,8 +4190,7 @@
     }
   ],
   "event": {
-    "schoolName": "Sample School",
-    "organization": "Band",
+    "organization": "Sample School Band",
     "cartName": "Pittsburgh",
     "salesTaxRate": 0.07,
     "ccProcessingFeeRate": 0.0,
