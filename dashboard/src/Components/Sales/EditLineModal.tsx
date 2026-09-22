@@ -2,7 +2,7 @@ import { useState } from "react";
 import Button from "../Elements/Button";
 import Modal from "../Elements/Modal";
 import TextField from "../Elements/TextField";
-import { ParseMoney } from "../../Lib/ModelHelpers";
+import { ParseMoney, TakeWithBlocked } from "../../Lib/ModelHelpers";
 import { Toast } from "../../Lib/Toast";
 import type { OrderLine } from "../../Models/OrderLine";
 
@@ -29,6 +29,9 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
     const [isTaxable, setIsTaxable] = useState<boolean>(line.isTaxable ?? true);
     const [saving, setSaving] = useState<boolean>(false);
 
+    // A tracked accessory can only go home today while the cart has enough of it.
+    const stockBlock = TakeWithBlocked(line.quantityOnHand, quantity);
+
     const handleSave = async () => {
         if (!description.trim()) return Toast.Warning("The description cannot be blank.");
 
@@ -38,6 +41,9 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
         const discountPercent = ParseMoney(discount);
         if (discountPercent !== null && (discountPercent < 0 || discountPercent > 100))
             return Toast.Warning("The discount must be between 0 and 100 percent.");
+
+        if (takeWith && stockBlock)
+            return Toast.Warning(`${stockBlock} for Take With. Lower the quantity or ship it instead.`);
 
         setSaving(true);
         await onSave({
@@ -116,15 +122,31 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
                 </label>
 
                 <div className="flex flex-col justify-end gap-2">
-                    <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-zinc-100 px-3 dark:bg-zinc-700">
+                    <label
+                        className={`flex min-h-[48px] items-center gap-3 rounded-xl bg-zinc-100 px-3 dark:bg-zinc-700 ${
+                            !takeWith && stockBlock ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                        }`}
+                    >
                         <input
                             type="checkbox"
                             checked={takeWith}
+                            disabled={!takeWith && Boolean(stockBlock)}
                             onChange={(e) => setTakeWith(e.target.checked)}
                             className="h-5 w-5 accent-sky-600"
                         />
                         <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
                             Take with
+                            {line.quantityOnHand !== null && line.quantityOnHand !== undefined && (
+                                <span
+                                    className={`block text-xs font-normal ${
+                                        stockBlock
+                                            ? "text-amber-700 dark:text-amber-400"
+                                            : "text-zinc-500 dark:text-zinc-400"
+                                    }`}
+                                >
+                                    {stockBlock ?? `${line.quantityOnHand} in stock`}
+                                </span>
+                            )}
                         </span>
                     </label>
                     <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-zinc-100 px-3 dark:bg-zinc-700">

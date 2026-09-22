@@ -4,7 +4,13 @@ import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
 import TabButton from "../Elements/TabButton";
 import TextField from "../Elements/TextField";
-import { FormatCurrency, NeedsPrice, ParseMoney, VariantLabel } from "../../Lib/ModelHelpers";
+import {
+    FormatCurrency,
+    NeedsPrice,
+    ParseMoney,
+    TakeWithBlocked,
+    VariantLabel,
+} from "../../Lib/ModelHelpers";
 import { Toast } from "../../Lib/Toast";
 import type { OrderLine } from "../../Models/OrderLine";
 import type { Product, ProductCategory } from "../../Models/Product";
@@ -43,6 +49,39 @@ const lowestPrice = (product: Product): number | null => {
         .map((v) => v.price)
         .filter((price): price is number => price !== null && price !== undefined);
     return prices.length ? Math.min(...prices) : null;
+};
+
+/**
+ * Units on hand for a size, or null when the product does not track inventory.
+ * @param product The product.
+ * @param variant The size.
+ * @returns The count, or null.
+ */
+const stockFor = (product: Product, variant?: ProductVariant): number | null =>
+    product.trackInventory ? (variant?.quantityOnHand ?? 0) : null;
+
+/**
+ * The delivery option to preselect: the current choice when it still works, otherwise the
+ * product's default, otherwise the first option - skipping Take With when the size is short.
+ * @param product The product.
+ * @param variant The chosen size.
+ * @param quantity Units being added.
+ * @param currentId The option picked so far, if any.
+ * @returns The delivery option id, or null.
+ */
+const pickDelivery = (
+    product: Product,
+    variant: ProductVariant | undefined,
+    quantity: number,
+    currentId: number | null
+): number | null => {
+    const blocked = TakeWithBlocked(stockFor(product, variant), quantity);
+    const usable = (product.deliveryOptions ?? []).filter((d) => !(d.isTakeWith && blocked));
+
+    if (currentId !== null && usable.some((d) => d.deliveryOptionId === currentId)) return currentId;
+
+    const preferred = usable.find((d) => d.isDefault) ?? usable[0];
+    return preferred?.deliveryOptionId ?? null;
 };
 
 const categoryLabels: Record<ProductCategory, string> = {
@@ -132,15 +171,26 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
 
         const firstPriced = product.variants?.find((v) => !NeedsPrice(v)) ?? product.variants?.[0];
         setVariantId(firstPriced?.id ?? null);
-
-        const preferred =
-            product.deliveryOptions?.find((d) => d.isDefault) ?? product.deliveryOptions?.[0];
-        setDeliveryId(preferred?.deliveryOptionId ?? null);
+        setDeliveryId(pickDelivery(product, firstPriced, 1, null));
 
         setQuantity(1);
         setDiscount("");
         setPriceOverride("");
     };
+
+    // Changing the size or quantity can leave Take With short, so fall back to shipping.
+    const chooseVariant = (next: ProductVariant) => {
+        setVariantId(next.id ?? null);
+        if (selected) setDeliveryId((current) => pickDelivery(selected, next, quantity, current));
+    };
+
+    const changeQuantity = (next: number) => {
+        setQuantity(next);
+        if (selected) setDeliveryId((current) => pickDelivery(selected, variant, next, current));
+    };
+
+    const onHand = selected ? stockFor(selected, variant) : null;
+    const takeWithBlock = TakeWithBlocked(onHand, quantity);
 
     const back = () => {
         setSelected(null);
@@ -150,6 +200,10 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
 
     const handleAddCatalogItem = async () => {
         if (!variant?.id) return Toast.Warning("Pick a size first.");
+
+        const delivery = selected?.deliveryOptions?.find((d) => d.deliveryOptionId === deliveryId);
+        if (delivery?.isTakeWith && takeWithBlock)
+            return Toast.Warning(`${takeWithBlock} for Take With. Pick a shipping method instead.`);
 
         if (needsPrice && (effectivePrice === null || effectivePrice <= 0))
             return Toast.Warning("This size has no price on file. Enter one to continue.");
@@ -291,6 +345,15 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                         ` - from ${FormatCurrency(lowestPrice(product))}`}
                                     {product.notes ? ` - ${product.notes}` : ""}
                                 </span>
+                                {product.trackInventory && (
+                                    <span className="mt-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
+                                        {(product.variants ?? []).reduce(
+                                            (sum, v) => sum + Math.max(0, v.quantityOnHand ?? 0),
+                                            0
+                                        )}{" "}
+                                        in stock
+                                    </span>
+                                )}
                             </button>
                         ))}
 
@@ -374,7 +437,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                 <button
                                     key={v.id}
                                     type="button"
-                                    onClick={() => setVariantId(v.id ?? null)}
+                                    onClick={() => chooseVariant(v)}
                                     className={`flex min-h-[60px] flex-col items-start justify-center rounded-xl px-3 py-2
                                         text-left transition-colors ${
                                             v.id === variantId
@@ -386,6 +449,13 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                     <span className="text-xs opacity-80">
                                         {NeedsPrice(v) ? "Inquire" : FormatCurrency(v.price)}
                                     </span>
+                                    {selected.trackInventory && (
+                                        <span className="text-[11px] font-semibold opacity-90">
+                                            {(v.quantityOnHand ?? 0) > 0
+                                                ? `${v.quantityOnHand} in stock`
+                                                : "Out of stock - ship only"}
+                                        </span>
+                                    )}
                                     {(v.components ?? []).length > 0 && (
                                         <span className="mt-0.5 text-[11px] font-medium opacity-90">
                                             +{" "}
@@ -419,24 +489,36 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                 Shipping
                             </p>
                             <div className="flex flex-wrap gap-2">
-                                {(selected.deliveryOptions ?? []).map((option) => (
-                                    <button
-                                        key={option.deliveryOptionId}
-                                        type="button"
-                                        onClick={() =>
-                                            setDeliveryId(option.deliveryOptionId ?? null)
-                                        }
-                                        className={`min-h-[48px] rounded-xl px-4 text-sm font-semibold transition-colors ${
-                                            option.deliveryOptionId === deliveryId
-                                                ? "bg-sky-700 text-white dark:bg-sky-600"
-                                                : "bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-600"
-                                        }`}
-                                    >
-                                        {option.name}
-                                        {(option.price ?? 0) > 0 &&
-                                            ` +${FormatCurrency(option.price)}`}
-                                    </button>
-                                ))}
+                                {(selected.deliveryOptions ?? []).map((option) => {
+                                    const blocked = option.isTakeWith ? takeWithBlock : null;
+
+                                    return (
+                                        <button
+                                            key={option.deliveryOptionId}
+                                            type="button"
+                                            disabled={Boolean(blocked)}
+                                            title={blocked ?? undefined}
+                                            onClick={() =>
+                                                setDeliveryId(option.deliveryOptionId ?? null)
+                                            }
+                                            className={`min-h-[48px] rounded-xl px-4 text-sm font-semibold transition-colors
+                                                disabled:cursor-not-allowed disabled:opacity-50 ${
+                                                    option.deliveryOptionId === deliveryId
+                                                        ? "bg-sky-700 text-white dark:bg-sky-600"
+                                                        : "bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-600"
+                                                }`}
+                                        >
+                                            {option.name}
+                                            {(option.price ?? 0) > 0 &&
+                                                ` +${FormatCurrency(option.price)}`}
+                                            {blocked && (
+                                                <span className="block text-[11px] font-medium">
+                                                    {blocked}
+                                                </span>
+                                            )}
+                                        </button>
+                                    );
+                                })}
                             </div>
                             <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
                                 Need a second service, such as White Glove plus Haul Away? Add the
@@ -453,7 +535,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                             <div className="flex items-center gap-2">
                                 <Button
                                     icon="fa-solid fa-minus"
-                                    onClick={() => setQuantity((q) => Math.max(1, q - 1))}
+                                    onClick={() => changeQuantity(Math.max(1, quantity - 1))}
                                     className="bg-zinc-500 px-4 hover:bg-zinc-600"
                                 />
                                 <span className="min-w-[3ch] text-center text-xl font-bold tabular-nums">
@@ -461,7 +543,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                 </span>
                                 <Button
                                     icon="fa-solid fa-plus"
-                                    onClick={() => setQuantity((q) => q + 1)}
+                                    onClick={() => changeQuantity(quantity + 1)}
                                     className="bg-zinc-500 px-4 hover:bg-zinc-600"
                                 />
                             </div>

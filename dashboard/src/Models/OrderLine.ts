@@ -23,4 +23,6 @@ export type OrderLine = {
     showOnSalesSheet?: boolean;
     isTaxable?: boolean;
     sortOrder?: number;
+    /** On-hand count of the sold size; null when the product does not track inventory. */
+    quantityOnHand?: number | null;
 };

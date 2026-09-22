@@ -16,6 +16,12 @@ const items: NavItem[] = [
     { to: "/sales", label: "Sell", icon: "fa-solid fa-cart-plus", roles: ["Sales"] },
     { to: "/checkout", label: "Checkout", icon: "fa-solid fa-cash-register", roles: ["Checkout"] },
     { to: "/orders", label: "Orders", icon: "fa-solid fa-file-lines" },
+    {
+        to: "/inventory",
+        label: "Inventory",
+        icon: "fa-solid fa-boxes-stacked",
+        roles: ["Checkout"],
+    },
     { to: "/dashboard", label: "Dashboard", icon: "fa-solid fa-chart-column" },
     { to: "/catalog", label: "Catalog", icon: "fa-solid fa-tags", roles: ["Admin"] },
     { to: "/events", label: "Events", icon: "fa-solid fa-calendar-days", roles: ["Admin"] },
@@ -69,13 +75,14 @@ const Navbar = () => {
                 </div>
             </header>
 
-            <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around gap-1 border-t
+            {/* An admin has more tabs than fit across a phone, so the bar scrolls sideways. */}
+            <nav className="fixed inset-x-0 bottom-0 z-40 flex items-center justify-around gap-1 overflow-x-auto border-t
                 border-zinc-800 bg-zinc-900 px-2 pb-[env(safe-area-inset-bottom)] pt-1 md:hidden dark:bg-black">
                 {visible.map((item) => (
                     <NavLink
                         key={item.to}
                         to={item.to}
-                        className={({ isActive }) => `${linkClass(isActive, true)} flex-1`}
+                        className={({ isActive }) => `${linkClass(isActive, true)} min-w-[4.25rem] flex-1 shrink-0`}
                     >
                         <Icon icon={item.icon} className="text-base" />
                         {item.label}

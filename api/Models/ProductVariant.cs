@@ -54,6 +54,12 @@ namespace api.Models
         public bool IsActive { get; set; } = true;
 
         /// <summary>
+        /// Units of this size on hand at the cart. Only meaningful when the product tracks
+        /// inventory; Take With sales draw it down when the order is completed.
+        /// </summary>
+        public int QuantityOnHand { get; set; }
+
+        /// <summary>
         /// Other catalog items that come with this one at no extra charge, e.g. the adjustable
         /// base in a mattress-and-base set. Empty for anything sold on its own.
         /// </summary>

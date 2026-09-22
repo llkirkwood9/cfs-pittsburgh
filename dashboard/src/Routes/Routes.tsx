@@ -9,6 +9,7 @@ import DashboardPage from "../Pages/DashboardPage";
 import ErrorPage from "../Pages/ErrorPage";
 import EventSheetsPage from "../Pages/EventSheetsPage";
 import EventsPage from "../Pages/EventsPage";
+import InventoryPage from "../Pages/InventoryPage";
 import LoginPage from "../Pages/LoginPage";
 import NotFoundPage from "../Pages/NotFoundPage";
 import OrdersPage from "../Pages/OrdersPage";
@@ -68,6 +69,15 @@ export const router = createBrowserRouter([
                 element: (
                     <ProtectedRoute>
                         <DashboardPage />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                // Checkout, Sales & Checkout and Admin keep the counts; floor-only reps do not.
+                path: "inventory",
+                element: (
+                    <ProtectedRoute roles={["Checkout"]}>
+                        <InventoryPage />
                     </ProtectedRoute>
                 ),
             },

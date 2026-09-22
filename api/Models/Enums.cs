@@ -111,4 +111,19 @@ namespace api.Models
         /// </summary>
         SalesCheckout = 3,
     }
+
+    /// <summary>
+    /// Why an inventory count changed.
+    /// </summary>
+    public enum InventoryChangeKind
+    {
+        /// <summary>A manual count, delivery received or correction from the Inventory screen.</summary>
+        Adjustment = 0,
+
+        /// <summary>Stock that left the cart with a completed Take With sale.</summary>
+        Sale = 1,
+
+        /// <summary>Stock put back because a completed sale was reopened or voided.</summary>
+        Return = 2,
+    }
 }

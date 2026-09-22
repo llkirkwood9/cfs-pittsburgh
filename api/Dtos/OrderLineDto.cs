@@ -104,5 +104,11 @@ namespace api.Dtos
         /// Print order within the grid
         /// </summary>
         public int? SortOrder { get; set; }
+
+        /// <summary>
+        /// Units of the sold size on hand at the cart, when the product tracks inventory. Null
+        /// for anything that is not counted. Read-only.
+        /// </summary>
+        public int? QuantityOnHand { get; set; }
     }
 }

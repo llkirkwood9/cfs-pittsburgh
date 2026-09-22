@@ -54,6 +54,7 @@ namespace api.Controllers
                     Notes = request.Notes,
                     SortOrder = request.SortOrder ?? 0,
                     IsActive = request.IsActive ?? true,
+                    TrackInventory = request.TrackInventory ?? false,
                 };
 
                 var componentError = await ValidateComponentsAsync(null, request.Variants);
@@ -225,6 +226,9 @@ namespace api.Controllers
 
                 if (request.IsActive != null)
                     product.IsActive = request.IsActive.Value;
+
+                if (request.TrackInventory != null)
+                    product.TrackInventory = request.TrackInventory.Value;
 
                 if (request.Variants != null)
                 {
@@ -496,6 +500,7 @@ namespace api.Controllers
                 Notes = product.Notes,
                 SortOrder = product.SortOrder,
                 IsActive = product.IsActive,
+                TrackInventory = product.TrackInventory,
                 Variants = product.Variants
                     .Where(v => includeInactive || v.IsActive)
                     .OrderBy(v => v.SortOrder)
@@ -508,6 +513,7 @@ namespace api.Controllers
                         Price = v.Price,
                         SortOrder = v.SortOrder,
                         IsActive = v.IsActive,
+                        QuantityOnHand = v.QuantityOnHand,
                         Components = v.Components
                             .Where(c => c.ComponentVariant?.Product != null)
                             .Select(c => new ProductVariantComponentDto

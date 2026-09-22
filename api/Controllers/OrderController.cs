@@ -192,6 +192,23 @@ namespace api.Controllers
                 if (line.DiscountPercent is < 0 or > 100)
                     return BadRequest(new { error = "The discount must be between 0 and 100 percent." });
 
+                // A tracked item can only be a Take With while the cart has enough of it on hand;
+                // otherwise it has to ship. The shipping choice that rides along with a product
+                // line and the items inside a bundle count too, so check before anything is saved.
+                if (line.LineType == OrderLineType.Product && request.DeliveryOptionId != null
+                    && await DB.DeliveryOptions.AnyAsync(d => d.Id == request.DeliveryOptionId && d.IsTakeWith))
+                    line.TakeWith = true;
+
+                var bundleDemand = line.TakeWith && soldVariant != null
+                    ? soldVariant.Components.Select(c => new KeyValuePair<int, int>(
+                        c.ComponentVariantId, line.Quantity * Math.Max(1, c.Quantity)))
+                    : Enumerable.Empty<KeyValuePair<int, int>>();
+
+                InventoryRules.SyncIncludedTakeWith(order);
+                var stockError = await InventoryRules.CheckStockAsync(DB, order.Lines.Append(line), bundleDemand);
+                if (stockError != null)
+                    return BadRequest(new { error = stockError });
+
                 order.Lines.Add(line);
                 await DB.SaveChangesAsync();
 
@@ -210,6 +227,7 @@ namespace api.Controllers
                         return NotFound(new { error = "Delivery option not found." });
                 }
 
+                InventoryRules.SyncIncludedTakeWith(order);
                 OrderCalculator.RecalculateOrder(order);
                 order.UpdatedAt = DateTime.UtcNow;
                 await DB.SaveChangesAsync();
@@ -341,6 +359,12 @@ namespace api.Controllers
                 if (order.Payments.Count == 0)
                     return BadRequest(new { error = "Record at least one payment before completing the order." });
 
+                // Another sale may have taken the last one since this order was written up.
+                InventoryRules.SyncIncludedTakeWith(order);
+                var stockError = await InventoryRules.CheckStockAsync(DB, order.Lines);
+                if (stockError != null)
+                    return BadRequest(new { error = stockError });
+
                 OrderCalculator.RecalculateOrder(order);
                 order.Status = OrderStatus.Completed;
                 order.CompletedAt = DateTime.UtcNow;
@@ -348,6 +372,7 @@ namespace api.Controllers
                 order.ReceivedBy ??= GetCurrentUserName();
                 order.ReceivedDate ??= DateTime.UtcNow;
                 order.UpdatedAt = DateTime.UtcNow;
+                await InventoryRules.DeductForSaleAsync(DB, order, GetCurrentUserId(), GetCurrentUserName());
                 await DB.SaveChangesAsync();
 
                 return Ok(await LoadDtoAsync(order.Id));
@@ -398,6 +423,10 @@ namespace api.Controllers
                         ? "This order is already on the sales floor."
                         : "This order is already at checkout." });
 
+                // Anything the sale took home goes back on the shelf until it is completed again.
+                if (order.Status == OrderStatus.Completed)
+                    await InventoryRules.RestoreForOrderAsync(DB, order, GetCurrentUserId(), GetCurrentUserName(), "reopened");
+
                 order.Status = target.Value;
                 order.SubmittedAt = target == OrderStatus.AwaitingCheckout
                     ? DateTime.UtcNow
@@ -430,6 +459,9 @@ namespace api.Controllers
                 var order = await LoadOrderAsync(id);
                 if (order == null)
                     return NotFound(new { error = "Order not found." });
+
+                if (order.Status == OrderStatus.Completed)
+                    await InventoryRules.RestoreForOrderAsync(DB, order, GetCurrentUserId(), GetCurrentUserName(), "voided");
 
                 order.Status = OrderStatus.Voided;
                 order.UpdatedAt = DateTime.UtcNow;
@@ -832,6 +864,11 @@ namespace api.Controllers
                 if (request.Category != null && Enum.TryParse<ProductCategory>(request.Category, true, out var category))
                     line.Category = category;
 
+                InventoryRules.SyncIncludedTakeWith(order);
+                var stockError = await InventoryRules.CheckStockAsync(DB, order.Lines);
+                if (stockError != null)
+                    return BadRequest(new { error = stockError });
+
                 OrderCalculator.RecalculateOrder(order);
                 order.UpdatedAt = DateTime.UtcNow;
                 await DB.SaveChangesAsync();
@@ -982,6 +1019,7 @@ namespace api.Controllers
                         parent.TakeWith = false;
                 }
 
+                InventoryRules.SyncIncludedTakeWith(order);
                 OrderCalculator.RecalculateOrder(order);
                 order.UpdatedAt = DateTime.UtcNow;
                 await DB.SaveChangesAsync();
@@ -1129,6 +1167,7 @@ namespace api.Controllers
                     Quantity = parent.Quantity * Math.Max(1, component.Quantity),
                     UnitPrice = 0m,
                     IsTaxable = false,
+                    TakeWith = parent.TakeWith,
                     SortOrder = parent.SortOrder + 1,
                 });
             }
@@ -1243,6 +1282,8 @@ namespace api.Controllers
         {
             var order = await DB.Orders
                 .Include(o => o.Lines)
+                .ThenInclude(l => l.ProductVariant)
+                .ThenInclude(v => v!.Product)
                 .Include(o => o.Payments)
                 .Include(o => o.Event)
                 .Include(o => o.CreatedByUser)
@@ -1344,6 +1385,9 @@ namespace api.Controllers
                         ShowOnSalesSheet = l.ShowOnSalesSheet,
                         IsTaxable = l.IsTaxable,
                         SortOrder = l.SortOrder,
+                        QuantityOnHand = l.ProductVariant?.Product?.TrackInventory == true
+                            ? l.ProductVariant.QuantityOnHand
+                            : null,
                     })
                     .ToList(),
                 Payments = order.Payments

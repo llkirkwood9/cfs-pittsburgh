@@ -210,6 +210,14 @@ const CheckoutPage = () => {
         }
     };
 
+    // Stock moves as other orders complete, so the picker always opens on fresh counts.
+    const openAddItem = () => {
+        setShowAddItem(true);
+        GetProducts().then((catalog) => {
+            if (catalog.length) setProducts(catalog);
+        });
+    };
+
     if (loading) {
         return (
             <div className="mx-auto max-w-screen-2xl p-4">
@@ -282,7 +290,7 @@ const CheckoutPage = () => {
                                             <Button
                                                 text="Add item"
                                                 icon="fa-solid fa-plus"
-                                                onClick={() => setShowAddItem(true)}
+                                                onClick={openAddItem}
                                                 className="min-h-[40px] bg-green-700 px-3 text-sm hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                                             />
                                         )}

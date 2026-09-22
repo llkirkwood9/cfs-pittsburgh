@@ -8,5 +8,6 @@ export type ProductVariant = {
     price?: number | null;
     sortOrder?: number;
     isActive?: boolean;
+    quantityOnHand?: number;
     components?: ProductVariantComponent[];
 };

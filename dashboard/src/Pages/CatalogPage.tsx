@@ -210,6 +210,16 @@ const CatalogPage = () => {
                                         <span>{product.brand}</span>
                                         <span>{product.variants?.length ?? 0} sizes</span>
                                         <span>{priceRange(product)}</span>
+                                        {product.trackInventory && (
+                                            <span className="font-semibold text-emerald-700 dark:text-emerald-400">
+                                                Tracked &middot;{" "}
+                                                {(product.variants ?? []).reduce(
+                                                    (sum, v) => sum + (v.quantityOnHand ?? 0),
+                                                    0
+                                                )}{" "}
+                                                on hand
+                                            </span>
+                                        )}
                                         <span>
                                             {product.deliveryOptions?.length ?? 0} delivery option
                                             {(product.deliveryOptions?.length ?? 0) === 1 ? "" : "s"}

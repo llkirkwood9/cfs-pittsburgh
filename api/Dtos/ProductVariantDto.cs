@@ -41,6 +41,11 @@ namespace api.Dtos
         public bool? IsActive { get; set; }
 
         /// <summary>
+        /// Units on hand. Read-only here; counts are changed through the inventory endpoints.
+        /// </summary>
+        public int? QuantityOnHand { get; set; }
+
+        /// <summary>
         /// Items that come with this variant at no extra charge. Null on write leaves the
         /// existing list alone; an empty list clears it.
         /// </summary>

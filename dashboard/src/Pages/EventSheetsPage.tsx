@@ -5,19 +5,23 @@ import Icon from "../Components/Elements/Icon";
 import LoadingPage from "../Components/Elements/LoadingPage";
 import ReceiptSheet from "../Components/Checkout/ReceiptSheet";
 import StatSheet from "../Components/Dashboard/StatSheet";
+import InventorySheet from "../Components/Inventory/InventorySheet";
 import { useAuth } from "../Context/AuthContext";
 import { FormatCurrency, FormatShortDate } from "../Lib/ModelHelpers";
 import { BuildSalesCsv, DownloadCsv } from "../Lib/SalesExport";
 import { Toast } from "../Lib/Toast";
 import type { DashboardStats } from "../Models/DashboardStats";
 import type { Event } from "../Models/Event";
+import type { InventoryItem } from "../Models/InventoryItem";
 import type { Order } from "../Models/Order";
 import { GetStatsForEvent } from "../Services/DashboardServices";
 import { GetEvent } from "../Services/EventServices";
+import { GetInventory } from "../Services/InventoryServices";
 import { GetSalesSheetsForEvent } from "../Services/OrderServices";
 
 /**
- * Every completed sales sheet for one event, stacked one per printed page. Print sends the whole
+ * Every completed sales sheet for one event, stacked one per printed page, between the stat sheet
+ * and the accessory inventory sheet. Print sends the whole
  * stack to the printer, or to a PDF via the browser's Save as PDF; Download CSV exports the same
  * sales as a spreadsheet. Admin only - this is the event's paperwork.
  */
@@ -30,6 +34,7 @@ const EventSheetsPage = () => {
     const [saleEvent, setSaleEvent] = useState<Event | null>(null);
     const [orders, setOrders] = useState<Order[]>([]);
     const [stats, setStats] = useState<DashboardStats | null>(null);
+    const [inventory, setInventory] = useState<InventoryItem[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
 
     useEffect(() => {
@@ -37,14 +42,16 @@ const EventSheetsPage = () => {
             const id = Number(eventId);
             if (!id) return setLoading(false);
 
-            const [found, sheets, figures] = await Promise.all([
+            const [found, sheets, figures, stock] = await Promise.all([
                 GetEvent(id),
                 GetSalesSheetsForEvent(id),
                 GetStatsForEvent(id),
+                GetInventory(id),
             ]);
             setSaleEvent(found);
             setOrders(sheets);
             setStats(figures);
+            setInventory(stock);
             setLoading(false);
         };
 
@@ -70,7 +77,8 @@ const EventSheetsPage = () => {
     };
 
     const handlePrint = () => {
-        if (orders.length === 0) return Toast.Warning("There are no completed sales to print.");
+        if (orders.length === 0 && inventory.length === 0)
+            return Toast.Warning("There are no completed sales to print.");
 
         // The browser uses the page title as the suggested PDF file name.
         const previous = document.title;
@@ -114,13 +122,13 @@ const EventSheetsPage = () => {
                         {orders.length === 1 ? "" : "s"} &middot; {FormatCurrency(total)}
                     </p>
                     <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                        The stat sheet prints first, then each sales sheet on its own page. To save
-                        a PDF, choose Save as PDF as the printer.
+                        The stat sheet prints first, then each sales sheet on its own page, then the
+                        accessory inventory sheet. To save a PDF, choose Save as PDF as the printer.
                     </p>
                 </div>
             </div>
 
-            {orders.length === 0 ? (
+            {orders.length === 0 && inventory.length === 0 ? (
                 <div className="no-print mx-auto max-w-[8in] px-3">
                     <div className="rounded-xl border-2 border-dashed border-zinc-400 py-14 text-center dark:border-zinc-700">
                         <Icon icon="fa-solid fa-inbox" className="text-3xl text-zinc-400" />
@@ -131,17 +139,29 @@ const EventSheetsPage = () => {
                 </div>
             ) : (
                 <>
-                    <div className="mb-6 break-after-page print:mb-0">
-                        <StatSheet saleEvent={saleEvent} stats={stats} orders={orders} />
-                    </div>
-                    {orders.map((order) => (
+                    {orders.length > 0 && (
+                        <div className="mb-6 break-after-page print:mb-0">
+                            <StatSheet saleEvent={saleEvent} stats={stats} orders={orders} />
+                        </div>
+                    )}
+                    {orders.map((order, index) => (
                         <div
                             key={order.id}
-                            className="mb-6 break-after-page last:break-after-auto print:mb-0"
+                            className={`mb-6 print:mb-0 ${
+                                index < orders.length - 1 || inventory.length > 0
+                                    ? "break-after-page"
+                                    : ""
+                            }`}
                         >
                             <ReceiptSheet order={order} />
                         </div>
                     ))}
+                    {/* The inventory sheet closes the stack, as the paper tally did. */}
+                    {inventory.length > 0 && (
+                        <div className="mb-6 print:mb-0">
+                            <InventorySheet saleEvent={saleEvent} items={inventory} />
+                        </div>
+                    )}
                 </>
             )}
         </div>

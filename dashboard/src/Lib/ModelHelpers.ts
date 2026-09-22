@@ -1,5 +1,7 @@
+import type { InventoryItem } from "../Models/InventoryItem";
 import type { OrderLine } from "../Models/OrderLine";
 import type { PaymentMethod } from "../Models/OrderPayment";
+import type { ProductCategory } from "../Models/Product";
 import type { ProductVariant } from "../Models/ProductVariant";
 
 /**
@@ -146,4 +148,75 @@ export const ParseMoney = (value: string): number | null => {
     if (cleaned === "" || cleaned === "-") return null;
     const parsed = Number(cleaned);
     return Number.isFinite(parsed) ? parsed : null;
+};
+
+/** Full, plural category names for headings, e.g. on the inventory sheet. */
+export const CategoryNames: Record<ProductCategory, string> = {
+    Mattress: "Mattresses",
+    AdjustableBase: "Adjustable Bases",
+    Pillow: "Pillows",
+    Sheets: "Sheets",
+    MattressProtector: "Mattress Protectors",
+    Frame: "Frames",
+    BeanBagChair: "Bean Bag Chairs",
+    Misc: "Other",
+};
+
+export type InventoryGroup = {
+    category: ProductCategory;
+    products: { productId: number; name: string; brand: string; sizes: InventoryItem[] }[];
+};
+
+/**
+ * Groups inventory rows by category, then product, keeping the server's catalog order.
+ * @param items Inventory rows.
+ * @returns One group per category that has tracked items.
+ */
+export const GroupInventory = (items: InventoryItem[]): InventoryGroup[] => {
+    const groups: InventoryGroup[] = [];
+
+    for (const item of items) {
+        const category = item.category ?? "Misc";
+        let group = groups.find((g) => g.category === category);
+        if (!group) {
+            group = { category, products: [] };
+            groups.push(group);
+        }
+
+        let product = group.products.find((p) => p.productId === item.productId);
+        if (!product) {
+            product = {
+                productId: item.productId ?? 0,
+                name: item.productName ?? "",
+                brand: item.brand ?? "",
+                sizes: [],
+            };
+            group.products.push(product);
+        }
+
+        product.sizes.push(item);
+    }
+
+    return groups;
+};
+
+/**
+ * The size label for an inventory row, e.g. "Queen" or "Queen - Soft".
+ * @param item The inventory row.
+ * @returns The label.
+ */
+export const InventorySizeLabel = (item: InventoryItem): string =>
+    [item.size, item.configuration].filter(Boolean).join(" - ") || "One size";
+
+/**
+ * Why a tracked item cannot go home as a Take With, or null when it can. Untracked items (a null
+ * count) are always allowed.
+ * @param onHand Units on hand, or null/undefined when the product is not tracked.
+ * @param quantity Units the customer wants to take.
+ * @returns A short reason such as "Out of stock" or "Only 2 in stock", or null.
+ */
+export const TakeWithBlocked = (onHand: number | null | undefined, quantity: number): string | null => {
+    if (onHand === null || onHand === undefined) return null;
+    if (onHand <= 0) return "Out of stock";
+    return onHand < quantity ? `Only ${onHand} in stock` : null;
 };

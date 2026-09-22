@@ -41,6 +41,7 @@ const EditProductForm = ({
     const [category, setCategory] = useState<ProductCategory>(product.category ?? "Misc");
     const [notes, setNotes] = useState<string>(product.notes ?? "");
     const [isActive, setIsActive] = useState<boolean>(product.isActive ?? true);
+    const [trackInventory, setTrackInventory] = useState<boolean>(product.trackInventory ?? false);
     const [saving, setSaving] = useState<boolean>(false);
 
     const [variants, setVariants] = useState<DraftVariant[]>(
@@ -186,6 +187,7 @@ const EditProductForm = ({
             category,
             notes: notes.trim(),
             isActive,
+            trackInventory,
             sortOrder: product.sortOrder ?? 0,
             variants: variants.map((v, index) => ({
                 id: v.id,
@@ -260,6 +262,23 @@ const EditProductForm = ({
                             className="h-5 w-5 accent-sky-600"
                         />
                         <span className="text-sm font-medium">Offered on the floor</span>
+                    </label>
+
+                    <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-zinc-100 px-3 py-2 sm:col-span-2 dark:bg-zinc-700">
+                        <input
+                            type="checkbox"
+                            checked={trackInventory}
+                            onChange={(e) => setTrackInventory(e.target.checked)}
+                            className="h-5 w-5 accent-sky-600"
+                        />
+                        <span className="text-sm">
+                            <span className="font-medium">Track inventory</span>
+                            <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                                For items kept at the cart, such as pillows and protectors. Take With
+                                is only allowed while a size is in stock. Set the counts on the
+                                Inventory screen.
+                            </span>
+                        </span>
                     </label>
 
                     <TextField

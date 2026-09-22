@@ -187,6 +187,7 @@ namespace api.Data
                     Notes = p.Notes,
                     SortOrder = p.SortOrder ?? 0,
                     IsActive = true,
+                    TrackInventory = p.TrackInventory ?? false,
                 };
 
                 if (p.Variants != null)
@@ -354,6 +355,9 @@ namespace api.Data
 
             /// <summary>Name of the preselected delivery option.</summary>
             public string? DefaultDelivery { get; set; }
+
+            /// <summary>Whether on-hand stock is counted for this product.</summary>
+            public bool? TrackInventory { get; set; }
         }
 
         /// <summary>

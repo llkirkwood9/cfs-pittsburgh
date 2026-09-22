@@ -60,6 +60,11 @@ namespace api.Data
         /// </summary>
         public DbSet<User> Users => Set<User>();
 
+        /// <summary>
+        /// Every change to an on-hand count, for the audit trail and the event inventory sheet
+        /// </summary>
+        public DbSet<InventoryAdjustment> InventoryAdjustments => Set<InventoryAdjustment>();
+
         #endregion
 
         #region Public Methods
@@ -174,6 +179,29 @@ namespace api.Data
                 entity.HasOne(l => l.DeliveryOption)
                     .WithMany()
                     .HasForeignKey(l => l.DeliveryOptionId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<InventoryAdjustment>(entity =>
+            {
+                entity.HasIndex(a => new { a.ProductVariantId, a.CreatedAt });
+                entity.HasIndex(a => a.EventId);
+
+                entity.HasOne(a => a.ProductVariant)
+                    .WithMany()
+                    .HasForeignKey(a => a.ProductVariantId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                // A discarded draft never has adjustments, but keep the history if an order row
+                // is ever removed.
+                entity.HasOne(a => a.Order)
+                    .WithMany()
+                    .HasForeignKey(a => a.OrderId)
+                    .OnDelete(DeleteBehavior.SetNull);
+
+                entity.HasOne(a => a.User)
+                    .WithMany()
+                    .HasForeignKey(a => a.UserId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 

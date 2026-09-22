@@ -19,6 +19,7 @@ export type Product = {
     notes?: string | null;
     sortOrder?: number;
     isActive?: boolean;
+    trackInventory?: boolean;
     variants?: ProductVariant[];
     deliveryOptions?: ProductDeliveryOption[];
 };

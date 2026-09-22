@@ -3833,6 +3833,7 @@
       "name": "Frio Mattress Protector",
       "brand": "PureCare",
       "category": "MattressProtector",
+      "trackInventory": true,
       "notes": "Twin, Queen and King prices taken from the 9/12 order sheets.",
       "sortOrder": 36,
       "variants": [
@@ -3877,6 +3878,7 @@
       "name": "Shoulder Carbon Cool",
       "brand": "PureCare",
       "category": "Pillow",
+      "trackInventory": true,
       "notes": "Price not on the supplied sheets - confirm before selling.",
       "sortOrder": 37,
       "variants": [
@@ -3909,6 +3911,7 @@
       "name": "SoftCell Chill (2.0)",
       "brand": "PureCare",
       "category": "Pillow",
+      "trackInventory": true,
       "notes": null,
       "sortOrder": 38,
       "variants": [
@@ -3941,6 +3944,7 @@
       "name": "Sub 0 Down Complete",
       "brand": "PureCare",
       "category": "Pillow",
+      "trackInventory": true,
       "notes": "Price not on the supplied sheets - confirm before selling.",
       "sortOrder": 39,
       "variants": [
@@ -3973,6 +3977,7 @@
       "name": "Replenish",
       "brand": "PureCare",
       "category": "Pillow",
+      "trackInventory": true,
       "notes": null,
       "sortOrder": 40,
       "variants": [
@@ -4005,6 +4010,7 @@
       "name": "Shattered Ice",
       "brand": "PureCare",
       "category": "Pillow",
+      "trackInventory": true,
       "notes": "Price not on the supplied sheets - confirm before selling.",
       "sortOrder": 41,
       "variants": [
@@ -4037,6 +4043,7 @@
       "name": "Snowflake",
       "brand": "PureCare",
       "category": "Pillow",
+      "trackInventory": true,
       "notes": "Price not on the supplied sheets - confirm before selling.",
       "sortOrder": 42,
       "variants": [

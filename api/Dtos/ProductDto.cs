@@ -42,6 +42,11 @@ namespace api.Dtos
         public bool? IsActive { get; set; }
 
         /// <summary>
+        /// Whether on-hand stock is counted for this product
+        /// </summary>
+        public bool? TrackInventory { get; set; }
+
+        /// <summary>
         /// Priced size/configuration rows
         /// </summary>
         public List<ProductVariantDto>? Variants { get; set; }
