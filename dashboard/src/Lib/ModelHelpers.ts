@@ -1,4 +1,5 @@
 import type { InventoryItem } from "../Models/InventoryItem";
+import type { Order } from "../Models/Order";
 import type { OrderLine } from "../Models/OrderLine";
 import type { PaymentMethod } from "../Models/OrderPayment";
 import type { ProductCategory } from "../Models/Product";
@@ -148,6 +149,49 @@ export const ParseMoney = (value: string): number | null => {
     if (cleaned === "" || cleaned === "-") return null;
     const parsed = Number(cleaned);
     return Number.isFinite(parsed) ? parsed : null;
+};
+
+/**
+ * Whether the customer has confirmed their details, initialled all three paragraphs and signed -
+ * everything the sales sheet needs before checkout can complete the sale.
+ * @param order The order.
+ * @returns True when every acknowledgement is in.
+ */
+export const IsAcknowledged = (order: Order): boolean =>
+    Boolean(
+        order.customerInfoInitials?.trim() &&
+            order.warrantyInitials?.trim() &&
+            order.dropShipInitials?.trim() &&
+            order.advisoryInitials?.trim() &&
+            order.customerSignature
+    );
+
+/**
+ * One address as printed lines, e.g. ["211 Central Drive, Unit 4", "Butler, PA 16001"].
+ * @param parts The address fields.
+ * @returns The non-empty lines.
+ */
+export const AddressLines = (parts: {
+    address?: string | null;
+    unit?: string | null;
+    floor?: string | null;
+    suite?: string | null;
+    city?: string | null;
+    state?: string | null;
+    zip?: string | null;
+}): string[] => {
+    const street = [
+        parts.address,
+        parts.unit && `Unit ${parts.unit}`,
+        parts.floor && `Floor ${parts.floor}`,
+        parts.suite && `Suite ${parts.suite}`,
+    ]
+        .filter(Boolean)
+        .join(", ");
+    const town = [parts.city, [parts.state, parts.zip].filter(Boolean).join(" ")]
+        .filter(Boolean)
+        .join(", ");
+    return [street, town].filter(Boolean);
 };
 
 /** Full, plural category names for headings, e.g. on the inventory sheet. */

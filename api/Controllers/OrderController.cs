@@ -359,6 +359,9 @@ namespace api.Controllers
                 if (order.Payments.Count == 0)
                     return BadRequest(new { error = "Record at least one payment before completing the order." });
 
+                if (!IsAcknowledged(order))
+                    return BadRequest(new { error = "The customer needs to confirm their details, initial each acknowledgement and sign before the order can be completed." });
+
                 // Another sale may have taken the last one since this order was written up.
                 InventoryRules.SyncIncludedTakeWith(order);
                 var stockError = await InventoryRules.CheckStockAsync(DB, order.Lines);
@@ -739,10 +742,17 @@ namespace api.Controllers
                 if (request.CcProcessingFeeRate is < 0 or > 1)
                     return BadRequest(new { error = "The card processing fee rate must be between 0 and 1." });
 
+                var detailsBefore = CustomerDetails(order);
+
                 ApplyHeader(order, request);
                 ApplyBilling(order, request);
                 ApplyDelivery(order, request);
                 ApplyAcknowledgements(order, request);
+
+                // The customer initialled the details they were shown; if those details change,
+                // they have to look again before the sale can be completed.
+                if (request.CustomerInfoInitials == null && CustomerDetails(order) != detailsBefore)
+                    order.CustomerInfoInitials = null;
 
                 if (request.Comments != null)
                     order.Comments = string.IsNullOrWhiteSpace(request.Comments) ? null : request.Comments;
@@ -1258,8 +1268,40 @@ namespace api.Controllers
         /// </summary>
         /// <param name="order">Target order</param>
         /// <param name="request">Incoming DTO</param>
+        /// <summary>
+        /// Whether the customer has confirmed their details, initialled all three paragraphs and
+        /// signed - everything the sales sheet needs before the sale is final.
+        /// </summary>
+        /// <param name="order">Order entity</param>
+        /// <returns>True when complete.</returns>
+        private static bool IsAcknowledged(Order order)
+        {
+            return !string.IsNullOrWhiteSpace(order.CustomerInfoInitials)
+                   && !string.IsNullOrWhiteSpace(order.WarrantyInitials)
+                   && !string.IsNullOrWhiteSpace(order.DropShipInitials)
+                   && !string.IsNullOrWhiteSpace(order.AdvisoryInitials)
+                   && !string.IsNullOrWhiteSpace(order.CustomerSignature);
+        }
+
+        /// <summary>
+        /// Everything the customer confirms on the details screen, as one string for comparison.
+        /// </summary>
+        /// <param name="order">Order entity</param>
+        /// <returns>The details, joined.</returns>
+        private static string CustomerDetails(Order order)
+        {
+            return string.Join("|",
+                order.BillingName, order.BillingAddress, order.BillingUnit, order.BillingFloor,
+                order.BillingSuite, order.BillingCity, order.BillingState, order.BillingZip,
+                order.BillingCell, order.BillingAlt, order.BillingEmail, order.DeliverySameAsBilling,
+                order.DeliveryName, order.DeliveryAddress, order.DeliveryUnit, order.DeliveryFloor,
+                order.DeliverySuite, order.DeliveryCity, order.DeliveryState, order.DeliveryZip,
+                order.DeliveryCell, order.DeliveryAlt, order.DeliveryEmail);
+        }
+
         private static void ApplyAcknowledgements(Order order, OrderDto request)
         {
+            if (request.CustomerInfoInitials != null) order.CustomerInfoInitials = request.CustomerInfoInitials;
             if (request.WarrantyInitials != null) order.WarrantyInitials = request.WarrantyInitials;
             if (request.DropShipInitials != null) order.DropShipInitials = request.DropShipInitials;
             if (request.AdvisoryInitials != null) order.AdvisoryInitials = request.AdvisoryInitials;
@@ -1346,6 +1388,7 @@ namespace api.Controllers
                 Total = order.Total,
                 AmountPaid = order.AmountPaid,
                 BalanceDue = order.BalanceDue,
+                CustomerInfoInitials = order.CustomerInfoInitials,
                 WarrantyInitials = order.WarrantyInitials,
                 DropShipInitials = order.DropShipInitials,
                 AdvisoryInitials = order.AdvisoryInitials,

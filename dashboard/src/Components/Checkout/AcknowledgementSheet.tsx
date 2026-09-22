@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import SignaturePad from "../Elements/SignaturePad";
 import { useLockBodyScroll } from "../../Hooks/UseLockBodyScroll";
+import { AddressLines, SortLinesForPrint } from "../../Lib/ModelHelpers";
 import { Toast } from "../../Lib/Toast";
 import type { Order } from "../../Models/Order";
 
@@ -13,7 +14,7 @@ type Props = {
 };
 
 type Acknowledgement = {
-    key: "warrantyInitials" | "dropShipInitials" | "advisoryInitials";
+    key: "customerInfoInitials" | "warrantyInitials" | "dropShipInitials" | "advisoryInitials";
     heading: string;
     detail: string;
 };
@@ -24,6 +25,13 @@ type Acknowledgement = {
  * explanation that goes with it.
  */
 const acknowledgements: Acknowledgement[] = [
+    {
+        key: "customerInfoInitials",
+        heading: "Check your details",
+        detail:
+            "Please make sure everything below is right - it's where your order is delivered and how we reach you. " +
+            "If anything is wrong, tap Cancel and let us know before you initial.",
+    },
     {
         key: "warrantyInitials",
         heading: "Warranty & mattress protectors",
@@ -38,7 +46,7 @@ const acknowledgements: Acknowledgement[] = [
         key: "dropShipInitials",
         heading: "How your bed arrives",
         detail:
-            "ALL ITEMS WILL BE DROP SHIPPED DIRECTLY TO THE CUSTOMER UNLESS OTHERWISE NOTED. " + 
+            "ALL ITEMS WILL BE DROP SHIPPED DIRECTLY TO THE CUSTOMER UNLESS OTHERWISE NOTED. " +
             "Items do not require a signature when delivered. The mattress will be compressed, vacuum sealed and boxed. " +
             "The product may be heavy and may require additoinal persons to move it. Once open, the bed will completely recover " +
             "within 24-48 hours, however, sleeping on it sooner will not damage the bed.",
@@ -54,6 +62,110 @@ const acknowledgements: Acknowledgement[] = [
 ];
 
 /**
+ * Everything the customer is confirming on the first step: who they are, how to reach them, where
+ * the order goes and how each item is getting there.
+ */
+const DetailsSummary = ({ order }: { order: Order }) => {
+    const billing = AddressLines({
+        address: order.billingAddress,
+        unit: order.billingUnit,
+        floor: order.billingFloor,
+        suite: order.billingSuite,
+        city: order.billingCity,
+        state: order.billingState,
+        zip: order.billingZip,
+    });
+    const delivery = order.deliverySameAsBilling
+        ? null
+        : AddressLines({
+              address: order.deliveryAddress,
+              unit: order.deliveryUnit,
+              floor: order.deliveryFloor,
+              suite: order.deliverySuite,
+              city: order.deliveryCity,
+              state: order.deliveryState,
+              zip: order.deliveryZip,
+          });
+    const phones = [order.billingCell, order.billingAlt].filter(Boolean).join(" / ");
+
+    // Each item with the way it is leaving: its shipping row, or Take With.
+    const lines = SortLinesForPrint(order.lines ?? []);
+    const items = lines
+        .filter((l) => l.lineType === "Product" || l.lineType === "Custom")
+        .map((item) => {
+            const methods = lines
+                .filter((l) => l.parentLineId === item.id && l.lineType === "Delivery")
+                .map((l) => l.description);
+            return {
+                id: item.id,
+                name: `${item.quantity && item.quantity > 1 ? `${item.quantity} x ` : ""}${item.description}`,
+                how: methods.length
+                    ? methods.join(" + ")
+                    : item.takeWith
+                      ? "Take With"
+                      : "Drop Ship",
+            };
+        });
+
+    const missing = <span className="italic text-amber-700 dark:text-amber-400">Not given</span>;
+
+    const row = (label: string, value: ReactNode) => (
+        <div className="grid grid-cols-1 gap-1 py-3 sm:grid-cols-[10rem_1fr] sm:gap-4">
+            <dt className="text-sm font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                {label}
+            </dt>
+            <dd className="text-lg text-zinc-900 dark:text-zinc-100">{value}</dd>
+        </div>
+    );
+
+    return (
+        <dl className="mt-6 divide-y divide-zinc-200 rounded-2xl border-2 border-zinc-200 bg-white px-5 dark:divide-zinc-700 dark:border-zinc-700 dark:bg-zinc-800">
+            {row("Name", order.billingName || missing)}
+            {row(
+                "Address",
+                billing.length
+                    ? billing.map((l) => (
+                          <span key={l} className="block">
+                              {l}
+                          </span>
+                      ))
+                    : missing
+            )}
+            {row("Phone", phones || missing)}
+            {row("Email", order.billingEmail || missing)}
+            {row(
+                "Deliver to",
+                delivery === null ? (
+                    "Same as the address above"
+                ) : (
+                    <>
+                        {order.deliveryName && <span className="block">{order.deliveryName}</span>}
+                        {delivery.length
+                            ? delivery.map((l) => (
+                                  <span key={l} className="block">
+                                      {l}
+                                  </span>
+                              ))
+                            : missing}
+                        {order.deliveryCell && <span className="block">{order.deliveryCell}</span>}
+                    </>
+                )
+            )}
+            {items.length > 0 &&
+                row(
+                    "How it arrives",
+                    items.map((item) => (
+                        <span key={item.id} className="block">
+                            {item.name}{" "}
+                            <span className="text-zinc-500 dark:text-zinc-400">- {item.how}</span>
+                        </span>
+                    ))
+                )}
+        </dl>
+    );
+};
+
+/**
  * The tablet is turned around for this. The customer reads each point, initials it, then signs
  * once at the end. Progress is explicit so nobody is initialling something they have not seen,
  * and everything is written back in a single save.
@@ -63,6 +175,7 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
 
     const [step, setStep] = useState<number>(0);
     const [initials, setInitials] = useState<Record<string, string>>({
+        customerInfoInitials: order.customerInfoInitials ?? "",
         warrantyInitials: order.warrantyInitials ?? "",
         dropShipInitials: order.dropShipInitials ?? "",
         advisoryInitials: order.advisoryInitials ?? "",
@@ -91,6 +204,7 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
         setSaving(true);
         await onSave({
             id: order.id,
+            customerInfoInitials: initials.customerInfoInitials.trim(),
             warrantyInitials: initials.warrantyInitials.trim(),
             dropShipInitials: initials.dropShipInitials.trim(),
             advisoryInitials: initials.advisoryInitials.trim(),
@@ -142,6 +256,10 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
                                 {current.detail}
                             </p>
 
+                            {current.key === "customerInfoInitials" && (
+                                <DetailsSummary order={order} />
+                            )}
+
                             <label className="mt-8 block">
                                 <span className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
                                     Your initials
@@ -171,7 +289,8 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
                                 Sign to finish
                             </h2>
                             <p className="mt-2 text-base text-zinc-600 dark:text-zinc-400">
-                                Your signature confirms the three points you just initialled.
+                                Your signature confirms your details and the points you just
+                                initialled.
                             </p>
 
                             <label className="mt-6 block">
@@ -221,7 +340,11 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
                         />
                     ) : (
                         <Button
-                            text="I understand"
+                            text={
+                                current.key === "customerInfoInitials"
+                                    ? "My details are correct"
+                                    : "I understand"
+                            }
                             icon="fa-solid fa-arrow-right"
                             onClick={next}
                             className="min-h-[60px] flex-1 text-lg"

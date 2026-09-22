@@ -48,27 +48,35 @@ namespace api.Utils
             var taxableBase = order.Lines.Where(l => l.IsTaxable).Sum(l => l.LineTotal);
             order.TaxAmount = Round(taxableBase * order.SalesTaxRate);
 
-            // The card fee is charged on the card-funded portion only, matching the paper sheet
-            // where the fee box is left blank unless the customer pays by card.
+            var preFeeTotal = Round(order.Subtotal + order.TaxAmount);
+            var rate = order.CcProcessingFeeRate;
+
+            // The card fee is charged only on the part of the sale paid by card, matching the
+            // paper sheet where the fee box stays blank unless the customer pays by card. A $2,000
+            // order with $1,000 paid in cash pays the fee on the other $1,000 only.
+            var otherPaid = order.Payments
+                .Where(p => p.Method != PaymentMethod.VisaMc)
+                .Sum(p => p.Amount);
+
             var cardPaid = order.Payments
                 .Where(p => p.Method == PaymentMethod.VisaMc)
                 .Sum(p => p.Amount);
 
-            var preFeeTotal = Round(order.Subtotal + order.TaxAmount);
+            // A card payment already includes its own fee, so strip it back out to find how much
+            // of the sale it covered.
+            var notCoveredByOtherMethods = Math.Max(0m, preFeeTotal - otherPaid);
+            var coveredByCard = Math.Min(rate > 0 ? cardPaid / (1 + rate) : cardPaid, notCoveredByOtherMethods);
 
-            // Once a card payment has actually been keyed in, that amount decides the fee. Before
-            // then, picking Visa/MC at the checkout table is enough to put the fee on the total,
-            // so the customer is quoted the real figure rather than being surprised by it after
-            // the payment is recorded. The fee is capped at the pre-fee total either way, so a
-            // card payment that already includes the fee does not compound it.
-            var feeBase = cardPaid > 0
-                ? Math.Min(cardPaid, preFeeTotal)
-                : order.ApplyCcProcessingFee
-                    ? preFeeTotal
-                    : 0m;
+            // With the card picked at the checkout table, whatever is still owed will go on the
+            // card too, so the customer is quoted the real figure before paying.
+            var stillOwed = order.ApplyCcProcessingFee
+                ? Math.Max(0m, notCoveredByOtherMethods - coveredByCard)
+                : 0m;
 
-            order.CcProcessingFee = order.CcProcessingFeeRate > 0 && feeBase > 0
-                ? Round(feeBase * order.CcProcessingFeeRate)
+            var feeBase = coveredByCard + stillOwed;
+
+            order.CcProcessingFee = rate > 0 && feeBase > 0
+                ? Round(feeBase * rate)
                 : 0m;
 
             order.Total = Round(preFeeTotal + order.CcProcessingFee);

@@ -52,6 +52,7 @@ export type Order = {
     amountPaid?: number;
     balanceDue?: number;
 
+    customerInfoInitials?: string | null;
     warrantyInitials?: string | null;
     dropShipInitials?: string | null;
     advisoryInitials?: string | null;

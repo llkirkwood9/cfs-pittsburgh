@@ -18,11 +18,24 @@ const head = `${cell} bg-zinc-100 text-left text-[10px] font-bold uppercase`;
 /**
  * The Accessory Inventory Sheet, filled in. Laid out like the paper sheet the crew tallies at the
  * end of an event: each tracked accessory by size, with what went home as Take With, what the app
- * says is left, and a blank column to write in the physical count. Printed as the last page of an
- * event's sheets.
+ * expected to be left, and what the end-of-event count found - or a blank column to write the
+ * count in by hand when it has not been done in the app. Printed as the last page of an event's
+ * sheets.
  */
 const InventorySheet = ({ saleEvent, items }: Props) => {
     const groups = GroupInventory(items);
+
+    // Once the end-of-event count is saved, Expected is what the app thought was on the shelf at
+    // that moment; before it, the current count, with Counted left blank to fill in by hand.
+    const counted = (size: InventoryItem) =>
+        size.countedAtEvent !== null && size.countedAtEvent !== undefined;
+    const expectedFor = (size: InventoryItem) =>
+        counted(size) ? (size.expectedAtCount ?? 0) : (size.quantityOnHand ?? 0);
+    const differenceFor = (size: InventoryItem) => {
+        if (!counted(size)) return "";
+        const diff = (size.countedAtEvent ?? 0) - expectedFor(size);
+        return diff === 0 ? "0" : diff > 0 ? `+${diff}` : String(diff);
+    };
 
     return (
         <div className="print-sheet mx-auto w-full max-w-[8in] bg-white p-8 font-sans text-black shadow-lg">
@@ -39,7 +52,8 @@ const InventorySheet = ({ saleEvent, items }: Props) => {
                     Cart: <span className="font-normal">{saleEvent?.cartName}</span>
                 </p>
                 <p>
-                    Date: <span className="font-normal">{FormatShortDate(saleEvent?.eventDate)}</span>
+                    Date:{" "}
+                    <span className="font-normal">{FormatShortDate(saleEvent?.eventDate)}</span>
                 </p>
             </div>
 
@@ -51,15 +65,20 @@ const InventorySheet = ({ saleEvent, items }: Props) => {
             ) : (
                 groups.map((group) => (
                     <section key={group.category} className="mt-5 break-inside-avoid">
-                        <h2 className="mb-1 text-[14px] font-bold">{CategoryNames[group.category]}</h2>
+                        <h2 className="mb-1 text-[14px] font-bold">
+                            {CategoryNames[group.category]}
+                        </h2>
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr>
-                                    <th className={`${head} w-[38%]`}>Item</th>
-                                    <th className={`${head} w-[18%]`}>Size</th>
-                                    <th className={`${head} w-[14%] text-center`}>Take With sold</th>
-                                    <th className={`${head} w-[14%] text-center`}>On hand</th>
-                                    <th className={`${head} w-[16%] text-center`}>Counted</th>
+                                    <th className={`${head} w-[32%]`}>Item</th>
+                                    <th className={`${head} w-[16%]`}>Size</th>
+                                    <th className={`${head} w-[13%] text-center`}>
+                                        Take With sold
+                                    </th>
+                                    <th className={`${head} w-[13%] text-center`}>Expected</th>
+                                    <th className={`${head} w-[13%] text-center`}>Counted</th>
+                                    <th className={`${head} w-[13%] text-center`}>Difference</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -85,10 +104,17 @@ const InventorySheet = ({ saleEvent, items }: Props) => {
                                             <td className={`${cell} text-center tabular-nums`}>
                                                 {size.soldAtEvent ?? 0}
                                             </td>
-                                            <td className={`${cell} text-center font-bold tabular-nums`}>
-                                                {size.quantityOnHand ?? 0}
+                                            <td className={`${cell} text-center tabular-nums`}>
+                                                {expectedFor(size)}
                                             </td>
-                                            <td className={cell} />
+                                            <td
+                                                className={`${cell} text-center font-bold tabular-nums`}
+                                            >
+                                                {size.countedAtEvent ?? ""}
+                                            </td>
+                                            <td className={`${cell} text-center tabular-nums`}>
+                                                {differenceFor(size)}
+                                            </td>
                                         </tr>
                                     ))
                                 )}

@@ -248,6 +248,10 @@ namespace api.Migrations
                     b.Property<int?>("CreatedByUserId")
                         .HasColumnType("int");
 
+                    b.Property<string>("CustomerInfoInitials")
+                        .HasMaxLength(10)
+                        .HasColumnType("nvarchar(10)");
+
                     b.Property<string>("CustomerSignature")
                         .HasColumnType("nvarchar(max)");
 

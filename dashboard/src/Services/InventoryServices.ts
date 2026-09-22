@@ -1,6 +1,6 @@
 import api from "../Lib/api";
 import { HandleAxiosError } from "../Lib/ErrorHandler";
-import type { InventoryAdjustment } from "../Models/InventoryAdjustment";
+import type { InventoryAdjustment, InventoryCount } from "../Models/InventoryAdjustment";
 import type { InventoryItem } from "../Models/InventoryItem";
 
 //*************************************//
@@ -18,6 +18,21 @@ export const AdjustInventory = async (
 ): Promise<InventoryItem | null> => {
     try {
         const response = await api.post<InventoryItem>("/api/Inventory/adjust", adjustment);
+        return response.data;
+    } catch (error) {
+        HandleAxiosError(error);
+        return null;
+    }
+};
+
+/**
+ * Saves the end-of-event shelf count. Each counted size is set to what was found.
+ * @param count The event, an optional note and the counted sizes.
+ * @returns The event's inventory rows after the count, or null on failure.
+ */
+export const SaveInventoryCount = async (count: InventoryCount): Promise<InventoryItem[] | null> => {
+    try {
+        const response = await api.post<InventoryItem[]>("/api/Inventory/count", count);
         return response.data;
     } catch (error) {
         HandleAxiosError(error);

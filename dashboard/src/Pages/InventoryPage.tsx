@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
@@ -45,6 +46,7 @@ const kindLabels: Record<string, string> = {
     Adjustment: "Count changed",
     Sale: "Take With sale",
     Return: "Returned to stock",
+    Count: "End-of-event count",
 };
 
 /**
@@ -53,6 +55,7 @@ const kindLabels: Record<string, string> = {
  * marked Track inventory in the catalog appear here.
  */
 const InventoryPage = () => {
+    const navigate = useNavigate();
     const [items, setItems] = useState<InventoryItem[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [search, setSearch] = useState<string>("");
@@ -158,7 +161,17 @@ const InventoryPage = () => {
         <div className="mx-auto max-w-4xl p-3 sm:p-4">
             <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                 <h1 className="text-xl font-bold">Inventory</h1>
-                <Button text="Refresh" icon="fa-solid fa-rotate" onClick={load} />
+                <div className="flex flex-wrap gap-2">
+                    {items.length > 0 && (
+                        <Button
+                            text="End-of-event count"
+                            icon="fa-solid fa-clipboard-check"
+                            onClick={() => navigate("/inventory/count")}
+                            className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
+                        />
+                    )}
+                    <Button text="Refresh" icon="fa-solid fa-rotate" onClick={load} />
+                </div>
             </div>
             <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
                 {totalUnits} units on hand

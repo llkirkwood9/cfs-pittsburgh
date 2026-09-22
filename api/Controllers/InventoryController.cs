@@ -91,6 +91,82 @@ namespace api.Controllers
             }
         }
 
+        /// <summary>
+        /// Saves the end-of-event shelf count. Each counted size is set to what was found, and a
+        /// Count row is recorded for it - even when it matched - so the event's inventory sheet
+        /// shows what was expected and what was on the shelf.
+        /// </summary>
+        /// <param name="request">Event id, optional note and the counted sizes</param>
+        /// <returns>The event's inventory rows after the count.</returns>
+        [HttpPost("count")]
+        [Authorize(AuthenticationSchemes = "Bearer")]
+        public async Task<IActionResult> SaveCount([FromBody] InventoryCountDto request)
+        {
+            try
+            {
+                if (!CanUpdateInventory())
+                    return StatusCode(403, new { error = "Only checkout and administrators may change inventory." });
+
+                if (request.EventId == null || request.Counts == null || request.Counts.Count == 0)
+                    return BadRequest(new { error = "Missing parameter." });
+
+                if (request.Note is { Length: > 300 })
+                    return BadRequest(new { error = "Invalid parameter." });
+
+                if (request.Counts.Any(c => c.ProductVariantId == null || c.Counted is null or < 0))
+                    return BadRequest(new { error = "Every count must be a whole number, 0 or more." });
+
+                if (!await DB.Events.AnyAsync(e => e.Id == request.EventId.Value))
+                    return NotFound(new { error = "Event not found." });
+
+                // The last entry for a size wins if it was sent twice.
+                var counts = request.Counts
+                    .GroupBy(c => c.ProductVariantId!.Value)
+                    .ToDictionary(g => g.Key, g => g.Last().Counted!.Value);
+
+                var ids = counts.Keys.ToList();
+                var variants = await DB.ProductVariants
+                    .Include(v => v.Product)
+                    .Where(v => ids.Contains(v.Id))
+                    .ToListAsync();
+
+                if (variants.Count != ids.Count || variants.Any(v => v.Product is not { TrackInventory: true }))
+                    return BadRequest(new { error = "Only tracked products can be counted." });
+
+                var note = string.IsNullOrWhiteSpace(request.Note) ? "End-of-event count" : request.Note.Trim();
+                var now = DateTime.UtcNow;
+
+                foreach (var variant in variants)
+                {
+                    var counted = counts[variant.Id];
+                    var change = counted - variant.QuantityOnHand;
+                    variant.QuantityOnHand = counted;
+
+                    DB.InventoryAdjustments.Add(new InventoryAdjustment
+                    {
+                        ProductVariantId = variant.Id,
+                        Kind = InventoryChangeKind.Count,
+                        Change = change,
+                        QuantityAfter = counted,
+                        EventId = request.EventId,
+                        UserId = GetCurrentUserId(),
+                        UserName = GetCurrentUserName(),
+                        Note = note,
+                        CreatedAt = now,
+                    });
+                }
+
+                await DB.SaveChangesAsync();
+
+                return Ok(await LoadItemsAsync(request.EventId, null));
+            }
+            catch (Exception e)
+            {
+                Trace(TraceEventType.Critical, e.Message);
+                return StatusCode(500, new { error = "Internal error occurred while saving the count.", exception = e.Message });
+            }
+        }
+
         #endregion
 
         #region GET Methods
@@ -216,6 +292,18 @@ namespace api.Controllers
                     .Select(g => new { VariantId = g.Key, Net = g.Sum(a => a.Change) })
                     .ToDictionaryAsync(x => x.VariantId, x => -x.Net);
 
+            // The latest shelf count taken at the event, per size.
+            var eventCounts = eventId == null
+                ? []
+                : (await DB.InventoryAdjustments
+                    .Where(a => a.EventId == eventId
+                                && ids.Contains(a.ProductVariantId)
+                                && a.Kind == InventoryChangeKind.Count)
+                    .ToListAsync())
+                    .GroupBy(a => a.ProductVariantId)
+                    .Select(g => g.OrderByDescending(a => a.CreatedAt).ThenByDescending(a => a.Id).First())
+                    .ToList();
+
             return variants
                 .OrderBy(v => v.Product!.Category)
                 .ThenBy(v => v.Product!.SortOrder)
@@ -232,6 +320,10 @@ namespace api.Controllers
                     Configuration = v.Configuration,
                     QuantityOnHand = v.QuantityOnHand,
                     SoldAtEvent = eventId == null ? null : sold.GetValueOrDefault(v.Id),
+                    CountedAtEvent = eventCounts.FirstOrDefault(c => c.ProductVariantId == v.Id)?.QuantityAfter,
+                    ExpectedAtCount = eventCounts.FirstOrDefault(c => c.ProductVariantId == v.Id) is { } count
+                        ? count.QuantityAfter - count.Change
+                        : null,
                     LastChangedAt = lastChanged.TryGetValue(v.Id, out var at) ? at : null,
                 })
                 .ToList();

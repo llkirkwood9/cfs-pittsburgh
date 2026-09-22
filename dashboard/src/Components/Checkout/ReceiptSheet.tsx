@@ -49,6 +49,15 @@ const ReceiptSheet = ({ order }: Props) => {
         return FormatCurrency(rows.reduce((sum, p) => sum + (p.amount ?? 0), 0));
     };
 
+    // The rep who wrote the sale and whoever checked the customer out. One name when they are
+    // the same person, or before checkout has happened.
+    const salesName = order.cfsRepName?.trim() ?? "";
+    const checkoutName = order.completedByName?.trim() ?? "";
+    const showCheckout =
+        checkoutName !== "" && checkoutName.toLowerCase() !== salesName.toLowerCase();
+
+    const hasLayaway = (order.payments ?? []).some((p) => p.method === "Layaway");
+
     const checkNumbers = (order.payments ?? [])
         .filter((p) => p.method === "Check" && p.checkNumber)
         .map((p) => p.checkNumber)
@@ -171,7 +180,24 @@ const ReceiptSheet = ({ order }: Props) => {
                         <td className={`${cell} h-[24px] text-center`}>{order.organization}</td>
                         <td className={`${cell} h-[24px] text-center`}>{order.advertisingSource}</td>
                         <td className={`${cell} h-[24px] text-center`}>{order.referralName}</td>
-                        <td className={`${cell} h-[24px] text-center`}>{order.cfsRepName}</td>
+                        <td className={`${cell} h-[24px] text-center leading-tight`}>
+                            {showCheckout ? (
+                                <>
+                                    {salesName && (
+                                        <span className="block">
+                                            <span className="text-[8px] font-bold">SALES:</span>{" "}
+                                            {salesName}
+                                        </span>
+                                    )}
+                                    <span className="block">
+                                        <span className="text-[8px] font-bold">CHECKOUT:</span>{" "}
+                                        {checkoutName}
+                                    </span>
+                                </>
+                            ) : (
+                                salesName || checkoutName
+                            )}
+                        </td>
                     </tr>
                 </tbody>
             </table>
@@ -197,6 +223,16 @@ const ReceiptSheet = ({ order }: Props) => {
                     </tr>
                 </tbody>
             </table>
+            <p className="mt-0.5 text-right font-serif text-[9px]">
+                Customer confirms the name, address, phone, email and delivery details above are
+                correct.{" "}
+                <span className="font-bold">
+                    INITIAL{" "}
+                    <span className="inline-block min-w-[3em] border-b border-black text-center font-normal">
+                        {order.customerInfoInitials}
+                    </span>
+                </span>
+            </p>
 
             {/* Line items */}
             <table className="mt-1 w-full border-collapse text-[10px]">
@@ -271,87 +307,77 @@ const ReceiptSheet = ({ order }: Props) => {
                 </tbody>
             </table>
 
-            {/* Comments, payment options and totals */}
-            <table className="mt-1 w-full border-collapse text-[10px]">
+            {/* Comments, payment options and totals. One grid of five columns - comments, payment
+                method, amount, total label, total - so each payment row lines up with the Payment
+                Options and Subtotal headings above it, as on the paper form. */}
+            <table className="mt-1 w-full table-fixed border-collapse text-[10px]">
+                <colgroup>
+                    <col className="w-[46%]" />
+                    <col className="w-[15%]" />
+                    <col className="w-[11%]" />
+                    <col className="w-[15%]" />
+                    <col className="w-[13%]" />
+                </colgroup>
                 <tbody>
                     <tr>
-                        <td className={`${cell} w-[46%] text-center font-semibold`} rowSpan={2}>
-                            Comments:
-                            <div className="mt-1 min-h-[64px] text-left text-[11px] font-normal">
-                                {order.comments}
-                            </div>
-                        </td>
+                        <td className={`${cell} text-center font-semibold`}>Comments:</td>
                         <td className={`${cell} text-center font-semibold`} colSpan={2}>
                             Payment Options
                         </td>
-                        <td className={`${cell} w-[16%] font-semibold`}>Subtotal</td>
-                        <td className={`${cell} w-[13%] text-right`}>
-                            {FormatCurrency(order.subtotal)}
+                        <td className={`${cell} font-semibold`}>Subtotal</td>
+                        <td className={`${cell} text-right`}>{FormatCurrency(order.subtotal)}</td>
+                    </tr>
+                    <tr>
+                        <td
+                            className={`${cell} align-top text-[11px]`}
+                            rowSpan={hasLayaway ? 5 : 4}
+                        >
+                            {order.comments}
+                        </td>
+                        <td className={`${cell} text-center font-semibold`}>
+                            {PaymentMethodLabels.VisaMc}
+                        </td>
+                        <td className={`${cell} text-right`}>{paidBy("VisaMc")}</td>
+                        <td className={`${cell} font-semibold`}>Sales Tax</td>
+                        <td className={`${cell} text-right`}>{FormatCurrency(order.taxAmount)}</td>
+                    </tr>
+                    <tr>
+                        <td className={`${cell} text-center font-semibold`}>Cash</td>
+                        <td className={`${cell} text-right`}>{paidBy("Cash")}</td>
+                        <td className={`${cell} font-semibold`}>Total</td>
+                        <td className={`${cell} text-right font-bold`}>
+                            {FormatCurrency(order.total)}
                         </td>
                     </tr>
                     <tr>
-                        <td className="p-0 align-top" colSpan={4}>
-                            <table className="w-full border-collapse text-[10px]">
-                                <tbody>
-                                    <tr>
-                                        <td className={`${cell} w-[17%] font-semibold`}>
-                                            {PaymentMethodLabels.VisaMc}
-                                        </td>
-                                        <td className={`${cell} w-[13%] text-right`}>
-                                            {paidBy("VisaMc")}
-                                        </td>
-                                        <td className={`${cell} w-[27%] font-semibold`}>Sales Tax</td>
-                                        <td className={`${cell} text-right`}>
-                                            {FormatCurrency(order.taxAmount)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className={`${cell} font-semibold`}>Cash</td>
-                                        <td className={`${cell} text-right`}>{paidBy("Cash")}</td>
-                                        <td className={`${cell} font-semibold`}>Total</td>
-                                        <td className={`${cell} text-right font-bold`}>
-                                            {FormatCurrency(order.total)}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className={`${cell} font-semibold`}>
-                                            Check #{checkNumbers ? ` ${checkNumbers}` : ""}
-                                        </td>
-                                        <td className={`${cell} text-right`}>{paidBy("Check")}</td>
-                                        <td className={`${cell} text-[9px] font-semibold`}>
-                                            CC Processing Fee
-                                        </td>
-                                        <td className={`${cell} text-right`}>
-                                            {(order.ccProcessingFee ?? 0) > 0
-                                                ? FormatCurrency(order.ccProcessingFee)
-                                                : "—"}
-                                        </td>
-                                    </tr>
-                                    <tr>
-                                        <td className={`${cell} font-semibold`}>Financing</td>
-                                        <td className={`${cell} text-right`}>
-                                            {paidBy("Financing")}
-                                        </td>
-                                        <td className={`${cell} font-semibold`}>Balance Due</td>
-                                        <td className={`${cell} text-right font-bold`}>
-                                            {FormatCurrency(order.balanceDue)}
-                                        </td>
-                                    </tr>
-                                    {(order.payments ?? []).some((p) => p.method === "Layaway") && (
-                                        <tr>
-                                            <td className={`${cell} font-semibold`}>Layaway</td>
-                                            <td className={`${cell} text-right`}>
-                                                {paidBy("Layaway")}
-                                            </td>
-                                            <td className={cell} colSpan={2}>
-                                                &nbsp;
-                                            </td>
-                                        </tr>
-                                    )}
-                                </tbody>
-                            </table>
+                        <td className={`${cell} text-center font-semibold`}>
+                            Check #{checkNumbers ? ` ${checkNumbers}` : ""}
+                        </td>
+                        <td className={`${cell} text-right`}>{paidBy("Check")}</td>
+                        <td className={`${cell} text-[9px] font-semibold`}>CC Processing Fee</td>
+                        <td className={`${cell} text-right`}>
+                            {(order.ccProcessingFee ?? 0) > 0
+                                ? FormatCurrency(order.ccProcessingFee)
+                                : "—"}
                         </td>
                     </tr>
+                    <tr>
+                        <td className={`${cell} text-center font-semibold`}>Financing</td>
+                        <td className={`${cell} text-right`}>{paidBy("Financing")}</td>
+                        <td className={`${cell} font-semibold`}>Balance Due</td>
+                        <td className={`${cell} text-right font-bold`}>
+                            {FormatCurrency(order.balanceDue)}
+                        </td>
+                    </tr>
+                    {hasLayaway && (
+                        <tr>
+                            <td className={`${cell} text-center font-semibold`}>Layaway</td>
+                            <td className={`${cell} text-right`}>{paidBy("Layaway")}</td>
+                            <td className={cell} colSpan={2}>
+                                &nbsp;
+                            </td>
+                        </tr>
+                    )}
                 </tbody>
             </table>
 
@@ -439,15 +465,11 @@ const ReceiptSheet = ({ order }: Props) => {
             <div className="mt-1 flex gap-4 text-[10px]">
                 <p className="flex-1">
                     <span className="font-bold uppercase">Received by:</span>{" "}
-                    <span className="inline-block min-w-[55%] border-b border-black">
-                        {order.receivedBy}
-                    </span>
+                    <span className="inline-block min-w-[55%] border-b border-black">&nbsp;</span>
                 </p>
                 <p className="flex-1">
                     <span className="font-bold">Date:</span>{" "}
-                    <span className="inline-block min-w-[60%] border-b border-black">
-                        {FormatShortDate(order.receivedDate)}
-                    </span>
+                    <span className="inline-block min-w-[60%] border-b border-black">&nbsp;</span>
                 </p>
             </div>
         </div>

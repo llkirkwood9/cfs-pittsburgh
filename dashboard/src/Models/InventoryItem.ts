@@ -10,5 +10,7 @@ export type InventoryItem = {
     configuration?: string | null;
     quantityOnHand?: number;
     soldAtEvent?: number | null;
+    countedAtEvent?: number | null;
+    expectedAtCount?: number | null;
     lastChangedAt?: string | null;
 };

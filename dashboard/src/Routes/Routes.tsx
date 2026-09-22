@@ -10,6 +10,7 @@ import ErrorPage from "../Pages/ErrorPage";
 import EventSheetsPage from "../Pages/EventSheetsPage";
 import EventsPage from "../Pages/EventsPage";
 import InventoryPage from "../Pages/InventoryPage";
+import InventoryCountPage from "../Pages/InventoryCountPage";
 import LoginPage from "../Pages/LoginPage";
 import NotFoundPage from "../Pages/NotFoundPage";
 import OrdersPage from "../Pages/OrdersPage";
@@ -78,6 +79,14 @@ export const router = createBrowserRouter([
                 element: (
                     <ProtectedRoute roles={["Checkout"]}>
                         <InventoryPage />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "inventory/count",
+                element: (
+                    <ProtectedRoute roles={["Checkout"]}>
+                        <InventoryCountPage />
                     </ProtectedRoute>
                 ),
             },

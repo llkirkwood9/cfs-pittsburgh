@@ -125,5 +125,11 @@ namespace api.Models
 
         /// <summary>Stock put back because a completed sale was reopened or voided.</summary>
         Return = 2,
+
+        /// <summary>
+        /// The end-of-event shelf count. Recorded for every size counted, even when it matched,
+        /// so the event's inventory sheet can show what was expected and what was found.
+        /// </summary>
+        Count = 3,
     }
 }

@@ -51,6 +51,16 @@ namespace api.Dtos
         public int? SoldAtEvent { get; set; }
 
         /// <summary>
+        /// What the shelf count at the requested event found, when one was taken
+        /// </summary>
+        public int? CountedAtEvent { get; set; }
+
+        /// <summary>
+        /// What the app expected on the shelf when that count was taken
+        /// </summary>
+        public int? ExpectedAtCount { get; set; }
+
+        /// <summary>
         /// When the count last changed
         /// </summary>
         public DateTime? LastChangedAt { get; set; }

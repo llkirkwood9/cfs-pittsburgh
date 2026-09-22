@@ -243,6 +243,11 @@ namespace api.Dtos
         #region Acknowledgements
 
         /// <summary>
+        /// Initials confirming the customer checked their details
+        /// </summary>
+        public string? CustomerInfoInitials { get; set; }
+
+        /// <summary>
         /// Initials against the warranty paragraph
         /// </summary>
         public string? WarrantyInitials { get; set; }

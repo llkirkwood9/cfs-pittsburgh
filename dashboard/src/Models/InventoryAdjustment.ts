@@ -1,4 +1,10 @@
-export type InventoryChangeKind = "Adjustment" | "Sale" | "Return";
+export type InventoryChangeKind = "Adjustment" | "Sale" | "Return" | "Count";
+
+export type InventoryCount = {
+    eventId?: number;
+    note?: string;
+    counts?: { productVariantId: number; counted: number }[];
+};
 
 export type InventoryAdjustment = {
     id?: number;

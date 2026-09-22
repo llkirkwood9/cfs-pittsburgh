@@ -282,6 +282,13 @@ namespace api.Models
         #region Acknowledgements
 
         /// <summary>
+        /// Initials confirming the customer checked their name, address, phone, email and
+        /// delivery details. Cleared whenever those details change afterwards.
+        /// </summary>
+        [MaxLength(10)]
+        public string? CustomerInfoInitials { get; set; }
+
+        /// <summary>
         /// Initials against the Customer Service and Warranty Information paragraph
         /// </summary>
         [MaxLength(10)]

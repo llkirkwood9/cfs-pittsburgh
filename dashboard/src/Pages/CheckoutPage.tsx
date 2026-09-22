@@ -15,7 +15,7 @@ import EditLineModal from "../Components/Sales/EditLineModal";
 import OrderLineList from "../Components/Sales/OrderLineList";
 import OrderTotals from "../Components/Sales/OrderTotals";
 import { useAuth } from "../Context/AuthContext";
-import { FormatCurrency } from "../Lib/ModelHelpers";
+import { FormatCurrency, IsAcknowledged } from "../Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
 import type { DeliveryOption } from "../Models/DeliveryOption";
 import type { Event } from "../Models/Event";
@@ -240,9 +240,11 @@ const CheckoutPage = () => {
 
     const closed = order?.status === "Completed" || order?.status === "Voided";
     const signed = Boolean(order?.customerSignature);
+    const confirmed = Boolean(order?.customerInfoInitials);
     const initialled = Boolean(
         order?.warrantyInitials && order?.dropShipInitials && order?.advisoryInitials
     );
+    const acknowledged = order ? IsAcknowledged(order) : false;
 
     return (
         <div className="mx-auto max-w-screen-2xl p-3 sm:p-4">
@@ -391,6 +393,24 @@ const CheckoutPage = () => {
                                 <div className="flex flex-wrap items-center gap-4">
                                     <span
                                         className={`inline-flex items-center gap-2 text-sm font-medium ${
+                                            confirmed
+                                                ? "text-green-700 dark:text-green-400"
+                                                : "text-zinc-500 dark:text-zinc-400"
+                                        }`}
+                                    >
+                                        <Icon
+                                            icon={
+                                                confirmed
+                                                    ? "fa-solid fa-circle-check"
+                                                    : "fa-regular fa-circle"
+                                            }
+                                        />
+                                        Details confirmed
+                                        {confirmed && ` (${order.customerInfoInitials})`}
+                                    </span>
+
+                                    <span
+                                        className={`inline-flex items-center gap-2 text-sm font-medium ${
                                             initialled
                                                 ? "text-green-700 dark:text-green-400"
                                                 : "text-zinc-500 dark:text-zinc-400"
@@ -479,12 +499,25 @@ const CheckoutPage = () => {
                                                 icon="fa-solid fa-print"
                                                 onClick={handleComplete}
                                                 loading={completing}
+                                                disabled={!acknowledged}
+                                                title={
+                                                    acknowledged
+                                                        ? undefined
+                                                        : "The customer needs to confirm their details, initial and sign first"
+                                                }
                                                 className="!min-h-[52px] flex-col !gap-0.5 !px-1 !text-xs sm:flex-row sm:!gap-2 sm:!px-5 sm:!text-base bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                                             />
                                         </div>
                                     )}
                                 </div>
 
+                                {!closed && !acknowledged && (
+                                    <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
+                                        <Icon icon="fa-solid fa-file-signature" /> Hand the tablet
+                                        to the customer to confirm their details, initial and sign
+                                        before completing.
+                                    </p>
+                                )}
                                 {!closed && (order.balanceDue ?? 0) > 0 && (
                                     <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
                                         <Icon icon="fa-solid fa-triangle-exclamation" /> A balance
