@@ -44,7 +44,8 @@ namespace api.Controllers
                     string.IsNullOrWhiteSpace(request.Pin))
                     return BadRequest(new { error = "Missing parameter." });
 
-                if (await DB.Users.AnyAsync(u => u.Username == request.Username))
+                var newUsername = request.Username.Trim().ToLower();
+                if (await DB.Users.AnyAsync(u => u.Username.ToLower() == newUsername))
                     return BadRequest(new { error = "That username is already taken." });
 
                 if (request.Name.Length > 150 || request.Username.Length > 50)
@@ -156,7 +157,8 @@ namespace api.Controllers
 
                 if (!string.IsNullOrWhiteSpace(request.Username) && request.Username != user.Username)
                 {
-                    if (await DB.Users.AnyAsync(u => u.Username == request.Username && u.Id != user.Id))
+                    var takenBy = request.Username.Trim().ToLower();
+                    if (await DB.Users.AnyAsync(u => u.Username.ToLower() == takenBy && u.Id != user.Id))
                         return BadRequest(new { error = "That username is already taken." });
 
                     if (request.Username.Length > 50)

@@ -6,7 +6,7 @@ namespace api.Data
     /// <summary>
     /// Single EF Core context for the CFS fundraiser database.
     /// </summary>
-    public class ApplicationDbContext(DbContextOptions<ApplicationDbContext> options) : DbContext(options)
+    public class ApplicationDbContext(DbContextOptions options) : DbContext(options)
     {
         #region Sets
 

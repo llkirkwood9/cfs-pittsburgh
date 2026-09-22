@@ -1,0 +1,25 @@
+# Starts CFS Fundraiser at every boot: update the files, pull the latest image, run the stack.
+#
+#   sudo cp /opt/cfs/docker/pi/cfs.service /etc/systemd/system/cfs.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now cfs.service
+#
+# The containers themselves carry restart: unless-stopped, so Docker also brings them back after a
+# crash. This unit is what fetches a newer image on each boot.
+[Unit]
+Description=CFS Fundraiser (pull, then run)
+Requires=docker.service
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+WorkingDirectory=/opt/cfs
+Environment=CFS_DIR=/opt/cfs
+ExecStart=/opt/cfs/docker/pi/cfs-update.sh
+ExecStop=/usr/bin/docker compose -f /opt/cfs/docker-compose.pi.yml stop
+TimeoutStartSec=1800
+
+[Install]
+WantedBy=multi-user.target

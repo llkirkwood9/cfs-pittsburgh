@@ -1,0 +1,341 @@
+# Running CFS Fundraiser on a Raspberry Pi 3B
+
+This sets up a Raspberry Pi 3B as the cart's server. It starts on its own when the Pi is powered
+on, updates itself when it can reach the internet, and everyone on the same network opens it at
+`http://<the Pi's IP>:8080`.
+
+---
+
+## Before you start: what changed, and why
+
+The all-in-one container (`Dockerfile` / `docker-compose.yml`) puts **SQL Server** in the image.
+Microsoft only publishes SQL Server for x86_64 machines, and it wants about 2 GB of RAM. A Pi 3B is
+an ARM board with 1 GB, so that image cannot run there at all.
+
+For the Pi there is a second setup that swaps SQL Server for **PostgreSQL**, which does have an ARM
+build and is much lighter:
+
+| File | What it is |
+| --- | --- |
+| `Dockerfile.app` | The app on its own (API + dashboard), no database inside |
+| `docker-compose.pi.yml` | Two containers: the app and PostgreSQL |
+| `docker/pi/cfs-update.sh` | Pull the newest image and start everything |
+| `docker/pi/cfs.service` | Runs that script at every boot |
+| `.github/workflows/pi-image.yml` | Builds the ARM image for you whenever you push to `main` |
+
+Nothing about your Windows development setup changes: it still uses SQL Server. The app picks its
+database from `Database__Provider`, which the Pi image sets to `Postgres`.
+
+On the Pi this uses roughly **175 MB of RAM** (about 135 MB for the app, 40 MB for PostgreSQL),
+which leaves plenty of room on a 1 GB board.
+
+### What you need
+
+- Raspberry Pi 3B, its power supply, and a microSD card (16 GB or larger).
+- A wired or Wi-Fi connection on the same network as the tablets.
+- A computer to flash the card and to run these commands over SSH.
+
+> **The 64-bit version of Raspberry Pi OS is required.** PostgreSQL and .NET both publish ARM64
+> images; the old 32-bit Pi OS cannot run them. A Pi 3B supports 64-bit fine.
+
+---
+
+## Step 1 - Flash the card
+
+1. Install **Raspberry Pi Imager** on your computer and open it.
+2. **Choose device**: Raspberry Pi 3.
+3. **Choose OS**: `Raspberry Pi OS (other)` → **Raspberry Pi OS Lite (64-bit)**. Lite has no
+   desktop, which is what you want on a 1 GB board.
+4. **Choose storage**: your microSD card.
+5. Click **Next** → **Edit Settings** and fill in:
+   - **Hostname**: `cfs` (so you can also reach it at `http://cfs.local:8080`)
+   - **Username and password**: for example `cfs` and a password you'll remember
+   - **Wireless LAN**: your event Wi-Fi name and password, if you aren't using Ethernet
+   - **Locale**: your time zone
+   - On the **Services** tab, tick **Enable SSH** → *Use password authentication*
+6. Write the card, put it in the Pi, and power it on. Give it a couple of minutes on first boot.
+
+## Step 2 - Connect to the Pi
+
+From your computer:
+
+```bash
+ssh cfs@cfs.local
+```
+
+If `cfs.local` doesn't resolve, find the Pi's IP address in your router's device list and use that
+instead (`ssh cfs@192.168.1.50`).
+
+Check you're on 64-bit - this must say `aarch64`:
+
+```bash
+uname -m
+```
+
+Then update the system:
+
+```bash
+sudo apt update && sudo apt full-upgrade -y && sudo reboot
+```
+
+## Step 3 - Install Docker
+
+Reconnect after the reboot, then:
+
+```bash
+curl -fsSL https://get.docker.com | sudo sh
+```
+
+```bash
+sudo usermod -aG docker $USER && sudo systemctl enable --now docker
+```
+
+Log out and back in (`exit`, then `ssh` again) so your account picks up Docker access, and check it:
+
+```bash
+docker run --rm hello-world
+```
+
+## Step 4 - Get the deployment files onto the Pi
+
+```bash
+sudo mkdir -p /opt/cfs && sudo chown $USER:$USER /opt/cfs
+```
+
+```bash
+git clone https://github.com/llkirkwood9/cfs-pittsburgh.git /opt/cfs
+```
+
+If the repository is private, GitHub will ask for your username and a personal access token instead
+of a password. (See the note in Step 6 about tokens.)
+
+## Step 5 - Create the secrets file
+
+The stack reads two secrets from `/opt/cfs/.env`. Generate them on the Pi and write the file in one
+go:
+
+```bash
+printf 'CFS_IMAGE=ghcr.io/llkirkwood9/cfs-fundraiser:latest\nPOSTGRES_PASSWORD=%s\nJWT_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -base64 48 | tr -d '\n/+=')" > /opt/cfs/.env
+```
+
+```bash
+chmod 600 /opt/cfs/.env && cat /opt/cfs/.env
+```
+
+Keep a copy of that file somewhere safe. If you change `POSTGRES_PASSWORD` later, the existing
+database won't accept the new password. (See *Changing the database password* at the end.)
+
+## Step 6 - Publish the Pi image
+
+The Pi doesn't build anything - it pulls a ready-made ARM image. GitHub Actions builds it for you:
+
+1. Push this branch to `main`. The **Pi image** workflow starts automatically.
+2. Watch it on GitHub under **Actions** → **Pi image**. The first run takes roughly 10-15 minutes.
+3. When it finishes, the image exists at `ghcr.io/llkirkwood9/cfs-fundraiser:latest`.
+
+**Let the Pi read it.** Packages start out private, so do one of these:
+
+- *Keep it private (recommended):* on GitHub go to **Settings → Developer settings → Personal
+  access tokens → Tokens (classic)**, generate a token with the **`read:packages`** scope, then on
+  the Pi:
+
+  ```bash
+  echo 'YOUR_TOKEN_HERE' | docker login ghcr.io -u llkirkwood9 --password-stdin
+  ```
+
+- *Or make it public:* open the package from your GitHub profile → **Packages** →
+  **Package settings** → **Change visibility** → Public. Then the Pi needs no login.
+
+> **Prefer to build it yourself?** On a computer with Docker Desktop:
+> ```bash
+> docker buildx build --platform linux/arm64 -f Dockerfile.app -t ghcr.io/llkirkwood9/cfs-fundraiser:latest --push .
+> ```
+
+## Step 7 - First run
+
+```bash
+cd /opt/cfs && docker compose -f docker-compose.pi.yml pull
+```
+
+```bash
+docker compose -f docker-compose.pi.yml up -d
+```
+
+The first start takes a minute or two: PostgreSQL sets itself up, then the app creates its tables
+and loads the product catalogue. Watch it happen with:
+
+```bash
+docker compose -f docker-compose.pi.yml logs -f app
+```
+
+Press `Ctrl+C` to stop watching. Both containers should say `healthy`:
+
+```bash
+docker compose -f docker-compose.pi.yml ps
+```
+
+Now open `http://cfs.local:8080` (or `http://<the Pi's IP>:8080`) from any device on the network and
+sign in as **admin / 1234**.
+
+> **Change that PIN straight away** under **Crew**, and add accounts for the rest of the team.
+
+## Step 8 - Start it automatically at boot
+
+```bash
+chmod +x /opt/cfs/docker/pi/cfs-update.sh
+```
+
+```bash
+sudo cp /opt/cfs/docker/pi/cfs.service /etc/systemd/system/cfs.service && sudo systemctl daemon-reload && sudo systemctl enable --now cfs.service
+```
+
+At every boot the Pi now:
+
+1. waits for the network (up to a minute),
+2. runs `git pull` for the deployment files,
+3. pulls the newest app image,
+4. starts both containers.
+
+If there's no internet - at an event, for example - it skips the update and starts the image it
+already has. Nothing blocks the app from starting.
+
+Test it:
+
+```bash
+sudo reboot
+```
+
+Wait a minute, then load `http://cfs.local:8080` again.
+
+## Step 9 - Make the address predictable
+
+The Pi's IP can change when it reconnects, which is annoying when the tablets have it bookmarked.
+Either:
+
+- **Reserve the address on your router** (usually "DHCP reservation" or "static lease") against the
+  Pi's MAC address, which you can see with `ip a`, or
+- **use the hostname** `http://cfs.local:8080`, which works from iPads, Macs, and Windows 10 or
+  newer without any setup.
+
+To see the current address at any time:
+
+```bash
+hostname -I
+```
+
+---
+
+## Day-to-day
+
+**Updating the app.** Push to `main`, wait for the Pi image workflow to finish, then on the Pi:
+
+```bash
+sudo systemctl restart cfs.service
+```
+
+Or just reboot the Pi. Either way it pulls the new image and restarts. Your data stays put - it
+lives in a Docker volume, not in the image.
+
+**Checking on it.**
+
+```bash
+cd /opt/cfs && docker compose -f docker-compose.pi.yml ps
+```
+
+```bash
+cd /opt/cfs && docker compose -f docker-compose.pi.yml logs --tail 50 app
+```
+
+**Stopping and starting by hand.**
+
+```bash
+cd /opt/cfs && docker compose -f docker-compose.pi.yml stop
+```
+
+```bash
+sudo systemctl restart cfs.service
+```
+
+**Backing up the database.** Do this after every event. It writes a single file you can copy off
+the Pi:
+
+```bash
+cd /opt/cfs && docker compose -f docker-compose.pi.yml exec -T db pg_dump -U cfs CfsFundraiser | gzip > ~/cfs-backup-$(date +%F).sql.gz
+```
+
+Copy it to your computer (run this on the computer, not the Pi):
+
+```bash
+scp cfs@cfs.local:~/cfs-backup-*.sql.gz .
+```
+
+**Restoring a backup** onto a fresh Pi, after Step 7:
+
+```bash
+gunzip -c ~/cfs-backup-2026-09-22.sql.gz | docker compose -f /opt/cfs/docker-compose.pi.yml exec -T db psql -U cfs -d CfsFundraiser
+```
+
+---
+
+## Before an event
+
+- Power the Pi on and confirm `http://cfs.local:8080` loads from one of the tablets.
+- Sign in as an admin and make sure the event is set up and **Active** under **Events**.
+- Enter the stock counts under **Inventory** so Take With works.
+- If the venue has no internet, that's fine - everything runs on the local network. Just don't
+  expect the boot-time update to do anything.
+- The Pi 3B's Wi-Fi is 2.4 GHz only and shares the bus with the network port. For a busy event,
+  plug it into Ethernet if you can.
+
+## Troubleshooting
+
+**The page doesn't load at all.**
+
+```bash
+cd /opt/cfs && docker compose -f docker-compose.pi.yml ps
+```
+
+If `cfs-app` is missing or restarting, read its log:
+
+```bash
+cd /opt/cfs && docker compose -f docker-compose.pi.yml logs --tail 80 app
+```
+
+**"denied" or "unauthorized" when pulling.** The Pi can't read the package. Redo the
+`docker login ghcr.io` step, or make the package public (Step 6).
+
+**The app says the database isn't ready.** PostgreSQL is slow to start the first time on an SD
+card. The app retries for a couple of minutes on its own. If it never settles:
+
+```bash
+cd /opt/cfs && docker compose -f docker-compose.pi.yml logs --tail 40 db
+```
+
+**A password mismatch after changing `.env`.** PostgreSQL keeps the password from the first run.
+Either restore the old password in `.env`, or wipe the database and start fresh - **this deletes
+every order**:
+
+```bash
+cd /opt/cfs && docker compose -f docker-compose.pi.yml down -v && docker compose -f docker-compose.pi.yml up -d
+```
+
+**Out of space.** SD cards fill up with old images:
+
+```bash
+docker system df && docker image prune -af
+```
+
+**Which version is running?**
+
+```bash
+docker inspect --format '{{index .Config.Image}} {{.Created}}' cfs-app
+```
+
+---
+
+## A note on security
+
+This runs plain HTTP on your local network, which is fine for a cart on an event Wi-Fi. Don't
+forward port 8080 through a router to the internet: there's no HTTPS and the sign-in is a short
+PIN. If you ever need it reachable from outside the venue, put it behind a VPN or a reverse proxy
+with a certificate.

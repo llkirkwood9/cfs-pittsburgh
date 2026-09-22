@@ -619,10 +619,11 @@ namespace api.Controllers
 
                 if (!string.IsNullOrWhiteSpace(search))
                 {
-                    var term = search.Trim();
+                    // Lower-cased on both sides so the search ignores case on any database.
+                    var term = search.Trim().ToLower();
                     query = query.Where(o =>
-                        (o.BillingName != null && o.BillingName.Contains(term))
-                        || (o.CfsRepName != null && o.CfsRepName.Contains(term))
+                        (o.BillingName != null && o.BillingName.ToLower().Contains(term))
+                        || (o.CfsRepName != null && o.CfsRepName.ToLower().Contains(term))
                         || o.OrderNumber.ToString().Contains(term));
                 }
 
