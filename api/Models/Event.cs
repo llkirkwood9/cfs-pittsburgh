@@ -4,8 +4,7 @@ namespace api.Models
 {
     /// <summary>
     /// A single fundraiser: one organization on one day, run by one cart crew. Every order belongs
-    /// to exactly one event. The organization is the event's name - a fundraiser is not always
-    /// held at a school.
+    /// to exactly one event
     /// </summary>
     public class Event
     {
