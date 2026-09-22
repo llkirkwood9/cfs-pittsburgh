@@ -56,7 +56,7 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
                 <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                     Sale details
                 </h3>
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-4 lg:grid-cols-2 2xl:grid-cols-4">
                     {field("Organization", "organization")}
                     {field("Advertising source", "advertisingSource")}
                     {field("Referral name", "referralName")}
@@ -88,13 +88,13 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
                 <h3 className="mb-2 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                     Customer billing name and address
                 </h3>
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-                    {field("Name", "billingName", { className: "col-span-2 lg:col-span-3" })}
-                    {field("Address", "billingAddress", { className: "col-span-2 lg:col-span-3" })}
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+                    {field("Name", "billingName", { className: "col-span-2" })}
+                    {field("Address", "billingAddress", { className: "col-span-2" })}
                     {field("Unit #", "billingUnit")}
                     {field("Floor", "billingFloor")}
                     {field("Suite #", "billingSuite")}
-                    {field("City", "billingCity", { className: "col-span-2 lg:col-span-1" })}
+                    {field("City", "billingCity", { className: "col-span-2" })}
                     {field("State", "billingState")}
                     {field("Zip", "billingZip", { inputMode: "tel" })}
                     {field("Cell #", "billingCell", { type: "tel", inputMode: "tel", className: "col-span-2" })}
@@ -121,13 +121,13 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
                 </div>
 
                 {!(form.deliverySameAsBilling ?? true) && (
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-                        {field("Name", "deliveryName", { className: "col-span-2 lg:col-span-3" })}
-                        {field("Address", "deliveryAddress", { className: "col-span-2 lg:col-span-3" })}
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
+                        {field("Name", "deliveryName", { className: "col-span-2" })}
+                        {field("Address", "deliveryAddress", { className: "col-span-2" })}
                         {field("Unit #", "deliveryUnit")}
                         {field("Floor", "deliveryFloor")}
                         {field("Suite #", "deliverySuite")}
-                        {field("City", "deliveryCity", { className: "col-span-2 lg:col-span-1" })}
+                        {field("City", "deliveryCity", { className: "col-span-2" })}
                         {field("State", "deliveryState")}
                         {field("Zip", "deliveryZip", { inputMode: "tel" })}
                         {field("Cell #", "deliveryCell", { type: "tel", inputMode: "tel", className: "col-span-2" })}

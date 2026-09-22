@@ -461,35 +461,39 @@ const CheckoutPage = () => {
                                             className="flex-1 sm:flex-none"
                                         />
                                     ) : (
-                                        <>
+                                        <div className="grid w-full grid-cols-[1fr_1fr_1.6fr] gap-2 sm:flex sm:w-auto">
                                             <Button
                                                 text="Send back"
                                                 icon="fa-solid fa-arrow-rotate-left"
                                                 onClick={handleSendBack}
-                                                className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                                                className="!min-h-[52px] flex-col !gap-0.5 !px-1 !text-xs sm:flex-row sm:!gap-2 sm:!px-5 sm:!text-base bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                                             />
                                             <Button
                                                 text="Void"
                                                 icon="fa-solid fa-ban"
                                                 onClick={() => setVoiding(true)}
-                                                className="bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
+                                                className="!min-h-[52px] flex-col !gap-0.5 !px-1 !text-xs sm:flex-row sm:!gap-2 sm:!px-5 sm:!text-base bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
                                             />
                                             <Button
                                                 text="Complete &amp; print"
                                                 icon="fa-solid fa-print"
                                                 onClick={handleComplete}
                                                 loading={completing}
-                                                className="flex-1 bg-green-700 hover:bg-green-800 sm:flex-none dark:bg-green-600 dark:hover:bg-green-700"
+                                                className="!min-h-[52px] flex-col !gap-0.5 !px-1 !text-xs sm:flex-row sm:!gap-2 sm:!px-5 sm:!text-base bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                                             />
-                                        </>
+                                        </div>
                                     )}
                                 </div>
 
                                 {!closed && (order.balanceDue ?? 0) > 0 && (
                                     <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
                                         <Icon icon="fa-solid fa-triangle-exclamation" /> A balance
-                                        will remain on this sale. That is expected for layaway and
-                                        financing, otherwise record the rest of the payment first.
+                                        will remain on this sale.
+                                        <span className="hidden sm:inline">
+                                            {" "}
+                                            That is expected for layaway and financing, otherwise
+                                            record the rest of the payment first.
+                                        </span>
                                     </p>
                                 )}
                             </div>

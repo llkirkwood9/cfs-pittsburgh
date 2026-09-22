@@ -54,7 +54,7 @@ const OrderLineList = ({ lines, readOnly = false, onEdit, onAddService, onRemove
                     >
                         <div className="flex items-start gap-3">
                             <div className="min-w-0 flex-1">
-                                <p className="truncate font-semibold text-zinc-900 dark:text-zinc-100">
+                                <p className="break-words font-semibold text-zinc-900 dark:text-zinc-100">
                                     {isService && (
                                         <span className="mr-1 text-xs font-bold uppercase text-sky-700 dark:text-sky-400">
                                             Ship

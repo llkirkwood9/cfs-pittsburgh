@@ -141,7 +141,11 @@ const EventSheetsPage = () => {
                 <>
                     {orders.length > 0 && (
                         <div className="mb-6 break-after-page print:mb-0">
-                            <StatSheet saleEvent={saleEvent} stats={stats} orders={orders} />
+                            {/* The paper layouts have a minimum width; on a small phone they scroll sideways on
+                                their own rather than widening the whole page. */}
+                            <div className="overflow-x-auto print:overflow-visible">
+                                <StatSheet saleEvent={saleEvent} stats={stats} orders={orders} />
+                            </div>
                         </div>
                     )}
                     {orders.map((order, index) => (
@@ -153,13 +157,17 @@ const EventSheetsPage = () => {
                                     : ""
                             }`}
                         >
-                            <ReceiptSheet order={order} />
+                            <div className="overflow-x-auto print:overflow-visible">
+                                <ReceiptSheet order={order} />
+                            </div>
                         </div>
                     ))}
                     {/* The inventory sheet closes the stack, as the paper tally did. */}
                     {inventory.length > 0 && (
                         <div className="mb-6 print:mb-0">
-                            <InventorySheet saleEvent={saleEvent} items={inventory} />
+                            <div className="overflow-x-auto print:overflow-visible">
+                                <InventorySheet saleEvent={saleEvent} items={inventory} />
+                            </div>
                         </div>
                     )}
                 </>

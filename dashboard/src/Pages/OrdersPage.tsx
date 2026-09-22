@@ -224,78 +224,82 @@ const OrdersPage = () => {
                     {orders.map((order) => (
                         <li
                             key={order.id}
-                            className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800"
+                            className="flex flex-col gap-2 rounded-xl bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:gap-3 dark:bg-zinc-800"
                         >
-                            <span
-                                className="flex h-12 w-14 shrink-0 items-center justify-center rounded-lg
+                            <div className="flex min-w-0 flex-1 items-center gap-3">
+                                <span
+                                    className="flex h-12 w-14 shrink-0 items-center justify-center rounded-lg
                                 bg-zinc-100 text-sm font-bold dark:bg-zinc-700"
-                            >
-                                #{order.orderNumber}
-                            </span>
+                                >
+                                    #{order.orderNumber}
+                                </span>
 
-                            <div className="min-w-0 flex-1">
-                                <p className="truncate font-semibold">
-                                    {order.billingName || "No name"}
-                                </p>
-                                <p className="flex flex-wrap gap-x-2 text-xs text-zinc-500 dark:text-zinc-400">
-                                    {scope?.kind === "all" && order.eventOrganization && (
-                                        <span className="font-medium text-zinc-600 dark:text-zinc-300">
-                                            {order.eventOrganization}
-                                        </span>
-                                    )}
-                                    <span>
-                                        {FormatShortDate(order.eventDate ?? order.createdAt)}
-                                    </span>
-                                    {order.cfsRepName && <span>{order.cfsRepName}</span>}
-                                    <span>
-                                        {order.lineCount ?? 0} item
-                                        {(order.lineCount ?? 0) === 1 ? "" : "s"}
-                                    </span>
-                                    {order.completedAt && (
-                                        <span>{FormatTime(order.completedAt)}</span>
-                                    )}
-                                </p>
-                            </div>
-
-                            <span
-                                className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
-                                    statusStyles[order.status ?? "Draft"]
-                                }`}
-                            >
-                                {statusLabels[order.status ?? "Draft"]}
-                            </span>
-
-                            <div className="shrink-0 text-right">
-                                <p className="font-bold tabular-nums">
-                                    {FormatCurrency(order.total)}
-                                </p>
-                                {(order.balanceDue ?? 0) > 0 && (
-                                    <p className="text-xs text-amber-700 dark:text-amber-400">
-                                        {FormatCurrency(order.balanceDue)} due
+                                <div className="min-w-0 flex-1">
+                                    <p className="break-words font-semibold">
+                                        {order.billingName || "No name"}
                                     </p>
-                                )}
+                                    <p className="flex flex-wrap gap-x-2 text-xs text-zinc-500 dark:text-zinc-400">
+                                        {scope?.kind === "all" && order.eventOrganization && (
+                                            <span className="font-medium text-zinc-600 dark:text-zinc-300">
+                                                {order.eventOrganization}
+                                            </span>
+                                        )}
+                                        <span>
+                                            {FormatShortDate(order.eventDate ?? order.createdAt)}
+                                        </span>
+                                        {order.cfsRepName && <span>{order.cfsRepName}</span>}
+                                        <span>
+                                            {order.lineCount ?? 0} item
+                                            {(order.lineCount ?? 0) === 1 ? "" : "s"}
+                                        </span>
+                                        {order.completedAt && (
+                                            <span>{FormatTime(order.completedAt)}</span>
+                                        )}
+                                    </p>
+                                </div>
+
+                                <div className="shrink-0 text-right">
+                                    <p className="font-bold tabular-nums">
+                                        {FormatCurrency(order.total)}
+                                    </p>
+                                    {(order.balanceDue ?? 0) > 0 && (
+                                        <p className="text-xs text-amber-700 dark:text-amber-400">
+                                            {FormatCurrency(order.balanceDue)} due
+                                        </p>
+                                    )}
+                                </div>
                             </div>
 
-                            <Button
-                                text="Sales sheet"
-                                icon="fa-solid fa-file-lines"
-                                onClick={() =>
-                                    navigate(`/receipt/${order.id}`, {
-                                        state: { from: "/orders", label: "Back to orders" },
-                                    })
-                                }
-                                className="min-h-[44px] px-3 text-sm"
-                            />
-                            {isAdmin &&
-                                (order.status === "Completed" ||
-                                    order.status === "AwaitingCheckout") && (
-                                    <Button
-                                        text="Reopen"
-                                        icon="fa-solid fa-arrow-rotate-left"
-                                        onClick={() => setReopening(order)}
-                                        className="min-h-[44px] bg-amber-600 px-3 text-sm hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700"
-                                    />
-                                )}
+                            <div className="flex flex-wrap items-center justify-end gap-2">
+                                <span
+                                    className={`mr-auto shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold sm:mr-0 ${
+                                        statusStyles[order.status ?? "Draft"]
+                                    }`}
+                                >
+                                    {statusLabels[order.status ?? "Draft"]}
+                                </span>
+
+                                <Button
+                                    text="Sales sheet"
+                                    icon="fa-solid fa-file-lines"
+                                    onClick={() =>
+                                        navigate(`/receipt/${order.id}`, {
+                                            state: { from: "/orders", label: "Back to orders" },
+                                        })
+                                    }
+                                    className="min-h-[44px] px-3 text-sm"
+                                />
+                                {isAdmin &&
+                                    (order.status === "Completed" ||
+                                        order.status === "AwaitingCheckout") && (
+                                        <Button
+                                            text="Reopen"
+                                            icon="fa-solid fa-arrow-rotate-left"
+                                            onClick={() => setReopening(order)}
+                                            className="min-h-[44px] bg-amber-600 px-3 text-sm hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700"
+                                        />
+                                    )}
+                            </div>
                         </li>
                     ))}
                 </ul>

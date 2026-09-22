@@ -311,14 +311,14 @@ const SalesPage = () => {
                     <div className="sticky bottom-20 z-30 mt-4 rounded-2xl bg-white p-3 shadow-lg md:bottom-4 dark:bg-zinc-800">
                         <div className="flex flex-wrap items-center gap-3">
                             <div className="min-w-[10rem] flex-1">
-                                <OrderTotals order={order} />
+                                <OrderTotals order={order} compact />
                             </div>
-                            <div className="flex w-full flex-wrap gap-2 sm:w-auto">
+                            <div className="flex w-full gap-2 sm:w-auto">
                                 <Button
                                     text="Discard"
                                     icon="fa-solid fa-trash"
                                     onClick={() => setDiscardingDraft(true)}
-                                    className="bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
+                                    className="!min-h-[52px] flex-col !gap-0.5 !px-1 !text-xs sm:flex-row sm:!gap-2 sm:!px-5 sm:!text-base bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
                                 />
                                 <Button
                                     text={`Complete ${FormatCurrency(order.total)}`}

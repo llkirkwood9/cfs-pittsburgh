@@ -254,7 +254,7 @@ const DashboardPage = () => {
                                         {product.quantity}
                                     </span>
                                     <span className="min-w-0 flex-1">
-                                        <span className="block truncate text-sm font-medium">
+                                        <span className="line-clamp-2 block text-sm font-medium">
                                             {product.description}
                                         </span>
                                         <span className="block text-xs text-zinc-500 dark:text-zinc-400">

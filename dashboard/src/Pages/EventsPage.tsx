@@ -137,7 +137,7 @@ const EventsPage = () => {
                         key={event.id}
                         className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800"
                     >
-                        <div className="min-w-0 flex-1">
+                        <div className="w-full min-w-0 sm:w-auto sm:flex-1">
                             <p className="font-semibold">
                                 {event.organization}
                                 {event.isActive && (
@@ -155,31 +155,33 @@ const EventsPage = () => {
                             </p>
                         </div>
 
-                        <Button
-                            text="Sales sheets"
-                            icon="fa-solid fa-print"
-                            onClick={() =>
-                                navigate(`/events/${event.id}/sheets`, {
-                                    state: { from: "/events", label: "Back to events" },
-                                })
-                            }
-                            className="min-h-[40px] px-3 text-sm"
-                        />
-                        <Button
-                            text="Edit"
-                            icon="fa-solid fa-pen"
-                            onClick={() => open(event)}
-                            className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setDeleting(event)}
-                            aria-label="Delete event"
-                            className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
+                        <div className="ml-auto flex items-center gap-2">
+                            <Button
+                                text="Sales sheets"
+                                icon="fa-solid fa-print"
+                                onClick={() =>
+                                    navigate(`/events/${event.id}/sheets`, {
+                                        state: { from: "/events", label: "Back to events" },
+                                    })
+                                }
+                                className="min-h-[40px] px-3 text-sm"
+                            />
+                            <Button
+                                text="Edit"
+                                icon="fa-solid fa-pen"
+                                onClick={() => open(event)}
+                                className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                            />
+                            <button
+                                type="button"
+                                onClick={() => setDeleting(event)}
+                                aria-label="Delete event"
+                                className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
                                 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
-                        >
-                            <Icon icon="fa-solid fa-trash" />
-                        </button>
+                            >
+                                <Icon icon="fa-solid fa-trash" />
+                            </button>
+                        </div>
                     </li>
                 ))}
             </ul>
