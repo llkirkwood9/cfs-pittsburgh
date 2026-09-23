@@ -30,7 +30,7 @@ const EventsPage = () => {
     const [cartName, setCartName] = useState<string>("");
     const [eventDate, setEventDate] = useState<string>("");
     const [taxPercent, setTaxPercent] = useState<string>("7");
-    const [feePercent, setFeePercent] = useState<string>("0");
+    const [feePercent, setFeePercent] = useState<string>("2");
     const [nextOrderNumber, setNextOrderNumber] = useState<string>("1001");
     const [isActive, setIsActive] = useState<boolean>(true);
 
@@ -52,7 +52,7 @@ const EventsPage = () => {
         setCartName(event.cartName ?? "");
         setEventDate((event.eventDate ?? new Date().toISOString()).slice(0, 10));
         setTaxPercent(String(Number(((event.salesTaxRate ?? 0.07) * 100).toFixed(4))));
-        setFeePercent(String(Number(((event.ccProcessingFeeRate ?? 0) * 100).toFixed(4))));
+        setFeePercent(String(Number(((event.ccProcessingFeeRate ?? 0.02) * 100).toFixed(4))));
         setNextOrderNumber(String(event.nextOrderNumber ?? 1001));
         setIsActive(event.isActive ?? true);
     };
@@ -212,7 +212,7 @@ const EventsPage = () => {
                             value={organization}
                             onChange={setOrganization}
                             maxLength={150}
-                            placeholder="e.g. Hampton Band"
+                            placeholder="e.g. School Band"
                             className="sm:col-span-2"
                         />
                         <TextField

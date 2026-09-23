@@ -7,7 +7,7 @@ import { getCurrentTheme } from "../Hooks/UseTheme";
  * @returns Toast options.
  */
 const options = (): ToastOptions => ({
-    position: "top-center",
+    position: "top-right",
     autoClose: 3000,
     hideProgressBar: false,
     closeOnClick: true,
