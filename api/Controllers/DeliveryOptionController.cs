@@ -40,7 +40,8 @@ namespace api.Controllers
                 if (string.IsNullOrWhiteSpace(request.Name))
                     return BadRequest(new { error = "Missing parameter." });
 
-                if (await DB.DeliveryOptions.AnyAsync(d => d.Name == request.Name))
+                var optionName = request.Name.Trim().ToLower();
+                if (await DB.DeliveryOptions.AnyAsync(d => d.Name.ToLower() == optionName))
                     return BadRequest(new { error = "A delivery option with that name already exists." });
 
                 if (request.Name.Length > 100)
@@ -134,7 +135,8 @@ namespace api.Controllers
                     if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 100)
                         return BadRequest(new { error = "Invalid parameter." });
 
-                    if (await DB.DeliveryOptions.AnyAsync(d => d.Name == request.Name && d.Id != option.Id))
+                    var renameTo = request.Name.Trim().ToLower();
+                    if (await DB.DeliveryOptions.AnyAsync(d => d.Name.ToLower() == renameTo && d.Id != option.Id))
                         return BadRequest(new { error = "A delivery option with that name already exists." });
 
                     option.Name = request.Name;

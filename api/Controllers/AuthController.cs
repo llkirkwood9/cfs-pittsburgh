@@ -38,8 +38,10 @@ namespace api.Controllers
                 if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrWhiteSpace(request.Pin))
                     return BadRequest(new { error = "Missing parameter." });
 
+                // Usernames are matched without regard to case on every database.
+                var username = request.Username.Trim().ToLower();
                 var user = await DB.Users
-                    .FirstOrDefaultAsync(u => u.Username == request.Username && u.IsActive);
+                    .FirstOrDefaultAsync(u => u.Username.ToLower() == username && u.IsActive);
 
                 // Same response for an unknown handle and a bad PIN so the screen cannot be used
                 // to enumerate accounts.

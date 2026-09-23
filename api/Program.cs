@@ -26,8 +26,28 @@ builder.Configuration
     .AddEnvironmentVariables()
     .AddCommandLine(args);
 
-builder.Services.AddDbContext<ApplicationDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+// SQL Server on a Windows or x86 box, PostgreSQL where SQL Server cannot run - a Raspberry Pi,
+// for one. Set Database__Provider=Postgres (or CFS_DB_PROVIDER) alongside the connection string.
+var dbProvider = builder.Configuration["Database:Provider"]
+                 ?? builder.Configuration["CFS_DB_PROVIDER"]
+                 ?? "SqlServer";
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (dbProvider.Equals("Postgres", StringComparison.OrdinalIgnoreCase)
+    || dbProvider.Equals("PostgreSql", StringComparison.OrdinalIgnoreCase))
+{
+    // Dates are stored the way SQL Server stores them - a plain date and time with no timezone -
+    // so Npgsql is told to use "timestamp without time zone" columns and accept them as they are.
+    // Without this it insists every DateTime is UTC and refuses an event date read from the seed.
+    AppContext.SetSwitch("Npgsql.EnableLegacyTimestampBehavior", true);
+
+    builder.Services.AddDbContext<PostgresDbContext>(options => options.UseNpgsql(connectionString));
+    builder.Services.AddScoped<ApplicationDbContext>(sp => sp.GetRequiredService<PostgresDbContext>());
+}
+else
+{
+    builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlServer(connectionString));
+}
 
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<TokenService>();
