@@ -32,6 +32,13 @@ namespace api.Models
         public string? CartName { get; set; }
 
         /// <summary>
+        /// Free-text notes printed in the Notes box of the event's Accessory Inventory Sheet, e.g.
+        /// "One lavender pillow kept as a floor sample"
+        /// </summary>
+        [MaxLength(2000)]
+        public string? InventoryNotes { get; set; }
+
+        /// <summary>
         /// Sales tax rate applied to taxable lines, stored as a decimal fraction (0.07 = 7%)
         /// </summary>
         public decimal SalesTaxRate { get; set; } = 0.07m;

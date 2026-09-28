@@ -51,7 +51,32 @@ namespace api.Dtos
         public int? SoldAtEvent { get; set; }
 
         /// <summary>
-        /// What the shelf count at the requested event found, when one was taken
+        /// What the start-of-event count at the requested event found, when one was taken
+        /// </summary>
+        public int? OpeningCountAtEvent { get; set; }
+
+        /// <summary>
+        /// When the start-of-event count was taken
+        /// </summary>
+        public DateTime? OpeningCountedAt { get; set; }
+
+        /// <summary>
+        /// Who took the start-of-event count
+        /// </summary>
+        public string? OpeningCountedBy { get; set; }
+
+        /// <summary>
+        /// When the end-of-event count was taken
+        /// </summary>
+        public DateTime? CountedAt { get; set; }
+
+        /// <summary>
+        /// Who took the end-of-event count
+        /// </summary>
+        public string? CountedBy { get; set; }
+
+        /// <summary>
+        /// What the end-of-event count at the requested event found, when one was taken
         /// </summary>
         public int? CountedAtEvent { get; set; }
 

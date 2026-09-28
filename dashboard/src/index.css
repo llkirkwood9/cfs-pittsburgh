@@ -30,8 +30,30 @@ code {
 
 /* The receipt is the one place the on-screen chrome has to disappear entirely. */
 @media print {
+    :root {
+        color-scheme: light;
+    }
+
     .no-print {
         display: none !important;
+    }
+
+    /* Everything wrapped around a sheet - the app shell, the page, the grey backdrop - loses its
+       screen background, padding and full-screen height. In dark mode those printed as thick black
+       bands above and below the sheet on an iPad, and the extra height pushed the sheet onto a
+       second page. */
+    html,
+    body,
+    #root,
+    #root > div,
+    main,
+    .print-root {
+        background: #fff !important;
+        min-height: 0 !important;
+        height: auto !important;
+        padding: 0 !important;
+        margin: 0 !important;
+        box-shadow: none !important;
     }
 
     .print-sheet {
@@ -41,6 +63,15 @@ code {
         padding: 0 !important;
         width: 100% !important;
         max-width: 100% !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+        /* Set by a sheet with more lines than fit, so it still prints on one page. */
+        zoom: var(--print-zoom, 1);
+    }
+
+    .print-page-break {
+        break-after: page;
+        page-break-after: always;
     }
 
     @page {

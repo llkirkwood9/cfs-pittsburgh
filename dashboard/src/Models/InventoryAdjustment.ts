@@ -1,7 +1,8 @@
-export type InventoryChangeKind = "Adjustment" | "Sale" | "Return" | "Count";
+export type InventoryChangeKind = "Adjustment" | "Sale" | "Return" | "Count" | "OpeningCount";
 
 export type InventoryCount = {
     eventId?: number;
+    phase?: "Start" | "End";
     note?: string;
     counts?: { productVariantId: number; counted: number }[];
 };

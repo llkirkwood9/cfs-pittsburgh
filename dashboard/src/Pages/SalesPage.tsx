@@ -284,6 +284,9 @@ const SalesPage = () => {
                                 onEdit={setEditingLine}
                                 onAddService={setServicingLine}
                                 onRemove={setRemovingLine}
+                                onQuantity={(line, quantity) =>
+                                    handleUpdateLine({ id: line.id, quantity })
+                                }
                             />
                         </section>
 

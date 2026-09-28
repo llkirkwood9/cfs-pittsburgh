@@ -5,6 +5,7 @@ import Icon from "../Components/Elements/Icon";
 import LoadingPage from "../Components/Elements/LoadingPage";
 import ReceiptSheet from "../Components/Checkout/ReceiptSheet";
 import StatSheet from "../Components/Dashboard/StatSheet";
+import InventoryNotesEditor from "../Components/Inventory/InventoryNotesEditor";
 import InventorySheet from "../Components/Inventory/InventorySheet";
 import { useAuth } from "../Context/AuthContext";
 import { FormatCurrency, FormatShortDate } from "../Lib/ModelHelpers";
@@ -90,7 +91,7 @@ const EventSheetsPage = () => {
     const total = orders.reduce((sum, o) => sum + (o.total ?? 0), 0);
 
     return (
-        <div className="min-h-screen bg-zinc-200 py-4 dark:bg-zinc-900">
+        <div className="print-root min-h-screen bg-zinc-200 py-4 dark:bg-zinc-900">
             <div className="no-print mx-auto mb-4 max-w-[8in] px-3">
                 <div className="flex flex-wrap items-center gap-2">
                     <Button
@@ -165,6 +166,21 @@ const EventSheetsPage = () => {
                     {/* The inventory sheet closes the stack, as the paper tally did. */}
                     {inventory.length > 0 && (
                         <div className="mb-6 print:mb-0">
+                            {saleEvent?.id && (
+                                <div className="no-print mx-auto mb-3 max-w-[8in] px-3">
+                                    <InventoryNotesEditor
+                                        eventId={saleEvent.id}
+                                        notes={saleEvent.inventoryNotes}
+                                        onSaved={(notes) =>
+                                            setSaleEvent((current) =>
+                                                current
+                                                    ? { ...current, inventoryNotes: notes }
+                                                    : current
+                                            )
+                                        }
+                                    />
+                                </div>
+                            )}
                             <div className="overflow-x-auto print:overflow-visible">
                                 <InventorySheet saleEvent={saleEvent} items={inventory} />
                             </div>

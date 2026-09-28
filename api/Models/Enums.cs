@@ -131,5 +131,11 @@ namespace api.Models
         /// so the event's inventory sheet can show what was expected and what was found.
         /// </summary>
         Count = 3,
+
+        /// <summary>
+        /// The start-of-event shelf count, taken before the doors open. Sets the stock the event
+        /// starts with, and is shown on the event's inventory sheet as the starting figure.
+        /// </summary>
+        OpeningCount = 4,
     }
 }

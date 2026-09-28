@@ -37,6 +37,50 @@ export const FormatRate = (rate?: number | null): string => {
 };
 
 /**
+ * Reads a timestamp from the API. The server records moments such as "completed at" in UTC but
+ * sends them without a zone marker, which a browser would otherwise take as local time - putting
+ * every time off by the UTC offset. Plain dates (an event date) are not timestamps; format those
+ * with FormatShortDate instead.
+ * @param value ISO date string from the API.
+ * @returns The moment, or null when there is no valid value.
+ */
+export const ParseServerTime = (value?: string | null): Date | null => {
+    if (!value) return null;
+    const hasZone = /[zZ]|[+-]\d\d:?\d\d$/.test(value);
+    const date = new Date(hasZone ? value : `${value}Z`);
+    return Number.isNaN(date.getTime()) ? null : date;
+};
+
+/**
+ * Formats a server timestamp as a date and time in the viewer's time zone.
+ * @param value ISO date string from the API.
+ * @returns A string such as "9/21/26, 2:14 PM", or an empty string when there is no value.
+ */
+export const FormatDateTime = (value?: string | null): string => {
+    const date = ParseServerTime(value);
+    if (!date) return "";
+    return date.toLocaleString("en-US", {
+        year: "2-digit",
+        month: "numeric",
+        day: "numeric",
+        hour: "numeric",
+        minute: "2-digit",
+    });
+};
+
+/**
+ * Formats the date part of a server timestamp in the viewer's time zone - for moments such as
+ * when a sheet was signed, which would otherwise show the next day for an evening sale.
+ * @param value ISO date string from the API.
+ * @returns A string such as "9/21/26", or an empty string when there is no value.
+ */
+export const FormatStampDate = (value?: string | null): string => {
+    const date = ParseServerTime(value);
+    if (!date) return "";
+    return date.toLocaleDateString("en-US", { year: "2-digit", month: "numeric", day: "numeric" });
+};
+
+/**
  * Formats a date for the Sale Date cell and the receipt footer.
  * @param value ISO date string.
  * @returns A string such as "9/12/26", or an empty string when there is no date.
@@ -54,9 +98,8 @@ export const FormatShortDate = (value?: string | null): string => {
  * @returns A string such as "2:14 PM", or an empty string when there is no value.
  */
 export const FormatTime = (value?: string | null): string => {
-    if (!value) return "";
-    const date = new Date(value);
-    if (Number.isNaN(date.getTime())) return "";
+    const date = ParseServerTime(value);
+    if (!date) return "";
     return date.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
 };
 
@@ -66,16 +109,18 @@ export const FormatTime = (value?: string | null): string => {
  * @returns A string such as "4m ago".
  */
 export const FormatElapsed = (value?: string | null): string => {
-    if (!value) return "";
-    const then = new Date(value).getTime();
-    if (Number.isNaN(then)) return "";
+    const date = ParseServerTime(value);
+    if (!date) return "";
 
-    const minutes = Math.max(0, Math.floor((Date.now() - then) / 60000));
+    const minutes = Math.max(0, Math.floor((Date.now() - date.getTime()) / 60000));
     if (minutes < 1) return "just now";
     if (minutes < 60) return `${minutes}m ago`;
 
     const hours = Math.floor(minutes / 60);
-    return `${hours}h ${minutes % 60}m ago`;
+    if (hours < 24) return `${hours}h ${minutes % 60}m ago`;
+
+    const days = Math.floor(hours / 24);
+    return `${days}d ${hours % 24}h ago`;
 };
 
 /**
@@ -160,10 +205,10 @@ export const ParseMoney = (value: string): number | null => {
 export const IsAcknowledged = (order: Order): boolean =>
     Boolean(
         order.customerInfoInitials?.trim() &&
-            order.warrantyInitials?.trim() &&
-            order.dropShipInitials?.trim() &&
-            order.advisoryInitials?.trim() &&
-            order.customerSignature
+        order.warrantyInitials?.trim() &&
+        order.dropShipInitials?.trim() &&
+        order.advisoryInitials?.trim() &&
+        order.customerSignature
     );
 
 /**
@@ -193,6 +238,47 @@ export const AddressLines = (parts: {
         .join(", ");
     return [street, town].filter(Boolean);
 };
+
+const PHONE_FIELDS = new Set(["billingCell", "billingAlt", "deliveryCell", "deliveryAlt"]);
+const STATE_FIELDS = new Set(["billingState", "deliveryState"]);
+const EMAIL_FIELDS = new Set(["billingEmail", "deliveryEmail"]);
+const ZIP_FIELDS = new Set(["billingZip", "deliveryZip"]);
+
+/**
+ * Tidies one customer detail as it is saved: a ten-digit phone number becomes (724) 555-0100, a
+ * state becomes upper case, an email lower case, and stray spaces go. Anything unrecognised is
+ * kept as typed, so an international number or an unusual address is never mangled.
+ * @param key The order field.
+ * @param value What was typed.
+ * @returns The tidied value.
+ */
+export const NormalizeCustomerField = (key: string, value: string): string => {
+    const trimmed = value.replace(/\s+/g, " ").trim();
+    if (PHONE_FIELDS.has(key)) {
+        const digits = trimmed.replace(/\D/g, "");
+        const local = digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits;
+        return local.length === 10
+            ? `(${local.slice(0, 3)}) ${local.slice(3, 6)}-${local.slice(6)}`
+            : trimmed;
+    }
+    if (STATE_FIELDS.has(key)) return trimmed.toUpperCase();
+    if (EMAIL_FIELDS.has(key)) return trimmed.replace(/\s/g, "").toLowerCase();
+    if (ZIP_FIELDS.has(key)) return trimmed.replace(/\s/g, "");
+    return trimmed;
+};
+
+/**
+ * Tidies every text field of a customer-details update. See NormalizeCustomerField.
+ * @param changes The fields being saved.
+ * @returns The same fields, tidied.
+ */
+export const NormalizeCustomer = (changes: Order): Order =>
+    Object.fromEntries(
+        Object.entries(changes).map(([key, value]) => [
+            key,
+            typeof value === "string" ? NormalizeCustomerField(key, value) : value,
+        ])
+    ) as Order;
 
 /** Full, plural category names for headings, e.g. on the inventory sheet. */
 export const CategoryNames: Record<ProductCategory, string> = {
@@ -259,7 +345,10 @@ export const InventorySizeLabel = (item: InventoryItem): string =>
  * @param quantity Units the customer wants to take.
  * @returns A short reason such as "Out of stock" or "Only 2 in stock", or null.
  */
-export const TakeWithBlocked = (onHand: number | null | undefined, quantity: number): string | null => {
+export const TakeWithBlocked = (
+    onHand: number | null | undefined,
+    quantity: number
+): string | null => {
     if (onHand === null || onHand === undefined) return null;
     if (onHand <= 0) return "Out of stock";
     return onHand < quantity ? `Only ${onHand} in stock` : null;

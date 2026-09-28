@@ -1,6 +1,7 @@
 import Icon from "./Icon";
 
 type Props = {
+    id?: string;
     text?: string;
     icon?: any;
     onClick?: () => void;
@@ -16,6 +17,7 @@ type Props = {
  * be hittable with a thumb on a tablet held in one hand.
  */
 const Button = ({
+    id,
     text,
     icon,
     onClick,
@@ -27,6 +29,7 @@ const Button = ({
 }: Props) => {
     return (
         <button
+            id={id}
             type={type}
             onClick={onClick}
             disabled={disabled || loading}
@@ -41,11 +44,7 @@ const Button = ({
                         : "bg-sky-700 hover:bg-sky-800 dark:bg-sky-600 dark:hover:bg-sky-700"
                 } ${className}`}
         >
-            {loading ? (
-                <Icon icon="fa-solid fa-circle-notch" spin />
-            ) : (
-                icon && <Icon icon={icon} />
-            )}
+            {loading ? <Icon icon="fa-solid fa-circle-notch" spin /> : icon && <Icon icon={icon} />}
             {text && <span>{text}</span>}
         </button>
     );

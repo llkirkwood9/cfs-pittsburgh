@@ -1,6 +1,9 @@
+import { Fragment } from "react";
+import type { CSSProperties } from "react";
 import {
     FormatCurrency,
     FormatShortDate,
+    FormatStampDate,
     PaymentMethodLabels,
     PrintsOnSalesSheet,
     SortLinesForPrint,
@@ -14,6 +17,15 @@ type Props = {
 
 /** Blank rows are padded out to this many so the printed grid matches the paper form. */
 const MIN_ITEM_ROWS = 14;
+
+/** Height of one item row on the paper form. The grid never grows taller than 14 of these. */
+const ROW_PX = 20;
+
+/** The shortest a row can get and still be readable. */
+const MIN_ROW_PX = 12;
+
+/** Roughly how tall a sheet prints with the standard grid, in CSS pixels. */
+const SHEET_PX = 940;
 
 const cell = "border border-black px-1 py-[3px] align-top";
 
@@ -41,7 +53,24 @@ const label = "text-[8px] font-bold uppercase leading-none";
 const ReceiptSheet = ({ order }: Props) => {
     const lines = SortLinesForPrint(order.lines ?? []).filter(PrintsOnSalesSheet);
     const notice = unfinished[order.status ?? "Draft"];
-    const blanks = Math.max(0, MIN_ITEM_ROWS - lines.length);
+    const blanks = Math.max(0, MIN_ITEM_ROWS - lines.length - lines.filter((l) => l.notes).length);
+
+    // A sheet always prints on one page. With more lines than the paper grid holds, the rows get
+    // shorter so the grid stays the same height; past what that can absorb, the whole sheet is
+    // scaled down on paper.
+    const noteRows = lines.filter((l) => l.notes).length;
+    const rows = Math.max(lines.length + noteRows, MIN_ITEM_ROWS);
+    const gridBudget = MIN_ITEM_ROWS * ROW_PX;
+    const rowPx = Math.max(MIN_ROW_PX, Math.min(ROW_PX, Math.floor(gridBudget / rows)));
+    const compact = rowPx < ROW_PX;
+    const overflowPx = Math.max(0, rows * rowPx - gridBudget);
+    const printZoom = overflowPx > 0 ? SHEET_PX / (SHEET_PX + overflowPx) : 1;
+    const rowStyle = {
+        height: rowPx,
+        fontSize: rowPx >= ROW_PX ? 11 : rowPx >= 15 ? 10 : 9,
+        lineHeight: 1.1,
+    };
+    const itemCell = compact ? "border border-black px-1 py-0 align-middle" : cell;
 
     const paidBy = (method: PaymentMethod): string => {
         const rows = (order.payments ?? []).filter((p) => p.method === method);
@@ -66,7 +95,9 @@ const ReceiptSheet = ({ order }: Props) => {
     const addressBlock = (side: "billing" | "delivery") => {
         const get = (key: string): string => {
             const field = side + key;
-            return ((order as unknown as Record<string, string | null | undefined>)[field] ?? "") || "";
+            return (
+                ((order as unknown as Record<string, string | null | undefined>)[field] ?? "") || ""
+            );
         };
 
         return (
@@ -125,7 +156,10 @@ const ReceiptSheet = ({ order }: Props) => {
     };
 
     return (
-        <div className="print-sheet relative mx-auto w-full max-w-[8in] overflow-hidden bg-white p-4 font-sans text-black shadow-lg">
+        <div
+            className="print-sheet relative mx-auto w-full max-w-[8in] overflow-hidden bg-white p-4 font-sans text-black shadow-lg"
+            style={{ "--print-zoom": printZoom } as CSSProperties}
+        >
             {/* An unfinished order is stamped across the whole sheet so a printed copy can never
                 be mistaken for a final sale. */}
             {notice && (
@@ -166,19 +200,27 @@ const ReceiptSheet = ({ order }: Props) => {
                 <tbody>
                     <tr>
                         <td className={`${cell} w-[14%] text-center font-semibold`}>Sale Date</td>
-                        <td className={`${cell} w-[22%] text-center font-semibold`}>Organization</td>
+                        <td className={`${cell} w-[22%] text-center font-semibold`}>
+                            Organization
+                        </td>
                         <td className={`${cell} w-[20%] text-center font-semibold`}>
                             Advertising Source
                         </td>
-                        <td className={`${cell} w-[22%] text-center font-semibold`}>Referral Name</td>
-                        <td className={`${cell} w-[22%] text-center font-semibold`}>CFS Rep Name</td>
+                        <td className={`${cell} w-[22%] text-center font-semibold`}>
+                            Referral Name
+                        </td>
+                        <td className={`${cell} w-[22%] text-center font-semibold`}>
+                            CFS Rep Name
+                        </td>
                     </tr>
                     <tr className="text-[11px]">
                         <td className={`${cell} h-[24px] text-center`}>
                             {FormatShortDate(order.saleDate)}
                         </td>
                         <td className={`${cell} h-[24px] text-center`}>{order.organization}</td>
-                        <td className={`${cell} h-[24px] text-center`}>{order.advertisingSource}</td>
+                        <td className={`${cell} h-[24px] text-center`}>
+                            {order.advertisingSource}
+                        </td>
                         <td className={`${cell} h-[24px] text-center`}>{order.referralName}</td>
                         <td className={`${cell} h-[24px] text-center leading-tight`}>
                             {showCheckout ? (
@@ -258,47 +300,72 @@ const ReceiptSheet = ({ order }: Props) => {
                         <td className={`${cell} w-[12%] text-center`}>Total</td>
                     </tr>
                 </thead>
-                <tbody className="text-[11px]">
+                <tbody>
                     {lines.map((line) => (
-                        <tr key={line.id}>
-                            <td className={`${cell} h-[20px]`}>{line.brand}</td>
-                            <td className={`${cell} h-[20px] text-center`}>{line.size}</td>
-                            <td
-                                className={`${cell} h-[20px] ${line.parentLineId ? "pl-4" : ""}`}
-                            >
-                                {line.lineType === "Delivery" && (
-                                    <span className="text-[8px] font-bold uppercase">Ship: </span>
-                                )}
-                                {line.description}
-                                {line.lineType === "Included" && (
-                                    <span className="text-[9px] italic"> (included)</span>
-                                )}
-                            </td>
-                            <td className={`${cell} h-[20px] text-center`}>
-                                {line.lineType === "Delivery" ? "" : line.quantity}
-                            </td>
-                            <td className={`${cell} h-[20px] text-center`}>
-                                {line.takeWith ? "X" : ""}
-                            </td>
-                            <td className={`${cell} h-[20px] text-right`}>
-                                {line.lineType === "Included" ? "Incl." : FormatCurrency(line.unitPrice)}
-                            </td>
-                            <td className={`${cell} h-[20px] text-center`}>
-                                {(line.discountPercent ?? 0) > 0 ? `${line.discountPercent}%` : ""}
-                            </td>
-                            <td className={`${cell} h-[20px] text-right`}>
-                                {(line.discountPercent ?? 0) > 0 ? FormatCurrency(line.salePrice) : ""}
-                            </td>
-                            <td className={`${cell} h-[20px] text-right font-semibold`}>
-                                {line.lineType === "Included" ? "Incl." : FormatCurrency(line.lineTotal)}
-                            </td>
-                        </tr>
+                        <Fragment key={line.id}>
+                            <tr style={rowStyle}>
+                                <td className={itemCell}>{line.brand}</td>
+                                <td className={`${itemCell} text-center`}>{line.size}</td>
+                                <td className={`${itemCell} ${line.parentLineId ? "pl-4" : ""}`}>
+                                    {line.lineType === "Delivery" && (
+                                        <span className="text-[8px] font-bold uppercase">
+                                            Ship:{" "}
+                                        </span>
+                                    )}
+                                    {line.description}
+                                    {line.lineType === "Included" && (
+                                        <span className="text-[9px] italic"> (included)</span>
+                                    )}
+                                </td>
+                                <td className={`${itemCell} text-center`}>
+                                    {line.lineType === "Delivery" ? "" : line.quantity}
+                                </td>
+                                <td className={`${itemCell} text-center`}>
+                                    {line.takeWith ? "X" : ""}
+                                </td>
+                                <td className={`${itemCell} text-right`}>
+                                    {line.lineType === "Included"
+                                        ? "Incl."
+                                        : FormatCurrency(line.unitPrice)}
+                                </td>
+                                <td className={`${itemCell} text-center`}>
+                                    {(line.discountPercent ?? 0) > 0
+                                        ? `${line.discountPercent}%`
+                                        : ""}
+                                </td>
+                                <td className={`${itemCell} text-right`}>
+                                    {(line.discountPercent ?? 0) > 0
+                                        ? FormatCurrency(line.salePrice)
+                                        : ""}
+                                </td>
+                                <td className={`${itemCell} text-right font-semibold`}>
+                                    {line.lineType === "Included"
+                                        ? "Incl."
+                                        : FormatCurrency(line.lineTotal)}
+                                </td>
+                            </tr>
+                            {line.notes && (
+                                <tr style={{ ...rowStyle, height: "auto" }}>
+                                    <td className={itemCell} />
+                                    <td className={itemCell} />
+                                    <td
+                                        className={`${itemCell} whitespace-pre-line pl-4 italic`}
+                                        colSpan={7}
+                                    >
+                                        <span className="text-[8px] font-bold uppercase not-italic">
+                                            Note:{" "}
+                                        </span>
+                                        {line.notes}
+                                    </td>
+                                </tr>
+                            )}
+                        </Fragment>
                     ))}
 
                     {Array.from({ length: blanks }).map((_, index) => (
-                        <tr key={`blank-${index}`}>
+                        <tr key={`blank-${index}`} style={rowStyle}>
                             {Array.from({ length: 9 }).map((__, col) => (
-                                <td key={col} className={`${cell} h-[20px]`}>
+                                <td key={col} className={itemCell}>
                                     &nbsp;
                                 </td>
                             ))}
@@ -408,10 +475,10 @@ const ReceiptSheet = ({ order }: Props) => {
                         ALL ITEMS WILL BE DROP SHIPPED DIRECTLY TO THE CUSTOMER UNLESS OTHERWISE
                         NOTED.
                     </span>{" "}
-                    Items do not require a signature when delivered. The mattress will be compressed,
-                    vacuum sealed and boxed. The product may be heavy and may require additional
-                    persons to move it. Once open, the bed will completely recover within 24-48
-                    hours, however, sleeping on it sooner will not damage the bed.{" "}
+                    Items do not require a signature when delivered. The mattress will be
+                    compressed, vacuum sealed and boxed. The product may be heavy and may require
+                    additional persons to move it. Once open, the bed will completely recover within
+                    24-48 hours, however, sleeping on it sooner will not damage the bed.{" "}
                     <span className="font-bold">
                         INITIAL{" "}
                         <span className="inline-block min-w-[3em] border-b border-black text-center font-normal">
@@ -456,7 +523,7 @@ const ReceiptSheet = ({ order }: Props) => {
                         </td>
                         <td className={`${cell} h-[34px]`}>
                             <span className={label}>Date:</span>{" "}
-                            <span className="text-[11px]">{FormatShortDate(order.signedDate)}</span>
+                            <span className="text-[11px]">{FormatStampDate(order.signedDate)}</span>
                         </td>
                     </tr>
                 </tbody>

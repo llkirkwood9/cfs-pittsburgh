@@ -79,6 +79,10 @@ namespace api.Migrations.Postgres
                     b.Property<DateTime>("EventDate")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<string>("InventoryNotes")
+                        .HasMaxLength(2000)
+                        .HasColumnType("character varying(2000)");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -420,6 +424,10 @@ namespace api.Migrations.Postgres
 
                     b.Property<int>("LineType")
                         .HasColumnType("integer");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
 
                     b.Property<int>("OrderId")
                         .HasColumnType("integer");

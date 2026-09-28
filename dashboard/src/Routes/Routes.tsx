@@ -83,7 +83,7 @@ export const router = createBrowserRouter([
                 ),
             },
             {
-                path: "inventory/count",
+                path: "inventory/count/:phase",
                 element: (
                     <ProtectedRoute roles={["Checkout"]}>
                         <InventoryCountPage />

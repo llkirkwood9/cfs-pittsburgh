@@ -26,6 +26,11 @@ namespace api.Dtos
         public string? CartName { get; set; }
 
         /// <summary>
+        /// Notes printed on the event's Accessory Inventory Sheet
+        /// </summary>
+        public string? InventoryNotes { get; set; }
+
+        /// <summary>
         /// Sales tax rate as a decimal fraction, e.g. 0.07
         /// </summary>
         public decimal? SalesTaxRate { get; set; }

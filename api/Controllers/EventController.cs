@@ -282,6 +282,7 @@ namespace api.Controllers
                 Organization = entity.Organization,
                 EventDate = entity.EventDate,
                 CartName = entity.CartName,
+                InventoryNotes = entity.InventoryNotes,
                 SalesTaxRate = entity.SalesTaxRate,
                 CcProcessingFeeRate = entity.CcProcessingFeeRate,
                 NextOrderNumber = entity.NextOrderNumber,

@@ -7,6 +7,7 @@ import StatCard from "../Components/Elements/StatCard";
 import TabButton from "../Components/Elements/TabButton";
 import { useAuth } from "../Context/AuthContext";
 import { FormatCurrency } from "../Lib/ModelHelpers";
+import { IsOnline } from "../Lib/Connection";
 import type { DashboardStats } from "../Models/DashboardStats";
 import type { Event } from "../Models/Event";
 import { GetStatsForDay, GetStatsForEvent } from "../Services/DashboardServices";
@@ -29,8 +30,10 @@ const DashboardPage = () => {
     const [loading, setLoading] = useState<boolean>(true);
 
     const loadStats = useCallback(async (currentScope: "event" | "day", id: number | null) => {
-        if (currentScope === "day") return setStats(await GetStatsForDay());
-        if (id) setStats(await GetStatsForEvent(id));
+        const result =
+            currentScope === "day" ? await GetStatsForDay() : id ? await GetStatsForEvent(id) : null;
+        // Keep the last figures up while the server cannot be reached, rather than showing zeros.
+        if (result || IsOnline()) setStats(result);
     }, []);
 
     useEffect(() => {

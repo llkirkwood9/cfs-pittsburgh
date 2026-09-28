@@ -92,11 +92,12 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// Saves the end-of-event shelf count. Each counted size is set to what was found, and a
-        /// Count row is recorded for it - even when it matched - so the event's inventory sheet
-        /// shows what was expected and what was on the shelf.
+        /// Saves a shelf count for an event - the start-of-event count before the doors open, or
+        /// the end-of-event count once they close. Each counted size is set to what was found, and
+        /// a row is recorded for it - even when it matched - so the event's inventory sheet shows
+        /// what the event started with, what was expected at the end and what was on the shelf.
         /// </summary>
-        /// <param name="request">Event id, optional note and the counted sizes</param>
+        /// <param name="request">Event id, phase, optional note and the counted sizes</param>
         /// <returns>The event's inventory rows after the count.</returns>
         [HttpPost("count")]
         [Authorize(AuthenticationSchemes = "Bearer")]
@@ -133,7 +134,11 @@ namespace api.Controllers
                 if (variants.Count != ids.Count || variants.Any(v => v.Product is not { TrackInventory: true }))
                     return BadRequest(new { error = "Only tracked products can be counted." });
 
-                var note = string.IsNullOrWhiteSpace(request.Note) ? "End-of-event count" : request.Note.Trim();
+                var opening = string.Equals(request.Phase, "Start", StringComparison.OrdinalIgnoreCase);
+                var kind = opening ? InventoryChangeKind.OpeningCount : InventoryChangeKind.Count;
+                var note = string.IsNullOrWhiteSpace(request.Note)
+                    ? opening ? "Start-of-event count" : "End-of-event count"
+                    : request.Note.Trim();
                 var now = DateTime.UtcNow;
 
                 foreach (var variant in variants)
@@ -145,7 +150,7 @@ namespace api.Controllers
                     DB.InventoryAdjustments.Add(new InventoryAdjustment
                     {
                         ProductVariantId = variant.Id,
-                        Kind = InventoryChangeKind.Count,
+                        Kind = kind,
                         Change = change,
                         QuantityAfter = counted,
                         EventId = request.EventId,
@@ -164,6 +169,44 @@ namespace api.Controllers
             {
                 Trace(TraceEventType.Critical, e.Message);
                 return StatusCode(500, new { error = "Internal error occurred while saving the count.", exception = e.Message });
+            }
+        }
+
+        #endregion
+
+        #region PUT Methods
+
+        /// <summary>
+        /// Saves the notes printed in the Notes box of an event's Accessory Inventory Sheet.
+        /// </summary>
+        /// <param name="eventId">Event id</param>
+        /// <param name="request">The notes; empty clears them</param>
+        /// <returns>The saved notes.</returns>
+        [HttpPut("notes/event/{eventId}")]
+        [Authorize(AuthenticationSchemes = "Bearer")]
+        public async Task<IActionResult> SaveInventoryNotes(int eventId, [FromBody] InventoryNotesDto request)
+        {
+            try
+            {
+                if (!CanUpdateInventory())
+                    return StatusCode(403, new { error = "Only checkout and administrators may change inventory." });
+
+                if (request.Notes is { Length: > 2000 })
+                    return BadRequest(new { error = "The notes can be at most 2,000 characters." });
+
+                var saleEvent = await DB.Events.FindAsync(eventId);
+                if (saleEvent == null)
+                    return NotFound(new { error = "Event not found." });
+
+                saleEvent.InventoryNotes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+                await DB.SaveChangesAsync();
+
+                return Ok(new InventoryNotesDto { EventId = saleEvent.Id, Notes = saleEvent.InventoryNotes });
+            }
+            catch (Exception e)
+            {
+                Trace(TraceEventType.Critical, e.Message);
+                return StatusCode(500, new { error = "Internal error occurred while saving the notes.", exception = e.Message });
             }
         }
 
@@ -292,39 +335,51 @@ namespace api.Controllers
                     .Select(g => new { VariantId = g.Key, Net = g.Sum(a => a.Change) })
                     .ToDictionaryAsync(x => x.VariantId, x => -x.Net);
 
-            // The latest shelf count taken at the event, per size.
-            var eventCounts = eventId == null
+            // The latest start and end shelf counts taken at the event, per size.
+            var shelfCounts = eventId == null
                 ? []
-                : (await DB.InventoryAdjustments
+                : await DB.InventoryAdjustments
+                    .AsNoTracking()
                     .Where(a => a.EventId == eventId
                                 && ids.Contains(a.ProductVariantId)
-                                && a.Kind == InventoryChangeKind.Count)
-                    .ToListAsync())
-                    .GroupBy(a => a.ProductVariantId)
-                    .Select(g => g.OrderByDescending(a => a.CreatedAt).ThenByDescending(a => a.Id).First())
-                    .ToList();
+                                && (a.Kind == InventoryChangeKind.Count || a.Kind == InventoryChangeKind.OpeningCount))
+                    .ToListAsync();
+
+            InventoryAdjustment? Latest(int variantId, InventoryChangeKind kind) => shelfCounts
+                .Where(a => a.ProductVariantId == variantId && a.Kind == kind)
+                .OrderByDescending(a => a.CreatedAt)
+                .ThenByDescending(a => a.Id)
+                .FirstOrDefault();
 
             return variants
                 .OrderBy(v => v.Product!.Category)
                 .ThenBy(v => v.Product!.SortOrder)
                 .ThenBy(v => v.Product!.Name)
                 .ThenBy(v => v.SortOrder)
-                .Select(v => new InventoryItemDto
+                .Select(v => (v,
+                    Opening: Latest(v.Id, InventoryChangeKind.OpeningCount),
+                    Closing: Latest(v.Id, InventoryChangeKind.Count)))
+                .Select(x => new InventoryItemDto
                 {
-                    ProductVariantId = v.Id,
-                    ProductId = v.ProductId,
-                    ProductName = v.Product!.Name,
-                    Brand = v.Product.Brand,
-                    Category = v.Product.Category.ToString(),
-                    Size = v.Size,
-                    Configuration = v.Configuration,
-                    QuantityOnHand = v.QuantityOnHand,
-                    SoldAtEvent = eventId == null ? null : sold.GetValueOrDefault(v.Id),
-                    CountedAtEvent = eventCounts.FirstOrDefault(c => c.ProductVariantId == v.Id)?.QuantityAfter,
-                    ExpectedAtCount = eventCounts.FirstOrDefault(c => c.ProductVariantId == v.Id) is { } count
-                        ? count.QuantityAfter - count.Change
+                    ProductVariantId = x.v.Id,
+                    ProductId = x.v.ProductId,
+                    ProductName = x.v.Product!.Name,
+                    Brand = x.v.Product.Brand,
+                    Category = x.v.Product.Category.ToString(),
+                    Size = x.v.Size,
+                    Configuration = x.v.Configuration,
+                    QuantityOnHand = x.v.QuantityOnHand,
+                    SoldAtEvent = eventId == null ? null : sold.GetValueOrDefault(x.v.Id),
+                    OpeningCountAtEvent = x.Opening?.QuantityAfter,
+                    OpeningCountedAt = x.Opening?.CreatedAt,
+                    OpeningCountedBy = x.Opening?.UserName,
+                    CountedAt = x.Closing?.CreatedAt,
+                    CountedBy = x.Closing?.UserName,
+                    CountedAtEvent = x.Closing?.QuantityAfter,
+                    ExpectedAtCount = x.Closing is { } closing
+                        ? closing.QuantityAfter - closing.Change
                         : null,
-                    LastChangedAt = lastChanged.TryGetValue(v.Id, out var at) ? at : null,
+                    LastChangedAt = lastChanged.TryGetValue(x.v.Id, out var at) ? at : null,
                 })
                 .ToList();
         }

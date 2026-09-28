@@ -3,6 +3,7 @@ import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
 import TabButton from "../Elements/TabButton";
+import TextArea from "../Elements/TextArea";
 import TextField from "../Elements/TextField";
 import {
     FormatCurrency,
@@ -78,7 +79,8 @@ const pickDelivery = (
     const blocked = TakeWithBlocked(stockFor(product, variant), quantity);
     const usable = (product.deliveryOptions ?? []).filter((d) => !(d.isTakeWith && blocked));
 
-    if (currentId !== null && usable.some((d) => d.deliveryOptionId === currentId)) return currentId;
+    if (currentId !== null && usable.some((d) => d.deliveryOptionId === currentId))
+        return currentId;
 
     const preferred = usable.find((d) => d.isDefault) ?? usable[0];
     return preferred?.deliveryOptionId ?? null;
@@ -109,6 +111,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
     const [quantity, setQuantity] = useState<number>(1);
     const [discount, setDiscount] = useState<string>("");
     const [priceOverride, setPriceOverride] = useState<string>("");
+    const [itemNotes, setItemNotes] = useState<string>("");
     const [saving, setSaving] = useState<boolean>(false);
 
     const [customDescription, setCustomDescription] = useState<string>("");
@@ -176,6 +179,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
         setQuantity(1);
         setDiscount("");
         setPriceOverride("");
+        setItemNotes("");
     };
 
     // Changing the size or quantity can leave Take With short, so fall back to shipping.
@@ -220,6 +224,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
             discountPercent: discountPercent ?? undefined,
             unitPrice: needsPrice ? (effectivePrice ?? undefined) : undefined,
             deliveryOptionId: deliveryId ?? undefined,
+            notes: itemNotes.trim() || undefined,
         });
         setSaving(false);
         onClose();
@@ -240,6 +245,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
             size: customSize.trim() || undefined,
             unitPrice: price,
             quantity,
+            notes: itemNotes.trim() || undefined,
         });
         setSaving(false);
         onClose();
@@ -417,6 +423,14 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                             />
                         </div>
                     </label>
+                    <TextArea
+                        label="Note (optional)"
+                        value={itemNotes}
+                        onChange={setItemNotes}
+                        placeholder="Printed under the item on the sales sheet"
+                        className="sm:col-span-2"
+                        maxLength={500}
+                    />
                 </div>
             )}
 
@@ -557,6 +571,14 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                             placeholder="0"
                         />
                     </div>
+
+                    <TextArea
+                        label="Note (optional)"
+                        value={itemNotes}
+                        onChange={setItemNotes}
+                        placeholder="e.g. Floor model - small scuff on the corner"
+                        maxLength={500}
+                    />
                 </div>
             )}
         </Modal>

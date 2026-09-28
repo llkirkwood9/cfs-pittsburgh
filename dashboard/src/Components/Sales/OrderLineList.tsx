@@ -9,13 +9,22 @@ type Props = {
     onEdit?: (line: OrderLine) => void;
     onAddService?: (line: OrderLine) => void;
     onRemove?: (line: OrderLine) => void;
+    /** Changes a line's quantity in place, without opening the editor. */
+    onQuantity?: (line: OrderLine, quantity: number) => void;
 };
 
 /**
  * The product grid as the rep sees it on the floor: one card per line, delivery charges indented
  * under the item they belong to, exactly the way they read on the paper sheet.
  */
-const OrderLineList = ({ lines, readOnly = false, onEdit, onAddService, onRemove }: Props) => {
+const OrderLineList = ({
+    lines,
+    readOnly = false,
+    onEdit,
+    onAddService,
+    onRemove,
+    onQuantity,
+}: Props) => {
     const ordered = SortLinesForPrint(lines);
 
     // Sets sold since the base got its own row do not need the badge as well; older orders still do.
@@ -94,6 +103,18 @@ const OrderLineList = ({ lines, readOnly = false, onEdit, onAddService, onRemove
                                         </span>
                                     )}
                                 </p>
+                                {line.notes && (
+                                    <p
+                                        className="mt-1 flex gap-1.5 whitespace-pre-line break-words rounded-lg bg-amber-50 px-2 py-1 text-sm
+                                        text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+                                    >
+                                        <Icon
+                                            icon="fa-solid fa-note-sticky"
+                                            className="mt-0.5 shrink-0 text-xs"
+                                        />
+                                        <span>{line.notes}</span>
+                                    </p>
+                                )}
                             </div>
 
                             <div className="shrink-0 text-right">
@@ -104,7 +125,37 @@ const OrderLineList = ({ lines, readOnly = false, onEdit, onAddService, onRemove
                         </div>
 
                         {!readOnly && !isIncluded && (
-                            <div className="mt-2 flex flex-wrap gap-2">
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                                {onQuantity && !isChild && (
+                                    <div className="flex items-center rounded-xl bg-zinc-100 dark:bg-zinc-700">
+                                        <button
+                                            type="button"
+                                            aria-label="One fewer"
+                                            disabled={(line.quantity ?? 1) <= 1}
+                                            onClick={() =>
+                                                onQuantity(line, (line.quantity ?? 1) - 1)
+                                            }
+                                            className="flex h-10 w-10 items-center justify-center rounded-xl text-zinc-700
+                                                hover:bg-zinc-200 disabled:opacity-30 dark:text-zinc-200 dark:hover:bg-zinc-600"
+                                        >
+                                            <Icon icon="fa-solid fa-minus" />
+                                        </button>
+                                        <span className="min-w-[2ch] text-center text-sm font-bold tabular-nums">
+                                            {line.quantity ?? 1}
+                                        </span>
+                                        <button
+                                            type="button"
+                                            aria-label="One more"
+                                            onClick={() =>
+                                                onQuantity(line, (line.quantity ?? 1) + 1)
+                                            }
+                                            className="flex h-10 w-10 items-center justify-center rounded-xl text-zinc-700
+                                                hover:bg-zinc-200 dark:text-zinc-200 dark:hover:bg-zinc-600"
+                                        >
+                                            <Icon icon="fa-solid fa-plus" />
+                                        </button>
+                                    </div>
+                                )}
                                 {onEdit && (
                                     <Button
                                         text="Edit"

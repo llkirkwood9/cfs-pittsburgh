@@ -1,5 +1,6 @@
 import { useState } from "react";
 import TextField from "../Elements/TextField";
+import { NormalizeCustomerField } from "../../Lib/ModelHelpers";
 import type { Order } from "../../Models/Order";
 
 type Props = {
@@ -24,8 +25,12 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
         setForm((current) => ({ ...current, [field]: value }));
 
     const commit = (field: keyof Order) => async () => {
-        if ((form[field] ?? "") === (order[field] ?? "")) return;
-        await onSave({ id: order.id, [field]: form[field] ?? "" } as Order);
+        const raw = form[field];
+        const value = typeof raw === "string" ? NormalizeCustomerField(field, raw) : (raw ?? "");
+        if (value !== raw) setForm((current) => ({ ...current, [field]: value }));
+
+        if ((value ?? "") === (order[field] ?? "")) return;
+        await onSave({ id: order.id, [field]: value } as Order);
     };
 
     const toggleSameAsBilling = async (checked: boolean) => {
@@ -36,7 +41,11 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
     const field = (
         label: string,
         key: keyof Order,
-        options?: { className?: string; inputMode?: "text" | "tel" | "email"; type?: "text" | "email" | "tel" }
+        options?: {
+            className?: string;
+            inputMode?: "text" | "tel" | "email";
+            type?: "text" | "email" | "tel";
+        }
     ) => (
         <TextField
             label={label}
@@ -97,9 +106,21 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
                     {field("City", "billingCity", { className: "col-span-2" })}
                     {field("State", "billingState")}
                     {field("Zip", "billingZip", { inputMode: "tel" })}
-                    {field("Cell #", "billingCell", { type: "tel", inputMode: "tel", className: "col-span-2" })}
-                    {field("Alt. #", "billingAlt", { type: "tel", inputMode: "tel", className: "col-span-2" })}
-                    {field("Email", "billingEmail", { type: "email", inputMode: "email", className: "col-span-2" })}
+                    {field("Cell #", "billingCell", {
+                        type: "tel",
+                        inputMode: "tel",
+                        className: "col-span-2",
+                    })}
+                    {field("Alt. #", "billingAlt", {
+                        type: "tel",
+                        inputMode: "tel",
+                        className: "col-span-2",
+                    })}
+                    {field("Email", "billingEmail", {
+                        type: "email",
+                        inputMode: "email",
+                        className: "col-span-2",
+                    })}
                 </div>
             </section>
 
@@ -130,9 +151,21 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
                         {field("City", "deliveryCity", { className: "col-span-2" })}
                         {field("State", "deliveryState")}
                         {field("Zip", "deliveryZip", { inputMode: "tel" })}
-                        {field("Cell #", "deliveryCell", { type: "tel", inputMode: "tel", className: "col-span-2" })}
-                        {field("Alt. #", "deliveryAlt", { type: "tel", inputMode: "tel", className: "col-span-2" })}
-                        {field("Email", "deliveryEmail", { type: "email", inputMode: "email", className: "col-span-2" })}
+                        {field("Cell #", "deliveryCell", {
+                            type: "tel",
+                            inputMode: "tel",
+                            className: "col-span-2",
+                        })}
+                        {field("Alt. #", "deliveryAlt", {
+                            type: "tel",
+                            inputMode: "tel",
+                            className: "col-span-2",
+                        })}
+                        {field("Email", "deliveryEmail", {
+                            type: "email",
+                            inputMode: "email",
+                            className: "col-span-2",
+                        })}
                     </div>
                 )}
             </section>

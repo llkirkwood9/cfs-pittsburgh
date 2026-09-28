@@ -16,6 +16,7 @@ import OrderLineList from "../Components/Sales/OrderLineList";
 import OrderTotals from "../Components/Sales/OrderTotals";
 import { useAuth } from "../Context/AuthContext";
 import { FormatCurrency, IsAcknowledged } from "../Lib/ModelHelpers";
+import { IsOnline } from "../Lib/Connection";
 import { Toast } from "../Lib/Toast";
 import type { DeliveryOption } from "../Models/DeliveryOption";
 import type { Event } from "../Models/Event";
@@ -115,7 +116,11 @@ const CheckoutPage = () => {
         if (!saleEvent?.id) return;
 
         const timer = setInterval(() => {
-            GetCheckoutQueue(saleEvent.id!).then(setQueue);
+            // A poll that fails while the Wi-Fi is down keeps the queue on screen rather than
+            // emptying it.
+            GetCheckoutQueue(saleEvent.id!).then((list) => {
+                if (IsOnline()) setQueue(list);
+            });
         }, POLL_MS);
 
         return () => clearInterval(timer);
@@ -176,7 +181,7 @@ const CheckoutPage = () => {
 
         Toast.Success(`Order #${result.orderNumber} completed.`);
         navigate(`/receipt/${result.id}`, {
-            state: { from: "/checkout", label: "Back to checkout" },
+            state: { from: "/checkout", label: "Back to checkout", autoPrint: true },
         });
     };
 
@@ -308,6 +313,9 @@ const CheckoutPage = () => {
                                     onEdit={setEditingLine}
                                     onAddService={setServicingLine}
                                     onRemove={setRemovingLine}
+                                    onQuantity={(line, quantity) =>
+                                        handleUpdateLine({ id: line.id, quantity })
+                                    }
                                 />
 
                                 <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">

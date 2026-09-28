@@ -128,6 +128,13 @@ namespace api.Models
         public bool IsTaxable { get; set; } = true;
 
         /// <summary>
+        /// Note about this item, e.g. "Floor model - small scuff on the corner". Printed under the
+        /// item on the sales sheet, above its shipping rows.
+        /// </summary>
+        [MaxLength(500)]
+        public string? Notes { get; set; }
+
+        /// <summary>
         /// Print order within the grid
         /// </summary>
         public int SortOrder { get; set; }

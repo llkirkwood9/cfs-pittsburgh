@@ -1,5 +1,6 @@
 import axios from "axios";
 import type { NavigateFunction } from "react-router-dom";
+import { TakeOfflineAnnouncement } from "./Connection";
 import { Toast } from "./Toast";
 
 let navigate: NavigateFunction | null = null;
@@ -24,7 +25,9 @@ export const HandleAxiosError = (error: unknown): void => {
     }
 
     if (!error.response) {
-        Toast.Error("Cannot reach the server. Check the cart's connection and try again.");
+        // The connection banner keeps saying so; one toast per outage is enough.
+        if (TakeOfflineAnnouncement())
+            Toast.Error("Cannot reach the server. Check the cart's connection and try again.");
         return;
     }
 

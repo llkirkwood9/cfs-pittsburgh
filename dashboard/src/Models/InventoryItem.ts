@@ -10,7 +10,12 @@ export type InventoryItem = {
     configuration?: string | null;
     quantityOnHand?: number;
     soldAtEvent?: number | null;
+    openingCountAtEvent?: number | null;
+    openingCountedAt?: string | null;
+    openingCountedBy?: string | null;
     countedAtEvent?: number | null;
+    countedAt?: string | null;
+    countedBy?: string | null;
     expectedAtCount?: number | null;
     lastChangedAt?: string | null;
 };

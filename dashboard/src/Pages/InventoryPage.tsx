@@ -2,51 +2,36 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
+import InventoryNotesEditor from "../Components/Inventory/InventoryNotesEditor";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import TabButton from "../Components/Elements/TabButton";
 import TextField from "../Components/Elements/TextField";
 import {
     CategoryNames,
+    FormatDateTime,
+    FormatTime,
     GroupInventory,
     InventorySizeLabel,
 } from "../Lib/ModelHelpers";
+import { IsOnline } from "../Lib/Connection";
 import { Toast } from "../Lib/Toast";
+import type { Event } from "../Models/Event";
 import type { InventoryAdjustment } from "../Models/InventoryAdjustment";
 import type { InventoryItem } from "../Models/InventoryItem";
 import type { ProductCategory } from "../Models/Product";
-import {
-    AdjustInventory,
-    GetInventory,
-    GetInventoryHistory,
-} from "../Services/InventoryServices";
+import { GetActiveEvent } from "../Services/EventServices";
+import { AdjustInventory, GetInventory, GetInventoryHistory } from "../Services/InventoryServices";
 
 /** Counts at or below this show as running low. */
 const LOW_STOCK = 2;
-
-/**
- * Formats a server timestamp, which is stored in UTC without a zone marker.
- * @param value ISO date string.
- * @returns A string such as "9/21/26, 2:14 PM".
- */
-const formatWhen = (value?: string | null): string => {
-    if (!value) return "";
-    const date = new Date(/[zZ]|[+-]\d\d:?\d\d$/.test(value) ? value : `${value}Z`);
-    if (Number.isNaN(date.getTime())) return "";
-    return date.toLocaleString("en-US", {
-        year: "2-digit",
-        month: "numeric",
-        day: "numeric",
-        hour: "numeric",
-        minute: "2-digit",
-    });
-};
 
 const kindLabels: Record<string, string> = {
     Adjustment: "Count changed",
     Sale: "Take With sale",
     Return: "Returned to stock",
     Count: "End-of-event count",
+    OpeningCount: "Start-of-event count",
 };
 
 /**
@@ -57,6 +42,7 @@ const kindLabels: Record<string, string> = {
 const InventoryPage = () => {
     const navigate = useNavigate();
     const [items, setItems] = useState<InventoryItem[]>([]);
+    const [saleEvent, setSaleEvent] = useState<Event | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [search, setSearch] = useState<string>("");
     const [tab, setTab] = useState<ProductCategory | "All">("All");
@@ -71,7 +57,13 @@ const InventoryPage = () => {
     const [history, setHistory] = useState<InventoryAdjustment[] | null>(null);
 
     const load = useCallback(async () => {
-        setItems(await GetInventory());
+        const active = await GetActiveEvent();
+        const rows = await GetInventory(active?.id ?? undefined);
+        // A refresh that fails while the server cannot be reached keeps what is on screen.
+        if (IsOnline()) {
+            setSaleEvent(active);
+            setItems(rows);
+        }
         setLoading(false);
     }, []);
 
@@ -81,7 +73,15 @@ const InventoryPage = () => {
 
     const replace = (updated: InventoryItem) =>
         setItems((current) =>
-            current.map((i) => (i.productVariantId === updated.productVariantId ? updated : i))
+            current.map((i) =>
+                i.productVariantId === updated.productVariantId
+                    ? {
+                          ...i,
+                          quantityOnHand: updated.quantityOnHand,
+                          lastChangedAt: updated.lastChangedAt,
+                      }
+                    : i
+            )
         );
 
     const nudge = async (item: InventoryItem, change: number) => {
@@ -146,6 +146,41 @@ const InventoryPage = () => {
         );
     }, [items, tab, search]);
 
+    // When each of the event's shelf counts was last taken, and by whom.
+    const latest = (
+        at: (i: InventoryItem) => string | null | undefined,
+        by: (i: InventoryItem) => string | null | undefined
+    ) => {
+        const row = items
+            .filter((i) => at(i))
+            .sort((a, b) => (at(b) ?? "").localeCompare(at(a) ?? ""))[0];
+        return { at: row ? at(row) : null, by: row ? by(row) : null };
+    };
+    const opening = latest(
+        (i) => i.openingCountedAt,
+        (i) => i.openingCountedBy
+    );
+    const closing = latest(
+        (i) => i.countedAt,
+        (i) => i.countedBy
+    );
+    const countStatus = [
+        {
+            phase: "start",
+            title: "Start-of-event count",
+            hint: "Not done yet - count the shelf before the doors open",
+            due: !opening.at,
+            ...opening,
+        },
+        {
+            phase: "end",
+            title: "End-of-event count",
+            hint: "Count what is left once the event is over",
+            due: false,
+            ...closing,
+        },
+    ];
+
     const outOfStock = items.filter((i) => (i.quantityOnHand ?? 0) <= 0).length;
     const totalUnits = items.reduce((sum, i) => sum + Math.max(0, i.quantityOnHand ?? 0), 0);
 
@@ -161,17 +196,7 @@ const InventoryPage = () => {
         <div className="mx-auto max-w-4xl p-3 sm:p-4">
             <div className="mb-1 flex flex-wrap items-center justify-between gap-2">
                 <h1 className="text-xl font-bold">Inventory</h1>
-                <div className="flex flex-wrap gap-2">
-                    {items.length > 0 && (
-                        <Button
-                            text="End-of-event count"
-                            icon="fa-solid fa-clipboard-check"
-                            onClick={() => navigate("/inventory/count")}
-                            className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
-                        />
-                    )}
-                    <Button text="Refresh" icon="fa-solid fa-rotate" onClick={load} />
-                </div>
+                <Button text="Refresh" icon="fa-solid fa-rotate" onClick={load} />
             </div>
             <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
                 {totalUnits} units on hand
@@ -184,6 +209,70 @@ const InventoryPage = () => {
                 . Take With sales come off automatically when checkout completes the order.
             </p>
 
+            {items.length > 0 && (
+                <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                    {countStatus.map((c) => (
+                        <div
+                            key={c.phase}
+                            className={`flex flex-wrap items-center gap-3 rounded-xl border-2 p-3 ${
+                                c.at
+                                    ? "border-green-200 bg-green-50 dark:border-green-900 dark:bg-green-950/30"
+                                    : c.due
+                                      ? "border-amber-300 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30"
+                                      : "border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800"
+                            }`}
+                        >
+                            <Icon
+                                icon={
+                                    c.at ? "fa-solid fa-circle-check" : "fa-solid fa-clipboard-list"
+                                }
+                                className={`text-xl ${
+                                    c.at
+                                        ? "text-green-700 dark:text-green-400"
+                                        : c.due
+                                          ? "text-amber-700 dark:text-amber-400"
+                                          : "text-zinc-400"
+                                }`}
+                            />
+                            <div className="min-w-0 flex-1">
+                                <p className="font-semibold">{c.title}</p>
+                                <p className="text-xs text-zinc-600 dark:text-zinc-400">
+                                    {!saleEvent
+                                        ? "Needs an active event"
+                                        : c.at
+                                          ? `Done ${FormatTime(c.at)}${c.by ? ` by ${c.by}` : ""}`
+                                          : c.hint}
+                                </p>
+                            </div>
+                            <Button
+                                text={c.at ? "Recount" : "Count now"}
+                                icon="fa-solid fa-clipboard-check"
+                                onClick={() => navigate(`/inventory/count/${c.phase}`)}
+                                disabled={!saleEvent}
+                                className={`min-h-[44px] px-3 text-sm ${
+                                    c.at
+                                        ? "bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                                        : "bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
+                                }`}
+                            />
+                        </div>
+                    ))}
+                </div>
+            )}
+
+            {items.length > 0 && saleEvent?.id && (
+                <InventoryNotesEditor
+                    eventId={saleEvent.id}
+                    notes={saleEvent.inventoryNotes}
+                    onSaved={(notes) =>
+                        setSaleEvent((current) =>
+                            current ? { ...current, inventoryNotes: notes } : current
+                        )
+                    }
+                    className="mb-5"
+                />
+            )}
+
             {items.length === 0 ? (
                 <div className="rounded-xl border-2 border-dashed border-zinc-300 py-14 text-center dark:border-zinc-700">
                     <Icon icon="fa-solid fa-boxes-stacked" className="text-3xl text-zinc-400" />
@@ -195,7 +284,11 @@ const InventoryPage = () => {
             ) : (
                 <>
                     <div className="mb-3 flex gap-2 overflow-x-auto pb-1">
-                        <TabButton text="All" active={tab === "All"} onClick={() => setTab("All")} />
+                        <TabButton
+                            text="All"
+                            active={tab === "All"}
+                            onClick={() => setTab("All")}
+                        />
                         {categories.map((c) => (
                             <TabButton
                                 key={c}
@@ -295,7 +388,9 @@ const InventoryPage = () => {
                                                                 />
                                                                 <button
                                                                     type="button"
-                                                                    onClick={() => openHistory(item)}
+                                                                    onClick={() =>
+                                                                        openHistory(item)
+                                                                    }
                                                                     aria-label="History"
                                                                     title="History"
                                                                     className="flex h-12 w-12 items-center justify-center rounded-lg text-zinc-500
@@ -394,7 +489,7 @@ const InventoryPage = () => {
                                             </span>
                                         )}
                                         <span className="block text-xs text-zinc-500 dark:text-zinc-400">
-                                            {formatWhen(row.createdAt)}
+                                            {FormatDateTime(row.createdAt)}
                                             {row.userName ? ` - ${row.userName}` : ""}
                                         </span>
                                     </span>

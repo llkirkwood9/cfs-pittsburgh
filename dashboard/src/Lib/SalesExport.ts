@@ -73,7 +73,8 @@ export const BuildSalesCsv = (orders: Order[]): string => {
                           : "";
                 const size = line.size ? `${line.size} ` : "";
                 const qty = line.lineType === "Delivery" ? "" : `${line.quantity} x `;
-                return `${prefix}${qty}${size}${line.description}`;
+                const note = line.notes ? ` (Note: ${line.notes.replace(/\s+/g, " ")})` : "";
+                return `${prefix}${qty}${size}${line.description}${note}`;
             })
             .join("\n");
 

@@ -30,13 +30,37 @@ export const AdjustInventory = async (
  * @param count The event, an optional note and the counted sizes.
  * @returns The event's inventory rows after the count, or null on failure.
  */
-export const SaveInventoryCount = async (count: InventoryCount): Promise<InventoryItem[] | null> => {
+export const SaveInventoryCount = async (
+    count: InventoryCount
+): Promise<InventoryItem[] | null> => {
     try {
         const response = await api.post<InventoryItem[]>("/api/Inventory/count", count);
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
         return null;
+    }
+};
+
+/**
+ * Saves the notes printed in the Notes box of an event's Accessory Inventory Sheet.
+ * @param eventId The event.
+ * @param notes The notes; an empty string clears them.
+ * @returns The saved notes (null when cleared), or undefined on failure.
+ */
+export const SaveInventoryNotes = async (
+    eventId: number,
+    notes: string
+): Promise<string | null | undefined> => {
+    try {
+        const response = await api.put<{ notes?: string | null }>(
+            `/api/Inventory/notes/event/${eventId}`,
+            { notes }
+        );
+        return response.data.notes ?? null;
+    } catch (error) {
+        HandleAxiosError(error);
+        return undefined;
     }
 };
 

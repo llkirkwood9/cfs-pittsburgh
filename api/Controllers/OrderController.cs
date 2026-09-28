@@ -183,6 +183,11 @@ namespace api.Controllers
                 if (request.IsTaxable != null)
                     line.IsTaxable = request.IsTaxable.Value;
 
+                if (request.Notes is { Length: > 500 })
+                    return BadRequest(new { error = "An item note can be at most 500 characters." });
+
+                line.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+
                 if (line.Quantity < 1)
                     return BadRequest(new { error = "The quantity must be at least 1." });
 
@@ -869,6 +874,14 @@ namespace api.Controllers
                 if (request.IsTaxable != null)
                     line.IsTaxable = request.IsTaxable.Value;
 
+                if (request.Notes != null)
+                {
+                    if (request.Notes.Length > 500)
+                        return BadRequest(new { error = "An item note can be at most 500 characters." });
+
+                    line.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+                }
+
                 if (request.SortOrder != null)
                     line.SortOrder = request.SortOrder.Value;
 
@@ -1429,6 +1442,7 @@ namespace api.Controllers
                         ShowOnSalesSheet = l.ShowOnSalesSheet,
                         IsTaxable = l.IsTaxable,
                         SortOrder = l.SortOrder,
+                        Notes = l.Notes,
                         QuantityOnHand = l.ProductVariant?.Product?.TrackInventory == true
                             ? l.ProductVariant.QuantityOnHand
                             : null,

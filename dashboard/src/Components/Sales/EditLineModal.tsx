@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Button from "../Elements/Button";
 import Modal from "../Elements/Modal";
+import TextArea from "../Elements/TextArea";
 import TextField from "../Elements/TextField";
 import { ParseMoney, TakeWithBlocked } from "../../Lib/ModelHelpers";
 import { Toast } from "../../Lib/Toast";
@@ -27,6 +28,7 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
         line.discountPercent ? String(line.discountPercent) : ""
     );
     const [isTaxable, setIsTaxable] = useState<boolean>(line.isTaxable ?? true);
+    const [notes, setNotes] = useState<string>(line.notes ?? "");
     const [saving, setSaving] = useState<boolean>(false);
 
     // A tracked accessory can only go home today while the cart has enough of it.
@@ -43,7 +45,9 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
             return Toast.Warning("The discount must be between 0 and 100 percent.");
 
         if (takeWith && stockBlock)
-            return Toast.Warning(`${stockBlock} for Take With. Lower the quantity or ship it instead.`);
+            return Toast.Warning(
+                `${stockBlock} for Take With. Lower the quantity or ship it instead.`
+            );
 
         setSaving(true);
         await onSave({
@@ -56,6 +60,7 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
             unitPrice: price,
             discountPercent: discountPercent ?? 0,
             isTaxable,
+            notes: line.lineType === "Delivery" ? undefined : notes.trim(),
         });
         setSaving(false);
         onClose();
@@ -72,7 +77,12 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
                         onClick={onClose}
                         className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                     />
-                    <Button text="Save" icon="fa-solid fa-check" onClick={handleSave} loading={saving} />
+                    <Button
+                        text="Save"
+                        icon="fa-solid fa-check"
+                        onClick={handleSave}
+                        loading={saving}
+                    />
                 </>
             }
         >
@@ -124,7 +134,9 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
                 <div className="flex flex-col justify-end gap-2">
                     <label
                         className={`flex min-h-[48px] items-center gap-3 rounded-xl bg-zinc-100 px-3 dark:bg-zinc-700 ${
-                            !takeWith && stockBlock ? "cursor-not-allowed opacity-60" : "cursor-pointer"
+                            !takeWith && stockBlock
+                                ? "cursor-not-allowed opacity-60"
+                                : "cursor-pointer"
                         }`}
                     >
                         <input
@@ -161,6 +173,18 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
                         </span>
                     </label>
                 </div>
+
+                {/* Notes belong to the item, not its shipping row. */}
+                {line.lineType !== "Delivery" && (
+                    <TextArea
+                        label="Note"
+                        value={notes}
+                        onChange={setNotes}
+                        placeholder="e.g. Floor model - small scuff on the corner"
+                        className="sm:col-span-2"
+                        maxLength={500}
+                    />
+                )}
             </div>
         </Modal>
     );

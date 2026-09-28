@@ -11,6 +11,11 @@ namespace api.Dtos
         public int? EventId { get; set; }
 
         /// <summary>
+        /// "Start" for the count before the event opens, "End" (the default) for the closing count
+        /// </summary>
+        public string? Phase { get; set; }
+
+        /// <summary>
         /// Optional note saved with every row, e.g. "Counted by Jamie"
         /// </summary>
         public string? Note { get; set; }

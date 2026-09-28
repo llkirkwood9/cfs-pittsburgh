@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import LoadingPage from "../Components/Elements/LoadingPage";
@@ -21,7 +21,8 @@ const ReceiptPage = () => {
     // Whoever opened the sheet says where they came from, so Back returns to the Orders list or
     // the checkout table as appropriate. A sheet opened from a bookmark or a fresh tab falls back
     // to the browser history, then to the user's home screen.
-    const from = (location.state as { from?: string; label?: string } | null) ?? null;
+    const from =
+        (location.state as { from?: string; label?: string; autoPrint?: boolean } | null) ?? null;
     const goBack = () => {
         if (from?.from) navigate(from.from);
         else if (location.key !== "default") navigate(-1);
@@ -43,6 +44,17 @@ const ReceiptPage = () => {
         load();
     }, [orderId]);
 
+    // Complete & print lands here with autoPrint set, so the print dialog opens by itself. The flag
+    // is cleared straight away so going back or refreshing does not print a second copy.
+    const autoPrinted = useRef<boolean>(false);
+    useEffect(() => {
+        if (loading || !order || !from?.autoPrint || autoPrinted.current) return;
+
+        autoPrinted.current = true;
+        navigate(location.pathname, { replace: true, state: { ...from, autoPrint: false } });
+        setTimeout(() => window.print(), 400);
+    }, [loading, order, from, navigate, location.pathname]);
+
     if (!user) return <Navigate to="/unauthorized" replace />;
     if (loading) return <LoadingPage />;
 
@@ -61,7 +73,7 @@ const ReceiptPage = () => {
     }
 
     return (
-        <div className="min-h-screen bg-zinc-200 py-4 dark:bg-zinc-900">
+        <div className="print-root min-h-screen bg-zinc-200 py-4 dark:bg-zinc-900">
             <div className="no-print mx-auto mb-4 flex max-w-[8in] flex-wrap items-center gap-2 px-3">
                 <Button
                     text={backLabel}

@@ -3,6 +3,7 @@ import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import { useLockBodyScroll } from "../../Hooks/UseLockBodyScroll";
 import { Toast } from "../../Lib/Toast";
+import { NormalizeCustomer } from "../../Lib/ModelHelpers";
 import type { Order } from "../../Models/Order";
 
 type Props = {
@@ -153,20 +154,22 @@ const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
         );
 
         setSaving(true);
-        await onSave({
-            id: order.id,
-            deliverySameAsBilling: !elsewhere,
-            ...delivery,
-            billingName: form.billingName ?? "",
-            billingAddress: form.billingAddress ?? "",
-            billingUnit: form.billingUnit ?? "",
-            billingCity: form.billingCity ?? "",
-            billingState: form.billingState ?? "",
-            billingZip: form.billingZip ?? "",
-            billingCell: form.billingCell ?? "",
-            billingEmail: form.billingEmail ?? "",
-            referralName: form.referralName ?? "",
-        });
+        await onSave(
+            NormalizeCustomer({
+                id: order.id,
+                deliverySameAsBilling: !elsewhere,
+                ...delivery,
+                billingName: form.billingName ?? "",
+                billingAddress: form.billingAddress ?? "",
+                billingUnit: form.billingUnit ?? "",
+                billingCity: form.billingCity ?? "",
+                billingState: form.billingState ?? "",
+                billingZip: form.billingZip ?? "",
+                billingCell: form.billingCell ?? "",
+                billingEmail: form.billingEmail ?? "",
+                referralName: form.referralName ?? "",
+            })
+        );
         setSaving(false);
         onClose();
     };

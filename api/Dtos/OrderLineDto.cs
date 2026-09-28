@@ -101,6 +101,11 @@ namespace api.Dtos
         public bool? IsTaxable { get; set; }
 
         /// <summary>
+        /// Note about this item, printed under it on the sales sheet. Send "" to clear it.
+        /// </summary>
+        public string? Notes { get; set; }
+
+        /// <summary>
         /// Print order within the grid
         /// </summary>
         public int? SortOrder { get; set; }

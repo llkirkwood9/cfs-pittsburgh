@@ -17,8 +17,8 @@ const head = `${cell} bg-zinc-100 text-left text-[10px] font-bold uppercase`;
 
 /**
  * The Accessory Inventory Sheet, filled in. Laid out like the paper sheet the crew tallies at the
- * end of an event: each tracked accessory by size, with what went home as Take With, what the app
- * expected to be left, and what the end-of-event count found - or a blank column to write the
+ * end of an event: each tracked accessory by size, with what the start-of-event count found, what
+ * went home as Take With, what the app expected to be left, and what the end-of-event count found - or a blank column to write the
  * count in by hand when it has not been done in the app. Printed as the last page of an event's
  * sheets.
  */
@@ -71,14 +71,15 @@ const InventorySheet = ({ saleEvent, items }: Props) => {
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr>
-                                    <th className={`${head} w-[32%]`}>Item</th>
-                                    <th className={`${head} w-[16%]`}>Size</th>
-                                    <th className={`${head} w-[13%] text-center`}>
+                                    <th className={`${head} w-[28%]`}>Item</th>
+                                    <th className={`${head} w-[14%]`}>Size</th>
+                                    <th className={`${head} w-[10%] text-center`}>Start</th>
+                                    <th className={`${head} w-[12%] text-center`}>
                                         Take With sold
                                     </th>
-                                    <th className={`${head} w-[13%] text-center`}>Expected</th>
-                                    <th className={`${head} w-[13%] text-center`}>Counted</th>
-                                    <th className={`${head} w-[13%] text-center`}>Difference</th>
+                                    <th className={`${head} w-[12%] text-center`}>Expected</th>
+                                    <th className={`${head} w-[12%] text-center`}>Counted</th>
+                                    <th className={`${head} w-[12%] text-center`}>Difference</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -100,6 +101,9 @@ const InventorySheet = ({ saleEvent, items }: Props) => {
                                             )}
                                             <td className={`${cell} font-semibold uppercase`}>
                                                 {InventorySizeLabel(size)}
+                                            </td>
+                                            <td className={`${cell} text-center tabular-nums`}>
+                                                {size.openingCountAtEvent ?? ""}
                                             </td>
                                             <td className={`${cell} text-center tabular-nums`}>
                                                 {size.soldAtEvent ?? 0}
@@ -126,10 +130,16 @@ const InventorySheet = ({ saleEvent, items }: Props) => {
 
             <div className="mt-6 break-inside-avoid">
                 <p className="text-[12px] font-bold">Notes:</p>
+                {saleEvent?.inventoryNotes && (
+                    <p className="mt-1 whitespace-pre-line border-b border-black pb-1 text-[12px]">
+                        {saleEvent.inventoryNotes}
+                    </p>
+                )}
+                {/* Ruled lines are left under any typed notes for the crew to add to by hand. */}
                 <div className="mt-1 space-y-5">
-                    <div className="border-b border-black" />
-                    <div className="border-b border-black" />
-                    <div className="border-b border-black" />
+                    {Array.from({ length: saleEvent?.inventoryNotes ? 2 : 3 }).map((_, index) => (
+                        <div key={index} className="h-4 border-b border-black" />
+                    ))}
                 </div>
             </div>
         </div>

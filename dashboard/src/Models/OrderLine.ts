@@ -23,6 +23,8 @@ export type OrderLine = {
     showOnSalesSheet?: boolean;
     isTaxable?: boolean;
     sortOrder?: number;
+    /** Note printed under the item on the sales sheet, above its shipping rows. */
+    notes?: string | null;
     /** On-hand count of the sold size; null when the product does not track inventory. */
     quantityOnHand?: number | null;
 };

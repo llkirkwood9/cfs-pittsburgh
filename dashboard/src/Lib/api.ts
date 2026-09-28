@@ -1,4 +1,5 @@
 import axios from "axios";
+import { SetOnline } from "./Connection";
 import type { AxiosRequestConfig } from "axios";
 
 const ACCESS_TOKEN_KEY = "cfs.accessToken";
@@ -65,8 +66,14 @@ api.interceptors.request.use((config) => {
 });
 
 api.interceptors.response.use(
-    (response) => response,
+    (response) => {
+        SetOnline(true);
+        return response;
+    },
     async (error) => {
+        // Any answer at all, even an error, means the server is reachable.
+        SetOnline(Boolean(error.response));
+
         const original = error.config as AxiosRequestConfig & { _retry?: boolean };
         const status = error.response?.status;
         const isRefreshCall = original?.url?.includes("/api/Auth/refresh");

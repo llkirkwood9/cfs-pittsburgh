@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import ConnectionBanner from "./Components/Elements/ConnectionBanner";
 import Navbar from "./Components/Navbar/Navbar";
 import { useAuth } from "./Context/AuthContext";
 import { setNavigateFunction } from "./Lib/ErrorHandler";
@@ -29,6 +30,7 @@ const App = () => {
 
     return (
         <div className="min-h-screen bg-zinc-100 text-zinc-900 transition-colors dark:bg-zinc-900 dark:text-zinc-100">
+            <ConnectionBanner />
             {showNavbar && <Navbar />}
             <main className={showNavbar ? "pt-16 pb-20 md:pb-0" : ""}>
                 <Outlet />
