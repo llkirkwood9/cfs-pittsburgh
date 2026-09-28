@@ -175,9 +175,11 @@ docker compose -f docker-compose.pi.yml ps
 ```
 
 Now open `http://cfs.local:8080` (or `http://<the Pi's IP>:8080`) from any device on the network and
-sign in as **admin / 1234**.
+sign in as **admin / 1234**. That first account is made the **Owner** automatically, the one
+role that can permanently delete events, orders and crew.
 
-> **Change that PIN straight away** under **Crew**, and add accounts for the rest of the team.
+> **Change that PIN straight away**: tap your initials in the top-right corner, then **Change PIN**.
+> Then add accounts for the rest of the team under **Crew**.
 
 ## Step 8 - Start it automatically at boot
 

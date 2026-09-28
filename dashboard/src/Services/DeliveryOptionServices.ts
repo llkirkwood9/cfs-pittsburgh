@@ -78,11 +78,15 @@ export const UpdateDeliveryOption = async (
 /**
  * Removes a delivery option, or archives it when it already appears on an order.
  * @param id The delivery option id.
+ * @param permanent Owner only: delete for good.
  * @returns True if the operation was successful, false otherwise.
  */
-export const DeleteDeliveryOption = async (id: number): Promise<boolean> => {
+export const DeleteDeliveryOption = async (id: number, permanent = false): Promise<boolean> => {
     try {
-        const response = await api.delete(`/api/DeliveryOption/deliveryoption/${id}`);
+        // permanent is owner-only: it deletes for good instead of archiving or refusing.
+        const response = await api.delete(`/api/DeliveryOption/deliveryoption/${id}`, {
+            params: permanent ? { permanent: true } : undefined,
+        });
         return response.status === 200;
     } catch (error) {
         HandleAxiosError(error);

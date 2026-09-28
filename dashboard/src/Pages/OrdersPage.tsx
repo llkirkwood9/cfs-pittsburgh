@@ -2,6 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import ReopenOrderModal from "../Components/Admin/ReopenOrderModal";
 import Button from "../Components/Elements/Button";
+import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import TabButton from "../Components/Elements/TabButton";
@@ -13,7 +14,12 @@ import type { Event } from "../Models/Event";
 import type { OrderStatus } from "../Models/Order";
 import type { OrderSummary } from "../Models/OrderSummary";
 import { GetActiveEvent, GetEvents } from "../Services/EventServices";
-import { GetAllOrders, GetOrdersForEvent, ReopenOrder } from "../Services/OrderServices";
+import {
+    DeleteOrder,
+    GetAllOrders,
+    GetOrdersForEvent,
+    ReopenOrder,
+} from "../Services/OrderServices";
 
 type Scope = { kind: "event"; eventId: number } | { kind: "all" };
 
@@ -40,6 +46,8 @@ const OrdersPage = () => {
     const navigate = useNavigate();
 
     const isAdmin = hasRole("Admin");
+    const isOwner = user?.role === "Owner";
+    const [removing, setRemoving] = useState<OrderSummary | null>(null);
 
     const [events, setEvents] = useState<Event[]>([]);
     const [scope, setScope] = useState<Scope | null>(null);
@@ -299,10 +307,43 @@ const OrdersPage = () => {
                                             className="min-h-[44px] bg-amber-600 px-3 text-sm hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700"
                                         />
                                     )}
+                                {isOwner && (
+                                    <button
+                                        type="button"
+                                        onClick={() => setRemoving(order)}
+                                        aria-label="Delete order permanently"
+                                        title="Delete permanently"
+                                        className="flex h-11 w-11 items-center justify-center rounded-lg text-red-700
+                                            hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
+                                    >
+                                        <Icon icon="fa-solid fa-trash" />
+                                    </button>
+                                )}
                             </div>
                         </li>
                     ))}
                 </ul>
+            )}
+
+            {removing && (
+                <ConfirmationModal
+                    title={`Delete order #${removing.orderNumber}`}
+                    message={`Permanently delete order #${removing.orderNumber}${
+                        removing.billingName ? ` for ${removing.billingName}` : ""
+                    }, with its items and payments? It comes off every total and its sales sheet is gone. Stock that went home is not put back - reopen or void the sale first if it should be. This cannot be undone.`}
+                    confirmText="Delete for good"
+                    confirmWord="DELETE"
+                    destructive
+                    onConfirm={async () => {
+                        const id = removing.id;
+                        setRemoving(null);
+                        if (id && (await DeleteOrder(id, true))) {
+                            Toast.Success(`Order #${removing.orderNumber} deleted.`);
+                            if (scope) await load(scope, statusFilter, search);
+                        }
+                    }}
+                    onCancel={() => setRemoving(null)}
+                />
             )}
 
             {reopening && (

@@ -33,6 +33,7 @@ import {
  */
 const CatalogPage = () => {
     const { user } = useAuth();
+    const isOwner = user?.role === "Owner";
 
     const [products, setProducts] = useState<Product[]>([]);
     const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOption[]>([]);
@@ -86,7 +87,7 @@ const CatalogPage = () => {
     const handleDeleteProduct = async () => {
         if (!deleting?.id) return;
 
-        const success = await DeleteProduct(deleting.id);
+        const success = await DeleteProduct(deleting.id, isOwner);
         setDeleting(null);
 
         if (success) {
@@ -107,7 +108,7 @@ const CatalogPage = () => {
     };
 
     const handleDeleteDeliveryOption = async (id: number) => {
-        if (await DeleteDeliveryOption(id)) {
+        if (await DeleteDeliveryOption(id, isOwner)) {
             Toast.Success("Delivery option removed.");
             await load();
         }
@@ -180,6 +181,7 @@ const CatalogPage = () => {
                     options={deliveryOptions}
                     onSave={handleSaveDeliveryOption}
                     onDelete={handleDeleteDeliveryOption}
+                    permanentDelete={isOwner}
                 />
             ) : (
                 <>
@@ -222,7 +224,9 @@ const CatalogPage = () => {
                                         )}
                                         <span>
                                             {product.deliveryOptions?.length ?? 0} delivery option
-                                            {(product.deliveryOptions?.length ?? 0) === 1 ? "" : "s"}
+                                            {(product.deliveryOptions?.length ?? 0) === 1
+                                                ? ""
+                                                : "s"}
                                         </span>
                                     </p>
                                     {product.notes && (
@@ -273,8 +277,13 @@ const CatalogPage = () => {
             {deleting && (
                 <ConfirmationModal
                     title="Delete product"
-                    message={`Delete "${deleting.name}"? If it has already been sold it will be archived instead, so past receipts keep working.`}
-                    confirmText="Delete"
+                    message={
+                        isOwner
+                            ? `Permanently delete "${deleting.name}" and all its sizes? Past sales sheets keep the item exactly as it was printed, but it leaves the catalog, any bundle that included it, and the inventory. This cannot be undone. To keep it, untick "Offered on the floor" instead.`
+                            : `Delete "${deleting.name}"? If it has already been sold it will be archived instead, so past receipts keep working.`
+                    }
+                    confirmText={isOwner ? "Delete for good" : "Delete"}
+                    confirmWord={isOwner ? "DELETE" : undefined}
                     destructive
                     onConfirm={handleDeleteProduct}
                     onCancel={() => setDeleting(null)}

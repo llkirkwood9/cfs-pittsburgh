@@ -54,6 +54,9 @@ namespace api.Controllers
                 if (request.Pin.Length < 4 || request.Pin.Length > 12 || !request.Pin.All(char.IsDigit))
                     return BadRequest(new { error = "The PIN must be 4 to 12 digits." });
 
+                if (string.Equals(request.Role, nameof(UserRole.Owner), StringComparison.OrdinalIgnoreCase) && !IsOwner())
+                    return StatusCode(403, new { error = "Only an owner can make someone an owner." });
+
                 var salt = TokenService.CreateSalt();
                 var user = new User
                 {
@@ -155,6 +158,22 @@ namespace api.Controllers
                 if (user == null)
                     return NotFound(new { error = "User not found." });
 
+                // Only an owner can change an owner's account, and nobody can change their own role
+                // - so there is always at least the owner making the change.
+                if (user.Role == UserRole.Owner && !IsOwner())
+                    return StatusCode(403, new { error = "Only an owner can change an owner's account." });
+
+                if (!string.IsNullOrWhiteSpace(request.Role)
+                    && Enum.TryParse<UserRole>(request.Role, true, out var requestedRole)
+                    && requestedRole != user.Role)
+                {
+                    if (user.Id == GetCurrentUserId())
+                        return BadRequest(new { error = "You cannot change your own role." });
+
+                    if (requestedRole == UserRole.Owner && !IsOwner())
+                        return StatusCode(403, new { error = "Only an owner can make someone an owner." });
+                }
+
                 if (!string.IsNullOrWhiteSpace(request.Username) && request.Username != user.Username)
                 {
                     var takenBy = request.Username.Trim().ToLower();
@@ -220,25 +239,39 @@ namespace api.Controllers
         #region DELETE Methods
 
         /// <summary>
-        /// Deactivates a crew account. Accounts are never hard deleted because orders reference them.
+        /// Deactivates a crew account, keeping it on file. An owner can instead delete it for good
+        /// with permanent=true: their sales stay, but every place that named them is cleared.
         /// </summary>
         /// <param name="id">User id</param>
-        /// <returns>200 when the account was deactivated.</returns>
+        /// <param name="permanent">True to delete the account rather than deactivate it (owner only)</param>
+        /// <returns>200 when the account was deactivated or deleted.</returns>
         [HttpDelete("user/{id}")]
         [Authorize(AuthenticationSchemes = "Bearer")]
-        public async Task<IActionResult> DeleteUser(int id)
+        public async Task<IActionResult> DeleteUser(int id, [FromQuery] bool permanent = false)
         {
             try
             {
                 if (!IsInRole(UserRole.Admin))
                     return StatusCode(403, new { error = "Only an administrator may manage crew accounts." });
 
+                if (permanent && !IsOwner())
+                    return StatusCode(403, new { error = "Only an owner can delete an account permanently." });
+
                 var user = await DB.Users.FindAsync(id);
                 if (user == null)
                     return NotFound(new { error = "User not found." });
 
                 if (GetCurrentUserId() == id)
-                    return BadRequest(new { error = "You cannot deactivate your own account." });
+                    return BadRequest(new { error = "You cannot deactivate or delete your own account." });
+
+                if (user.Role == UserRole.Owner && !IsOwner())
+                    return StatusCode(403, new { error = "Only an owner can change an owner's account." });
+
+                if (permanent)
+                {
+                    await PermanentDelete.UserAsync(DB, user);
+                    return Ok(new { deleted = true });
+                }
 
                 user.IsActive = false;
                 user.RefreshToken = null;

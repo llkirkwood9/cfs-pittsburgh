@@ -233,22 +233,33 @@ namespace api.Controllers
         #region DELETE Methods
 
         /// <summary>
-        /// Deletes an event that has no orders against it.
+        /// Deletes an event that has no orders against it. An owner can pass permanent=true to delete
+        /// an event together with every order taken at it.
         /// </summary>
         /// <param name="id">Event id</param>
+        /// <param name="permanent">True to delete the event's orders too (owner only)</param>
         /// <returns>200 when the event was removed.</returns>
         [HttpDelete("event/{id}")]
         [Authorize(AuthenticationSchemes = "Bearer")]
-        public async Task<IActionResult> DeleteEvent(int id)
+        public async Task<IActionResult> DeleteEvent(int id, [FromQuery] bool permanent = false)
         {
             try
             {
                 if (!IsInRole(UserRole.Admin))
                     return StatusCode(403, new { error = "Only an administrator may delete an event." });
 
+                if (permanent && !IsOwner())
+                    return StatusCode(403, new { error = "Only an owner can delete an event with its orders." });
+
                 var found = await DB.Events.FindAsync(id);
                 if (found == null)
                     return NotFound(new { error = "Event not found." });
+
+                if (permanent)
+                {
+                    await PermanentDelete.EventAsync(DB, id);
+                    return Ok();
+                }
 
                 if (await DB.Orders.AnyAsync(o => o.EventId == id))
                     return BadRequest(new { error = "This event has orders against it and cannot be deleted." });

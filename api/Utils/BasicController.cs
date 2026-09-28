@@ -85,7 +85,20 @@ namespace api.Utils
         /// <returns>True when the user is in that role.</returns>
         protected bool IsInRole(UserRole role)
         {
+            // An owner can do everything an administrator can.
+            if (role == UserRole.Admin && User.IsInRole(nameof(UserRole.Owner)))
+                return true;
+
             return User.IsInRole(role.ToString());
+        }
+
+        /// <summary>
+        /// Whether the signed-in user is an owner - the only role allowed to delete permanently.
+        /// </summary>
+        /// <returns>True for an owner.</returns>
+        protected bool IsOwner()
+        {
+            return User.IsInRole(nameof(UserRole.Owner));
         }
 
         #endregion

@@ -303,11 +303,15 @@ export const UpdateOrderPayment = async (payment: OrderPayment): Promise<Order |
 /**
  * Deletes a draft order outright.
  * @param id The order id.
+ * @param permanent Owner only: delete for good.
  * @returns True if the operation was successful, false otherwise.
  */
-export const DeleteOrder = async (id: number): Promise<boolean> => {
+export const DeleteOrder = async (id: number, permanent = false): Promise<boolean> => {
     try {
-        const response = await api.delete(`/api/Order/order/${id}`);
+        // permanent is owner-only: it deletes for good instead of archiving or refusing.
+        const response = await api.delete(`/api/Order/order/${id}`, {
+            params: permanent ? { permanent: true } : undefined,
+        });
         return response.status === 200;
     } catch (error) {
         HandleAxiosError(error);

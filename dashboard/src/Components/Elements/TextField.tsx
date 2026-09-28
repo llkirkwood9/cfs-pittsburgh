@@ -4,7 +4,7 @@ type Props = {
     onChange: (value: string) => void;
     onBlur?: () => void;
     placeholder?: string;
-    type?: "text" | "email" | "tel" | "date";
+    type?: "text" | "email" | "tel" | "date" | "password";
     inputMode?: "text" | "decimal" | "numeric" | "tel" | "email";
     className?: string;
     disabled?: boolean;

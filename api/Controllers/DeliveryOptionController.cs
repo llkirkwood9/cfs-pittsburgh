@@ -185,10 +185,24 @@ namespace api.Controllers
         /// <returns>200, with a flag saying whether the row was archived instead of deleted.</returns>
         [HttpDelete("deliveryoption/{id}")]
         [Authorize(AuthenticationSchemes = "Bearer")]
-        public async Task<IActionResult> DeleteDeliveryOption(int id)
+        public async Task<IActionResult> DeleteDeliveryOption(int id, [FromQuery] bool permanent = false)
         {
             try
             {
+                // An owner can delete an option that has been used; past sales keep the shipping
+                // row as printed.
+                if (permanent)
+                {
+                    if (!IsOwner())
+                        return StatusCode(403, new { error = "Only an owner can delete a delivery option permanently." });
+
+                    if (!await DB.DeliveryOptions.AnyAsync(d => d.Id == id))
+                        return NotFound(new { error = "Delivery option not found." });
+
+                    await PermanentDelete.DeliveryOptionAsync(DB, id);
+                    return Ok(new { archived = false });
+                }
+
                 var option = await DB.DeliveryOptions.FindAsync(id);
                 if (option == null)
                     return NotFound(new { error = "Delivery option not found." });

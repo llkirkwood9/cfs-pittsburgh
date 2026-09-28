@@ -84,7 +84,9 @@ export const AuthProvider = ({ children }: Props) => {
     // screens, for a crew member working the whole cart at a small event.
     const hasRole = (...roles: UserRole[]): boolean => {
         if (!user?.role) return false;
-        if (user.role === "Admin") return true;
+        // An owner can do everything; an administrator everything but the owner-only deletes.
+        if (user.role === "Owner") return true;
+        if (user.role === "Admin") return !roles.every((r) => r === "Owner");
         if (
             user.role === "SalesCheckout" &&
             (roles.includes("Sales") || roles.includes("Checkout"))

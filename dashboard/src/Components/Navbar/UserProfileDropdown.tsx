@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import ChangePinModal from "./ChangePinModal";
 import Icon from "../Elements/Icon";
 import { useAuth } from "../../Context/AuthContext";
 import { DASHBOARD_VERSION } from "../../Lib/Version";
@@ -12,6 +13,7 @@ import { UserRoleLabels } from "../../Models/User";
 const UserProfileDropdown = () => {
     const { user, logout } = useAuth();
     const [open, setOpen] = useState<boolean>(false);
+    const [changingPin, setChangingPin] = useState<boolean>(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
 
@@ -49,7 +51,9 @@ const UserProfileDropdown = () => {
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-600 text-sm font-bold text-white">
                     {initials}
                 </span>
-                <span className="hidden max-w-[10rem] truncate text-sm font-medium xl:block">{user?.name}</span>
+                <span className="hidden max-w-[10rem] truncate text-sm font-medium xl:block">
+                    {user?.name}
+                </span>
                 <Icon icon="fa-solid fa-chevron-down" className="text-xs" />
             </button>
 
@@ -66,6 +70,19 @@ const UserProfileDropdown = () => {
                     </div>
                     <button
                         type="button"
+                        onClick={() => {
+                            setOpen(false);
+                            setChangingPin(true);
+                        }}
+                        className="mt-1 flex min-h-[44px] w-full items-center gap-2 rounded-lg px-3 text-left
+                            text-sm font-medium text-zinc-800 hover:bg-zinc-100
+                            dark:text-zinc-100 dark:hover:bg-zinc-700"
+                    >
+                        <Icon icon="fa-solid fa-key" />
+                        Change PIN
+                    </button>
+                    <button
+                        type="button"
                         onClick={handleLogout}
                         className="mt-1 flex min-h-[44px] w-full items-center gap-2 rounded-lg px-3 text-left
                             text-sm font-medium text-red-700 hover:bg-red-50
@@ -76,6 +93,7 @@ const UserProfileDropdown = () => {
                     </button>
                 </div>
             )}
+            {changingPin && <ChangePinModal onClose={() => setChangingPin(false)} />}
         </div>
     );
 };

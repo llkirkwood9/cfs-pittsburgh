@@ -12,13 +12,14 @@ import { UserRoleLabels } from "../Models/User";
 import type { User, UserRole } from "../Models/User";
 import { AddUser, DeleteUser, GetUsers, UpdateUser } from "../Services/UserServices";
 
-const roles: UserRole[] = ["Sales", "Checkout", "SalesCheckout", "Admin"];
+const roles: UserRole[] = ["Sales", "Checkout", "SalesCheckout", "Admin", "Owner"];
 
 const roleBlurb: Record<UserRole, string> = {
     Sales: "Takes orders on the floor",
     Checkout: "Takes payment and prints receipts",
     SalesCheckout: "Both tables, without the admin screens",
     Admin: "Everything, plus catalog and crew",
+    Owner: "Everything, plus permanent deletes",
 };
 
 /**
@@ -32,6 +33,8 @@ const CrewPage = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [editing, setEditing] = useState<User | null>(null);
     const [deactivating, setDeactivating] = useState<User | null>(null);
+    const [removing, setRemoving] = useState<User | null>(null);
+    const isOwner = user?.role === "Owner";
     const [saving, setSaving] = useState<boolean>(false);
 
     const [name, setName] = useState<string>("");
@@ -106,6 +109,19 @@ const CrewPage = () => {
         }
     };
 
+    // Owner only: delete the account for good. Their sales stay; every place that named them is cleared.
+    const handleRemove = async () => {
+        if (!removing?.id) return;
+
+        const success = await DeleteUser(removing.id, true);
+        setRemoving(null);
+
+        if (success) {
+            Toast.Success("Account deleted.");
+            await load();
+        }
+    };
+
     if (loading) {
         return (
             <div className="mx-auto max-w-3xl p-4">
@@ -148,23 +164,40 @@ const CrewPage = () => {
                             </p>
                         </div>
 
-                        <Button
-                            text="Edit"
-                            icon="fa-solid fa-pen"
-                            onClick={() => open(crew)}
-                            className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
-                        />
-                        {crew.isActive && crew.id !== user.id && (
+                        {/* An administrator can see an owner's account but not change it. */}
+                        {(isOwner || crew.role !== "Owner") && (
+                            <Button
+                                text="Edit"
+                                icon="fa-solid fa-pen"
+                                onClick={() => open(crew)}
+                                className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                            />
+                        )}
+                        {isOwner && crew.id !== user.id && (
                             <button
                                 type="button"
-                                onClick={() => setDeactivating(crew)}
-                                aria-label="Deactivate account"
+                                onClick={() => setRemoving(crew)}
+                                aria-label="Delete account permanently"
+                                title="Delete permanently"
                                 className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
                                     hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
                             >
-                                <Icon icon="fa-solid fa-user-slash" />
+                                <Icon icon="fa-solid fa-trash" />
                             </button>
                         )}
+                        {crew.isActive &&
+                            crew.id !== user.id &&
+                            (isOwner || crew.role !== "Owner") && (
+                                <button
+                                    type="button"
+                                    onClick={() => setDeactivating(crew)}
+                                    aria-label="Deactivate account"
+                                    className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
+                                    hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
+                                >
+                                    <Icon icon="fa-solid fa-user-slash" />
+                                </button>
+                            )}
                     </li>
                 ))}
             </ul>
@@ -217,27 +250,35 @@ const CrewPage = () => {
                             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                                 Role
                             </p>
+                            {editing.id === user.id && (
+                                <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
+                                    You can&apos;t change your own role.
+                                </p>
+                            )}
                             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                {roles.map((r) => (
-                                    <button
-                                        key={r}
-                                        type="button"
-                                        onClick={() => setRole(r)}
-                                        className={`flex min-h-[60px] flex-col items-start justify-center rounded-xl px-3 py-2
+                                {roles
+                                    .filter((r) => r !== "Owner" || isOwner)
+                                    .map((r) => (
+                                        <button
+                                            key={r}
+                                            type="button"
+                                            disabled={editing.id === user.id}
+                                            onClick={() => setRole(r)}
+                                            className={`flex min-h-[60px] flex-col items-start justify-center rounded-xl px-3 py-2
                                             text-left transition-colors ${
                                                 role === r
                                                     ? "bg-sky-700 text-white dark:bg-sky-600"
                                                     : "bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-600"
                                             }`}
-                                    >
-                                        <span className="text-sm font-semibold">
-                                            {UserRoleLabels[r]}
-                                        </span>
-                                        <span className="text-[11px] opacity-80">
-                                            {roleBlurb[r]}
-                                        </span>
-                                    </button>
-                                ))}
+                                        >
+                                            <span className="text-sm font-semibold">
+                                                {UserRoleLabels[r]}
+                                            </span>
+                                            <span className="text-[11px] opacity-80">
+                                                {roleBlurb[r]}
+                                            </span>
+                                        </button>
+                                    ))}
                             </div>
                         </div>
 
@@ -252,6 +293,18 @@ const CrewPage = () => {
                         </label>
                     </div>
                 </Modal>
+            )}
+
+            {removing && (
+                <ConfirmationModal
+                    title="Delete account permanently"
+                    message={`Delete ${removing.name}'s account for good? Their sales stay on file, but their name is cleared from them - the CFS rep and checkout names on those sales sheets will print blank. This cannot be undone. To keep their name on past sales, deactivate the account instead.`}
+                    confirmText="Delete for good"
+                    confirmWord="DELETE"
+                    destructive
+                    onConfirm={handleRemove}
+                    onCancel={() => setRemoving(null)}
+                />
             )}
 
             {deactivating && (

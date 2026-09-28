@@ -12,13 +12,15 @@ type Props = {
     options: DeliveryOption[];
     onSave: (option: DeliveryOption) => Promise<void>;
     onDelete: (id: number) => Promise<void>;
+    /** Owner: deleting removes the option for good rather than archiving a used one. */
+    permanentDelete?: boolean;
 };
 
 /**
  * The shared catalog of delivery methods and in-home services. Products pick from this list, so
  * adding White Glove here makes it available to attach anywhere.
  */
-const DeliveryOptionList = ({ options, onSave, onDelete }: Props) => {
+const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false }: Props) => {
     const [editing, setEditing] = useState<DeliveryOption | null>(null);
     const [deleting, setDeleting] = useState<DeliveryOption | null>(null);
     const [saving, setSaving] = useState<boolean>(false);
@@ -198,7 +200,12 @@ const DeliveryOptionList = ({ options, onSave, onDelete }: Props) => {
             {deleting && (
                 <ConfirmationModal
                     title="Delete delivery option"
-                    message={`Delete "${deleting.name}"? If it already appears on an order it will be archived instead.`}
+                    message={
+                        permanentDelete
+                            ? `Permanently delete "${deleting.name}"? Past sales sheets keep the shipping row as printed, but products stop offering it. This cannot be undone.`
+                            : `Delete "${deleting.name}"? If it already appears on an order it will be archived instead.`
+                    }
+                    confirmWord={permanentDelete ? "DELETE" : undefined}
                     confirmText="Delete"
                     destructive
                     onConfirm={async () => {

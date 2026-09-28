@@ -168,6 +168,10 @@ using (var scope = app.Services.CreateScope())
         {
             await db.Database.MigrateAsync();
             await api.Data.SeedData.SeedAsync(db, tokenService);
+
+            var promoted = await api.Data.SeedData.EnsureOwnerAsync(db);
+            if (promoted != null)
+                logger.LogWarning("No owner account existed, so {Username} is now the owner.", promoted);
             break;
         }
         catch (Exception e) when (attempt < attempts)

@@ -37,6 +37,31 @@ namespace api.Data
             await SeedBundlesAsync(db, created);
         }
 
+        /// <summary>
+        /// Makes sure someone can do owner-only work. When no active owner exists - an existing
+        /// database from before the role, or a fresh one seeded with an administrator - the longest-
+        /// standing active administrator becomes the owner.
+        /// </summary>
+        /// <param name="db">EF context</param>
+        /// <returns>The promoted user's username, or null when nothing changed.</returns>
+        public static async Task<string?> EnsureOwnerAsync(ApplicationDbContext db)
+        {
+            if (await db.Users.AnyAsync(u => u.Role == UserRole.Owner && u.IsActive))
+                return null;
+
+            var admin = await db.Users
+                .Where(u => u.Role == UserRole.Admin && u.IsActive)
+                .OrderBy(u => u.Id)
+                .FirstOrDefaultAsync();
+
+            if (admin == null)
+                return null;
+
+            admin.Role = UserRole.Owner;
+            await db.SaveChangesAsync();
+            return admin.Username;
+        }
+
         #endregion
 
         #region Private Fields

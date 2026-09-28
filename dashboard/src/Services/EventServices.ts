@@ -95,11 +95,15 @@ export const UpdateEvent = async (eventData: Event): Promise<Event | null> => {
 /**
  * Deletes an event that has no orders against it.
  * @param id The event id.
+ * @param permanent Owner only: delete for good.
  * @returns True if the operation was successful, false otherwise.
  */
-export const DeleteEvent = async (id: number): Promise<boolean> => {
+export const DeleteEvent = async (id: number, permanent = false): Promise<boolean> => {
     try {
-        const response = await api.delete(`/api/Event/event/${id}`);
+        // permanent is owner-only: it deletes for good instead of archiving or refusing.
+        const response = await api.delete(`/api/Event/event/${id}`, {
+            params: permanent ? { permanent: true } : undefined,
+        });
         return response.status === 200;
     } catch (error) {
         HandleAxiosError(error);

@@ -1,4 +1,4 @@
-export type UserRole = "Sales" | "Checkout" | "SalesCheckout" | "Admin";
+export type UserRole = "Sales" | "Checkout" | "SalesCheckout" | "Admin" | "Owner";
 
 /** How each role is named on screen. */
 export const UserRoleLabels: Record<UserRole, string> = {
@@ -6,6 +6,7 @@ export const UserRoleLabels: Record<UserRole, string> = {
     Checkout: "Checkout",
     SalesCheckout: "Sales & Checkout",
     Admin: "Admin",
+    Owner: "Owner",
 };
 
 export type User = {

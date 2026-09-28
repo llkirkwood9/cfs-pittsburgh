@@ -24,6 +24,7 @@ const EventsPage = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [editing, setEditing] = useState<Event | null>(null);
     const [deleting, setDeleting] = useState<Event | null>(null);
+    const isOwner = user?.role === "Owner";
     const [saving, setSaving] = useState<boolean>(false);
 
     const [organization, setOrganization] = useState<string>("");
@@ -94,7 +95,7 @@ const EventsPage = () => {
     const handleDelete = async () => {
         if (!deleting?.id) return;
 
-        const success = await DeleteEvent(deleting.id);
+        const success = await DeleteEvent(deleting.id, isOwner);
         setDeleting(null);
 
         if (success) {
@@ -267,8 +268,13 @@ const EventsPage = () => {
             {deleting && (
                 <ConfirmationModal
                     title="Delete event"
-                    message={`Delete ${deleting.organization}? Only an event with no orders against it can be deleted.`}
-                    confirmText="Delete"
+                    message={
+                        isOwner
+                            ? `Permanently delete ${deleting.organization} and every order taken at it? The sales, their payments and their sales sheets are all removed. This cannot be undone.`
+                            : `Delete ${deleting.organization}? Only an event with no orders against it can be deleted.`
+                    }
+                    confirmText={isOwner ? "Delete for good" : "Delete"}
+                    confirmWord={isOwner ? "DELETE" : undefined}
                     destructive
                     onConfirm={handleDelete}
                     onCancel={() => setDeleting(null)}

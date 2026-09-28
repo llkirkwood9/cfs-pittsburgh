@@ -24,6 +24,22 @@ export const Login = async (username: string, pin: string): Promise<AuthResponse
 };
 
 /**
+ * Changes the signed-in user's own PIN.
+ * @param currentPin The PIN they sign in with now.
+ * @param newPin The PIN they want instead.
+ * @returns True if the PIN was changed.
+ */
+export const ChangePin = async (currentPin: string, newPin: string): Promise<boolean> => {
+    try {
+        const response = await api.post("/api/Auth/change-pin", { currentPin, newPin });
+        return response.status === 200;
+    } catch (error) {
+        HandleAxiosError(error);
+        return false;
+    }
+};
+
+/**
  * Signs the current user out on the server.
  * @returns True if the operation was successful, false otherwise.
  */

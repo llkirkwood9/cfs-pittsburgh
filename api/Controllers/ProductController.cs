@@ -300,16 +300,30 @@ namespace api.Controllers
         #region DELETE Methods
 
         /// <summary>
-        /// Removes a product, or deactivates it when it already appears on an order.
+        /// Removes a product, or deactivates it when it already appears on an order. An owner can pass
+        /// permanent=true to delete it even then; past sales keep the item as printed.
         /// </summary>
         /// <param name="id">Product id</param>
+        /// <param name="permanent">True to delete even a product that has been sold (owner only)</param>
         /// <returns>200, with a flag saying whether the row was archived instead of deleted.</returns>
         [HttpDelete("product/{id}")]
         [Authorize(AuthenticationSchemes = "Bearer")]
-        public async Task<IActionResult> DeleteProduct(int id)
+        public async Task<IActionResult> DeleteProduct(int id, [FromQuery] bool permanent = false)
         {
             try
             {
+                if (permanent)
+                {
+                    if (!IsOwner())
+                        return StatusCode(403, new { error = "Only an owner can delete a product permanently." });
+
+                    if (!await DB.Products.AnyAsync(p => p.Id == id))
+                        return NotFound(new { error = "Product not found." });
+
+                    await PermanentDelete.ProductAsync(DB, id);
+                    return Ok(new { archived = false });
+                }
+
                 var product = await DB.Products
                     .Include(p => p.Variants)
                     .FirstOrDefaultAsync(p => p.Id == id);

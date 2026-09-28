@@ -110,6 +110,53 @@ namespace api.Controllers
         }
 
         /// <summary>
+        /// Lets the signed-in crew member change their own PIN, without an administrator. They
+        /// have to give their current PIN first, so a tablet left signed in cannot be used to lock
+        /// someone out.
+        /// </summary>
+        /// <param name="request">Current and new PIN</param>
+        /// <returns>200 when the PIN was changed.</returns>
+        [HttpPost("change-pin")]
+        [Authorize(AuthenticationSchemes = "Bearer")]
+        public async Task<IActionResult> ChangePin([FromBody] ChangePinDto request)
+        {
+            try
+            {
+                var userId = GetCurrentUserId();
+                if (userId == null)
+                    return Unauthorized(new { error = "Not signed in." });
+
+                if (string.IsNullOrWhiteSpace(request.CurrentPin) || string.IsNullOrWhiteSpace(request.NewPin))
+                    return BadRequest(new { error = "Missing parameter." });
+
+                var user = await DB.Users.FindAsync(userId.Value);
+                if (user == null || !user.IsActive)
+                    return NotFound(new { error = "User not found." });
+
+                if (!TokenService.VerifyPin(request.CurrentPin, user.PinSalt, user.PinHash))
+                    return BadRequest(new { error = "Your current PIN is not right." });
+
+                if (request.NewPin.Length < 4 || request.NewPin.Length > 12 || !request.NewPin.All(char.IsDigit))
+                    return BadRequest(new { error = "The new PIN must be 4 to 12 digits." });
+
+                if (request.NewPin == request.CurrentPin)
+                    return BadRequest(new { error = "The new PIN is the same as the current one." });
+
+                var salt = TokenService.CreateSalt();
+                user.PinSalt = salt;
+                user.PinHash = TokenService.HashPin(request.NewPin, salt);
+                await DB.SaveChangesAsync();
+
+                return Ok();
+            }
+            catch (Exception e)
+            {
+                Trace(TraceEventType.Critical, e.Message);
+                return StatusCode(500, new { error = "Internal error occurred while changing the PIN.", exception = e.Message });
+            }
+        }
+
+        /// <summary>
         /// Signs the current user out by clearing their refresh token.
         /// </summary>
         /// <returns>200 when the session was cleared.</returns>

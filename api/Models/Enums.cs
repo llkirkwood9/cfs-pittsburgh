@@ -110,6 +110,12 @@ namespace api.Models
         /// catalog, event and crew administration. For a small event run by one or two people.
         /// </summary>
         SalesCheckout = 3,
+
+        /// <summary>
+        /// Everything an administrator can do, plus permanently deleting events, orders, crew
+        /// accounts and catalog items. Only an owner can create or change another owner.
+        /// </summary>
+        Owner = 4,
     }
 
     /// <summary>

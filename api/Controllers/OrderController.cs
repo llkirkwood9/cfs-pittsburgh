@@ -971,19 +971,32 @@ namespace api.Controllers
         #region DELETE Methods
 
         /// <summary>
-        /// Deletes a draft order outright. Submitted and completed orders must be voided instead.
+        /// Deletes a draft order outright. Submitted and completed orders must be voided instead -
+        /// unless an owner passes permanent=true, which deletes an order in any state.
         /// </summary>
         /// <param name="id">Order id</param>
-        /// <returns>200 when the draft was removed.</returns>
+        /// <param name="permanent">True to delete an order that is not a draft (owner only)</param>
+        /// <returns>200 when the order was removed.</returns>
         [HttpDelete("order/{id}")]
         [Authorize(AuthenticationSchemes = "Bearer")]
-        public async Task<IActionResult> DeleteOrder(int id)
+        public async Task<IActionResult> DeleteOrder(int id, [FromQuery] bool permanent = false)
         {
             try
             {
+                if (permanent && !IsOwner())
+                    return StatusCode(403, new { error = "Only an owner can delete an order permanently." });
+
                 var order = await DB.Orders.FindAsync(id);
                 if (order == null)
                     return NotFound(new { error = "Order not found." });
+
+                if (permanent)
+                {
+                    await using var transaction = await DB.Database.BeginTransactionAsync();
+                    await PermanentDelete.OrdersAsync(DB, [id]);
+                    await transaction.CommitAsync();
+                    return Ok();
+                }
 
                 if (order.Status != OrderStatus.Draft)
                     return BadRequest(new { error = "Only a draft can be deleted. Void the order instead." });
