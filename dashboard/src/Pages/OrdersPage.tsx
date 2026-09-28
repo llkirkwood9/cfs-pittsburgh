@@ -8,7 +8,13 @@ import ListSkeleton from "../Components/Elements/ListSkeleton";
 import TabButton from "../Components/Elements/TabButton";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
-import { FormatCurrency, FormatShortDate, FormatTime } from "../Lib/ModelHelpers";
+import {
+    EventsForFilter,
+    FormatCurrency,
+    FormatShortDate,
+    FormatTime,
+    IsPastEvent,
+} from "../Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
 import type { Event } from "../Models/Event";
 import type { OrderStatus } from "../Models/Order";
@@ -92,7 +98,7 @@ const OrdersPage = () => {
                 GetActiveEvent(),
             ]);
 
-            setEvents(list);
+            setEvents(EventsForFilter(list));
 
             // Between fundraisers there is no active event. An admin falls back to every event;
             // everyone else has nothing current to show, and all-events history is admin-only.
@@ -178,6 +184,7 @@ const OrdersPage = () => {
                         <TabButton
                             key={event.id}
                             text={event.organization ?? ""}
+                            tag={IsPastEvent(event) ? "Past" : undefined}
                             active={scope?.kind === "event" && scope.eventId === event.id}
                             onClick={() =>
                                 event.id && switchScope({ kind: "event", eventId: event.id })

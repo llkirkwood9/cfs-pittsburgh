@@ -6,7 +6,7 @@ import ListSkeleton from "../Components/Elements/ListSkeleton";
 import StatCard from "../Components/Elements/StatCard";
 import TabButton from "../Components/Elements/TabButton";
 import { useAuth } from "../Context/AuthContext";
-import { FormatCurrency } from "../Lib/ModelHelpers";
+import { EventsForFilter, FormatCurrency, IsPastEvent } from "../Lib/ModelHelpers";
 import { IsOnline } from "../Lib/Connection";
 import type { DashboardStats } from "../Models/DashboardStats";
 import type { Event } from "../Models/Event";
@@ -31,7 +31,11 @@ const DashboardPage = () => {
 
     const loadStats = useCallback(async (currentScope: "event" | "day", id: number | null) => {
         const result =
-            currentScope === "day" ? await GetStatsForDay() : id ? await GetStatsForEvent(id) : null;
+            currentScope === "day"
+                ? await GetStatsForDay()
+                : id
+                  ? await GetStatsForEvent(id)
+                  : null;
         // Keep the last figures up while the server cannot be reached, rather than showing zeros.
         if (result || IsOnline()) setStats(result);
     }, []);
@@ -40,7 +44,8 @@ const DashboardPage = () => {
         const load = async () => {
             setLoading(true);
 
-            const [list, active] = await Promise.all([GetEvents(), GetActiveEvent()]);
+            const [all, active] = await Promise.all([GetEvents(), GetActiveEvent()]);
+            const list = EventsForFilter(all);
             setEvents(list);
 
             const id = active?.id ?? list[0]?.id ?? null;
@@ -132,6 +137,7 @@ const DashboardPage = () => {
                     <TabButton
                         key={event.id}
                         text={event.organization ?? ""}
+                        tag={IsPastEvent(event) ? "Past" : undefined}
                         active={scope === "event" && event.id === eventId}
                         onClick={() => event.id && switchEvent(event.id)}
                     />

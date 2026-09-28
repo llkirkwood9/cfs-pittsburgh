@@ -7,7 +7,14 @@ import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
-import { FormatRate, FormatShortDate, ParseMoney } from "../Lib/ModelHelpers";
+import {
+    FormatRate,
+    FormatShortDate,
+    IsPastEvent,
+    IsUpcomingEvent,
+    ParseMoney,
+    SplitEvents,
+} from "../Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
 import type { Event } from "../Models/Event";
 import { AddEvent, DeleteEvent, GetEvents, UpdateEvent } from "../Services/EventServices";
@@ -112,6 +119,73 @@ const EventsPage = () => {
         );
     }
 
+    // Active and upcoming events on top; past ones below the line. Past means not active and dated
+    // before today.
+    const { current, past } = SplitEvents(events);
+
+    const renderEvent = (event: Event) => (
+        <li
+            key={event.id}
+            className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800"
+        >
+            <div className="w-full min-w-0 sm:w-auto sm:flex-1">
+                <p className="font-semibold">
+                    {event.organization}
+                    {event.isActive && (
+                        <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                            Active
+                        </span>
+                    )}
+                    {IsPastEvent(event) && (
+                        <span className="ml-2 rounded-full bg-zinc-200 px-2 py-0.5 text-xs font-semibold text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300">
+                            Past
+                        </span>
+                    )}
+                    {IsUpcomingEvent(event) && (
+                        <span className="ml-2 rounded-full bg-sky-100 px-2 py-0.5 text-xs font-semibold text-sky-800 dark:bg-sky-900/50 dark:text-sky-300">
+                            Upcoming
+                        </span>
+                    )}
+                </p>
+                <p className="flex flex-wrap gap-x-3 text-xs text-zinc-500 dark:text-zinc-400">
+                    <span>{FormatShortDate(event.eventDate)}</span>
+                    {event.cartName && <span>Cart: {event.cartName}</span>}
+                    <span>Tax {FormatRate(event.salesTaxRate)}</span>
+                    <span>Card fee {FormatRate(event.ccProcessingFeeRate)}</span>
+                    <span>Next order #{event.nextOrderNumber}</span>
+                </p>
+            </div>
+
+            <div className="ml-auto flex items-center gap-2">
+                <Button
+                    text="Sales sheets"
+                    icon="fa-solid fa-print"
+                    onClick={() =>
+                        navigate(`/events/${event.id}/sheets`, {
+                            state: { from: "/events", label: "Back to events" },
+                        })
+                    }
+                    className="min-h-[40px] px-3 text-sm"
+                />
+                <Button
+                    text="Edit"
+                    icon="fa-solid fa-pen"
+                    onClick={() => open(event)}
+                    className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                />
+                <button
+                    type="button"
+                    onClick={() => setDeleting(event)}
+                    aria-label="Delete event"
+                    className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
+                    hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
+                >
+                    <Icon icon="fa-solid fa-trash" />
+                </button>
+            </div>
+        </li>
+    );
+
     return (
         <div className="mx-auto max-w-4xl p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
@@ -132,60 +206,30 @@ const EventsPage = () => {
                 />
             </div>
 
-            <ul className="space-y-2">
-                {events.map((event) => (
-                    <li
-                        key={event.id}
-                        className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800"
-                    >
-                        <div className="w-full min-w-0 sm:w-auto sm:flex-1">
-                            <p className="font-semibold">
-                                {event.organization}
-                                {event.isActive && (
-                                    <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs font-semibold text-green-800 dark:bg-green-900/50 dark:text-green-300">
-                                        Active
-                                    </span>
-                                )}
-                            </p>
-                            <p className="flex flex-wrap gap-x-3 text-xs text-zinc-500 dark:text-zinc-400">
-                                <span>{FormatShortDate(event.eventDate)}</span>
-                                {event.cartName && <span>Cart: {event.cartName}</span>}
-                                <span>Tax {FormatRate(event.salesTaxRate)}</span>
-                                <span>Card fee {FormatRate(event.ccProcessingFeeRate)}</span>
-                                <span>Next order #{event.nextOrderNumber}</span>
-                            </p>
-                        </div>
+            <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                Current &amp; upcoming
+            </h2>
+            {current.length > 0 ? (
+                <ul className="space-y-2">{current.map(renderEvent)}</ul>
+            ) : (
+                <p className="rounded-xl border-2 border-dashed border-zinc-300 py-6 text-center text-sm text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
+                    No current or upcoming events. Tap New event to set one up.
+                </p>
+            )}
 
-                        <div className="ml-auto flex items-center gap-2">
-                            <Button
-                                text="Sales sheets"
-                                icon="fa-solid fa-print"
-                                onClick={() =>
-                                    navigate(`/events/${event.id}/sheets`, {
-                                        state: { from: "/events", label: "Back to events" },
-                                    })
-                                }
-                                className="min-h-[40px] px-3 text-sm"
-                            />
-                            <Button
-                                text="Edit"
-                                icon="fa-solid fa-pen"
-                                onClick={() => open(event)}
-                                className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
-                            />
-                            <button
-                                type="button"
-                                onClick={() => setDeleting(event)}
-                                aria-label="Delete event"
-                                className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
-                                hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
-                            >
-                                <Icon icon="fa-solid fa-trash" />
-                            </button>
-                        </div>
-                    </li>
-                ))}
-            </ul>
+            {past.length > 0 && (
+                <>
+                    {/* Everything below the line is over. */}
+                    <div className="my-6 flex items-center gap-3" role="separator">
+                        <span className="h-px flex-1 bg-zinc-300 dark:bg-zinc-700" />
+                        <span className="text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                            Past events
+                        </span>
+                        <span className="h-px flex-1 bg-zinc-300 dark:bg-zinc-700" />
+                    </div>
+                    <ul className="space-y-2">{past.map(renderEvent)}</ul>
+                </>
+            )}
 
             {editing && (
                 <Modal

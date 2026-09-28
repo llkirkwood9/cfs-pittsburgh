@@ -3,13 +3,15 @@ type Props = {
     active: boolean;
     onClick: () => void;
     badge?: number;
+    /** A short word shown in a small pill after the text, e.g. "Past". */
+    tag?: string;
     className?: string;
 };
 
 /**
  * Segmented-control style tab, used for the draft switcher and the catalog category filter.
  */
-const TabButton = ({ text, active, onClick, badge, className = "" }: Props) => {
+const TabButton = ({ text, active, onClick, badge, tag, className = "" }: Props) => {
     return (
         <button
             type="button"
@@ -23,6 +25,17 @@ const TabButton = ({ text, active, onClick, badge, className = "" }: Props) => {
                 } ${className}`}
         >
             <span>{text}</span>
+            {tag && (
+                <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                        active
+                            ? "bg-white/25 text-white"
+                            : "bg-zinc-300 text-zinc-600 dark:bg-zinc-600 dark:text-zinc-300"
+                    }`}
+                >
+                    {tag}
+                </span>
+            )}
             {badge !== undefined && badge > 0 && (
                 <span
                     className={`rounded-full px-2 py-0.5 text-xs ${
