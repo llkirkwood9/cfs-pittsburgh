@@ -10,6 +10,9 @@ export type OrderSummary = {
     draftLabel?: string | null;
     billingName?: string | null;
     cfsRepName?: string | null;
+    billingCell?: string | null;
+    billingAlt?: string | null;
+    billingEmail?: string | null;
     lineCount?: number;
     subtotal?: number;
     total?: number;

@@ -173,6 +173,11 @@ namespace api.Controllers
                 AwaitingCheckoutCount = orders.Count(o => o.Status == OrderStatus.AwaitingCheckout),
                 VoidedOrderCount = orders.Count(o => o.Status == OrderStatus.Voided),
 
+                Sales = completed
+                    .OrderBy(o => o.CompletedAt ?? o.UpdatedAt)
+                    .Select(o => new SaleMomentDto { At = o.CompletedAt ?? o.UpdatedAt, Total = o.Total })
+                    .ToList(),
+
                 // Bundled items (a set's adjustable base, a free pillow) still count in their own
                 // columns above, but the set itself is what was sold, so only it is listed here.
                 TopProducts = productLines

@@ -76,14 +76,21 @@ const OrdersPage = () => {
 
         // The per-event endpoint has no search of its own, so narrow it here rather than
         // making every caller pay for a query parameter only this page uses.
+        // A phone number matches on its digits alone, however it was typed or stored.
         const term_ = term.trim().toLowerCase();
+        const digits = term_.replace(/\D/g, "");
+        const phoneMatch = (value?: string | null) =>
+            digits.length >= 4 && (value ?? "").replace(/\D/g, "").includes(digits);
         setOrders(
             term_ && target.kind === "event"
                 ? rows.filter(
                       (o) =>
                           (o.billingName ?? "").toLowerCase().includes(term_) ||
                           (o.cfsRepName ?? "").toLowerCase().includes(term_) ||
-                          String(o.orderNumber ?? "").includes(term_)
+                          (o.billingEmail ?? "").toLowerCase().includes(term_) ||
+                          String(o.orderNumber ?? "").includes(term_) ||
+                          phoneMatch(o.billingCell) ||
+                          phoneMatch(o.billingAlt)
                   )
                 : rows
         );
@@ -205,16 +212,28 @@ const OrdersPage = () => {
                 ))}
             </div>
 
-            <div className="mb-3 flex max-w-xl items-end gap-2">
+            {/* A form, so Enter (or Go on a tablet keyboard) runs the search too. */}
+            <form
+                className="mb-3 flex max-w-xl items-end gap-2"
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    runSearch();
+                }}
+            >
                 <TextField
                     label="Search"
                     value={search}
                     onChange={setSearch}
-                    placeholder="Customer, rep or order number"
+                    placeholder="Customer, rep, order #, phone or email"
                     className="flex-1"
                 />
-                <Button icon="fa-solid fa-magnifying-glass" onClick={runSearch} className="px-5" />
-            </div>
+                <Button
+                    icon="fa-solid fa-magnifying-glass"
+                    type="submit"
+                    title="Search"
+                    className="px-5"
+                />
+            </form>
 
             {loading ? (
                 <ListSkeleton rows={6} />

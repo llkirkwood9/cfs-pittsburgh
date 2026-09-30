@@ -48,6 +48,13 @@ export type DashboardStats = {
     awaitingCheckoutCount?: number;
     voidedOrderCount?: number;
 
+    /** Each completed sale's time and total, for the sales-by-hour chart. */
+    sales?: SaleMoment[];
     topProducts?: ProductTally[];
     repTotals?: RepTally[];
+};
+
+export type SaleMoment = {
+    at?: string;
+    total?: number;
 };

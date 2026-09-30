@@ -58,11 +58,30 @@ const EventsPage = () => {
         setEditing(event);
         setOrganization(event.organization ?? "");
         setCartName(event.cartName ?? "");
-        setEventDate((event.eventDate ?? new Date().toISOString()).slice(0, 10));
+        // Today in the viewer's own time zone - toISOString would give tomorrow's date in the evening.
+        const now = new Date();
+        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+        setEventDate((event.eventDate ?? today).slice(0, 10));
         setTaxPercent(String(Number(((event.salesTaxRate ?? 0.07) * 100).toFixed(4))));
         setFeePercent(String(Number(((event.ccProcessingFeeRate ?? 0.02) * 100).toFixed(4))));
         setNextOrderNumber(String(event.nextOrderNumber ?? 1001));
         setIsActive(event.isActive ?? true);
+    };
+
+    // A new event starts from the most recent one: same cart, tax and card fee, with order numbers
+    // carrying on from the highest used so far so no two sales sheets share a number.
+    const newEventDefaults = (): Event => {
+        const latest = [...events].sort((a, b) =>
+            (b.eventDate ?? "").localeCompare(a.eventDate ?? "")
+        )[0];
+        const nextNumber = Math.max(1001, ...events.map((e) => e.nextOrderNumber ?? 0));
+        return {
+            cartName: latest?.cartName,
+            salesTaxRate: latest?.salesTaxRate,
+            ccProcessingFeeRate: latest?.ccProcessingFeeRate,
+            nextOrderNumber: nextNumber,
+            isActive: true,
+        };
     };
 
     const handleSave = async () => {
@@ -156,7 +175,15 @@ const EventsPage = () => {
                 </p>
             </div>
 
-            <div className="ml-auto flex items-center gap-2">
+            <div className="ml-auto flex flex-wrap items-center justify-end gap-2">
+                {event.isActive && (
+                    <Button
+                        text="Close out"
+                        icon="fa-solid fa-flag-checkered"
+                        onClick={() => navigate(`/events/${event.id}/close`)}
+                        className="min-h-[40px] bg-green-700 px-3 text-sm hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
+                    />
+                )}
                 <Button
                     text="Sales sheets"
                     icon="fa-solid fa-print"
@@ -193,15 +220,7 @@ const EventsPage = () => {
                 <Button
                     text="New event"
                     icon="fa-solid fa-plus"
-                    onClick={() =>
-                        open({
-                            eventDate: new Date().toISOString(),
-                            salesTaxRate: 0.07,
-                            ccProcessingFeeRate: 0,
-                            nextOrderNumber: 1001,
-                            isActive: true,
-                        })
-                    }
+                    onClick={() => open(newEventDefaults())}
                     className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                 />
             </div>

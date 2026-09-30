@@ -52,6 +52,21 @@ namespace api.Dtos
         public string? CfsRepName { get; set; }
 
         /// <summary>
+        /// Customer's cell number, for looking an order up by phone
+        /// </summary>
+        public string? BillingCell { get; set; }
+
+        /// <summary>
+        /// Customer's other number
+        /// </summary>
+        public string? BillingAlt { get; set; }
+
+        /// <summary>
+        /// Customer's email, for looking an order up by email
+        /// </summary>
+        public string? BillingEmail { get; set; }
+
+        /// <summary>
         /// Number of line items on the order
         /// </summary>
         public int? LineCount { get; set; }

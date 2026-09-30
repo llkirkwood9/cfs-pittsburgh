@@ -174,6 +174,12 @@ namespace api.Dtos
         #region Breakdowns
 
         /// <summary>
+        /// When each completed sale was completed and what it came to, for the sales-by-hour
+        /// chart. The dashboard groups these in the viewer's own time zone.
+        /// </summary>
+        public List<SaleMomentDto>? Sales { get; set; }
+
+        /// <summary>
         /// Units sold per product, best sellers first
         /// </summary>
         public List<ProductTallyDto>? TopProducts { get; set; }

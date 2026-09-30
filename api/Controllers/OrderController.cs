@@ -597,7 +597,7 @@ namespace api.Controllers
         /// back at a fundraiser that finished weeks ago.
         /// </summary>
         /// <param name="status">Optional status name</param>
-        /// <param name="search">Optional match on customer name, rep name or order number</param>
+        /// <param name="search">Optional match on customer name, rep name, order number, phone or email</param>
         /// <param name="take">Maximum rows to return, capped at 500</param>
         /// <returns>Order summaries, most recently touched first.</returns>
         [HttpGet("orders")]
@@ -626,10 +626,21 @@ namespace api.Controllers
                 {
                     // Lower-cased on both sides so the search ignores case on any database.
                     var term = search.Trim().ToLower();
+
+                    // A phone number matches on its digits alone, however it was typed or stored:
+                    // "724 555 0100", "5550100" and "(724) 555-0100" all find the same order.
+                    var digits = new string(term.Where(char.IsDigit).ToArray());
+                    var byPhone = digits.Length >= 4;
+
                     query = query.Where(o =>
                         (o.BillingName != null && o.BillingName.ToLower().Contains(term))
                         || (o.CfsRepName != null && o.CfsRepName.ToLower().Contains(term))
-                        || o.OrderNumber.ToString().Contains(term));
+                        || (o.BillingEmail != null && o.BillingEmail.ToLower().Contains(term))
+                        || o.OrderNumber.ToString().Contains(term)
+                        || (byPhone && o.BillingCell != null
+                            && o.BillingCell.Replace("(", "").Replace(")", "").Replace("-", "").Replace(" ", "").Replace(".", "").Contains(digits))
+                        || (byPhone && o.BillingAlt != null
+                            && o.BillingAlt.Replace("(", "").Replace(")", "").Replace("-", "").Replace(" ", "").Replace(".", "").Contains(digits)));
                 }
 
                 var orders = await query
@@ -1493,6 +1504,9 @@ namespace api.Controllers
                 DraftLabel = order.DraftLabel,
                 BillingName = order.BillingName,
                 CfsRepName = order.CfsRepName,
+                BillingCell = order.BillingCell,
+                BillingAlt = order.BillingAlt,
+                BillingEmail = order.BillingEmail,
                 LineCount = order.Lines.Count,
                 Subtotal = order.Subtotal,
                 Total = order.Total,

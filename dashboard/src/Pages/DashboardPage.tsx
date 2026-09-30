@@ -3,6 +3,8 @@ import { Navigate } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
+import SalesByHourChart from "../Components/Dashboard/SalesByHourChart";
+import StockWatch from "../Components/Dashboard/StockWatch";
 import StatCard from "../Components/Elements/StatCard";
 import TabButton from "../Components/Elements/TabButton";
 import { useAuth } from "../Context/AuthContext";
@@ -243,6 +245,13 @@ const DashboardPage = () => {
                         )}
                     </div>
                 </section>
+            </div>
+
+            <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                <div className="lg:col-span-2">
+                    <SalesByHourChart sales={stats?.sales ?? []} />
+                </div>
+                <StockWatch />
             </div>
 
             <div className="grid grid-cols-1 gap-4">

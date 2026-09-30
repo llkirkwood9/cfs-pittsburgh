@@ -7,6 +7,7 @@ import CheckoutPage from "../Pages/CheckoutPage";
 import CrewPage from "../Pages/CrewPage";
 import DashboardPage from "../Pages/DashboardPage";
 import ErrorPage from "../Pages/ErrorPage";
+import EventCloseOutPage from "../Pages/EventCloseOutPage";
 import EventSheetsPage from "../Pages/EventSheetsPage";
 import EventsPage from "../Pages/EventsPage";
 import InventoryPage from "../Pages/InventoryPage";
@@ -103,6 +104,14 @@ export const router = createBrowserRouter([
                 element: (
                     <ProtectedRoute roles={["Admin"]}>
                         <EventsPage />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "events/:eventId/close",
+                element: (
+                    <ProtectedRoute roles={["Admin"]}>
+                        <EventCloseOutPage />
                     </ProtectedRoute>
                 ),
             },
