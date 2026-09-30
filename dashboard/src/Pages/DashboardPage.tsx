@@ -4,6 +4,7 @@ import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import SalesByHourChart from "../Components/Dashboard/SalesByHourChart";
+import SalesStars from "../Components/Dashboard/SalesStars";
 import StockWatch from "../Components/Dashboard/StockWatch";
 import StatCard from "../Components/Elements/StatCard";
 import TabButton from "../Components/Elements/TabButton";
@@ -157,6 +158,7 @@ const DashboardPage = () => {
                 <StatCard
                     label="Net sales"
                     value={FormatCurrency(stats?.netSales)}
+                    badge={<SalesStars net={stats?.netSales ?? 0} />}
                     sublabel="Product revenue before tax"
                     icon="fa-solid fa-receipt"
                     accent="sky"
