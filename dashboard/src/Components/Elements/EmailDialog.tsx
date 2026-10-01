@@ -1,6 +1,7 @@
 import { useState } from "react";
 import type { ReactNode } from "react";
 import Button from "./Button";
+import Icon from "./Icon";
 import Modal from "./Modal";
 import TextArea from "./TextArea";
 import TextField from "./TextField";
@@ -14,8 +15,15 @@ type Props = {
     initialTo?: string | null;
     /** Offer a message box, for reports that go to a person rather than the customer. */
     withMessage?: boolean;
-    /** Sends it; resolves to the addresses it went to, or null when it failed (already reported). */
-    onSend: (to: string, message: string) => Promise<string[] | null>;
+    /**
+     * Builds the PDF and sends it; resolves to the addresses it went to, or null when it failed
+     * (already reported). Calls progress with what it is doing, for a report that takes a while.
+     */
+    onSend: (
+        to: string,
+        message: string,
+        progress: (status: string) => void
+    ) => Promise<string[] | null>;
     onClose: () => void;
 };
 
@@ -46,29 +54,38 @@ const EmailDialog = ({
     const [to, setTo] = useState<string>(initialTo ?? "");
     const [message, setMessage] = useState<string>("");
     const [sending, setSending] = useState<boolean>(false);
+    const [status, setStatus] = useState<string>("");
 
     const valid = LooksLikeAddresses(to);
 
     const send = async () => {
         if (!valid || sending) return;
         setSending(true);
-        const sentTo = await onSend(to.trim(), message.trim());
+        setStatus("");
+        const sentTo = await onSend(to.trim(), message.trim(), setStatus);
         setSending(false);
+        setStatus("");
         if (!sentTo) return;
         Toast.Success(`Emailed to ${sentTo.join(", ")}.`);
         onClose();
+    };
+
+    // Building and sending can't be stopped half way, so the dialog stays until it finishes.
+    const close = () => {
+        if (!sending) onClose();
     };
 
     return (
         <div className="no-print">
             <Modal
                 title={title}
-                onClose={onClose}
+                onClose={close}
                 footer={
                     <>
                         <Button
                             text="Cancel"
-                            onClick={onClose}
+                            onClick={close}
+                            disabled={sending}
                             className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                         />
                         <Button
@@ -115,6 +132,15 @@ const EmailDialog = ({
                             maxLength={2000}
                             rows={3}
                         />
+                    )}
+                    {sending && (
+                        <p
+                            role="status"
+                            className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400"
+                        >
+                            <Icon icon="fa-solid fa-spinner" className="animate-spin" />
+                            {status || "Sending..."}
+                        </p>
                     )}
                 </form>
             </Modal>

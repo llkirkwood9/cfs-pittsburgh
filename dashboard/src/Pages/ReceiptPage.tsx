@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import EmailDialog from "../Components/Elements/EmailDialog";
@@ -6,6 +6,7 @@ import LoadingPage from "../Components/Elements/LoadingPage";
 import ReceiptSheet from "../Components/Checkout/ReceiptSheet";
 import { useAuth } from "../Context/AuthContext";
 import { HomePathForRole } from "../Lib/RoleRoutes";
+import { FindSheets, TryBuildSheetsPdf } from "../Lib/SheetPdf";
 import { Toast } from "../Lib/Toast";
 import type { Order } from "../Models/Order";
 import { EmailReceipt, GetEmailStatus } from "../Services/EmailServices";
@@ -14,7 +15,8 @@ import { GetOrder } from "../Services/OrderServices";
 
 /**
  * The printable copy of a sale. Unfinished orders are stamped as such by the sheet itself. The toolbar is marked no-print so the paper that comes
- * out of the tray is just the sales sheet. A completed sale can also be emailed to the customer.
+ * out of the tray is just the sales sheet. A completed sale can also be emailed to the customer, as
+ * a PDF of this same sheet.
  */
 const ReceiptPage = () => {
     const { user } = useAuth();
@@ -37,6 +39,7 @@ const ReceiptPage = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
     const [emailing, setEmailing] = useState<boolean>(false);
+    const sheetRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const load = async () => {
@@ -105,19 +108,28 @@ const ReceiptPage = () => {
                 </div>
             </div>
 
-            <ReceiptSheet order={order} />
+            <div ref={sheetRef}>
+                <ReceiptSheet order={order} />
+            </div>
 
             {emailing && (
                 <EmailDialog
                     title={`Email receipt #${order.orderNumber}`}
                     description={
                         <>
-                            Sends {order.billingName || "the customer"} a copy of this sales sheet
+                            Sends {order.billingName || "the customer"} this sales sheet as a PDF,
+                            with a thank-you note
                             {emailStatus?.from ? ` from ${emailStatus.from}` : ""}.
                         </>
                     }
                     initialTo={order.billingEmail}
-                    onSend={(to) => EmailReceipt(order.id!, to)}
+                    onSend={async (to, _message, progress) => {
+                        progress("Making the PDF...");
+                        const pdf = await TryBuildSheetsPdf(FindSheets(sheetRef.current));
+                        if (!pdf) return null;
+                        progress("Sending...");
+                        return EmailReceipt(order.id!, to, pdf);
+                    }}
                     onClose={() => setEmailing(false)}
                 />
             )}

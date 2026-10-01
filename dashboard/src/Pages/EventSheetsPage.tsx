@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import EmailDialog from "../Components/Elements/EmailDialog";
@@ -11,6 +11,7 @@ import InventorySheet from "../Components/Inventory/InventorySheet";
 import { useAuth } from "../Context/AuthContext";
 import { FormatCurrency, FormatShortDate } from "../Lib/ModelHelpers";
 import { BuildSalesCsv, DownloadCsv } from "../Lib/SalesExport";
+import { FindSheets, TryBuildSheetsPdf } from "../Lib/SheetPdf";
 import { Toast } from "../Lib/Toast";
 import type { DashboardStats } from "../Models/DashboardStats";
 import type { Event } from "../Models/Event";
@@ -27,8 +28,8 @@ import { GetSalesSheetsForEvent } from "../Services/OrderServices";
  * Every completed sales sheet for one event, stacked one per printed page, between the stat sheet
  * and the accessory inventory sheet. Print sends the whole
  * stack to the printer, or to a PDF via the browser's Save as PDF; Download CSV exports the same
- * sales as a spreadsheet; Email report sends the totals, every sale and the inventory tally, with
- * the spreadsheets attached. Admin only - this is the event's paperwork.
+ * sales as a spreadsheet; Email report sends the same stack of sheets as a single PDF. Admin only -
+ * this is the event's paperwork.
  */
 const EventSheetsPage = () => {
     const { user } = useAuth();
@@ -43,6 +44,7 @@ const EventSheetsPage = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
     const [emailing, setEmailing] = useState<boolean>(false);
+    const sheetsRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const load = async () => {
@@ -163,7 +165,7 @@ const EventSheetsPage = () => {
                     </div>
                 </div>
             ) : (
-                <>
+                <div ref={sheetsRef}>
                     {orders.length > 0 && (
                         <div className="mb-6 break-after-page print:mb-0">
                             {/* The paper layouts have a minimum width; on a small phone they scroll sideways on
@@ -210,7 +212,7 @@ const EventSheetsPage = () => {
                             </div>
                         </div>
                     )}
-                </>
+                </div>
             )}
 
             {emailing && saleEvent?.id && (
@@ -218,13 +220,22 @@ const EventSheetsPage = () => {
                     title="Email the event report"
                     description={
                         <>
-                            Sends the totals, payments, units sold, every completed sale and the
-                            inventory tally for {saleEvent.organization}, with the sales
-                            {inventory.length > 0 ? " and inventory" : ""} attached as spreadsheets.
+                            Sends {saleEvent.organization}&apos;s sheets as a single PDF: the stat
+                            sheet, {orders.length} completed sales sheet
+                            {orders.length === 1 ? "" : "s"}
+                            {inventory.length > 0 ? " and the accessory inventory sheet" : ""}.
                         </>
                     }
                     withMessage
-                    onSend={(to, message) => EmailEventReport(saleEvent.id!, to, message)}
+                    onSend={async (to, message, progress) => {
+                        const pdf = await TryBuildSheetsPdf(
+                            FindSheets(sheetsRef.current),
+                            (page, total) => progress(`Making the PDF: page ${page} of ${total}...`)
+                        );
+                        if (!pdf) return null;
+                        progress("Sending...");
+                        return EmailEventReport(saleEvent.id!, to, message, pdf);
+                    }}
                     onClose={() => setEmailing(false)}
                 />
             )}

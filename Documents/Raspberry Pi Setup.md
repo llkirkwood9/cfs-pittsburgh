@@ -281,9 +281,10 @@ gunzip -c ~/cfs-backup-2026-09-22.sql.gz | docker compose -f /opt/cfs/docker-com
 
 ## Optional - Email receipts and reports
 
-The app can email a customer their receipt (the **Email** button on a sales sheet) and email an
-event's full report (the **Email report** button on an event's sales sheets). It sends through an
-ordinary email account over SMTP. Until it's set up, those buttons just say email isn't set up.
+The app can email a customer their receipt as a PDF (the **Email** button on a sales sheet) and
+email an event's sheets as a single PDF (the **Email report** button on an event's sales sheets).
+The PDF is made on the tablet, so this adds no work for the Pi. It sends through an ordinary email
+account over SMTP. Until it's set up, those buttons just say email isn't set up.
 
 A Gmail account works well. Gmail won't accept your normal password here, so turn on 2-Step
 Verification for the account, then create an **app password** at

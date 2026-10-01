@@ -7,23 +7,38 @@ export type EmailStatus = {
     from?: string | null;
 };
 
+/** Posted as a form, because it carries the PDF. */
+const SendForm = async (url: string, pdf: Blob, to: string, message?: string) => {
+    const form = new FormData();
+    form.append("to", to);
+    if (message) form.append("message", message);
+    form.append("pdf", pdf, "sheets.pdf");
+    // Overrides the instance's JSON default; the browser fills in the multipart boundary.
+    const response = await api.post<{ sentTo: string[] }>(url, form, {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 120000,
+    });
+    return response.data.sentTo;
+};
+
 //*************************************//
 //*********** POST METHODS ************//
 //*************************************//
 
 /**
- * Emails the receipt for a completed sale.
+ * Emails the customer their receipt as a PDF, with a thank-you note.
  * @param orderId The order.
  * @param to Comma-separated addresses; the customer's own address when left empty.
+ * @param pdf The receipt, built from the sheet on screen.
  * @returns The addresses it went to, or null on failure.
  */
-export const EmailReceipt = async (orderId: number, to: string): Promise<string[] | null> => {
+export const EmailReceipt = async (
+    orderId: number,
+    to: string,
+    pdf: Blob
+): Promise<string[] | null> => {
     try {
-        const response = await api.post<{ sentTo: string[] }>(
-            `/api/Email/order/${orderId}/receipt`,
-            { to }
-        );
-        return response.data.sentTo;
+        return await SendForm(`/api/Email/order/${orderId}/receipt`, pdf, to);
     } catch (error) {
         HandleAxiosError(error);
         return null;
@@ -31,26 +46,21 @@ export const EmailReceipt = async (orderId: number, to: string): Promise<string[
 };
 
 /**
- * Emails an event's full report, with the sales and inventory attached as spreadsheets.
+ * Emails an event's sheets as a single PDF.
  * @param eventId The event.
  * @param to Comma-separated addresses.
  * @param message Optional note shown at the top.
+ * @param pdf The stat sheet, sales sheets and inventory sheet, built from the page.
  * @returns The addresses it went to, or null on failure.
  */
 export const EmailEventReport = async (
     eventId: number,
     to: string,
-    message: string
+    message: string,
+    pdf: Blob
 ): Promise<string[] | null> => {
     try {
-        const response = await api.post<{ sentTo: string[] }>(
-            `/api/Email/event/${eventId}/report`,
-            {
-                to,
-                message,
-            }
-        );
-        return response.data.sentTo;
+        return await SendForm(`/api/Email/event/${eventId}/report`, pdf, to, message);
     } catch (error) {
         HandleAxiosError(error);
         return null;
@@ -70,7 +80,7 @@ export const GetEmailStatus = async (): Promise<EmailStatus> => {
         const response = await api.get<EmailStatus>("/api/Email/status");
         return response.data;
     } catch {
-        // A quiet failure: the email button simply shows as unavailable.
+        // A quiet failure: the email button simply says email isn't available.
         return { configured: false };
     }
 };

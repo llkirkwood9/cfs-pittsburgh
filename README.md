@@ -54,9 +54,14 @@ The catalog and the printed receipt are both built from the supplied source docu
 - **Back** returns to wherever the sheet was opened from - the Orders list, the checkout table or
   the event export.
 - Print-only CSS hides the app chrome, so the paper copy is just the sheet.
-- **Email** (completed sales only) sends the customer an HTML copy of the receipt - items with their
-  notes, totals, payments and the warranty/drop-ship/advisory terms - to their billing email or any
-  address typed in. Needs the Email settings below.
+- **Email** (completed sales only) sends the customer the sheet as a PDF attachment, with a
+  friendly note: thanks, what happens next (take-home items, drop shipping to their address, how a
+  boxed mattress expands, keeping a protector on for the warranty, any balance still owed) and the
+  customer service number. Goes to their billing email or any address typed in. Needs the Email
+  settings below.
+- The PDF is built in the browser from the sheet on screen (html2canvas-pro + jsPDF, loaded on
+  demand), laid out at paper width whatever the device, one sheet per Letter page - so it matches
+  the printed copy exactly. The API checks it is a PDF under 18 MB, then attaches it.
 
 **Orders** (`/orders`, all roles)
 - Every order for the event being worked, filterable by status and searchable by customer, rep or
@@ -76,8 +81,8 @@ The catalog and the printed receipt are both built from the supplied source docu
   whole stack to a printer or, with Save as PDF as the printer, downloads it as a single PDF.
   **Download CSV** exports the same sales as a spreadsheet: one row per sale with customer,
   items, totals and each payment method.
-- **Email report** sends the totals, payments, units sold, every completed sale and the inventory
-  tally to up to 10 addresses with an optional note, with the sales and inventory attached as CSV.
+- **Email report** sends the whole stack - stat sheet, every completed sales sheet and the
+  accessory inventory sheet - as a single PDF to up to 10 addresses, with an optional note.
 - Reached from **Sales sheets** on the Events page, or **Print all completed sheets** on Orders.
 
 **Dashboard** (`/dashboard`, all roles)

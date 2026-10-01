@@ -92,7 +92,7 @@ namespace api.Controllers
         /// <param name="db">EF context</param>
         /// <param name="filter">Which orders to include</param>
         /// <returns>The computed stat sheet.</returns>
-        internal static async Task<DashboardStatsDto> BuildStatsAsync(
+        private static async Task<DashboardStatsDto> BuildStatsAsync(
             ApplicationDbContext db,
             System.Linq.Expressions.Expression<Func<Order, bool>> filter)
         {
