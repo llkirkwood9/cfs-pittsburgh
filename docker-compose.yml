@@ -5,6 +5,7 @@
 # Then open http://localhost:8080. Set real values for the two secrets below, either here or in a
 # .env file next to this one (MSSQL_SA_PASSWORD=..., JWT_KEY=...), before a real event.
 # EMAIL_HOST, EMAIL_FROM and friends switch on emailed receipts and reports (see below).
+# SKIP_SEED_DATA=true starts with an empty catalog instead of the sample one.
 services:
   cfs:
     build: .
@@ -15,6 +16,9 @@ services:
     environment:
       MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-Change_Me_2026!}"
       Jwt__Key: "${JWT_KEY:-CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_OF_AT_LEAST_32_CHARACTERS}"
+      # Set SKIP_SEED_DATA=true to leave out the sample catalog, delivery options and event.
+      # The first sign-in account (admin / 1234) is still created on an empty database.
+      Seed__Skip: "${SKIP_SEED_DATA:-false}"
       # Optional: email receipts and event reports. Leave EMAIL_HOST empty to keep email off.
       Email__Host: "${EMAIL_HOST:-}"
       Email__Port: "${EMAIL_PORT:-587}"

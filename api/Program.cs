@@ -168,7 +168,13 @@ using (var scope = app.Services.CreateScope())
         try
         {
             await db.Database.MigrateAsync();
-            await api.Data.SeedData.SeedAsync(db, tokenService);
+
+            // SKIP_SEED_DATA in the Docker .env (Seed:Skip) leaves out the sample catalog,
+            // delivery options and event.
+            var skipSeed = builder.Configuration["Seed:Skip"]?.Trim().ToLowerInvariant() is "true" or "1" or "yes";
+            await api.Data.SeedData.SeedAsync(db, tokenService, accountsOnly: skipSeed);
+            if (skipSeed && attempt == 1)
+                logger.LogWarning("Seed:Skip is set, so the sample catalog, delivery options and event were not loaded.");
 
             var promoted = await api.Data.SeedData.EnsureOwnerAsync(db);
             if (promoted != null)

@@ -65,6 +65,11 @@ namespace api.Data
         /// </summary>
         public DbSet<InventoryAdjustment> InventoryAdjustments => Set<InventoryAdjustment>();
 
+        /// <summary>
+        /// Settings an administrator can change from the dashboard
+        /// </summary>
+        public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+
         #endregion
 
         #region Public Methods

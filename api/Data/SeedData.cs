@@ -8,7 +8,9 @@ namespace api.Data
     /// <summary>
     /// Loads the starting catalog, delivery options, crew accounts and opening event from
     /// CatalogSeed.json. Runs on every startup but only fills gaps, so an event in progress is
-    /// never overwritten.
+    /// never overwritten. With Seed:Skip set (SKIP_SEED_DATA in the Docker .env) only the first
+    /// sign-in account is created, and only into an empty database - nothing else is loaded, so
+    /// catalog items and events deleted on purpose stay deleted.
     /// </summary>
     public static class SeedData
     {
@@ -19,7 +21,10 @@ namespace api.Data
         /// </summary>
         /// <param name="db">EF context</param>
         /// <param name="tokenService">Used to hash the seeded PINs</param>
-        public static async Task SeedAsync(ApplicationDbContext db, TokenService tokenService)
+        /// <param name="accountsOnly">Skip the catalog, delivery options and opening event; still
+        /// create the first sign-in account when there are no accounts at all, so nobody is
+        /// locked out of a new database</param>
+        public static async Task SeedAsync(ApplicationDbContext db, TokenService tokenService, bool accountsOnly = false)
         {
             var path = Path.Combine(AppContext.BaseDirectory, "Data", "CatalogSeed.json");
             if (!File.Exists(path))
@@ -31,6 +36,9 @@ namespace api.Data
                 return;
 
             await SeedUsersAsync(db, tokenService, seed);
+            if (accountsOnly)
+                return;
+
             await SeedEventAsync(db, seed);
             var deliveryByName = await SeedDeliveryOptionsAsync(db, seed);
             var created = await SeedProductsAsync(db, seed, deliveryByName);

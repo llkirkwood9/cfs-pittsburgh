@@ -94,7 +94,8 @@ namespace api.Controllers
                 if (problem != null)
                     return problem;
 
-                var (subject, html, text) = EmailTemplates.ReceiptMessage(order, order.Event);
+                var body = await SettingsController.LoadReceiptBodyAsync(DB);
+                var (subject, html, text) = EmailTemplates.ReceiptMessage(order, order.Event, body);
                 var attachment = ($"CFS-Receipt-{order.OrderNumber}.pdf", "application/pdf", pdf!);
                 var failure = await TrySendAsync(() => email.SendAsync(recipients, subject, html, text, [attachment]));
                 if (failure != null)

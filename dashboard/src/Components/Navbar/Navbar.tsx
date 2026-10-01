@@ -29,6 +29,7 @@ const items: NavItem[] = [
     { to: "/catalog", label: "Catalog", icon: "fa-solid fa-tags", roles: ["Admin"] },
     { to: "/events", label: "Events", icon: "fa-solid fa-calendar-days", roles: ["Admin"] },
     { to: "/crew", label: "Crew", icon: "fa-solid fa-users", roles: ["Admin"] },
+    { to: "/settings", label: "Settings", icon: "fa-solid fa-gear", roles: ["Admin"] },
 ];
 
 /** A bar holds at most this many tabs; past that the last slot becomes More. */
@@ -135,7 +136,12 @@ const Navbar = () => {
                 <div className="mx-auto flex h-16 max-w-screen-2xl items-center gap-2 px-3">
                     <div className="flex shrink-0 items-center gap-2 text-white">
                         <Icon icon="fa-solid fa-bed" className="text-xl text-sky-400" />
-                        <span className="hidden whitespace-nowrap text-base font-bold tracking-tight xl:block">
+                        {/* An administrator's full row of tabs needs the room until the widest screens. */}
+                        <span
+                            className={`hidden whitespace-nowrap text-base font-bold tracking-tight ${
+                                crowded ? "2xl:block" : "xl:block"
+                            }`}
+                        >
                             CFS Pittsburgh
                         </span>
                     </div>

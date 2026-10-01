@@ -57,11 +57,14 @@ The catalog and the printed receipt are both built from the supplied source docu
 - **Email** (completed sales only) sends the customer the sheet as a PDF attachment, with a
   friendly note: thanks, what happens next (take-home items, drop shipping to their address, how a
   boxed mattress expands, keeping a protector on for the warranty, any balance still owed) and the
-  customer service number. Goes to their billing email or any address typed in. Needs the Email
-  settings below.
+  customer service number. The note's wording is set by an administrator under **Settings**. Goes
+  to their billing email or any address typed in. Needs the Email settings below.
 - The PDF is built in the browser from the sheet on screen (html2canvas-pro + jsPDF, loaded on
   demand), laid out at paper width whatever the device, one sheet per Letter page - so it matches
-  the printed copy exactly. The API checks it is a PDF under 18 MB, then attaches it.
+  the printed copy exactly. Sharpness follows the page count: a single receipt is captured at about
+  300 dpi, an event's stack steps down (to about 145 dpi past 30 pages) so it still fits in an
+  email, and a PDF that comes out too big is rebuilt a step smaller. The API checks it is a PDF
+  under 18 MB, then attaches it.
 
 **Orders** (`/orders`, all roles)
 - Every order for the event being worked, filterable by status and searchable by customer, rep or
@@ -97,6 +100,10 @@ The catalog and the printed receipt are both built from the supplied source docu
   delivery services each offers.
 - `/events` — sales tax rate, card processing fee, order number sequence, active event.
 - `/crew` — accounts and roles.
+- `/settings` — the wording of the receipt email: plain text with `{Placeholders}` (`{FirstName}`,
+  `{OrderNumber}`, `{WhatHappensNext}` and so on), a blank line between paragraphs, `- ` for
+  bullets, with a live preview for a sample order. Stored in the `AppSettings` table; with no row
+  the built-in default is used.
 
 ---
 
@@ -139,6 +146,12 @@ EMAIL_FROM_NAME=CFS Pittsburgh
 Locally, the same settings go in the `Email` section of `api/appsettings.local.json`. With no host
 set, email stays off and the dashboard says so when the buttons are pressed.
 
+To start without the sample catalog, delivery options and event, add `SKIP_SEED_DATA=true` to the
+same `.env` (locally, `Seed:Skip` in `appsettings.local.json`). Without it, the seed refills
+anything missing on every start, so sample items deleted on purpose come back. The first sign-in
+account (`admin` / `1234`) is still created when the database has no accounts at all, so a new
+database is never locked.
+
 The SA password must meet SQL Server's complexity rules and must not contain `;`. The container
 needs about 2 GB of memory for SQL Server and runs on x86-64 hosts. `api/docker-compose.yml` is a
 separate, SQL-Server-only compose file for local development and is not used by the image.
@@ -152,7 +165,7 @@ cd api && dotnet run --launch-profile http
 ```
 
 The API listens on `http://localhost:5046`, applies migrations on startup, and seeds the catalog
-from `api/Data/CatalogSeed.json` on first run.
+from `api/Data/CatalogSeed.json` on first run (unless `Seed:Skip` is set - see above).
 
 ```bash
 cd dashboard && npm install && npm run dev

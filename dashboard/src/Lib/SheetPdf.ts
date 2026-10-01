@@ -8,11 +8,28 @@ const MARGIN = 0.35;
 /** The width every sheet is laid out at while it is captured, whatever the screen size. */
 const SHEET_WIDTH = "8in";
 
-/** Pixels per CSS pixel when capturing: about 145 dpi on paper, sharp but not huge. */
-const SCALE = 1.5;
+type Detail = {
+    /** Pixels per CSS pixel when capturing; 1 is about 96 dpi on paper. */
+    scale: number;
+    /** JPEG quality for each page. */
+    quality: number;
+};
 
-/** JPEG quality for each page. Sheets are black lines on white, which compress well. */
-const QUALITY = 0.78;
+/**
+ * How sharp each page is captured, from sharpest to smallest file. A single receipt gets close to
+ * print quality; a big event's stack steps down so the whole PDF still fits in an email. Each
+ * entry applies up to its page count.
+ */
+const DETAIL: { upTo: number; detail: Detail }[] = [
+    { upTo: 1, detail: { scale: 3, quality: 0.92 } },
+    { upTo: 3, detail: { scale: 2.5, quality: 0.9 } },
+    { upTo: 10, detail: { scale: 2, quality: 0.86 } },
+    { upTo: 30, detail: { scale: 1.75, quality: 0.82 } },
+    { upTo: Infinity, detail: { scale: 1.5, quality: 0.78 } },
+];
+
+/** Where in DETAIL a PDF of this many pages starts. */
+const DetailIndexFor = (pages: number): number => DETAIL.findIndex((d) => pages <= d.upTo);
 
 /**
  * The largest PDF the server will email (most mail services refuse a message over about 25 MB,
@@ -70,11 +87,13 @@ const InlineStylesheets = (doc: Document, css: Map<string, string>) => {
  * to fit, as it is when printed.
  * @param sheets The sheet elements, in page order.
  * @param onProgress Called before each page with its number and the total.
+ * @param detail How sharp to capture; by default, as sharp as this many pages allow.
  * @returns The PDF.
  */
 export const BuildSheetsPdf = async (
     sheets: HTMLElement[],
-    onProgress?: (page: number, total: number) => void
+    onProgress?: (page: number, total: number) => void,
+    detail: Detail = DETAIL[DetailIndexFor(sheets.length)].detail
 ): Promise<Blob> => {
     // Loaded on demand: together they are larger than the rest of the app.
     const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
@@ -96,7 +115,7 @@ export const BuildSheetsPdf = async (
         onProgress?.(i + 1, sheets.length);
 
         const canvas = await html2canvas(sheets[i], {
-            scale: SCALE,
+            scale: detail.scale,
             backgroundColor: "#ffffff",
             logging: false,
             // A desktop-sized window, so nothing in the copy switches to its phone layout.
@@ -120,7 +139,7 @@ export const BuildSheetsPdf = async (
 
         if (i > 0) pdf.addPage("letter", "portrait");
         pdf.addImage(
-            canvas.toDataURL("image/jpeg", QUALITY),
+            canvas.toDataURL("image/jpeg", detail.quality),
             "JPEG",
             (PAGE_W - w) / 2,
             MARGIN,
@@ -153,14 +172,15 @@ export const TryBuildSheetsPdf = async (
         return null;
     }
     try {
-        const pdf = await BuildSheetsPdf(sheets, onProgress);
-        if (pdf.size > MAX_BYTES) {
-            Toast.Error(
-                "These sheets make a PDF too large to email. Use Print / Save PDF and share the file another way."
-            );
-            return null;
+        // Start as sharp as the page count allows; if that is still too big to email, step down.
+        for (let i = DetailIndexFor(sheets.length); i < DETAIL.length; i++) {
+            const pdf = await BuildSheetsPdf(sheets, onProgress, DETAIL[i].detail);
+            if (pdf.size <= MAX_BYTES) return pdf;
         }
-        return pdf;
+        Toast.Error(
+            "These sheets make a PDF too large to email. Use Print / Save PDF and share the file another way."
+        );
+        return null;
     } catch (error) {
         console.error("Building the PDF failed", error);
         Toast.Error("The PDF couldn't be made. Try again, or print instead.");

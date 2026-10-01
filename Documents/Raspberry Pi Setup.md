@@ -125,6 +125,19 @@ chmod 600 /opt/cfs/.env && cat /opt/cfs/.env
 Keep a copy of that file somewhere safe. If you change `POSTGRES_PASSWORD` later, the existing
 database won't accept the new password. (See *Changing the database password* at the end.)
 
+**Optional - start with an empty catalog.** On its first start the app loads a sample catalog of
+products, delivery options and a sample event, and on every start after that it puts back any of
+those that are missing - so sample items you delete come back. To skip all of that and build your
+own catalog from scratch, add this line to the same file:
+
+```bash
+echo 'SKIP_SEED_DATA=true' >> /opt/cfs/.env
+```
+
+You can add it later too; it takes effect at the next restart and leaves everything already in the
+database alone. Either way, a brand-new database still gets one account to sign in with -
+`admin`, PIN `1234` - so change that PIN as soon as you sign in.
+
 ## Step 6 - Publish the Pi image
 
 The Pi doesn't build anything - it pulls a ready-made ARM image. GitHub Actions builds it for you:

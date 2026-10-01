@@ -17,6 +17,7 @@ import NotFoundPage from "../Pages/NotFoundPage";
 import OrdersPage from "../Pages/OrdersPage";
 import ReceiptPage from "../Pages/ReceiptPage";
 import SalesPage from "../Pages/SalesPage";
+import SettingsPage from "../Pages/SettingsPage";
 import UnauthorizedPage from "../Pages/UnauthorizedPage";
 
 export const router = createBrowserRouter([
@@ -128,6 +129,14 @@ export const router = createBrowserRouter([
                 element: (
                     <ProtectedRoute roles={["Admin"]}>
                         <CrewPage />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "settings",
+                element: (
+                    <ProtectedRoute roles={["Admin"]}>
+                        <SettingsPage />
                     </ProtectedRoute>
                 ),
             },
