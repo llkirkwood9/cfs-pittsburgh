@@ -3,13 +3,11 @@ import { useNavigate } from "react-router-dom";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import { useAuth } from "../../Context/AuthContext";
+import { useSettings } from "../../Context/SettingsContext";
 import { IsOnline } from "../../Lib/Connection";
 import { InventorySizeLabel } from "../../Lib/ModelHelpers";
 import type { InventoryItem } from "../../Models/InventoryItem";
 import { GetInventory } from "../../Services/InventoryServices";
-
-/** At or below this count a size is flagged. */
-const LOW = 2;
 
 /** How many sizes to list before summarising the rest. */
 const SHOW = 6;
@@ -24,6 +22,9 @@ const REFRESH_MS = 60000;
 const StockWatch = () => {
     const navigate = useNavigate();
     const { hasRole } = useAuth();
+    const {
+        settings: { lowStockAt: LOW },
+    } = useSettings();
     const [items, setItems] = useState<InventoryItem[] | null>(null);
 
     useEffect(() => {

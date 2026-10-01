@@ -6,19 +6,34 @@ namespace api.Dtos
     public class ReceiptEmailSettingsDto
     {
         /// <summary>
+        /// The subject line in use - the saved one, or the default when none is saved
+        /// </summary>
+        public string? Subject { get; set; }
+
+        /// <summary>
         /// The body in use - the saved wording, or the default when none is saved
         /// </summary>
         public string? Body { get; set; }
 
         /// <summary>
-        /// Whether the body is the built-in default
+        /// Whether both the subject and body are the built-in defaults
         /// </summary>
         public bool? IsDefault { get; set; }
 
         /// <summary>
-        /// The built-in default, for "Reset to default"
+        /// The built-in subject line, for "Reset to default"
+        /// </summary>
+        public string? DefaultSubject { get; set; }
+
+        /// <summary>
+        /// The built-in body, for "Reset to default"
         /// </summary>
         public string? DefaultBody { get; set; }
+
+        /// <summary>
+        /// The longest subject line that can be saved
+        /// </summary>
+        public int? MaxSubjectLength { get; set; }
 
         /// <summary>
         /// The longest body that can be saved
@@ -26,7 +41,7 @@ namespace api.Dtos
         public int? MaxLength { get; set; }
 
         /// <summary>
-        /// Every placeholder the body can use
+        /// Every placeholder the subject and body can use
         /// </summary>
         public List<PlaceholderDto>? Placeholders { get; set; }
 
@@ -42,7 +57,7 @@ namespace api.Dtos
     }
 
     /// <summary>
-    /// A placeholder a receipt body can use.
+    /// A placeholder a receipt email can use.
     /// </summary>
     public class PlaceholderDto
     {
@@ -58,18 +73,23 @@ namespace api.Dtos
     }
 
     /// <summary>
-    /// A receipt body to save or preview.
+    /// A receipt email's subject and body to save or preview.
     /// </summary>
     public class ReceiptEmailBodyDto
     {
         /// <summary>
-        /// The wording; empty to go back to the default
+        /// The subject line; empty for the default, left out to keep the saved one
+        /// </summary>
+        public string? Subject { get; set; }
+
+        /// <summary>
+        /// The wording; empty for the default, left out to keep the saved one
         /// </summary>
         public string? Body { get; set; }
     }
 
     /// <summary>
-    /// What a receipt body looks like for a sample order.
+    /// What a receipt email looks like for a sample order.
     /// </summary>
     public class ReceiptEmailPreviewDto
     {
@@ -84,8 +104,55 @@ namespace api.Dtos
         public string? Html { get; set; }
 
         /// <summary>
+        /// The attachment's file name, e.g. CFS-Receipt-1017.pdf
+        /// </summary>
+        public string? AttachmentName { get; set; }
+
+        /// <summary>
         /// Placeholders that aren't recognised - most likely typos
         /// </summary>
         public List<string>? UnknownPlaceholders { get; set; }
+    }
+
+    /// <summary>
+    /// The general settings: business details shown on sheets and emails, and dashboard levels.
+    /// Every field is optional when saving; one left out keeps its current value.
+    /// </summary>
+    public class GeneralSettingsDto
+    {
+        /// <summary>
+        /// Shown in the menu bar, on the sign-in screen and as the email sender
+        /// </summary>
+        public string? AppName { get; set; }
+
+        /// <summary>
+        /// Named at the top of every sales sheet and in the receipt email
+        /// </summary>
+        public string? CompanyName { get; set; }
+
+        /// <summary>
+        /// On sales sheets and in emails
+        /// </summary>
+        public string? CustomerServicePhone { get; set; }
+
+        /// <summary>
+        /// Net sales that earn the dashboard's first star
+        /// </summary>
+        public decimal? StarsFirstAt { get; set; }
+
+        /// <summary>
+        /// Net sales between each star after the first
+        /// </summary>
+        public decimal? StarsEvery { get; set; }
+
+        /// <summary>
+        /// This many or fewer left is flagged as running low
+        /// </summary>
+        public int? LowStockAt { get; set; }
+
+        /// <summary>
+        /// The values when nothing has been changed (returned, not saved)
+        /// </summary>
+        public GeneralSettingsDto? Defaults { get; set; }
     }
 }

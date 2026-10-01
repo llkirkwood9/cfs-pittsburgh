@@ -4,6 +4,7 @@ import Icon from "../Elements/Icon";
 import ThemeToggle from "./ThemeToggle";
 import UserProfileDropdown from "./UserProfileDropdown";
 import { useAuth } from "../../Context/AuthContext";
+import { useSettings } from "../../Context/SettingsContext";
 import type { UserRole } from "../../Models/User";
 
 type NavItem = {
@@ -124,6 +125,7 @@ const MoreMenu = ({ overflow, placement, className = "" }: MoreProps) => {
  */
 const Navbar = () => {
     const { hasRole } = useAuth();
+    const { settings } = useSettings();
     const visible = items.filter((item) => !item.roles || hasRole(...item.roles));
 
     const crowded = visible.length > MAX_TABS;
@@ -138,11 +140,11 @@ const Navbar = () => {
                         <Icon icon="fa-solid fa-bed" className="text-xl text-sky-400" />
                         {/* An administrator's full row of tabs needs the room until the widest screens. */}
                         <span
-                            className={`hidden whitespace-nowrap text-base font-bold tracking-tight ${
+                            className={`hidden max-w-[14rem] truncate whitespace-nowrap text-base font-bold tracking-tight ${
                                 crowded ? "2xl:block" : "xl:block"
                             }`}
                         >
-                            CFS Pittsburgh
+                            {settings.appName}
                         </span>
                     </div>
 

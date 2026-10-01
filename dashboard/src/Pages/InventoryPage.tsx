@@ -14,6 +14,7 @@ import {
     GroupInventory,
     InventorySizeLabel,
 } from "../Lib/ModelHelpers";
+import { useSettings } from "../Context/SettingsContext";
 import { IsOnline } from "../Lib/Connection";
 import { Toast } from "../Lib/Toast";
 import type { Event } from "../Models/Event";
@@ -22,9 +23,6 @@ import type { InventoryItem } from "../Models/InventoryItem";
 import type { ProductCategory } from "../Models/Product";
 import { GetActiveEvent } from "../Services/EventServices";
 import { AdjustInventory, GetInventory, GetInventoryHistory } from "../Services/InventoryServices";
-
-/** Counts at or below this show as running low. */
-const LOW_STOCK = 2;
 
 const kindLabels: Record<string, string> = {
     Adjustment: "Count changed",
@@ -41,6 +39,10 @@ const kindLabels: Record<string, string> = {
  */
 const InventoryPage = () => {
     const navigate = useNavigate();
+    // Counts at or below this show as running low; set under Settings.
+    const {
+        settings: { lowStockAt: LOW_STOCK },
+    } = useSettings();
     const [items, setItems] = useState<InventoryItem[]>([]);
     const [saleEvent, setSaleEvent] = useState<Event | null>(null);
     const [loading, setLoading] = useState<boolean>(true);

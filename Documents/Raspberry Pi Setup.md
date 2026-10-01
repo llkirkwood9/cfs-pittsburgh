@@ -313,9 +313,11 @@ EMAIL_SECURITY=StartTls
 EMAIL_USERNAME=cfs.pittsburgh@gmail.com
 EMAIL_PASSWORD=abcdefghijklmnop
 EMAIL_FROM=cfs.pittsburgh@gmail.com
-EMAIL_FROM_NAME=CFS Pittsburgh
 END
 ```
+
+Emails show the app name from the app's **Settings** screen as the sender (CFS Pittsburgh unless
+you change it there). To use a different sender name, add an `EMAIL_FROM_NAME=...` line too.
 
 Then restart so the app picks them up:
 

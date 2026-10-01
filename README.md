@@ -100,10 +100,19 @@ The catalog and the printed receipt are both built from the supplied source docu
   delivery services each offers.
 - `/events` — sales tax rate, card processing fee, order number sequence, active event.
 - `/crew` — accounts and roles.
-- `/settings` — the wording of the receipt email: plain text with `{Placeholders}` (`{FirstName}`,
-  `{OrderNumber}`, `{WhatHappensNext}` and so on), a blank line between paragraphs, `- ` for
-  bullets, with a live preview for a sample order. Stored in the `AppSettings` table; with no row
-  the built-in default is used.
+- `/settings` — three cards, each saved on its own:
+  - **Business details**: the company name and customer service number printed on every sales
+    sheet and in emails, and the app name shown in the menu bar, sign-in screen, browser tab and as
+    the email sender.
+  - **Receipt email**: the subject and wording, plain text with `{Placeholders}` (`{FirstName}`,
+    `{OrderNumber}`, `{CompanyName}`, `{WhatHappensNext}` and so on), a blank line between
+    paragraphs, `- ` for bullets, with a live preview for a sample order.
+  - **Dashboard**: the net sales for the first star and between stars, and the running-low level
+    used by Stock to watch and the Inventory screen.
+
+  Stored in the `AppSettings` table, one row per setting that differs from its default, so an
+  untouched setting follows the built-in default. `GET /api/settings/general` is open (the
+  sign-in screen needs the app name); everything else is admin-only.
 
 ---
 
@@ -140,8 +149,10 @@ EMAIL_SECURITY=StartTls
 EMAIL_USERNAME=you@gmail.com
 EMAIL_PASSWORD=your-app-password
 EMAIL_FROM=you@gmail.com
-EMAIL_FROM_NAME=CFS Pittsburgh
 ```
+
+Emails come from the app name set under **Settings**; add `EMAIL_FROM_NAME=...` only to override
+it.
 
 Locally, the same settings go in the `Email` section of `api/appsettings.local.json`. With no host
 set, email stays off and the dashboard says so when the buttons are pressed.

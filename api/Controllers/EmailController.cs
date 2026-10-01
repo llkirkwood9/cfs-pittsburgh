@@ -94,10 +94,11 @@ namespace api.Controllers
                 if (problem != null)
                     return problem;
 
-                var body = await SettingsController.LoadReceiptBodyAsync(DB);
-                var (subject, html, text) = EmailTemplates.ReceiptMessage(order, order.Event, body);
+                var settings = await SettingsStore.LoadAsync(DB);
+                var (savedSubject, savedBody) = await SettingsController.LoadReceiptEmailAsync(DB);
+                var (subject, html, text) = EmailTemplates.ReceiptMessage(order, order.Event, settings, savedBody, savedSubject);
                 var attachment = ($"CFS-Receipt-{order.OrderNumber}.pdf", "application/pdf", pdf!);
-                var failure = await TrySendAsync(() => email.SendAsync(recipients, subject, html, text, [attachment]));
+                var failure = await TrySendAsync(() => email.SendAsync(recipients, subject, html, text, [attachment], fromName: settings.AppName));
                 if (failure != null)
                     return failure;
 
@@ -153,9 +154,10 @@ namespace api.Controllers
                 var salesSheets = await DB.Orders.CountAsync(o => o.EventId == eventId && o.Status == OrderStatus.Completed);
                 var hasInventory = (await InventoryController.LoadItemsAsync(DB, eventId, null)).Count > 0;
 
-                var (subject, html, text) = EmailTemplates.ReportMessage(saleEvent, salesSheets, hasInventory, message, GetCurrentUserName());
+                var settings = await SettingsStore.LoadAsync(DB);
+                var (subject, html, text) = EmailTemplates.ReportMessage(saleEvent, salesSheets, hasInventory, message, GetCurrentUserName(), settings.AppName);
                 var name = $"{EmailTemplates.Slug(saleEvent.Organization, "event")}-{saleEvent.EventDate:yyyy-MM-dd}-sheets.pdf";
-                var failure = await TrySendAsync(() => email.SendAsync(recipients, subject, html, text, [(name, "application/pdf", pdf!)]));
+                var failure = await TrySendAsync(() => email.SendAsync(recipients, subject, html, text, [(name, "application/pdf", pdf!)], fromName: settings.AppName));
                 if (failure != null)
                     return failure;
 

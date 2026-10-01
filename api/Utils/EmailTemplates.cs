@@ -18,8 +18,6 @@ namespace api.Utils
 
         private static readonly CultureInfo Us = CultureInfo.GetCultureInfo("en-US");
 
-        private const string CustomerService = "440-381-2888";
-
         private const string Wrapper = "font-family:Arial,Helvetica,sans-serif;max-width:600px;margin:0 auto;color:#18181b;font-size:15px;line-height:1.55;";
 
         #endregion
@@ -43,12 +41,22 @@ namespace api.Utils
             "Questions about your order or your warranty? Call our customer service team at {CustomerServicePhone} and mention order #{OrderNumber}.\n" +
             "\n" +
             "Sleep well, and thank you again!\n" +
-            "Custom Fundraising Solutions";
+            "{CompanyName}";
+
+        /// <summary>
+        /// The receipt email's subject line when an administrator hasn't written their own.
+        /// </summary>
+        public const string DefaultReceiptSubject = "Your receipt from {Organization} - order #{OrderNumber}";
 
         /// <summary>
         /// The longest receipt body an administrator can save.
         /// </summary>
         public const int MaxReceiptBodyLength = 5000;
+
+        /// <summary>
+        /// The longest receipt subject line an administrator can save.
+        /// </summary>
+        public const int MaxReceiptSubjectLength = 150;
 
         /// <summary>
         /// Every placeholder a receipt body can use, with what it becomes, for the settings screen.
@@ -63,7 +71,8 @@ namespace api.Utils
             ("Total", "The order total, e.g. $1,284.00"),
             ("BalanceDue", "What is still owed, e.g. $0.00"),
             ("SalesRep", "The sales rep's name"),
-            ("CustomerServicePhone", "The customer service number, " + CustomerService),
+            ("CustomerServicePhone", "The customer service number, from the business details"),
+            ("CompanyName", "The company's name, from the business details"),
             ("WhatHappensNext", "A \"What happens next\" list written for this order: take-home items, shipping and the address, a boxed mattress, keeping a protector on, and any balance owed. Put it on a line of its own."),
         ];
 
@@ -72,12 +81,14 @@ namespace api.Utils
         /// </summary>
         /// <param name="order">Completed order, with lines loaded</param>
         /// <param name="saleEvent">The event it was sold at</param>
+        /// <param name="settings">The business details in force</param>
         /// <param name="body">The administrator's wording, or null for the default</param>
+        /// <param name="subjectLine">The administrator's subject line, or null for the default</param>
         /// <returns>Subject, HTML and plain text.</returns>
-        public static (string Subject, string Html, string Text) ReceiptMessage(Order order, Event? saleEvent, string? body = null)
+        public static (string Subject, string Html, string Text) ReceiptMessage(
+            Order order, Event? saleEvent, GeneralSettings settings, string? body = null, string? subjectLine = null)
         {
             var org = FirstNonBlank(order.Organization, saleEvent?.Organization) ?? "the fundraiser";
-            var subject = $"Your receipt from {org} - order #{order.OrderNumber}";
 
             var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
@@ -89,10 +100,17 @@ namespace api.Utils
                 ["Total"] = Money(order.Total),
                 ["BalanceDue"] = Money(order.BalanceDue),
                 ["SalesRep"] = order.CfsRepName?.Trim() ?? string.Empty,
-                ["CustomerServicePhone"] = CustomerService,
+                ["CustomerServicePhone"] = settings.CustomerServicePhone,
+                ["CompanyName"] = settings.CompanyName,
             };
             var next = WhatHappensNext(order);
             var template = string.IsNullOrWhiteSpace(body) ? DefaultReceiptBody : body;
+
+            // One line of plain text: anything that would make it a second line is dropped.
+            var subjectTemplate = string.IsNullOrWhiteSpace(subjectLine) ? DefaultReceiptSubject : subjectLine;
+            var subject = Regex.Replace(Fill(subjectTemplate, values, next, false), @"\s+", " ").Trim();
+            if (subject.Length == 0)
+                subject = Fill(DefaultReceiptSubject, values, next, false);
 
             return (subject, RenderHtml(template, values, next), RenderText(template, values, next));
         }
@@ -121,9 +139,10 @@ namespace api.Utils
         /// <param name="hasInventory">Whether the PDF ends with the inventory sheet</param>
         /// <param name="message">Optional note from the sender, shown first</param>
         /// <param name="sentBy">Who sent it</param>
+        /// <param name="appName">The app's name, for the sign-off</param>
         /// <returns>Subject, HTML and plain text.</returns>
         public static (string Subject, string Html, string Text) ReportMessage(
-            Event saleEvent, int salesSheets, bool hasInventory, string? message, string? sentBy)
+            Event saleEvent, int salesSheets, bool hasInventory, string? message, string? sentBy, string appName)
         {
             var date = saleEvent.EventDate.ToString("MMMM d, yyyy", Us);
             var subject = $"{saleEvent.Organization} - event sheets ({saleEvent.EventDate:M/d/yy})";
@@ -143,7 +162,7 @@ namespace api.Utils
             if (!string.IsNullOrWhiteSpace(message))
                 html.Append($"<p style=\"margin:0 0 14px;padding:10px 12px;background:#f4f4f5;border-radius:8px;\">{E(message).Replace("\n", "<br>")}</p>");
             html.Append($"<p style=\"margin:0 0 14px;\">The event's sheets are attached as a single PDF: {E(contents)}.</p>");
-            html.Append($"<p style=\"margin:0;font-size:12px;color:#71717a;\">From the CFS sales app.{E(by)}</p>");
+            html.Append($"<p style=\"margin:0;font-size:12px;color:#71717a;\">From the {E(appName)} sales app.{E(by)}</p>");
             html.Append("</div>");
 
             var text = new StringBuilder();
@@ -151,7 +170,7 @@ namespace api.Utils
             if (!string.IsNullOrWhiteSpace(message))
                 text.AppendLine(message).AppendLine();
             text.AppendLine($"The event's sheets are attached as a single PDF: {contents}.").AppendLine();
-            text.AppendLine($"From the CFS sales app.{by}");
+            text.AppendLine($"From the {appName} sales app.{by}");
 
             return (subject, html.ToString(), text.ToString());
         }

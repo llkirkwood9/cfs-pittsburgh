@@ -59,7 +59,7 @@ services:
       Email__Username: "${EMAIL_USERNAME:-}"
       Email__Password: "${EMAIL_PASSWORD:-}"
       Email__From: "${EMAIL_FROM:-}"
-      Email__FromName: "${EMAIL_FROM_NAME:-CFS Pittsburgh}"
+      Email__FromName: "${EMAIL_FROM_NAME:-}"
     restart: unless-stopped
 
 volumes:

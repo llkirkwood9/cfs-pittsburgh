@@ -4,6 +4,7 @@ import { RouterProvider } from "react-router-dom";
 import { library } from "@fortawesome/fontawesome-svg-core";
 import { fas } from "@fortawesome/free-solid-svg-icons";
 import { AuthProvider } from "./Context/AuthContext";
+import { SettingsProvider } from "./Context/SettingsContext";
 import { router } from "./Routes/Routes";
 import "./index.css";
 
@@ -14,7 +15,9 @@ library.add(fas);
 createRoot(document.getElementById("root")!).render(
     <StrictMode>
         <AuthProvider>
-            <RouterProvider router={router} />
+            <SettingsProvider>
+                <RouterProvider router={router} />
+            </SettingsProvider>
         </AuthProvider>
     </StrictMode>
 );

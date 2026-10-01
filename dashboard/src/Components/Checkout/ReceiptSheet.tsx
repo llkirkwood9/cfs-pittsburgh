@@ -8,6 +8,7 @@ import {
     PrintsOnSalesSheet,
     SortLinesForPrint,
 } from "../../Lib/ModelHelpers";
+import { useSettings } from "../../Context/SettingsContext";
 import type { Order, OrderStatus } from "../../Models/Order";
 import type { PaymentMethod } from "../../Models/OrderPayment";
 
@@ -51,6 +52,7 @@ const label = "text-[8px] font-bold uppercase leading-none";
  * black on white with hard borders because it is photocopied and filed, not read on a screen.
  */
 const ReceiptSheet = ({ order }: Props) => {
+    const { settings } = useSettings();
     const lines = SortLinesForPrint(order.lines ?? []).filter(PrintsOnSalesSheet);
     const notice = unfinished[order.status ?? "Draft"];
     const blanks = Math.max(0, MIN_ITEM_ROWS - lines.length - lines.filter((l) => l.notes).length);
@@ -177,9 +179,11 @@ const ReceiptSheet = ({ order }: Props) => {
             <div className="flex items-start justify-between">
                 <div>
                     <h1 className="text-[22px] font-bold leading-tight tracking-tight">
-                        Custom Fundraising Solutions
+                        {settings.companyName}
                     </h1>
-                    <p className="text-[11px] font-bold">Customer Service: 440-381-2888</p>
+                    <p className="text-[11px] font-bold">
+                        Customer Service: {settings.customerServicePhone}
+                    </p>
                 </div>
                 <div className="text-right">
                     <p className="text-[15px] font-bold text-red-600">

@@ -11,8 +11,8 @@ using Microsoft.EntityFrameworkCore;
 namespace api.Controllers
 {
     /// <summary>
-    /// Settings an administrator changes from the dashboard. For now that is the wording of the
-    /// email that goes with a customer's receipt.
+    /// Settings an administrator changes from the dashboard: the business details printed on
+    /// sheets and emails, the dashboard's levels, and the wording of the receipt email.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -33,7 +33,28 @@ namespace api.Controllers
         #region GET Methods
 
         /// <summary>
-        /// The receipt email's wording, with the default and the placeholders it can use.
+        /// The general settings in force, with their defaults. Open to anyone - the sign-in
+        /// screen shows the app name - and nothing in it is private.
+        /// </summary>
+        /// <returns>The settings.</returns>
+        [HttpGet("general")]
+        [AllowAnonymous]
+        public async Task<IActionResult> GetGeneral()
+        {
+            try
+            {
+                return Ok(ToDto(await SettingsStore.LoadAsync(DB), includeDefaults: true));
+            }
+            catch (Exception e)
+            {
+                Trace(TraceEventType.Critical, e.Message);
+                return StatusCode(500, new { error = "Internal error occurred while getting the settings.", exception = e.Message });
+            }
+        }
+
+        /// <summary>
+        /// The receipt email's subject and wording, with the defaults and the placeholders they
+        /// can use.
         /// </summary>
         /// <returns>The settings.</returns>
         [HttpGet("receipt-email")]
@@ -45,8 +66,7 @@ namespace api.Controllers
                 if (!IsInRole(UserRole.Admin))
                     return StatusCode(403, new { error = AdminOnly });
 
-                var saved = await DB.AppSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == AppSettingKeys.ReceiptEmailBody);
-                return Ok(ToDto(saved));
+                return Ok(await ReceiptEmailDtoAsync());
             }
             catch (Exception e)
             {
@@ -60,9 +80,9 @@ namespace api.Controllers
         #region POST Methods
 
         /// <summary>
-        /// Shows how a receipt body reads for a sample order, without saving it.
+        /// Shows how a receipt email reads for a sample order, without saving it.
         /// </summary>
-        /// <param name="request">The wording to try</param>
+        /// <param name="request">The subject and wording to try</param>
         /// <returns>The subject and body as they would be sent.</returns>
         [HttpPost("receipt-email/preview")]
         [Authorize(AuthenticationSchemes = "Bearer")]
@@ -73,20 +93,22 @@ namespace api.Controllers
                 if (!IsInRole(UserRole.Admin))
                     return StatusCode(403, new { error = AdminOnly });
 
-                var body = request.Body ?? string.Empty;
-                if (body.Length > EmailTemplates.MaxReceiptBodyLength)
-                    body = body[..EmailTemplates.MaxReceiptBodyLength];
+                var body = Clip(request.Body, EmailTemplates.MaxReceiptBodyLength);
+                var subject = Clip(request.Subject, EmailTemplates.MaxReceiptSubjectLength);
 
                 var saleEvent = await DB.Events.AsNoTracking()
                     .OrderByDescending(e => e.IsActive).ThenByDescending(e => e.EventDate)
                     .FirstOrDefaultAsync();
-                var (subject, html, _) = EmailTemplates.ReceiptMessage(SampleOrder(saleEvent), saleEvent, body);
+                var settings = await SettingsStore.LoadAsync(DB);
+                var sample = SampleOrder(saleEvent);
+                var (sentSubject, html, _) = EmailTemplates.ReceiptMessage(sample, saleEvent, settings, body, subject);
 
                 return Ok(new ReceiptEmailPreviewDto
                 {
-                    Subject = subject,
+                    Subject = sentSubject,
                     Html = html,
-                    UnknownPlaceholders = EmailTemplates.UnknownPlaceholders(body),
+                    AttachmentName = $"CFS-Receipt-{sample.OrderNumber}.pdf",
+                    UnknownPlaceholders = EmailTemplates.UnknownPlaceholders(subject + "\n" + body),
                 });
             }
             catch (Exception e)
@@ -101,10 +123,70 @@ namespace api.Controllers
         #region PUT Methods
 
         /// <summary>
-        /// Saves the receipt email's wording. Saving it empty, or exactly as the default, goes back
-        /// to the default, so later improvements to the default reach it.
+        /// Saves the general settings. A field left out keeps its value; one set back to its
+        /// default (or emptied) goes back to following the default.
         /// </summary>
-        /// <param name="request">The wording</param>
+        /// <param name="request">The settings to change</param>
+        /// <returns>The settings in force afterwards.</returns>
+        [HttpPut("general")]
+        [Authorize(AuthenticationSchemes = "Bearer")]
+        public async Task<IActionResult> SaveGeneral([FromBody] GeneralSettingsDto request)
+        {
+            try
+            {
+                if (!IsInRole(UserRole.Admin))
+                    return StatusCode(403, new { error = AdminOnly });
+
+                var current = await SettingsStore.LoadAsync(DB);
+                var appName = request.AppName?.Trim();
+                var company = request.CompanyName?.Trim();
+                var phone = request.CustomerServicePhone?.Trim();
+                var firstAt = request.StarsFirstAt ?? current.StarsFirstAt;
+                var every = request.StarsEvery ?? current.StarsEvery;
+                var lowAt = request.LowStockAt ?? current.LowStockAt;
+
+                if (appName?.Length > SettingsStore.MaxAppNameLength)
+                    return BadRequest(new { error = $"The app name can be at most {SettingsStore.MaxAppNameLength} characters, so it fits in the menu bar." });
+                if (company?.Length > SettingsStore.MaxCompanyNameLength)
+                    return BadRequest(new { error = $"The company name can be at most {SettingsStore.MaxCompanyNameLength} characters, so it fits across a sales sheet." });
+                if (phone?.Length > SettingsStore.MaxPhoneLength)
+                    return BadRequest(new { error = $"The phone number can be at most {SettingsStore.MaxPhoneLength} characters." });
+                if (firstAt <= 0 || firstAt > SettingsStore.MaxStarAmount || every <= 0 || every > SettingsStore.MaxStarAmount)
+                    return BadRequest(new { error = $"Star amounts must be more than $0 and at most {SettingsStore.MaxStarAmount:C0}." });
+                if (lowAt < 0 || lowAt > SettingsStore.MaxLowStockAt)
+                    return BadRequest(new { error = $"The running-low level must be between 0 and {SettingsStore.MaxLowStockAt}." });
+
+                var by = GetCurrentUserName();
+                var defaults = SettingsStore.Defaults;
+                if (request.AppName != null)
+                    await SettingsStore.SetAsync(DB, AppSettingKeys.AppName, appName, defaults.AppName, by);
+                if (request.CompanyName != null)
+                    await SettingsStore.SetAsync(DB, AppSettingKeys.CompanyName, company, defaults.CompanyName, by);
+                if (request.CustomerServicePhone != null)
+                    await SettingsStore.SetAsync(DB, AppSettingKeys.CustomerServicePhone, phone, defaults.CustomerServicePhone, by);
+                if (request.StarsFirstAt != null)
+                    await SettingsStore.SetAsync(DB, AppSettingKeys.StarsFirstAt, SettingsStore.Store(firstAt), SettingsStore.Store(defaults.StarsFirstAt), by);
+                if (request.StarsEvery != null)
+                    await SettingsStore.SetAsync(DB, AppSettingKeys.StarsEvery, SettingsStore.Store(every), SettingsStore.Store(defaults.StarsEvery), by);
+                if (request.LowStockAt != null)
+                    await SettingsStore.SetAsync(DB, AppSettingKeys.LowStockAt, SettingsStore.Store(lowAt), SettingsStore.Store(defaults.LowStockAt), by);
+
+                await DB.SaveChangesAsync();
+                Trace(TraceEventType.Information, $"General settings changed by {by}.");
+                return Ok(ToDto(await SettingsStore.LoadAsync(DB), includeDefaults: true));
+            }
+            catch (Exception e)
+            {
+                Trace(TraceEventType.Critical, e.Message);
+                return StatusCode(500, new { error = "Internal error occurred while saving the settings.", exception = e.Message });
+            }
+        }
+
+        /// <summary>
+        /// Saves the receipt email's subject and wording. Either one saved empty, or exactly as
+        /// its default, goes back to the default, so later improvements to it reach everyone.
+        /// </summary>
+        /// <param name="request">The subject and wording</param>
         /// <returns>The settings as saved.</returns>
         [HttpPut("receipt-email")]
         [Authorize(AuthenticationSchemes = "Bearer")]
@@ -115,34 +197,23 @@ namespace api.Controllers
                 if (!IsInRole(UserRole.Admin))
                     return StatusCode(403, new { error = AdminOnly });
 
-                var body = (request.Body ?? string.Empty).Replace("\r\n", "\n").Trim();
-                if (body.Length > EmailTemplates.MaxReceiptBodyLength)
+                var body = request.Body?.Replace("\r\n", "\n").Trim();
+                var subject = request.Subject?.Replace("\r", " ").Replace("\n", " ").Trim();
+                if (body?.Length > EmailTemplates.MaxReceiptBodyLength)
                     return BadRequest(new { error = $"The email can be at most {EmailTemplates.MaxReceiptBodyLength:N0} characters." });
+                if (subject?.Length > EmailTemplates.MaxReceiptSubjectLength)
+                    return BadRequest(new { error = $"The subject line can be at most {EmailTemplates.MaxReceiptSubjectLength} characters." });
 
-                var saved = await DB.AppSettings.FirstOrDefaultAsync(s => s.Key == AppSettingKeys.ReceiptEmailBody);
-                var useDefault = body.Length == 0 || body == EmailTemplates.DefaultReceiptBody;
-
-                if (useDefault)
-                {
-                    if (saved != null)
-                        DB.AppSettings.Remove(saved);
-                    saved = null;
-                }
-                else
-                {
-                    if (saved == null)
-                    {
-                        saved = new AppSetting { Key = AppSettingKeys.ReceiptEmailBody };
-                        DB.AppSettings.Add(saved);
-                    }
-                    saved.Value = body;
-                    saved.UpdatedAt = DateTime.UtcNow;
-                    saved.UpdatedBy = GetCurrentUserName();
-                }
-
+                var by = GetCurrentUserName();
+                if (request.Body != null)
+                    await SettingsStore.SetAsync(DB, AppSettingKeys.ReceiptEmailBody, body, EmailTemplates.DefaultReceiptBody, by);
+                if (request.Subject != null)
+                    await SettingsStore.SetAsync(DB, AppSettingKeys.ReceiptEmailSubject, subject, EmailTemplates.DefaultReceiptSubject, by);
                 await DB.SaveChangesAsync();
-                Trace(TraceEventType.Information, $"Receipt email wording {(useDefault ? "reset to the default" : "changed")} by {GetCurrentUserName()}.");
-                return Ok(ToDto(saved));
+
+                var saved = await ReceiptEmailDtoAsync();
+                Trace(TraceEventType.Information, $"Receipt email wording {(saved.IsDefault == true ? "reset to the default" : "changed")} by {by}.");
+                return Ok(saved);
             }
             catch (Exception e)
             {
@@ -156,32 +227,62 @@ namespace api.Controllers
         #region Internal Methods
 
         /// <summary>
-        /// The receipt email's wording as saved, or null for the default.
+        /// The receipt email's saved subject and wording; null for either means its default.
         /// </summary>
         /// <param name="db">EF context</param>
-        /// <returns>The saved body, or null.</returns>
-        internal static async Task<string?> LoadReceiptBodyAsync(ApplicationDbContext db)
+        /// <returns>The saved subject and body.</returns>
+        internal static async Task<(string? Subject, string? Body)> LoadReceiptEmailAsync(ApplicationDbContext db)
         {
-            return (await db.AppSettings.AsNoTracking().FirstOrDefaultAsync(s => s.Key == AppSettingKeys.ReceiptEmailBody))?.Value;
+            var rows = await db.AppSettings.AsNoTracking()
+                .Where(s => s.Key == AppSettingKeys.ReceiptEmailBody || s.Key == AppSettingKeys.ReceiptEmailSubject)
+                .ToDictionaryAsync(s => s.Key, s => s.Value);
+            return (rows.GetValueOrDefault(AppSettingKeys.ReceiptEmailSubject), rows.GetValueOrDefault(AppSettingKeys.ReceiptEmailBody));
         }
 
         #endregion
 
         #region Private Methods
 
-        private static ReceiptEmailSettingsDto ToDto(AppSetting? saved)
+        private static string? Clip(string? value, int max) =>
+            value != null && value.Length > max ? value[..max] : value;
+
+        private static GeneralSettingsDto ToDto(GeneralSettings settings, bool includeDefaults)
         {
+            return new GeneralSettingsDto
+            {
+                AppName = settings.AppName,
+                CompanyName = settings.CompanyName,
+                CustomerServicePhone = settings.CustomerServicePhone,
+                StarsFirstAt = settings.StarsFirstAt,
+                StarsEvery = settings.StarsEvery,
+                LowStockAt = settings.LowStockAt,
+                Defaults = includeDefaults ? ToDto(SettingsStore.Defaults, includeDefaults: false) : null,
+            };
+        }
+
+        private async Task<ReceiptEmailSettingsDto> ReceiptEmailDtoAsync()
+        {
+            var rows = await DB.AppSettings.AsNoTracking()
+                .Where(s => s.Key == AppSettingKeys.ReceiptEmailBody || s.Key == AppSettingKeys.ReceiptEmailSubject)
+                .ToListAsync();
+            var body = rows.FirstOrDefault(r => r.Key == AppSettingKeys.ReceiptEmailBody);
+            var subject = rows.FirstOrDefault(r => r.Key == AppSettingKeys.ReceiptEmailSubject);
+            var latest = rows.OrderByDescending(r => r.UpdatedAt).FirstOrDefault();
+
             return new ReceiptEmailSettingsDto
             {
-                Body = saved?.Value ?? EmailTemplates.DefaultReceiptBody,
-                IsDefault = saved == null,
+                Subject = subject?.Value ?? EmailTemplates.DefaultReceiptSubject,
+                Body = body?.Value ?? EmailTemplates.DefaultReceiptBody,
+                IsDefault = rows.Count == 0,
+                DefaultSubject = EmailTemplates.DefaultReceiptSubject,
                 DefaultBody = EmailTemplates.DefaultReceiptBody,
+                MaxSubjectLength = EmailTemplates.MaxReceiptSubjectLength,
                 MaxLength = EmailTemplates.MaxReceiptBodyLength,
                 Placeholders = EmailTemplates.ReceiptPlaceholders
                     .Select(p => new PlaceholderDto { Name = p.Name, Description = p.Description })
                     .ToList(),
-                UpdatedAt = saved?.UpdatedAt,
-                UpdatedBy = saved?.UpdatedBy,
+                UpdatedAt = latest?.UpdatedAt,
+                UpdatedBy = latest?.UpdatedBy,
             };
         }
 

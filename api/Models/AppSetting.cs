@@ -41,5 +41,40 @@ namespace api.Models
         /// The body of the email that goes with a customer's receipt
         /// </summary>
         public const string ReceiptEmailBody = "ReceiptEmailBody";
+
+        /// <summary>
+        /// The subject line of the receipt email
+        /// </summary>
+        public const string ReceiptEmailSubject = "ReceiptEmailSubject";
+
+        /// <summary>
+        /// The app's name in the menu bar, on the sign-in screen and as the email sender
+        /// </summary>
+        public const string AppName = "AppName";
+
+        /// <summary>
+        /// The company named at the top of every sales sheet and in the receipt email
+        /// </summary>
+        public const string CompanyName = "CompanyName";
+
+        /// <summary>
+        /// The customer service number on sales sheets and in emails
+        /// </summary>
+        public const string CustomerServicePhone = "CustomerServicePhone";
+
+        /// <summary>
+        /// Net sales that earn the dashboard's first star
+        /// </summary>
+        public const string StarsFirstAt = "StarsFirstAt";
+
+        /// <summary>
+        /// Net sales between each star after the first
+        /// </summary>
+        public const string StarsEvery = "StarsEvery";
+
+        /// <summary>
+        /// A counted item with this many or fewer left is flagged as running low
+        /// </summary>
+        public const string LowStockAt = "LowStockAt";
     }
 }

@@ -4,6 +4,7 @@ import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
+import { useSettings } from "../Context/SettingsContext";
 import { HomePathForRole } from "../Lib/RoleRoutes";
 import { Toast } from "../Lib/Toast";
 
@@ -15,6 +16,7 @@ const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"]
  */
 const LoginPage = () => {
     const { user, loading, login } = useAuth();
+    const { settings } = useSettings();
     const navigate = useNavigate();
 
     // Read straight out of storage as the initial value rather than syncing it in an effect,
@@ -82,7 +84,7 @@ const LoginPage = () => {
                         className="text-3xl text-sky-600 dark:text-sky-400"
                     />
                     <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
-                        CFS Pittsburgh
+                        {settings.appName}
                     </h1>
                     <p className="text-sm text-zinc-500 dark:text-zinc-400">Sign in to the cart</p>
                 </div>

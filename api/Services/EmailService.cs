@@ -14,7 +14,7 @@ namespace api.Services
     ///   Email:Username   the account to sign in as
     ///   Email:Password   its password or app password
     ///   Email:From       the address mail comes from
-    ///   Email:FromName   the name shown, e.g. "CFS Pittsburgh"
+    ///   Email:FromName   the name shown; when empty, the app name from Settings
     ///
     /// Until Host and From are set, email is simply switched off and the app says so.
     /// </summary>
@@ -64,13 +64,15 @@ namespace api.Services
         /// <param name="text">Plain-text body for clients that do not show HTML</param>
         /// <param name="attachments">Optional files: name, content type and bytes</param>
         /// <param name="replyTo">Optional reply-to address</param>
+        /// <param name="fromName">The sender's name when Email:FromName isn't set - the app name</param>
         public async Task SendAsync(
             IEnumerable<MailboxAddress> to,
             string subject,
             string html,
             string text,
             IEnumerable<(string Name, string ContentType, byte[] Content)>? attachments = null,
-            string? replyTo = null)
+            string? replyTo = null,
+            string? fromName = null)
         {
             if (!IsConfigured)
                 throw new InvalidOperationException("Email is not set up.");
@@ -80,7 +82,8 @@ namespace api.Services
             var username = config["Email:Username"];
 
             var message = new MimeMessage();
-            message.From.Add(new MailboxAddress(config["Email:FromName"] ?? "CFS Pittsburgh", from));
+            var senderName = new[] { config["Email:FromName"], fromName, "CFS Pittsburgh" }.First(n => !string.IsNullOrWhiteSpace(n));
+            message.From.Add(new MailboxAddress(senderName, from));
             message.To.AddRange(to);
             message.Subject = subject;
 
