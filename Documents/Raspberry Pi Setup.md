@@ -279,6 +279,52 @@ gunzip -c ~/cfs-backup-2026-09-22.sql.gz | docker compose -f /opt/cfs/docker-com
 
 ---
 
+## Optional - Email receipts and reports
+
+The app can email a customer their receipt (the **Email** button on a sales sheet) and email an
+event's full report (the **Email report** button on an event's sales sheets). It sends through an
+ordinary email account over SMTP. Until it's set up, those buttons just say email isn't set up.
+
+A Gmail account works well. Gmail won't accept your normal password here, so turn on 2-Step
+Verification for the account, then create an **app password** at
+https://myaccount.google.com/apppasswords and use that 16-letter code below.
+
+Add these lines to `/opt/cfs/.env` (with your own address and app password):
+
+```bash
+cat >> /opt/cfs/.env <<'END'
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_SECURITY=StartTls
+EMAIL_USERNAME=cfs.pittsburgh@gmail.com
+EMAIL_PASSWORD=abcdefghijklmnop
+EMAIL_FROM=cfs.pittsburgh@gmail.com
+EMAIL_FROM_NAME=CFS Pittsburgh
+END
+```
+
+Then restart so the app picks them up:
+
+```bash
+sudo systemctl restart cfs.service
+```
+
+Other providers use the same settings with their own server: Outlook.com is `smtp-mail.outlook.com`
+on port 587, and most web hosts give you a server name and port in their email setup page. For a
+server on port 465, set `EMAIL_SECURITY=SslOnConnect`.
+
+Email needs an internet connection at the time you press Send. At a venue with no internet,
+print instead, or email the report afterwards from home - the report and receipts can be sent any
+time after the event.
+
+If a send fails, the app shows the mail server's reason. To see more:
+
+```bash
+cd /opt/cfs && docker compose -f docker-compose.pi.yml logs --tail 50 app | grep -i email
+```
+
+---
+
 ## Before an event
 
 - Power the Pi on and confirm `http://cfs.local:8080` loads from one of the tablets.

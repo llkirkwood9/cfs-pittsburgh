@@ -41,7 +41,7 @@ The catalog and the printed receipt are both built from the supplied source docu
 - **Hand to customer** walks the customer through the three acknowledgements one at a time in
   plain language, taking initials for each, then a finger-drawn signature. The signature is
   stored with the order and printed on the sales sheet.
-- **Complete & print** closes the sale and opens the receipt.
+- **Complete sale** closes the sale and opens the receipt, ready to print or email.
 
 **Sales sheet** (`/receipt/:id`, all roles)
 - A reproduction of the CFS sales sheet: masthead and order number, the Sale Date / Organization /
@@ -54,6 +54,9 @@ The catalog and the printed receipt are both built from the supplied source docu
 - **Back** returns to wherever the sheet was opened from - the Orders list, the checkout table or
   the event export.
 - Print-only CSS hides the app chrome, so the paper copy is just the sheet.
+- **Email** (completed sales only) sends the customer an HTML copy of the receipt - items with their
+  notes, totals, payments and the warranty/drop-ship/advisory terms - to their billing email or any
+  address typed in. Needs the Email settings below.
 
 **Orders** (`/orders`, all roles)
 - Every order for the event being worked, filterable by status and searchable by customer, rep or
@@ -73,6 +76,8 @@ The catalog and the printed receipt are both built from the supplied source docu
   whole stack to a printer or, with Save as PDF as the printer, downloads it as a single PDF.
   **Download CSV** exports the same sales as a spreadsheet: one row per sale with customer,
   items, totals and each payment method.
+- **Email report** sends the totals, payments, units sold, every completed sale and the inventory
+  tally to up to 10 addresses with an optional note, with the sales and inventory attached as CSV.
 - Reached from **Sales sheets** on the Events page, or **Print all completed sheets** on Orders.
 
 **Dashboard** (`/dashboard`, all roles)
@@ -112,6 +117,22 @@ Set real secrets before a real event, in a `.env` file next to `docker-compose.y
 MSSQL_SA_PASSWORD=Use-A-Strong-Passw0rd
 JWT_KEY=a-long-random-string-of-at-least-32-characters
 ```
+
+To switch on emailed receipts and reports, add SMTP settings to the same `.env` (Gmail needs an
+app password):
+
+```
+EMAIL_HOST=smtp.gmail.com
+EMAIL_PORT=587
+EMAIL_SECURITY=StartTls
+EMAIL_USERNAME=you@gmail.com
+EMAIL_PASSWORD=your-app-password
+EMAIL_FROM=you@gmail.com
+EMAIL_FROM_NAME=CFS Pittsburgh
+```
+
+Locally, the same settings go in the `Email` section of `api/appsettings.local.json`. With no host
+set, email stays off and the dashboard says so when the buttons are pressed.
 
 The SA password must meet SQL Server's complexity rules and must not contain `;`. The container
 needs about 2 GB of memory for SQL Server and runs on x86-64 hosts. `api/docker-compose.yml` is a

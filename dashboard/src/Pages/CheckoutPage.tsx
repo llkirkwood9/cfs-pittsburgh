@@ -48,7 +48,7 @@ const POLL_MS = 8000;
 /**
  * The checkout table. The queue on the left fills itself as reps complete orders; the panel on
  * the right can still change the order, takes payment, collects the customer's initials and
- * signature, and prints the receipt.
+ * signature, then opens the receipt to print or email.
  */
 const CheckoutPage = () => {
     const { user } = useAuth();
@@ -181,7 +181,7 @@ const CheckoutPage = () => {
 
         Toast.Success(`Order #${result.orderNumber} completed.`);
         navigate(`/receipt/${result.id}`, {
-            state: { from: "/checkout", label: "Back to checkout", autoPrint: true },
+            state: { from: "/checkout", label: "Back to checkout" },
         });
     };
 
@@ -503,8 +503,8 @@ const CheckoutPage = () => {
                                                 className="!min-h-[52px] flex-col !gap-0.5 !px-1 !text-xs sm:flex-row sm:!gap-2 sm:!px-5 sm:!text-base bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
                                             />
                                             <Button
-                                                text="Complete &amp; print"
-                                                icon="fa-solid fa-print"
+                                                text="Complete sale"
+                                                icon="fa-solid fa-circle-check"
                                                 onClick={handleComplete}
                                                 loading={completing}
                                                 disabled={!acknowledged}

@@ -42,7 +42,7 @@ namespace api.Controllers
                 if (saleEvent == null)
                     return NotFound(new { error = "Event not found." });
 
-                var stats = await BuildStatsAsync(o => o.EventId == eventId);
+                var stats = await BuildStatsAsync(DB, o => o.EventId == eventId);
                 stats.EventId = saleEvent.Id;
                 stats.Organization = saleEvent.Organization;
                 stats.EventDate = saleEvent.EventDate;
@@ -70,7 +70,7 @@ namespace api.Controllers
                 var day = (date ?? DateTime.Today).Date;
                 var next = day.AddDays(1);
 
-                var stats = await BuildStatsAsync(o => o.SaleDate >= day && o.SaleDate < next);
+                var stats = await BuildStatsAsync(DB, o => o.SaleDate >= day && o.SaleDate < next);
                 stats.EventDate = day;
 
                 return Ok(stats);
@@ -89,12 +89,14 @@ namespace api.Controllers
         /// <summary>
         /// Computes the stat sheet over whichever orders match the supplied filter.
         /// </summary>
+        /// <param name="db">EF context</param>
         /// <param name="filter">Which orders to include</param>
         /// <returns>The computed stat sheet.</returns>
-        private async Task<DashboardStatsDto> BuildStatsAsync(
+        internal static async Task<DashboardStatsDto> BuildStatsAsync(
+            ApplicationDbContext db,
             System.Linq.Expressions.Expression<Func<Order, bool>> filter)
         {
-            var orders = await DB.Orders
+            var orders = await db.Orders
                 .Where(filter)
                 .Include(o => o.Lines)
                 .Include(o => o.Payments)

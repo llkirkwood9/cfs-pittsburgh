@@ -4,6 +4,7 @@
 #
 # Then open http://localhost:8080. Set real values for the two secrets below, either here or in a
 # .env file next to this one (MSSQL_SA_PASSWORD=..., JWT_KEY=...), before a real event.
+# EMAIL_HOST, EMAIL_FROM and friends switch on emailed receipts and reports (see below).
 services:
   cfs:
     build: .
@@ -14,6 +15,14 @@ services:
     environment:
       MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-Change_Me_2026!}"
       Jwt__Key: "${JWT_KEY:-CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_OF_AT_LEAST_32_CHARACTERS}"
+      # Optional: email receipts and event reports. Leave EMAIL_HOST empty to keep email off.
+      Email__Host: "${EMAIL_HOST:-}"
+      Email__Port: "${EMAIL_PORT:-587}"
+      Email__Security: "${EMAIL_SECURITY:-StartTls}"
+      Email__Username: "${EMAIL_USERNAME:-}"
+      Email__Password: "${EMAIL_PASSWORD:-}"
+      Email__From: "${EMAIL_FROM:-}"
+      Email__FromName: "${EMAIL_FROM_NAME:-CFS Pittsburgh}"
     volumes:
       - cfs-data:/var/opt/mssql
     restart: unless-stopped

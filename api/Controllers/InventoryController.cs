@@ -163,7 +163,7 @@ namespace api.Controllers
 
                 await DB.SaveChangesAsync();
 
-                return Ok(await LoadItemsAsync(request.EventId, null));
+                return Ok(await LoadItemsAsync(DB, request.EventId, null));
             }
             catch (Exception e)
             {
@@ -225,7 +225,7 @@ namespace api.Controllers
         {
             try
             {
-                return Ok(await LoadItemsAsync(eventId, null));
+                return Ok(await LoadItemsAsync(DB, eventId, null));
             }
             catch (Exception e)
             {
@@ -296,18 +296,19 @@ namespace api.Controllers
         /// <returns>The row, or null.</returns>
         private async Task<InventoryItemDto?> LoadItemAsync(int variantId)
         {
-            return (await LoadItemsAsync(null, variantId)).FirstOrDefault();
+            return (await LoadItemsAsync(DB, null, variantId)).FirstOrDefault();
         }
 
         /// <summary>
         /// Builds the inventory rows for every active tracked size, or for a single size.
         /// </summary>
+        /// <param name="db">EF context</param>
         /// <param name="eventId">Optional event for the sold-at-event totals</param>
         /// <param name="variantId">Optional single variant</param>
         /// <returns>Inventory rows in catalog order.</returns>
-        private async Task<List<InventoryItemDto>> LoadItemsAsync(int? eventId, int? variantId)
+        internal static async Task<List<InventoryItemDto>> LoadItemsAsync(ApplicationDbContext db, int? eventId, int? variantId)
         {
-            var query = DB.ProductVariants
+            var query = db.ProductVariants
                 .AsNoTracking()
                 .Include(v => v.Product)
                 .Where(v => v.Product!.TrackInventory);
@@ -319,7 +320,7 @@ namespace api.Controllers
             var variants = await query.ToListAsync();
             var ids = variants.Select(v => v.Id).ToList();
 
-            var lastChanged = await DB.InventoryAdjustments
+            var lastChanged = await db.InventoryAdjustments
                 .Where(a => ids.Contains(a.ProductVariantId))
                 .GroupBy(a => a.ProductVariantId)
                 .Select(g => new { VariantId = g.Key, At = g.Max(a => a.CreatedAt) })
@@ -327,7 +328,7 @@ namespace api.Controllers
 
             var sold = eventId == null
                 ? new Dictionary<int, int>()
-                : await DB.InventoryAdjustments
+                : await db.InventoryAdjustments
                     .Where(a => a.EventId == eventId
                                 && ids.Contains(a.ProductVariantId)
                                 && (a.Kind == InventoryChangeKind.Sale || a.Kind == InventoryChangeKind.Return))
@@ -338,7 +339,7 @@ namespace api.Controllers
             // The latest start and end shelf counts taken at the event, per size.
             var shelfCounts = eventId == null
                 ? []
-                : await DB.InventoryAdjustments
+                : await db.InventoryAdjustments
                     .AsNoTracking()
                     .Where(a => a.EventId == eventId
                                 && ids.Contains(a.ProductVariantId)

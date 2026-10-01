@@ -11,6 +11,8 @@
 #   POSTGRES_PASSWORD=<a long random password>
 #   JWT_KEY=<a long random secret, 32+ characters>
 #
+# To email receipts and reports, also add the EMAIL_* settings (see Documents/Raspberry Pi Setup.md).
+#
 # Then browse to http://<the Pi's IP>:8080 from any device on the network.
 services:
   db:
@@ -46,6 +48,14 @@ services:
       Database__Provider: Postgres
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=CfsFundraiser;Username=cfs;Password=${POSTGRES_PASSWORD:-Change_Me_2026}"
       Jwt__Key: "${JWT_KEY:-CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_OF_AT_LEAST_32_CHARACTERS}"
+      # Optional: email receipts and event reports. Leave EMAIL_HOST empty to keep email off.
+      Email__Host: "${EMAIL_HOST:-}"
+      Email__Port: "${EMAIL_PORT:-587}"
+      Email__Security: "${EMAIL_SECURITY:-StartTls}"
+      Email__Username: "${EMAIL_USERNAME:-}"
+      Email__Password: "${EMAIL_PASSWORD:-}"
+      Email__From: "${EMAIL_FROM:-}"
+      Email__FromName: "${EMAIL_FROM_NAME:-CFS Pittsburgh}"
     restart: unless-stopped
 
 volumes:

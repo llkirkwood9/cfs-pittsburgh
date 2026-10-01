@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import Button from "../Components/Elements/Button";
+import EmailDialog from "../Components/Elements/EmailDialog";
 import Icon from "../Components/Elements/Icon";
 import LoadingPage from "../Components/Elements/LoadingPage";
 import ReceiptSheet from "../Components/Checkout/ReceiptSheet";
@@ -16,6 +17,8 @@ import type { Event } from "../Models/Event";
 import type { InventoryItem } from "../Models/InventoryItem";
 import type { Order } from "../Models/Order";
 import { GetStatsForEvent } from "../Services/DashboardServices";
+import { EmailEventReport, GetEmailStatus } from "../Services/EmailServices";
+import type { EmailStatus } from "../Services/EmailServices";
 import { GetEvent } from "../Services/EventServices";
 import { GetInventory } from "../Services/InventoryServices";
 import { GetSalesSheetsForEvent } from "../Services/OrderServices";
@@ -24,7 +27,8 @@ import { GetSalesSheetsForEvent } from "../Services/OrderServices";
  * Every completed sales sheet for one event, stacked one per printed page, between the stat sheet
  * and the accessory inventory sheet. Print sends the whole
  * stack to the printer, or to a PDF via the browser's Save as PDF; Download CSV exports the same
- * sales as a spreadsheet. Admin only - this is the event's paperwork.
+ * sales as a spreadsheet; Email report sends the totals, every sale and the inventory tally, with
+ * the spreadsheets attached. Admin only - this is the event's paperwork.
  */
 const EventSheetsPage = () => {
     const { user } = useAuth();
@@ -37,18 +41,22 @@ const EventSheetsPage = () => {
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [inventory, setInventory] = useState<InventoryItem[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
+    const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
+    const [emailing, setEmailing] = useState<boolean>(false);
 
     useEffect(() => {
         const load = async () => {
             const id = Number(eventId);
             if (!id) return setLoading(false);
 
-            const [found, sheets, figures, stock] = await Promise.all([
+            const [found, sheets, figures, stock, status] = await Promise.all([
                 GetEvent(id),
                 GetSalesSheetsForEvent(id),
                 GetStatsForEvent(id),
                 GetInventory(id),
+                GetEmailStatus(),
             ]);
+            setEmailStatus(status);
             setSaleEvent(found);
             setOrders(sheets);
             setStats(figures);
@@ -88,6 +96,16 @@ const EventSheetsPage = () => {
         document.title = previous;
     };
 
+    const handleEmail = () => {
+        if (!emailStatus?.configured)
+            return Toast.Warning(
+                "Email isn't set up on this server yet. Ask whoever runs the app to add the email settings."
+            );
+        if (orders.length === 0 && inventory.length === 0)
+            return Toast.Warning("There are no completed sales to report yet.");
+        setEmailing(true);
+    };
+
     const total = orders.reduce((sum, o) => sum + (o.total ?? 0), 0);
 
     return (
@@ -106,6 +124,12 @@ const EventSheetsPage = () => {
                             icon="fa-solid fa-file-csv"
                             onClick={handleDownload}
                             className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
+                        />
+                        <Button
+                            text="Email report"
+                            icon="fa-solid fa-envelope"
+                            onClick={handleEmail}
+                            className="bg-zinc-600 hover:bg-zinc-700 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                         />
                         <Button
                             text="Print / Save PDF"
@@ -187,6 +211,22 @@ const EventSheetsPage = () => {
                         </div>
                     )}
                 </>
+            )}
+
+            {emailing && saleEvent?.id && (
+                <EmailDialog
+                    title="Email the event report"
+                    description={
+                        <>
+                            Sends the totals, payments, units sold, every completed sale and the
+                            inventory tally for {saleEvent.organization}, with the sales
+                            {inventory.length > 0 ? " and inventory" : ""} attached as spreadsheets.
+                        </>
+                    }
+                    withMessage
+                    onSend={(to, message) => EmailEventReport(saleEvent.id!, to, message)}
+                    onClose={() => setEmailing(false)}
+                />
             )}
         </div>
     );

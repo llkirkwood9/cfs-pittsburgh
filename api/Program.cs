@@ -51,6 +51,7 @@ else
 
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<TokenService>();
+builder.Services.AddSingleton<EmailService>();
 
 builder.Services.AddCors(options =>
 {
