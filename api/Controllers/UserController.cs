@@ -99,7 +99,16 @@ namespace api.Controllers
                     return StatusCode(403, new { error = "Only an administrator may manage crew accounts." });
 
                 var users = await DB.Users.OrderBy(u => u.Name).ToListAsync();
-                return Ok(users.Select(ToDto).ToList());
+
+                // Sign-in times are for the owner's eyes only.
+                var owner = IsOwner();
+                return Ok(users.Select(u =>
+                {
+                    var dto = ToDto(u);
+                    if (owner)
+                        dto.LastLoginAt = u.LastLoginAt;
+                    return dto;
+                }).ToList());
             }
             catch (Exception e)
             {

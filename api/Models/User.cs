@@ -65,6 +65,11 @@ namespace api.Models
         public DateTime? RefreshTokenExpiry { get; set; }
 
         /// <summary>
+        /// When the user last signed in with their PIN (UTC). Null until their first sign-in.
+        /// </summary>
+        public DateTime? LastLoginAt { get; set; }
+
+        /// <summary>
         /// When the account was created
         /// </summary>
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

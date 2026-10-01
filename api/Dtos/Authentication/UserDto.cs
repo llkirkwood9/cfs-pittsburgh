@@ -40,5 +40,10 @@ namespace api.Dtos.Authentication
         /// Numeric PIN, accepted on write only and never returned
         /// </summary>
         public string? Pin { get; set; }
+
+        /// <summary>
+        /// When the user last signed in (UTC). Read-only, and only sent to an owner.
+        /// </summary>
+        public DateTime? LastLoginAt { get; set; }
     }
 }

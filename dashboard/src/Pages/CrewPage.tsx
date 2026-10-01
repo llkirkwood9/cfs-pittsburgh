@@ -7,6 +7,7 @@ import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
+import { FormatDateTime, FormatElapsed } from "../Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
 import { UserRoleLabels } from "../Models/User";
 import type { User, UserRole } from "../Models/User";
@@ -162,6 +163,22 @@ const CrewPage = () => {
                                 {crew.role ? UserRoleLabels[crew.role] : ""}
                                 {crew.email ? ` · ${crew.email}` : ""}
                             </p>
+                            {/* Sign-in times are only sent to an owner. */}
+                            {isOwner && (
+                                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                                    <Icon icon="fa-solid fa-clock-rotate-left" />
+                                    {crew.lastLoginAt ? (
+                                        <span>
+                                            Last login {FormatDateTime(crew.lastLoginAt)}{" "}
+                                            <span className="text-zinc-400 dark:text-zinc-500">
+                                                ({FormatElapsed(crew.lastLoginAt)})
+                                            </span>
+                                        </span>
+                                    ) : (
+                                        <span>No sign-in recorded yet</span>
+                                    )}
+                                </p>
+                            )}
                         </div>
 
                         {/* An administrator can see an owner's account but not change it. */}

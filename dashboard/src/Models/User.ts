@@ -17,4 +17,6 @@ export type User = {
     role?: UserRole;
     isActive?: boolean;
     pin?: string;
+    /** When they last signed in (UTC). Only sent to an owner. */
+    lastLoginAt?: string | null;
 };

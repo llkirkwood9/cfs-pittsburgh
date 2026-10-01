@@ -53,6 +53,8 @@ namespace api.Controllers
 
                 user.RefreshToken = refreshToken;
                 user.RefreshTokenExpiry = TokenService.GetRefreshTokenExpiry();
+                // Only a PIN sign-in counts; quietly renewing a session does not.
+                user.LastLoginAt = DateTime.UtcNow;
                 await DB.SaveChangesAsync();
 
                 return Ok(new AuthResponseDto
