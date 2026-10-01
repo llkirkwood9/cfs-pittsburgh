@@ -21,6 +21,49 @@ const QUALITY = 0.78;
 const MAX_BYTES = 18 * 1024 * 1024;
 
 /**
+ * The rules of every linked stylesheet the page has already loaded, keyed by its address.
+ *
+ * html2canvas draws a copy of the page in a hidden frame, and that copy fetches linked stylesheets
+ * all over again. On a slow connection - a Raspberry Pi over Wi-Fi - it is drawn before they
+ * arrive, and the sheet comes out as plain text with no table borders. Handing the copy the rules
+ * the page already has means it never waits on the network.
+ * @returns Stylesheet address to its CSS. A sheet the browser won't let us read is left out, and
+ * the copy keeps fetching that one itself.
+ */
+const LoadedStylesheets = (): Map<string, string> => {
+    const sheets = new Map<string, string>();
+    for (const sheet of Array.from(document.styleSheets)) {
+        if (!(sheet.ownerNode instanceof HTMLLinkElement) || !sheet.href) continue;
+        try {
+            sheets.set(
+                sheet.href,
+                Array.from(sheet.cssRules)
+                    .map((rule) => rule.cssText)
+                    .join("\n")
+            );
+        } catch {
+            // Another site's stylesheet: its rules can't be read from here.
+        }
+    }
+    return sheets;
+};
+
+/**
+ * Swaps the copy's links to the stylesheets in `css` for the same rules written inline.
+ * @param doc The copied document.
+ * @param css From LoadedStylesheets.
+ */
+const InlineStylesheets = (doc: Document, css: Map<string, string>) => {
+    doc.querySelectorAll<HTMLLinkElement>('link[rel="stylesheet"]').forEach((link) => {
+        const rules = css.get(link.href);
+        if (rules === undefined) return;
+        const style = doc.createElement("style");
+        style.textContent = rules;
+        link.replaceWith(style);
+    });
+};
+
+/**
  * Turns the sheets on screen into a PDF, one sheet per Letter page, so an emailed copy looks
  * exactly like the printed one. Each sheet is laid out at paper width while it is captured, so a
  * PDF built on a phone matches one built on a laptop. A sheet taller than a page is scaled down
@@ -45,6 +88,7 @@ export const BuildSheetsPdf = async (
         orientation: "portrait",
         compress: true,
     });
+    const css = LoadedStylesheets();
     const boxW = PAGE_W - MARGIN * 2;
     const boxH = PAGE_H - MARGIN * 2;
 
@@ -57,7 +101,8 @@ export const BuildSheetsPdf = async (
             logging: false,
             // A desktop-sized window, so nothing in the copy switches to its phone layout.
             windowWidth: 1280,
-            onclone: (_doc, sheet) => {
+            onclone: (doc, sheet) => {
+                InlineStylesheets(doc, css);
                 sheet.style.width = SHEET_WIDTH;
                 sheet.style.maxWidth = SHEET_WIDTH;
                 sheet.style.margin = "0";
