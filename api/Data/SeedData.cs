@@ -133,7 +133,7 @@ namespace api.Data
                 CartName = seed.Event.CartName,
                 EventDate = DateTime.Today,
                 SalesTaxRate = seed.Event.SalesTaxRate ?? 0.07m,
-                CcProcessingFeeRate = seed.Event.CcProcessingFeeRate ?? 0m,
+                CcProcessingFeeRate = seed.Event.CcProcessingFeeRate ?? 0.02m,
                 NextOrderNumber = seed.Event.NextOrderNumber ?? 1001,
                 IsActive = true,
             });

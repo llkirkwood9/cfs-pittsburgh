@@ -100,13 +100,21 @@ The catalog and the printed receipt are both built from the supplied source docu
   delivery services each offers.
 - `/events` — sales tax rate, card processing fee, order number sequence, active event.
 - `/crew` — accounts and roles.
-- `/settings` — three cards, each saved on its own:
+- `/settings` — five cards, each saved on its own:
   - **Business details**: the company name and customer service number printed on every sales
     sheet and in emails, and the app name shown in the menu bar, sign-in screen, browser tab and as
     the email sender.
+  - **Sales sheet terms**: the four statements a customer initials (details correct, warranty,
+    drop ship, advisory) - a title for the customer's screen, a heading for the sheet and one
+    paragraph used in both places, with `**bold**` and `__underline__`. A completed order keeps a
+    copy of the wording it was signed with (`Orders.TermsJson`), so a reprint never shows terms the
+    customer didn't see; reopening clears the copy. Longer wording scales the printed sheet down so
+    it stays on one page.
   - **Receipt email**: the subject and wording, plain text with `{Placeholders}` (`{FirstName}`,
     `{OrderNumber}`, `{CompanyName}`, `{WhatHappensNext}` and so on), a blank line between
     paragraphs, `- ` for bullets, with a live preview for a sample order.
+  - **New events**: the sales tax and card processing fee a new event starts with (7% and 2%).
+    The API uses them for an event created without rates.
   - **Dashboard**: the net sales for the first star and between stars, and the running-low level
     used by Stock to watch and the Inventory screen.
 

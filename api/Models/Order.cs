@@ -307,6 +307,12 @@ namespace api.Models
         public string? AdvisoryInitials { get; set; }
 
         /// <summary>
+        /// The wording of the initialled statements as it was when the sale was completed, as
+        /// JSON, so a reprint years later still shows what the customer agreed to
+        /// </summary>
+        public string? TermsJson { get; set; }
+
+        /// <summary>
         /// Customer Name printed beside the signature line
         /// </summary>
         [MaxLength(150)]

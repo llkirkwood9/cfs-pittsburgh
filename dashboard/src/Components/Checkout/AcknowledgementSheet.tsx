@@ -4,7 +4,11 @@ import Icon from "../Elements/Icon";
 import SignaturePad from "../Elements/SignaturePad";
 import { useLockBodyScroll } from "../../Hooks/UseLockBodyScroll";
 import { AddressLines, SortLinesForPrint } from "../../Lib/ModelHelpers";
+import TermText from "../Elements/TermText";
+import { useSettings } from "../../Context/SettingsContext";
 import { Toast } from "../../Lib/Toast";
+import { TermFor } from "../../Models/GeneralSettings";
+import type { SalesTermKey } from "../../Models/GeneralSettings";
 import type { Order } from "../../Models/Order";
 
 type Props = {
@@ -13,52 +17,15 @@ type Props = {
     onClose: () => void;
 };
 
-type Acknowledgement = {
-    key: "customerInfoInitials" | "warrantyInitials" | "dropShipInitials" | "advisoryInitials";
-    heading: string;
-    detail: string;
-};
+type InitialsKey =
+    "customerInfoInitials" | "warrantyInitials" | "dropShipInitials" | "advisoryInitials";
 
-/**
- * The three paragraphs from the bottom of the sales sheet, reworded into plain language for the
- * customer. The legal wording is still printed verbatim on the receipt they sign for; this is the
- * explanation that goes with it.
- */
-const acknowledgements: Acknowledgement[] = [
-    {
-        key: "customerInfoInitials",
-        heading: "Check your details",
-        detail:
-            "Please make sure everything below is right - it's where your order is delivered and how we reach you. " +
-            "If anything is wrong, tap Cancel and let us know before you initial.",
-    },
-    {
-        key: "warrantyInitials",
-        heading: "Warranty & mattress protectors",
-        detail:
-            "All products come with a manufacturer warranty. Customer service and warranty issues are the responsibility of the manufacturer. " +
-            "All manufacturers require the use of mattress protectors. They reserve the right to refuse service or invalidate the warranty if there are any stains or soils present " +
-            "even if the product is defective. Customer has been notified that sleep sets must be clean, free of tears, burns, odors, pet hair and " +
-            "stains of any kind for the warranty to be valid. In addition, manufacturer warranties only cover the cost of the replacement item, " +
-            "not additional expenses such as delivery or set-up.",
-    },
-    {
-        key: "dropShipInitials",
-        heading: "How your bed arrives",
-        detail:
-            "ALL ITEMS WILL BE DROP SHIPPED DIRECTLY TO THE CUSTOMER UNLESS OTHERWISE NOTED. " +
-            "Items do not require a signature when delivered. The mattress will be compressed, vacuum sealed and boxed. " +
-            "The product may be heavy and may require additoinal persons to move it. Once open, the bed will completely recover " +
-            "within 24-48 hours, however, sleeping on it sooner will not damage the bed.",
-    },
-    {
-        key: "advisoryInitials",
-        heading: "All sales are final",
-        detail:
-            "Customer acknowledges and understands that this is a sanctioned fundraising event with a " +
-            "portion of the proceeds allocated directly to the above mentioned organization and therefore, " +
-            "ALL SALES AND TRANSACTIONS ARE FINAL.",
-    },
+/** Which of the order's initials each statement takes, in signing order. */
+const steps: { term: SalesTermKey; key: InitialsKey }[] = [
+    { term: "customerInfo", key: "customerInfoInitials" },
+    { term: "warranty", key: "warrantyInitials" },
+    { term: "dropShip", key: "dropShipInitials" },
+    { term: "advisory", key: "advisoryInitials" },
 ];
 
 /**
@@ -172,6 +139,8 @@ const DetailsSummary = ({ order }: { order: Order }) => {
  */
 const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
     useLockBodyScroll();
+    // The same wording the sales sheet prints beside each set of initials, set under Settings.
+    const { settings } = useSettings();
 
     const [step, setStep] = useState<number>(0);
     const [initials, setInitials] = useState<Record<string, string>>({
@@ -186,9 +155,10 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
     );
     const [saving, setSaving] = useState<boolean>(false);
 
-    const totalSteps = acknowledgements.length + 1;
-    const isSignatureStep = step === acknowledgements.length;
-    const current = acknowledgements[step];
+    const totalSteps = steps.length + 1;
+    const isSignatureStep = step === steps.length;
+    const current = steps[Math.min(step, steps.length - 1)];
+    const term = TermFor(settings.terms, current.term);
 
     const next = () => {
         if (!isSignatureStep && !initials[current.key].trim())
@@ -250,11 +220,17 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
                     {!isSignatureStep ? (
                         <>
                             <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
-                                {current.heading}
+                                {term.title}
                             </h2>
                             <p className="mt-4 text-base leading-relaxed text-zinc-700 dark:text-zinc-300">
-                                {current.detail}
+                                <TermText text={term.text} />
                             </p>
+                            {current.key === "customerInfoInitials" && (
+                                <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                                    If anything below is wrong, tap Cancel and let us know before
+                                    you initial.
+                                </p>
+                            )}
 
                             {current.key === "customerInfoInitials" && (
                                 <DetailsSummary order={order} />

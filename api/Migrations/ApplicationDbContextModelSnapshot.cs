@@ -382,6 +382,9 @@ namespace api.Migrations
                     b.Property<decimal>("TaxAmount")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<string>("TermsJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<decimal>("Total")
                         .HasColumnType("decimal(18,4)");
 

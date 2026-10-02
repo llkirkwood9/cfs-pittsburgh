@@ -263,6 +263,13 @@ namespace api.Dtos
         public string? AdvisoryInitials { get; set; }
 
         /// <summary>
+        /// The wording the customer initialled, kept when the sale was completed; null for an
+        /// order not yet completed (or completed before wording was kept), which shows the
+        /// wording in force now
+        /// </summary>
+        public List<SalesTermDto>? Terms { get; set; }
+
+        /// <summary>
         /// Customer Name printed beside the signature line
         /// </summary>
         public string? CustomerSignatureName { get; set; }

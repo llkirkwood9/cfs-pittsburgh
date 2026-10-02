@@ -7,6 +7,7 @@ import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
+import { useSettings } from "../Context/SettingsContext";
 import {
     FormatRate,
     FormatShortDate,
@@ -25,6 +26,7 @@ import { AddEvent, DeleteEvent, GetEvents, UpdateEvent } from "../Services/Event
  */
 const EventsPage = () => {
     const { user } = useAuth();
+    const { settings } = useSettings();
     const navigate = useNavigate();
 
     const [events, setEvents] = useState<Event[]>([]);
@@ -68,8 +70,9 @@ const EventsPage = () => {
         setIsActive(event.isActive ?? true);
     };
 
-    // A new event starts from the most recent one: same cart, tax and card fee, with order numbers
-    // carrying on from the highest used so far so no two sales sheets share a number.
+    // A new event starts with the tax rate and card fee set under Settings, the most recent event's
+    // cart, and order numbers carrying on from the highest used so far so no two sales sheets
+    // share a number.
     const newEventDefaults = (): Event => {
         const latest = [...events].sort((a, b) =>
             (b.eventDate ?? "").localeCompare(a.eventDate ?? "")
@@ -77,8 +80,8 @@ const EventsPage = () => {
         const nextNumber = Math.max(1001, ...events.map((e) => e.nextOrderNumber ?? 0));
         return {
             cartName: latest?.cartName,
-            salesTaxRate: latest?.salesTaxRate,
-            ccProcessingFeeRate: latest?.ccProcessingFeeRate,
+            salesTaxRate: settings.defaultSalesTaxRate,
+            ccProcessingFeeRate: settings.defaultCcProcessingFeeRate,
             nextOrderNumber: nextNumber,
             isActive: true,
         };

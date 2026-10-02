@@ -49,13 +49,15 @@ namespace api.Controllers
                 if (request.CcProcessingFeeRate is < 0 or > 1)
                     return BadRequest(new { error = "The card processing fee rate must be between 0 and 1." });
 
+                // Rates left out come from Settings' new-event defaults.
+                var settings = await SettingsStore.LoadAsync(DB);
                 var newEvent = new Event
                 {
                     Organization = request.Organization.Trim(),
                     EventDate = request.EventDate.Value.Date,
                     CartName = request.CartName,
-                    SalesTaxRate = request.SalesTaxRate ?? 0.07m,
-                    CcProcessingFeeRate = request.CcProcessingFeeRate ?? 0m,
+                    SalesTaxRate = request.SalesTaxRate ?? settings.DefaultSalesTaxRate,
+                    CcProcessingFeeRate = request.CcProcessingFeeRate ?? settings.DefaultCcProcessingFeeRate,
                     NextOrderNumber = request.NextOrderNumber ?? 1001,
                     IsActive = request.IsActive ?? true,
                 };

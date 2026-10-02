@@ -316,7 +316,7 @@ EMAIL_FROM=cfs.pittsburgh@gmail.com
 END
 ```
 
-Emails show the app name from the app's **Settings** screen as the sender (CFS Pittsburgh unless
+Emails show the app name from the app's **Settings** screen as the sender ("CFS" unless
 you change it there). To use a different sender name, add an `EMAIL_FROM_NAME=...` line too.
 
 Then restart so the app picks them up:

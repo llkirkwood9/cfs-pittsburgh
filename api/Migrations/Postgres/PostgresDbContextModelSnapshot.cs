@@ -382,6 +382,9 @@ namespace api.Migrations.Postgres
                     b.Property<decimal>("TaxAmount")
                         .HasColumnType("numeric(18,4)");
 
+                    b.Property<string>("TermsJson")
+                        .HasColumnType("text");
+
                     b.Property<decimal>("Total")
                         .HasColumnType("numeric(18,4)");
 

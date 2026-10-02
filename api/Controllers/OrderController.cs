@@ -376,6 +376,8 @@ namespace api.Controllers
                 OrderCalculator.RecalculateOrder(order);
                 order.Status = OrderStatus.Completed;
                 order.CompletedAt = DateTime.UtcNow;
+                // Keep the wording the customer just initialled with the sale.
+                order.TermsJson = SettingsStore.Store((await SettingsStore.LoadAsync(DB)).Terms);
                 order.CompletedByUserId = GetCurrentUserId();
                 order.ReceivedBy ??= GetCurrentUserName();
                 order.ReceivedDate ??= DateTime.UtcNow;
@@ -441,6 +443,8 @@ namespace api.Controllers
                     : null;
                 order.CompletedAt = null;
                 order.CompletedByUserId = null;
+                // Completing it again keeps the wording in force then.
+                order.TermsJson = null;
                 order.UpdatedAt = DateTime.UtcNow;
                 await DB.SaveChangesAsync();
 
@@ -1430,6 +1434,11 @@ namespace api.Controllers
                 WarrantyInitials = order.WarrantyInitials,
                 DropShipInitials = order.DropShipInitials,
                 AdvisoryInitials = order.AdvisoryInitials,
+                Terms = order.TermsJson == null
+                    ? null
+                    : SettingsStore.ReadTerms(order.TermsJson)
+                        .Select(t => new SalesTermDto { Key = t.Key, Title = t.Title, Heading = t.Heading, Text = t.Text })
+                        .ToList(),
                 CustomerSignatureName = order.CustomerSignatureName,
                 CustomerSignature = order.CustomerSignature,
                 SignedDate = order.SignedDate,

@@ -76,5 +76,20 @@ namespace api.Models
         /// A counted item with this many or fewer left is flagged as running low
         /// </summary>
         public const string LowStockAt = "LowStockAt";
+
+        /// <summary>
+        /// The sales tax rate a new event starts with
+        /// </summary>
+        public const string DefaultSalesTaxRate = "DefaultSalesTaxRate";
+
+        /// <summary>
+        /// The card processing fee a new event starts with
+        /// </summary>
+        public const string DefaultCcProcessingFeeRate = "DefaultCcProcessingFeeRate";
+
+        /// <summary>
+        /// The four statements a customer initials, as JSON
+        /// </summary>
+        public const string SalesSheetTerms = "SalesSheetTerms";
     }
 }

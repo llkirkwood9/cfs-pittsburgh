@@ -1,17 +1,22 @@
 import Icon from "../Components/Elements/Icon";
 import BusinessDetailsSettings from "../Components/Settings/BusinessDetailsSettings";
 import DashboardSettings from "../Components/Settings/DashboardSettings";
+import NewEventSettings from "../Components/Settings/NewEventSettings";
 import ReceiptEmailSettings from "../Components/Settings/ReceiptEmailSettings";
+import TermsSettings from "../Components/Settings/TermsSettings";
 
 const sections = [
     { id: "business", label: "Business details", icon: "fa-solid fa-building" },
+    { id: "terms", label: "Sales sheet terms", icon: "fa-solid fa-file-signature" },
     { id: "receipt-email", label: "Receipt email", icon: "fa-solid fa-envelope" },
+    { id: "events", label: "New events", icon: "fa-solid fa-calendar-plus" },
     { id: "dashboard", label: "Dashboard", icon: "fa-solid fa-chart-column" },
 ];
 
 /**
  * Settings an administrator changes for everyone: the business details printed on sheets and
- * emails, the receipt email's wording, and the dashboard's levels. Each card saves on its own.
+ * emails, the terms customers initial, the receipt email's wording, new events' rates and the
+ * dashboard's levels. Each card saves on its own.
  */
 const SettingsPage = () => {
     return (
@@ -42,7 +47,9 @@ const SettingsPage = () => {
 
             <div className="space-y-4">
                 <BusinessDetailsSettings />
+                <TermsSettings />
                 <ReceiptEmailSettings />
+                <NewEventSettings />
                 <DashboardSettings />
             </div>
         </div>

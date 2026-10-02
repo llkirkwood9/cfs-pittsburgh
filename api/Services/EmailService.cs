@@ -82,7 +82,7 @@ namespace api.Services
             var username = config["Email:Username"];
 
             var message = new MimeMessage();
-            var senderName = new[] { config["Email:FromName"], fromName, "CFS Pittsburgh" }.First(n => !string.IsNullOrWhiteSpace(n));
+            var senderName = new[] { config["Email:FromName"], fromName, "CFS" }.First(n => !string.IsNullOrWhiteSpace(n));
             message.From.Add(new MailboxAddress(senderName, from));
             message.To.AddRange(to);
             message.Subject = subject;

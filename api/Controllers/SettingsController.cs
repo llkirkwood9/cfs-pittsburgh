@@ -144,6 +144,8 @@ namespace api.Controllers
                 var firstAt = request.StarsFirstAt ?? current.StarsFirstAt;
                 var every = request.StarsEvery ?? current.StarsEvery;
                 var lowAt = request.LowStockAt ?? current.LowStockAt;
+                var taxRate = request.DefaultSalesTaxRate ?? current.DefaultSalesTaxRate;
+                var feeRate = request.DefaultCcProcessingFeeRate ?? current.DefaultCcProcessingFeeRate;
 
                 if (appName?.Length > SettingsStore.MaxAppNameLength)
                     return BadRequest(new { error = $"The app name can be at most {SettingsStore.MaxAppNameLength} characters, so it fits in the menu bar." });
@@ -155,6 +157,16 @@ namespace api.Controllers
                     return BadRequest(new { error = $"Star amounts must be more than $0 and at most {SettingsStore.MaxStarAmount:C0}." });
                 if (lowAt < 0 || lowAt > SettingsStore.MaxLowStockAt)
                     return BadRequest(new { error = $"The running-low level must be between 0 and {SettingsStore.MaxLowStockAt}." });
+                if (taxRate < 0 || taxRate > SettingsStore.MaxDefaultRate || feeRate < 0 || feeRate > SettingsStore.MaxDefaultRate)
+                    return BadRequest(new { error = $"Rates must be between 0% and {SettingsStore.MaxDefaultRate:P0}." });
+
+                List<SalesTerm>? terms = null;
+                if (request.Terms != null)
+                {
+                    (terms, var problem) = CheckTerms(request.Terms);
+                    if (problem != null)
+                        return BadRequest(new { error = problem });
+                }
 
                 var by = GetCurrentUserName();
                 var defaults = SettingsStore.Defaults;
@@ -170,6 +182,12 @@ namespace api.Controllers
                     await SettingsStore.SetAsync(DB, AppSettingKeys.StarsEvery, SettingsStore.Store(every), SettingsStore.Store(defaults.StarsEvery), by);
                 if (request.LowStockAt != null)
                     await SettingsStore.SetAsync(DB, AppSettingKeys.LowStockAt, SettingsStore.Store(lowAt), SettingsStore.Store(defaults.LowStockAt), by);
+                if (request.DefaultSalesTaxRate != null)
+                    await SettingsStore.SetAsync(DB, AppSettingKeys.DefaultSalesTaxRate, SettingsStore.Store(taxRate), SettingsStore.Store(defaults.DefaultSalesTaxRate), by);
+                if (request.DefaultCcProcessingFeeRate != null)
+                    await SettingsStore.SetAsync(DB, AppSettingKeys.DefaultCcProcessingFeeRate, SettingsStore.Store(feeRate), SettingsStore.Store(defaults.DefaultCcProcessingFeeRate), by);
+                if (terms != null)
+                    await SettingsStore.SetAsync(DB, AppSettingKeys.SalesSheetTerms, SettingsStore.Store(terms), SettingsStore.Store(defaults.Terms), by);
 
                 await DB.SaveChangesAsync();
                 Trace(TraceEventType.Information, $"General settings changed by {by}.");
@@ -243,6 +261,30 @@ namespace api.Controllers
 
         #region Private Methods
 
+        /// <summary>
+        /// Checks edited terms: each of the four must be there, with a paragraph, and short
+        /// enough to keep the sales sheet on one page. A blank title falls back to the default.
+        /// </summary>
+        private static (List<SalesTerm>? Terms, string? Problem) CheckTerms(List<SalesTermDto> edited)
+        {
+            var result = new List<SalesTerm>();
+            foreach (var d in SettingsStore.DefaultTerms)
+            {
+                var e = edited.FirstOrDefault(t => t.Key == d.Key);
+                var text = e?.Text?.Replace("\r\n", "\n").Trim() ?? "";
+                var title = e?.Title?.Trim();
+                var heading = e?.Heading?.Trim() ?? "";
+                if (text.Length == 0)
+                    return (null, $"\"{d.Title}\" needs its paragraph - customers initial it.");
+                if (text.Length > SettingsStore.MaxTermTextLength)
+                    return (null, $"\"{title ?? d.Title}\" can be at most {SettingsStore.MaxTermTextLength:N0} characters, so the sales sheet still fits on one page.");
+                if (title?.Length > SettingsStore.MaxTermHeadingLength || heading.Length > SettingsStore.MaxTermHeadingLength)
+                    return (null, $"Titles and headings can be at most {SettingsStore.MaxTermHeadingLength} characters.");
+                result.Add(new SalesTerm(d.Key, string.IsNullOrWhiteSpace(title) ? d.Title : title, heading, text));
+            }
+            return (result, null);
+        }
+
         private static string? Clip(string? value, int max) =>
             value != null && value.Length > max ? value[..max] : value;
 
@@ -256,6 +298,11 @@ namespace api.Controllers
                 StarsFirstAt = settings.StarsFirstAt,
                 StarsEvery = settings.StarsEvery,
                 LowStockAt = settings.LowStockAt,
+                DefaultSalesTaxRate = settings.DefaultSalesTaxRate,
+                DefaultCcProcessingFeeRate = settings.DefaultCcProcessingFeeRate,
+                Terms = settings.Terms
+                    .Select(t => new SalesTermDto { Key = t.Key, Title = t.Title, Heading = t.Heading, Text = t.Text })
+                    .ToList(),
                 Defaults = includeDefaults ? ToDto(SettingsStore.Defaults, includeDefaults: false) : null,
             };
         }

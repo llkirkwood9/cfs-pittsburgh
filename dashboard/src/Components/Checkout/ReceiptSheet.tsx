@@ -8,7 +8,10 @@ import {
     PrintsOnSalesSheet,
     SortLinesForPrint,
 } from "../../Lib/ModelHelpers";
+import TermText from "../Elements/TermText";
 import { useSettings } from "../../Context/SettingsContext";
+import { DefaultSalesTerms, TermFor } from "../../Models/GeneralSettings";
+import type { SalesTerm, SalesTermKey } from "../../Models/GeneralSettings";
 import type { Order, OrderStatus } from "../../Models/Order";
 import type { PaymentMethod } from "../../Models/OrderPayment";
 
@@ -27,6 +30,16 @@ const MIN_ROW_PX = 12;
 
 /** Roughly how tall a sheet prints with the standard grid, in CSS pixels. */
 const SHEET_PX = 940;
+
+/** Roughly how many characters of the 9px terms text fit on one printed line, and its height. */
+const TERMS_CHARS_PER_LINE = 190;
+const TERMS_LINE_PX = 11.25;
+
+/** How long the standard terms are, so only extra wording counts towards scaling the sheet. */
+const DEFAULT_TERMS_CHARS = DefaultSalesTerms.reduce(
+    (sum, t) => sum + t.heading.length + t.text.length,
+    0
+);
 
 const cell = "border border-black px-1 py-[3px] align-top";
 
@@ -53,6 +66,9 @@ const label = "text-[8px] font-bold uppercase leading-none";
  */
 const ReceiptSheet = ({ order }: Props) => {
     const { settings } = useSettings();
+    // A completed sale shows the wording the customer initialled; anything else, today's.
+    const terms: SalesTerm[] = order.terms?.length ? order.terms : settings.terms;
+    const term = (key: SalesTermKey) => TermFor(terms, key);
     const lines = SortLinesForPrint(order.lines ?? []).filter(PrintsOnSalesSheet);
     const notice = unfinished[order.status ?? "Draft"];
     const blanks = Math.max(0, MIN_ITEM_ROWS - lines.length - lines.filter((l) => l.notes).length);
@@ -65,7 +81,12 @@ const ReceiptSheet = ({ order }: Props) => {
     const gridBudget = MIN_ITEM_ROWS * ROW_PX;
     const rowPx = Math.max(MIN_ROW_PX, Math.min(ROW_PX, Math.floor(gridBudget / rows)));
     const compact = rowPx < ROW_PX;
-    const overflowPx = Math.max(0, rows * rowPx - gridBudget);
+    // Longer terms than the paper form's push the sheet down too.
+    const termsChars = terms.reduce((sum, t) => sum + t.heading.length + t.text.length, 0);
+    const termsPx =
+        Math.max(0, Math.ceil((termsChars - DEFAULT_TERMS_CHARS) / TERMS_CHARS_PER_LINE)) *
+        TERMS_LINE_PX;
+    const overflowPx = Math.max(0, rows * rowPx - gridBudget) + termsPx;
     const printZoom = overflowPx > 0 ? SHEET_PX / (SHEET_PX + overflowPx) : 1;
     const rowStyle = {
         height: rowPx,
@@ -270,8 +291,14 @@ const ReceiptSheet = ({ order }: Props) => {
                 </tbody>
             </table>
             <p className="mt-0.5 text-right font-serif text-[9px]">
-                Customer confirms the name, address, phone, email and delivery details above are
-                correct.{" "}
+                {term("customerInfo").heading && (
+                    <>
+                        <span className="font-bold underline">
+                            {term("customerInfo").heading}:
+                        </span>{" "}
+                    </>
+                )}
+                <TermText text={term("customerInfo").text} />{" "}
                 <span className="font-bold">
                     INITIAL{" "}
                     <span className="inline-block min-w-[3em] border-b border-black text-center font-normal">
@@ -452,59 +479,32 @@ const ReceiptSheet = ({ order }: Props) => {
                 </tbody>
             </table>
 
-            {/* Acknowledgements, verbatim from the paper sheet */}
+            {/* Acknowledgements: the wording set under Settings, or the copy kept with a completed sale */}
             <div className="mt-2 space-y-1 font-serif text-[9px] leading-[1.25]">
-                <p>
-                    <span className="font-bold underline">
-                        Customer Service &amp; Warranty Information:
-                    </span>{" "}
-                    All products come with a manufacturer warranty. Customer service and warranty
-                    issues are the responsibility of the manufacturer. All manufacturers require the
-                    use of mattress protectors. They reserve the right to refuse service or
-                    invalidate the warranty if there are any stains or soils present even if the
-                    product is defective. Customer has been notified that sleep sets must be clean,
-                    free of tears, burns, odors, pet hair and stains of any kind for the warranty to
-                    be valid. In addition, manufacturer warranties only cover the cost of the
-                    replacement item, not additional expenses such as delivery or set-up.{" "}
-                    <span className="font-bold">
-                        INITIAL{" "}
-                        <span className="inline-block min-w-[3em] border-b border-black text-center font-normal">
-                            {order.warrantyInitials}
+                {(
+                    [
+                        ["warranty", order.warrantyInitials],
+                        ["dropShip", order.dropShipInitials],
+                        ["advisory", order.advisoryInitials],
+                    ] as [SalesTermKey, string | null | undefined][]
+                ).map(([key, initials]) => (
+                    <p key={key}>
+                        {term(key).heading && (
+                            <>
+                                <span className="font-bold underline">
+                                    {term(key).heading}:
+                                </span>{" "}
+                            </>
+                        )}
+                        <TermText text={term(key).text} />{" "}
+                        <span className="font-bold">
+                            INITIAL{" "}
+                            <span className="inline-block min-w-[3em] border-b border-black text-center font-normal">
+                                {initials}
+                            </span>
                         </span>
-                    </span>
-                </p>
-                <p>
-                    <span className="font-bold underline">Drop Ship Delivery:</span>{" "}
-                    <span className="font-bold">
-                        ALL ITEMS WILL BE DROP SHIPPED DIRECTLY TO THE CUSTOMER UNLESS OTHERWISE
-                        NOTED.
-                    </span>{" "}
-                    Items do not require a signature when delivered. The mattress will be
-                    compressed, vacuum sealed and boxed. The product may be heavy and may require
-                    additional persons to move it. Once open, the bed will completely recover within
-                    24-48 hours, however, sleeping on it sooner will not damage the bed.{" "}
-                    <span className="font-bold">
-                        INITIAL{" "}
-                        <span className="inline-block min-w-[3em] border-b border-black text-center font-normal">
-                            {order.dropShipInitials}
-                        </span>
-                    </span>
-                </p>
-                <p>
-                    <span className="font-bold underline">Advisory:</span> Customer acknowledges and
-                    understands that this is a sanctioned fundraising event with a portion of the
-                    proceeds allocated directly to the above mentioned organization and therefore,{" "}
-                    <span className="font-bold underline">
-                        ALL SALES AND TRANSACTIONS ARE FINAL
-                    </span>
-                    .{" "}
-                    <span className="font-bold">
-                        INITIAL{" "}
-                        <span className="inline-block min-w-[3em] border-b border-black text-center font-normal">
-                            {order.advisoryInitials}
-                        </span>
-                    </span>
-                </p>
+                    </p>
+                ))}
             </div>
 
             {/* Signature row */}

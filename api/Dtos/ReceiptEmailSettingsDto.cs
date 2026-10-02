@@ -115,6 +115,32 @@ namespace api.Dtos
     }
 
     /// <summary>
+    /// One statement a customer initials, on the sales sheet and on their initialling screen.
+    /// </summary>
+    public class SalesTermDto
+    {
+        /// <summary>
+        /// customerInfo, warranty, dropShip or advisory - which initials it takes
+        /// </summary>
+        public string? Key { get; set; }
+
+        /// <summary>
+        /// The heading on the customer's initialling screen
+        /// </summary>
+        public string? Title { get; set; }
+
+        /// <summary>
+        /// The underlined heading on the sales sheet; may be empty
+        /// </summary>
+        public string? Heading { get; set; }
+
+        /// <summary>
+        /// The paragraph, the same in both places. **bold** and __underline__ allowed.
+        /// </summary>
+        public string? Text { get; set; }
+    }
+
+    /// <summary>
     /// The general settings: business details shown on sheets and emails, and dashboard levels.
     /// Every field is optional when saving; one left out keeps its current value.
     /// </summary>
@@ -149,6 +175,21 @@ namespace api.Dtos
         /// This many or fewer left is flagged as running low
         /// </summary>
         public int? LowStockAt { get; set; }
+
+        /// <summary>
+        /// The sales tax rate a new event starts with, e.g. 0.07
+        /// </summary>
+        public decimal? DefaultSalesTaxRate { get; set; }
+
+        /// <summary>
+        /// The card processing fee a new event starts with, e.g. 0.02
+        /// </summary>
+        public decimal? DefaultCcProcessingFeeRate { get; set; }
+
+        /// <summary>
+        /// The four statements a customer initials, in signing order
+        /// </summary>
+        public List<SalesTermDto>? Terms { get; set; }
 
         /// <summary>
         /// The values when nothing has been changed (returned, not saved)

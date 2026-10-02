@@ -1,3 +1,4 @@
+import type { SalesTerm } from "./GeneralSettings";
 import type { OrderLine } from "./OrderLine";
 import type { OrderPayment } from "./OrderPayment";
 
@@ -56,6 +57,8 @@ export type Order = {
     warrantyInitials?: string | null;
     dropShipInitials?: string | null;
     advisoryInitials?: string | null;
+    /** The wording the customer initialled, kept when the sale was completed. */
+    terms?: SalesTerm[] | null;
     customerSignatureName?: string | null;
     customerSignature?: string | null;
     signedDate?: string | null;
