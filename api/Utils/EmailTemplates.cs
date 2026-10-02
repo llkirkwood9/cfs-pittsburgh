@@ -73,7 +73,7 @@ namespace api.Utils
             ("SalesRep", "The sales rep's name"),
             ("CustomerServicePhone", "The customer service number, from the business details"),
             ("CompanyName", "The company's name, from the business details"),
-            ("WhatHappensNext", "A \"What happens next\" list written for this order: take-home items, shipping and the address, a boxed mattress, keeping a protector on, and any balance owed. Put it on a line of its own."),
+            ("WhatHappensNext", "A \"What happens next\" list written for this order: take-home items; drop-ship items (shipped to their address, with a tracking email); white glove items (we call to schedule once they reach our Cleveland location, about 3-4 weeks after the event); a boxed mattress; keeping a protector on; and any balance owed. Put it on a line of its own."),
         ];
 
         /// <summary>
@@ -200,20 +200,59 @@ namespace api.Utils
         private static List<string> WhatHappensNext(Order order)
         {
             var products = order.Lines.Where(l => l.LineType is OrderLineType.Product or OrderLineType.Custom).ToList();
+            var leaving = products.Where(l => !l.TakeWith).ToList();
             var takenHome = products.Any(l => l.TakeWith);
-            var shipping = products.Any(l => !l.TakeWith);
             var mattress = products.Any(l => l.Category == ProductCategory.Mattress);
-            var mattressShipped = products.Any(l => l.Category == ProductCategory.Mattress && !l.TakeWith);
             var deliverTo = DeliveryAddress(order);
+            var at = deliverTo == null ? "" : $" at {deliverTo}";
+
+            // How each item that isn't going home today reaches the customer. An item with no
+            // service row is drop shipped, as the sales sheet's terms say.
+            var byMethod = leaving.ToLookup(l => DeliveryFor(order, l));
+            var dropShip = byMethod[Delivery.DropShip].ToList();
+            var whiteGlove = byMethod[Delivery.WhiteGlove].ToList();
+            var other = byMethod[Delivery.Other].ToList();
+            var methods = new[] { dropShip, whiteGlove, other }.Count(g => g.Count > 0);
+            var mixed = takenHome || methods > 1;
 
             var next = new List<string>();
             if (takenHome)
-                next.Add(shipping
+                next.Add(leaving.Count > 0
                     ? "The items you took home today are all yours - enjoy!"
                     : "Everything you bought went home with you today - enjoy!");
-            if (shipping)
-                next.Add($"{(takenHome ? "The rest" : "Your order")} will be shipped straight to your door{(deliverTo == null ? "" : $" at {deliverTo}")}. Nobody needs to be home to sign for it.");
-            if (mattressShipped)
+
+            // "Your order" when everything goes one way; otherwise named by how it travels.
+            if (dropShip.Count > 0)
+            {
+                var plural = mixed && Units(dropShip) > 1;
+                var what = mixed ? (plural ? "Your drop-ship items" : "Your drop-ship item") : "Your order";
+                next.Add($"{what} will be shipped straight to your door{at}. You'll receive an email with tracking information " +
+                         $"once {(plural ? "they ship" : "it ships")} - we won't be calling to confirm. Nobody needs to be home to sign for " +
+                         $"{(plural ? "them" : "it")}.");
+            }
+
+            if (whiteGlove.Count > 0)
+            {
+                var plural = mixed && Units(whiteGlove) > 1;
+                var what = mixed ? (plural ? "Your white glove items" : "Your white glove item") : "Your order";
+                next.Add($"{what} will be delivered by our white glove team{at}. We'll contact you to schedule your delivery once " +
+                         $"{(plural ? "they arrive" : "it arrives")} at our Cleveland location, typically about 3-4 weeks after the event. " +
+                         "There's no confirmation call right after the event.");
+            }
+
+            if (other.Count > 0)
+            {
+                var names = string.Join(" and ", other
+                    .Select(l => DeliveryLines(order, l).Select(d => d.Description.Trim()).FirstOrDefault(d => d.Length > 0))
+                    .Where(n => n != null)
+                    .Distinct(StringComparer.OrdinalIgnoreCase));
+                next.Add(names.Length > 0
+                    ? $"We'll be in touch about your {names}."
+                    : "We'll be in touch about delivering the rest of your order.");
+            }
+
+            // Only a drop-shipped mattress comes compressed in a box.
+            if (dropShip.Any(l => l.Category == ProductCategory.Mattress))
                 next.Add("Your mattress arrives compressed and boxed. Once you open it, give it 24 to 48 hours to fully expand - it's fine to sleep on it sooner.");
             if (mattress)
                 next.Add("Keep a mattress protector on your bed. The manufacturers require one for the warranty to stay valid.");
@@ -221,6 +260,34 @@ namespace api.Utils
                 next.Add($"A balance of {Money(order.BalanceDue)} remains on this order, as shown on your receipt.");
             return next;
         }
+
+        private enum Delivery { DropShip, WhiteGlove, Other }
+
+        /// <summary>The service rows (Drop Ship, White Glove and so on) under an item.</summary>
+        private static IEnumerable<OrderLine> DeliveryLines(Order order, OrderLine item) =>
+            order.Lines.Where(l => l.LineType == OrderLineType.Delivery && l.ParentLineId == item.Id && !l.TakeWith);
+
+        /// <summary>
+        /// How an item reaches the customer, from its service rows. White glove wins over drop
+        /// ship, and an item with neither - no service row at all - is drop shipped. Add-ons
+        /// such as Haul Away don't change how the item itself arrives.
+        /// </summary>
+        private static Delivery DeliveryFor(Order order, OrderLine item)
+        {
+            var names = DeliveryLines(order, item)
+                .Select(d => new string(d.Description.ToLowerInvariant().Where(char.IsLetter).ToArray()))
+                .ToList();
+            if (names.Any(n => n.Contains("whiteglove")))
+                return Delivery.WhiteGlove;
+            if (names.Count == 0 || names.Any(n => n.Contains("dropship")))
+                return Delivery.DropShip;
+            if (names.All(n => n.Contains("haulaway")))
+                return Delivery.DropShip;
+            return Delivery.Other;
+        }
+
+        /// <summary>How many units a set of item rows adds up to.</summary>
+        private static int Units(IEnumerable<OrderLine> items) => items.Sum(l => Math.Max(1, l.Quantity));
 
         /// <summary>Splits a plain-text body into blocks at blank lines.</summary>
         private static IEnumerable<string[]> Blocks(string template) =>
