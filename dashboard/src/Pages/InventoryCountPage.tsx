@@ -6,7 +6,12 @@ import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
-import { CategoryNames, GroupInventory, InventorySizeLabel } from "../Lib/ModelHelpers";
+import {
+    CategoryNames,
+    GroupInventory,
+    InventoryRowKey,
+    InventorySizeLabel,
+} from "../Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
 import type { Event } from "../Models/Event";
 import type { InventoryItem } from "../Models/InventoryItem";
@@ -45,7 +50,7 @@ const InventoryCountPage = () => {
 
     const [saleEvent, setSaleEvent] = useState<Event | null>(null);
     const [items, setItems] = useState<InventoryItem[]>([]);
-    const [counts, setCounts] = useState<Record<number, string>>({});
+    const [counts, setCounts] = useState<Record<string, string>>({});
     const [note, setNote] = useState<string>("");
     const [loading, setLoading] = useState<boolean>(true);
     const [confirming, setConfirming] = useState<boolean>(false);
@@ -67,7 +72,7 @@ const InventoryCountPage = () => {
                     Object.fromEntries(
                         rows
                             .filter((r) => previous(r) !== null && previous(r) !== undefined)
-                            .map((r) => [r.productVariantId ?? 0, String(previous(r))])
+                            .map((r) => [InventoryRowKey(r), String(previous(r))])
                     )
                 );
             }
@@ -84,20 +89,20 @@ const InventoryCountPage = () => {
         return Number.isInteger(n) && n >= 0 ? n : null;
     };
 
-    const entered = items.filter((i) => parse(counts[i.productVariantId ?? 0]) !== null);
+    const entered = items.filter((i) => parse(counts[InventoryRowKey(i)]) !== null);
     const invalid = items.some((i) => {
-        const raw = counts[i.productVariantId ?? 0];
+        const raw = counts[InventoryRowKey(i)];
         return raw !== undefined && raw.trim() !== "" && parse(raw) === null;
     });
     const differences = entered.filter(
-        (i) => parse(counts[i.productVariantId ?? 0]) !== (i.quantityOnHand ?? 0)
+        (i) => parse(counts[InventoryRowKey(i)]) !== (i.quantityOnHand ?? 0)
     );
     const blanks = items.length - entered.length;
 
     const setCount = (item: InventoryItem, value: string) =>
         setCounts((current) => ({
             ...current,
-            [item.productVariantId ?? 0]: value.replace(/[^0-9]/g, ""),
+            [InventoryRowKey(item)]: value.replace(/[^0-9]/g, ""),
         }));
 
     // Fills every size not yet counted with what the app expects - for the common case where the
@@ -106,7 +111,7 @@ const InventoryCountPage = () => {
         setCounts((current) => {
             const next = { ...current };
             for (const item of items) {
-                const id = item.productVariantId ?? 0;
+                const id = InventoryRowKey(item);
                 if (parse(next[id]) === null) next[id] = String(item.quantityOnHand ?? 0);
             }
             return next;
@@ -122,7 +127,8 @@ const InventoryCountPage = () => {
             note: note.trim() || undefined,
             counts: entered.map((i) => ({
                 productVariantId: i.productVariantId ?? 0,
-                counted: parse(counts[i.productVariantId ?? 0]) ?? 0,
+                stockKey: i.stockKey,
+                counted: parse(counts[InventoryRowKey(i)]) ?? 0,
             })),
         });
         setSaving(false);
@@ -216,7 +222,7 @@ const InventoryCountPage = () => {
                                     </p>
                                     <ul className="divide-y divide-zinc-100 dark:divide-zinc-700">
                                         {product.sizes.map((item) => {
-                                            const id = item.productVariantId ?? 0;
+                                            const id = InventoryRowKey(item);
                                             const expected = item.quantityOnHand ?? 0;
                                             const counted = parse(counts[id]);
                                             const diff =

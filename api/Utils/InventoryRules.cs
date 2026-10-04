@@ -7,7 +7,9 @@ namespace api.Utils
     /// <summary>
     /// Stock rules for Take With sales. A tracked item can only go home with the customer when the
     /// cart has enough of it; otherwise it has to be shipped. Stock is drawn down when the sale is
-    /// completed and put back if a completed sale is reopened or voided.
+    /// completed and put back if a completed sale is reopened or voided. Stock is kept per size,
+    /// or per size and combination of choices for selections that count stock (such as sheet
+    /// colors), so each demand is keyed by both.
     /// </summary>
     public static class InventoryRules
     {
@@ -29,17 +31,17 @@ namespace api.Utils
         }
 
         /// <summary>
-        /// Units of each variant the order sends home as Take With.
+        /// Units the order sends home as Take With, by size and combination of choices.
         /// </summary>
         /// <param name="lines">Order lines</param>
-        /// <returns>Variant id to quantity.</returns>
-        public static Dictionary<int, int> TakeWithDemand(IEnumerable<OrderLine> lines)
+        /// <returns>(Variant id, stock key) to quantity.</returns>
+        public static Dictionary<(int VariantId, string StockKey), int> TakeWithDemand(IEnumerable<OrderLine> lines)
         {
             return lines
                 .Where(l => l.TakeWith
                             && l.ProductVariantId != null
                             && l.LineType is OrderLineType.Product or OrderLineType.Included)
-                .GroupBy(l => l.ProductVariantId!.Value)
+                .GroupBy(l => (l.ProductVariantId!.Value, l.StockKey ?? ""))
                 .ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity));
         }
 
@@ -53,31 +55,32 @@ namespace api.Utils
         public static async Task<string?> CheckStockAsync(
             ApplicationDbContext db,
             IEnumerable<OrderLine> lines,
-            IEnumerable<KeyValuePair<int, int>>? extra = null)
+            IEnumerable<KeyValuePair<(int VariantId, string StockKey), int>>? extra = null)
         {
             var demand = TakeWithDemand(lines);
-            foreach (var (variantId, quantity) in extra ?? [])
-                demand[variantId] = demand.GetValueOrDefault(variantId) + quantity;
+            foreach (var (key, quantity) in extra ?? [])
+                demand[key] = demand.GetValueOrDefault(key) + quantity;
 
             if (demand.Count == 0)
                 return null;
 
-            var ids = demand.Keys.ToList();
-            var tracked = await db.ProductVariants
-                .Include(v => v.Product)
-                .Where(v => ids.Contains(v.Id) && v.Product!.TrackInventory)
-                .ToListAsync();
+            var ids = demand.Keys.Select(k => k.VariantId).Distinct().ToList();
+            var tracked = await LoadTrackedAsync(db, ids);
 
-            foreach (var variant in tracked)
+            foreach (var ((variantId, key), wanted) in demand)
             {
-                var wanted = demand[variant.Id];
-                if (wanted <= variant.QuantityOnHand)
+                var variant = tracked.FirstOrDefault(v => v.Id == variantId);
+                if (variant == null)
                     continue;
 
-                var name = Describe(variant);
-                return variant.QuantityOnHand <= 0
+                var onHand = await Choices.OnHandAsync(db, variant, key);
+                if (wanted <= onHand)
+                    continue;
+
+                var name = Describe(variant, key);
+                return onHand <= 0
                     ? $"{name} is out of stock, so it cannot be a Take With. Choose a shipping method instead."
-                    : $"Only {variant.QuantityOnHand} of {name} in stock for Take With. Lower the quantity or choose a shipping method.";
+                    : $"Only {onHand} of {name} in stock for Take With. Lower the quantity or choose a shipping method.";
             }
 
             return null;
@@ -96,23 +99,24 @@ namespace api.Utils
             if (demand.Count == 0)
                 return;
 
-            var ids = demand.Keys.ToList();
-            var tracked = await db.ProductVariants
-                .Include(v => v.Product)
-                .Where(v => ids.Contains(v.Id) && v.Product!.TrackInventory)
-                .ToListAsync();
+            var ids = demand.Keys.Select(k => k.VariantId).Distinct().ToList();
+            var tracked = await LoadTrackedAsync(db, ids);
 
-            foreach (var variant in tracked)
+            foreach (var ((variantId, key), quantity) in demand)
             {
-                var quantity = demand[variant.Id];
-                variant.QuantityOnHand -= quantity;
+                var variant = tracked.FirstOrDefault(v => v.Id == variantId);
+                if (variant == null)
+                    continue;
+
+                var after = await Choices.ChangeAsync(db, variant, key, -quantity);
 
                 db.InventoryAdjustments.Add(new InventoryAdjustment
                 {
                     ProductVariantId = variant.Id,
+                    StockKey = key,
                     Kind = InventoryChangeKind.Sale,
                     Change = -quantity,
-                    QuantityAfter = variant.QuantityOnHand,
+                    QuantityAfter = after,
                     OrderId = order.Id,
                     EventId = order.EventId,
                     UserId = userId,
@@ -138,28 +142,33 @@ namespace api.Utils
             var outstanding = await db.InventoryAdjustments
                 .Where(a => a.OrderId == order.Id
                             && (a.Kind == InventoryChangeKind.Sale || a.Kind == InventoryChangeKind.Return))
-                .GroupBy(a => a.ProductVariantId)
-                .Select(g => new { VariantId = g.Key, Net = g.Sum(a => a.Change) })
+                .GroupBy(a => new { a.ProductVariantId, a.StockKey })
+                .Select(g => new { g.Key.ProductVariantId, g.Key.StockKey, Net = g.Sum(a => a.Change) })
                 .Where(x => x.Net < 0)
                 .ToListAsync();
 
             if (outstanding.Count == 0)
                 return;
 
-            var ids = outstanding.Select(x => x.VariantId).ToList();
+            var ids = outstanding.Select(x => x.ProductVariantId).Distinct().ToList();
             var variants = await db.ProductVariants.Where(v => ids.Contains(v.Id)).ToListAsync();
 
-            foreach (var variant in variants)
+            foreach (var x in outstanding)
             {
-                var quantity = -outstanding.First(x => x.VariantId == variant.Id).Net;
-                variant.QuantityOnHand += quantity;
+                var variant = variants.FirstOrDefault(v => v.Id == x.ProductVariantId);
+                if (variant == null)
+                    continue;
+
+                var quantity = -x.Net;
+                var after = await Choices.ChangeAsync(db, variant, x.StockKey, quantity);
 
                 db.InventoryAdjustments.Add(new InventoryAdjustment
                 {
                     ProductVariantId = variant.Id,
+                    StockKey = x.StockKey,
                     Kind = InventoryChangeKind.Return,
                     Change = quantity,
-                    QuantityAfter = variant.QuantityOnHand,
+                    QuantityAfter = after,
                     OrderId = order.Id,
                     EventId = order.EventId,
                     UserId = userId,
@@ -174,14 +183,29 @@ namespace api.Utils
         #region Private Methods
 
         /// <summary>
-        /// A short name for a variant in a message, e.g. "SoftCell Chill (2.0) - King".
+        /// The tracked sizes among some variant ids, with their product's selections loaded.
         /// </summary>
-        /// <param name="variant">Variant with its product loaded</param>
+        private static Task<List<ProductVariant>> LoadTrackedAsync(ApplicationDbContext db, List<int> ids) =>
+            db.ProductVariants
+                .Include(v => v.Product)
+                .ThenInclude(p => p!.Options)
+                .ThenInclude(o => o.Choices)
+                .Where(v => ids.Contains(v.Id) && v.Product!.TrackInventory)
+                .ToListAsync();
+
+        /// <summary>
+        /// A short name for a variant in a message, e.g. "Luxury Sheets - Queen (Gray)".
+        /// </summary>
+        /// <param name="variant">Variant with its product (and its selections) loaded</param>
+        /// <param name="key">The stock key</param>
         /// <returns>The name.</returns>
-        private static string Describe(ProductVariant variant)
+        private static string Describe(ProductVariant variant, string key)
         {
             var name = variant.Product?.Name ?? "This item";
-            return string.IsNullOrWhiteSpace(variant.Size) ? name : $"{name} - {variant.Size}";
+            if (!string.IsNullOrWhiteSpace(variant.Size))
+                name = $"{name} - {variant.Size}";
+            var label = variant.Product == null ? "" : Choices.LabelFor(variant.Product, key);
+            return label.Length == 0 ? name : $"{name} ({label})";
         }
 
         #endregion

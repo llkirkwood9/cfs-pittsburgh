@@ -9,6 +9,10 @@ export type InventoryItem = {
     size?: string;
     configuration?: string | null;
     quantityOnHand?: number;
+    /** Which combination of counted choices this row is; empty for stock kept per size. */
+    stockKey?: string;
+    /** The combination's choices, e.g. "Gray / Striped"; empty for stock kept per size. */
+    choices?: string;
     soldAtEvent?: number | null;
     openingCountAtEvent?: number | null;
     openingCountedAt?: string | null;

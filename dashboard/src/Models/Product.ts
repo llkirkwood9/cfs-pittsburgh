@@ -1,4 +1,5 @@
 import type { ProductDeliveryOption } from "./ProductDeliveryOption";
+import type { ProductOption } from "./ProductOption";
 import type { ProductVariant } from "./ProductVariant";
 
 export type ProductCategory =
@@ -20,6 +21,12 @@ export type Product = {
     sortOrder?: number;
     isActive?: boolean;
     trackInventory?: boolean;
+    /** A sale on every size, as a percent off; a size can have its own instead. */
+    saleDiscountPercent?: number | null;
+    /** A sale on every size, as a fixed amount off each item. */
+    saleDiscountAmount?: number | null;
+    /** Choices the rep makes beyond size, such as Color. */
+    options?: ProductOption[];
     variants?: ProductVariant[];
     deliveryOptions?: ProductDeliveryOption[];
 };

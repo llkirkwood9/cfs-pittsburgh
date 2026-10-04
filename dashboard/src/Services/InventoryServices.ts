@@ -86,14 +86,19 @@ export const GetInventory = async (eventId?: number): Promise<InventoryItem[]> =
 };
 
 /**
- * Recent changes to one size's count, newest first.
+ * Recent changes to one size's count (or one combination of its choices), newest first.
  * @param variantId The variant id.
+ * @param stockKey Which combination of counted choices; empty for stock kept per size.
  * @returns Adjustment rows, or an empty list on failure.
  */
-export const GetInventoryHistory = async (variantId: number): Promise<InventoryAdjustment[]> => {
+export const GetInventoryHistory = async (
+    variantId: number,
+    stockKey?: string
+): Promise<InventoryAdjustment[]> => {
     try {
         const response = await api.get<InventoryAdjustment[]>(
-            `/api/Inventory/variant/${variantId}/history`
+            `/api/Inventory/variant/${variantId}/history`,
+            { params: stockKey ? { stockKey } : undefined }
         );
         return response.data;
     } catch (error) {

@@ -1,11 +1,16 @@
 import { useState } from "react";
 import BundlePickerModal from "./BundlePickerModal";
 import type { BundlePick } from "./BundlePickerModal";
+import OptionsEditor, { FromDraftOptions, OptionsProblem, ToDraftOptions } from "./OptionsEditor";
+import type { DraftOption } from "./OptionsEditor";
+import SaleEditor, { FromSaleDraft, SaleProblem, ToSaleDraft } from "./SaleEditor";
+import type { SaleDraft } from "./SaleEditor";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
 import TextField from "../Elements/TextField";
 import { ParseMoney } from "../../Lib/ModelHelpers";
+import { DiscountText } from "../../Lib/Pricing";
 import { Toast } from "../../Lib/Toast";
 import type { DeliveryOption } from "../../Models/DeliveryOption";
 import type { Product, ProductCategory } from "../../Models/Product";
@@ -21,7 +26,7 @@ type Props = {
     onClose: () => void;
 };
 
-type DraftVariant = ProductVariant & { priceText: string };
+type DraftVariant = ProductVariant & { priceText: string; sale: SaleDraft };
 
 /**
  * Full product editor: name, brand, category, every priced size/configuration row, and which
@@ -43,13 +48,25 @@ const EditProductForm = ({
     const [isActive, setIsActive] = useState<boolean>(product.isActive ?? true);
     const [trackInventory, setTrackInventory] = useState<boolean>(product.trackInventory ?? false);
     const [saving, setSaving] = useState<boolean>(false);
+    const [sale, setSale] = useState<SaleDraft>(
+        ToSaleDraft(product.saleDiscountPercent, product.saleDiscountAmount)
+    );
+    const [options, setOptions] = useState<DraftOption[]>(ToDraftOptions(product.options));
 
     const [variants, setVariants] = useState<DraftVariant[]>(
         (product.variants ?? []).map((v) => ({
             ...v,
             priceText: v.price === null || v.price === undefined ? "" : String(v.price),
+            sale: ToSaleDraft(v.saleDiscountPercent, v.saleDiscountAmount, !v.hasOwnSale),
         }))
     );
+
+    // What a size following the item's sale gets, for its label.
+    const itemSale = FromSaleDraft(sale);
+    const itemSaleLabel =
+        SaleProblem(sale) === null && sale.mode !== "none"
+            ? `${DiscountText({ percent: itemSale.percent || null, amount: itemSale.amount || null })} off`
+            : "no sale";
 
     const [delivery, setDelivery] = useState<ProductDeliveryOption[]>(
         product.deliveryOptions ?? []
@@ -66,6 +83,7 @@ const EditProductForm = ({
                 size: "",
                 configuration: "",
                 priceText: "",
+                sale: { mode: "follow", text: "" },
                 components: [],
                 isActive: true,
                 sortOrder: rows.length + 1,
@@ -179,6 +197,14 @@ const EditProductForm = ({
         if (variants.some((v) => !(v.size ?? "").trim()))
             return Toast.Warning("Every size row needs a size.");
 
+        const saleProblem = SaleProblem(sale);
+        if (saleProblem) return Toast.Warning(saleProblem);
+        const sizeSale = variants.find((v) => SaleProblem(v.sale));
+        if (sizeSale) return Toast.Warning(`${sizeSale.size}: ${SaleProblem(sizeSale.sale)}`);
+
+        const optionsProblem = OptionsProblem(options);
+        if (optionsProblem) return Toast.Warning(optionsProblem);
+
         setSaving(true);
         await onSave({
             id: product.id,
@@ -189,6 +215,9 @@ const EditProductForm = ({
             isActive,
             trackInventory,
             sortOrder: product.sortOrder ?? 0,
+            saleDiscountPercent: itemSale.percent,
+            saleDiscountAmount: itemSale.amount,
+            options: FromDraftOptions(options),
             variants: variants.map((v, index) => ({
                 id: v.id,
                 size: (v.size ?? "").trim(),
@@ -202,6 +231,9 @@ const EditProductForm = ({
                 })),
                 isActive: v.isActive ?? true,
                 sortOrder: index + 1,
+                hasOwnSale: v.sale.mode !== "follow",
+                saleDiscountPercent: FromSaleDraft(v.sale).percent,
+                saleDiscountAmount: FromSaleDraft(v.sale).amount,
             })),
             deliveryOptions: delivery,
         });
@@ -287,8 +319,16 @@ const EditProductForm = ({
                         onChange={setNotes}
                         className="sm:col-span-2"
                         maxLength={500}
-                        placeholder="e.g. 25% off sale"
+                        placeholder="e.g. Floor model clearance"
                     />
+
+                    <div className="sm:col-span-2">
+                        <SaleEditor label="Sale on every size" draft={sale} onChange={setSale} />
+                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                            Taken off when the item goes on an order; a size can set its own sale
+                            below. Items already on orders keep the price they were added at.
+                        </p>
+                    </div>
                 </div>
 
                 <section>
@@ -353,6 +393,16 @@ const EditProductForm = ({
                                     <Icon icon="fa-solid fa-trash" />
                                 </button>
 
+                                <div className="col-span-full">
+                                    <SaleEditor
+                                        label="Sale for this size"
+                                        draft={variant.sale}
+                                        onChange={(next) => setVariant(index, { sale: next })}
+                                        allowFollow
+                                        followLabel={itemSaleLabel}
+                                    />
+                                </div>
+
                                 <div className="col-span-full flex flex-wrap items-center gap-2">
                                     <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                                         Bundle
@@ -389,6 +439,12 @@ const EditProductForm = ({
                         ))}
                     </ul>
                 </section>
+
+                <OptionsEditor
+                    options={options}
+                    onChange={setOptions}
+                    trackInventory={trackInventory}
+                />
 
                 {bundlingIndex !== null && (
                     <BundlePickerModal

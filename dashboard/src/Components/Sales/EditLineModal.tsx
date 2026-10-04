@@ -3,7 +3,8 @@ import Button from "../Elements/Button";
 import Modal from "../Elements/Modal";
 import TextArea from "../Elements/TextArea";
 import TextField from "../Elements/TextField";
-import { ParseMoney, TakeWithBlocked } from "../../Lib/ModelHelpers";
+import { FormatCurrency, ParseMoney, TakeWithBlocked } from "../../Lib/ModelHelpers";
+import { ChoicesText, CleanDiscount, DiscountText, HasDiscount } from "../../Lib/Pricing";
 import { Toast } from "../../Lib/Toast";
 import type { OrderLine } from "../../Models/OrderLine";
 
@@ -24,9 +25,20 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
     const [quantity, setQuantity] = useState<number>(line.quantity ?? 1);
     const [takeWith, setTakeWith] = useState<boolean>(line.takeWith ?? false);
     const [unitPrice, setUnitPrice] = useState<string>(String(line.unitPrice ?? 0));
-    const [discount, setDiscount] = useState<string>(
-        line.discountPercent ? String(line.discountPercent) : ""
+    // The rep's own discount: a percent, or a fixed amount off each item.
+    const [discountMode, setDiscountMode] = useState<"percent" | "amount">(
+        (line.discountAmount ?? 0) > 0 && !(line.discountPercent ?? 0) ? "amount" : "percent"
     );
+    const [discount, setDiscount] = useState<string>(
+        line.discountPercent
+            ? String(line.discountPercent)
+            : line.discountAmount
+              ? String(line.discountAmount)
+              : ""
+    );
+    // The catalog sale it was added with; the rep's discount comes off on top.
+    const sale = CleanDiscount(line.saleDiscountPercent, line.saleDiscountAmount);
+    const choices = ChoicesText(line.choices);
     const [isTaxable, setIsTaxable] = useState<boolean>(line.isTaxable ?? true);
     const [notes, setNotes] = useState<string>(line.notes ?? "");
     const [saving, setSaving] = useState<boolean>(false);
@@ -40,8 +52,10 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
         const price = ParseMoney(unitPrice);
         if (price === null || price < 0) return Toast.Warning("Enter a valid unit price.");
 
-        const discountPercent = ParseMoney(discount);
-        if (discountPercent !== null && (discountPercent < 0 || discountPercent > 100))
+        const discountValue = ParseMoney(discount);
+        if (discount.trim() !== "" && (discountValue === null || discountValue < 0))
+            return Toast.Warning("Enter the discount as a number.");
+        if (discountMode === "percent" && (discountValue ?? 0) > 100)
             return Toast.Warning("The discount must be between 0 and 100 percent.");
 
         if (takeWith && stockBlock)
@@ -58,7 +72,10 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
             quantity,
             takeWith,
             unitPrice: price,
-            discountPercent: discountPercent ?? 0,
+            // Sending one style clears the other on the server.
+            ...(discountMode === "percent"
+                ? { discountPercent: discountValue ?? 0 }
+                : { discountAmount: discountValue ?? 0 }),
             isTaxable,
             notes: line.lineType === "Delivery" ? undefined : notes.trim(),
         });
@@ -102,13 +119,62 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
                     onChange={setUnitPrice}
                     inputMode="decimal"
                 />
-                <TextField
-                    label="Discount %"
-                    value={discount}
-                    onChange={setDiscount}
-                    inputMode="decimal"
-                    placeholder="0"
-                />
+                <div className="flex flex-col gap-1">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                        {HasDiscount(sale) ? "Extra discount" : "Discount"}
+                    </span>
+                    <div className="flex gap-2">
+                        <div
+                            role="radiogroup"
+                            aria-label="Discount type"
+                            className="inline-flex shrink-0 overflow-hidden rounded-xl border border-zinc-300 dark:border-zinc-600"
+                        >
+                            {(["percent", "amount"] as const).map((mode) => (
+                                <button
+                                    key={mode}
+                                    type="button"
+                                    role="radio"
+                                    aria-checked={discountMode === mode}
+                                    onClick={() => setDiscountMode(mode)}
+                                    className={`min-h-[48px] w-11 text-base font-bold ${
+                                        discountMode === mode
+                                            ? "bg-sky-700 text-white dark:bg-sky-600"
+                                            : "bg-white text-zinc-700 dark:bg-zinc-800 dark:text-zinc-200"
+                                    }`}
+                                >
+                                    {mode === "percent" ? "%" : "$"}
+                                </button>
+                            ))}
+                        </div>
+                        <input
+                            value={discount}
+                            onChange={(e) => setDiscount(e.target.value)}
+                            inputMode="decimal"
+                            placeholder="0"
+                            aria-label={
+                                discountMode === "percent"
+                                    ? "Discount percent"
+                                    : "Discount amount off each"
+                            }
+                            className="min-h-[48px] w-full min-w-0 rounded-xl border border-zinc-300 bg-white px-3 text-base
+                                text-zinc-900 outline-none focus:border-sky-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                        />
+                    </div>
+                </div>
+
+                {(HasDiscount(sale) || choices) && (
+                    <p className="rounded-lg bg-zinc-100 px-3 py-2 text-sm sm:col-span-2 dark:bg-zinc-700">
+                        {choices && <span className="block">{choices}</span>}
+                        {HasDiscount(sale) && (
+                            <span className="block">
+                                On sale at {DiscountText(sale)} off when it was added
+                                {(line.unitPrice ?? 0) > 0 &&
+                                    ` (from ${FormatCurrency(line.unitPrice)})`}
+                                . Any extra discount comes off the sale price.
+                            </span>
+                        )}
+                    </p>
+                )}
 
                 <label className="flex flex-col gap-1">
                     <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">

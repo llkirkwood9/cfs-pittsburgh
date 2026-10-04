@@ -1,6 +1,7 @@
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import { FormatCurrency, PrintsOnSalesSheet, SortLinesForPrint } from "../../Lib/ModelHelpers";
+import { ChoicesText, CleanDiscount, DiscountText, HasDiscount } from "../../Lib/Pricing";
 import type { OrderLine } from "../../Models/OrderLine";
 
 type Props = {
@@ -74,6 +75,11 @@ const OrderLineList = ({
                                 <p className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-zinc-500 dark:text-zinc-400">
                                     {line.brand && <span>{line.brand}</span>}
                                     {line.size && <span>{line.size}</span>}
+                                    {ChoicesText(line.choices) && (
+                                        <span className="font-medium text-zinc-700 dark:text-zinc-300">
+                                            {ChoicesText(line.choices)}
+                                        </span>
+                                    )}
                                     {!isService && <span>Qty {line.quantity}</span>}
                                     {isIncluded ? (
                                         <span className="rounded bg-violet-100 px-1.5 py-0.5 font-semibold text-violet-800 dark:bg-violet-900/50 dark:text-violet-300">
@@ -82,9 +88,37 @@ const OrderLineList = ({
                                     ) : (
                                         <span>{FormatCurrency(line.unitPrice)} ea</span>
                                     )}
-                                    {(line.discountPercent ?? 0) > 0 && (
+                                    {HasDiscount(
+                                        CleanDiscount(
+                                            line.saleDiscountPercent,
+                                            line.saleDiscountAmount
+                                        )
+                                    ) && (
+                                        <span className="rounded bg-rose-100 px-1.5 py-0.5 font-semibold text-rose-800 dark:bg-rose-900/50 dark:text-rose-300">
+                                            Sale -
+                                            {DiscountText(
+                                                CleanDiscount(
+                                                    line.saleDiscountPercent,
+                                                    line.saleDiscountAmount
+                                                )
+                                            )}
+                                        </span>
+                                    )}
+                                    {HasDiscount(
+                                        CleanDiscount(line.discountPercent, line.discountAmount)
+                                    ) && (
                                         <span className="rounded bg-green-100 px-1.5 py-0.5 font-semibold text-green-800 dark:bg-green-900/50 dark:text-green-300">
-                                            -{line.discountPercent}%
+                                            -
+                                            {DiscountText(
+                                                CleanDiscount(
+                                                    line.discountPercent,
+                                                    line.discountAmount
+                                                )
+                                            )}
+                                            {(line.discountAmount ?? 0) > 0 &&
+                                            !(line.discountPercent ?? 0)
+                                                ? " ea"
+                                                : ""}
                                         </span>
                                     )}
                                     {!PrintsOnSalesSheet(line) && (

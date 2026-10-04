@@ -37,6 +37,11 @@ namespace api.Dtos
         public int? ProductVariantId { get; set; }
 
         /// <summary>
+        /// Which combination of counted choices; empty or null for stock kept per size
+        /// </summary>
+        public string? StockKey { get; set; }
+
+        /// <summary>
         /// Units found on the shelf
         /// </summary>
         public int? Counted { get; set; }

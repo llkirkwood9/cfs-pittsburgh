@@ -44,6 +44,33 @@ namespace api.Migrations.Postgres
                     b.ToTable("AppSettings");
                 });
 
+            modelBuilder.Entity("api.Models.ChoiceStock", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ProductVariantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("QuantityOnHand")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("StockKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductVariantId", "StockKey")
+                        .IsUnique();
+
+                    b.ToTable("ChoiceStocks");
+                });
+
             modelBuilder.Entity("api.Models.DeliveryOption", b =>
                 {
                     b.Property<int>("Id")
@@ -158,6 +185,11 @@ namespace api.Migrations.Postgres
 
                     b.Property<int>("QuantityAfter")
                         .HasColumnType("integer");
+
+                    b.Property<string>("StockKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<int?>("UserId")
                         .HasColumnType("integer");
@@ -424,6 +456,9 @@ namespace api.Migrations.Postgres
                     b.Property<int>("Category")
                         .HasColumnType("integer");
 
+                    b.Property<string>("ChoicesJson")
+                        .HasColumnType("text");
+
                     b.Property<int?>("DeliveryOptionId")
                         .HasColumnType("integer");
 
@@ -466,6 +501,12 @@ namespace api.Migrations.Postgres
                     b.Property<int>("Quantity")
                         .HasColumnType("integer");
 
+                    b.Property<decimal?>("SaleDiscountAmount")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal?>("SaleDiscountPercent")
+                        .HasColumnType("numeric(18,4)");
+
                     b.Property<decimal>("SalePrice")
                         .HasColumnType("numeric(18,4)");
 
@@ -478,6 +519,11 @@ namespace api.Migrations.Postgres
 
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
+
+                    b.Property<string>("StockKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
 
                     b.Property<bool>("TakeWith")
                         .HasColumnType("boolean");
@@ -562,6 +608,12 @@ namespace api.Migrations.Postgres
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
+                    b.Property<decimal?>("SaleDiscountAmount")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal?>("SaleDiscountPercent")
+                        .HasColumnType("numeric(18,4)");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
 
@@ -605,6 +657,70 @@ namespace api.Migrations.Postgres
                     b.ToTable("ProductDeliveryOptions");
                 });
 
+            modelBuilder.Entity("api.Models.ProductOption", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<bool>("TracksStock")
+                        .HasColumnType("boolean");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId", "SortOrder");
+
+                    b.ToTable("ProductOptions");
+                });
+
+            modelBuilder.Entity("api.Models.ProductOptionChoice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<decimal?>("PriceAdjustment")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<int>("ProductOptionId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductOptionId");
+
+                    b.ToTable("ProductOptionChoices");
+                });
+
             modelBuilder.Entity("api.Models.ProductVariant", b =>
                 {
                     b.Property<int>("Id")
@@ -617,6 +733,9 @@ namespace api.Migrations.Postgres
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
+                    b.Property<bool>("HasOwnSale")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -628,6 +747,12 @@ namespace api.Migrations.Postgres
 
                     b.Property<int>("QuantityOnHand")
                         .HasColumnType("integer");
+
+                    b.Property<decimal?>("SaleDiscountAmount")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal?>("SaleDiscountPercent")
+                        .HasColumnType("numeric(18,4)");
 
                     b.Property<string>("Size")
                         .IsRequired()
@@ -728,6 +853,17 @@ namespace api.Migrations.Postgres
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("api.Models.ChoiceStock", b =>
+                {
+                    b.HasOne("api.Models.ProductVariant", "ProductVariant")
+                        .WithMany("ChoiceStocks")
+                        .HasForeignKey("ProductVariantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProductVariant");
                 });
 
             modelBuilder.Entity("api.Models.InventoryAdjustment", b =>
@@ -835,6 +971,28 @@ namespace api.Migrations.Postgres
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("api.Models.ProductOption", b =>
+                {
+                    b.HasOne("api.Models.Product", "Product")
+                        .WithMany("Options")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("api.Models.ProductOptionChoice", b =>
+                {
+                    b.HasOne("api.Models.ProductOption", "ProductOption")
+                        .WithMany("Choices")
+                        .HasForeignKey("ProductOptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProductOption");
+                });
+
             modelBuilder.Entity("api.Models.ProductVariant", b =>
                 {
                     b.HasOne("api.Models.Product", "Product")
@@ -886,11 +1044,20 @@ namespace api.Migrations.Postgres
                 {
                     b.Navigation("DeliveryOptions");
 
+                    b.Navigation("Options");
+
                     b.Navigation("Variants");
+                });
+
+            modelBuilder.Entity("api.Models.ProductOption", b =>
+                {
+                    b.Navigation("Choices");
                 });
 
             modelBuilder.Entity("api.Models.ProductVariant", b =>
                 {
+                    b.Navigation("ChoiceStocks");
+
                     b.Navigation("Components");
                 });
 #pragma warning restore 612, 618

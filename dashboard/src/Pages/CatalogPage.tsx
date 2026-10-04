@@ -10,6 +10,7 @@ import DeliveryOptionList from "../Components/Catalog/DeliveryOptionList";
 import EditProductForm from "../Components/Catalog/EditProductForm";
 import { useAuth } from "../Context/AuthContext";
 import { FormatCurrency } from "../Lib/ModelHelpers";
+import { DiscountText, HasDiscount, OnSale, SaleFor } from "../Lib/Pricing";
 import { Toast } from "../Lib/Toast";
 import type { DeliveryOption } from "../Models/DeliveryOption";
 import type { Product, ProductCategory } from "../Models/Product";
@@ -207,16 +208,38 @@ const CatalogPage = () => {
                                                 Archived
                                             </span>
                                         )}
+                                        {OnSale(product) && (
+                                            <span className="ml-2 rounded bg-rose-100 px-1.5 py-0.5 text-xs font-semibold text-rose-800 dark:bg-rose-900/50 dark:text-rose-300">
+                                                {HasDiscount(SaleFor(product))
+                                                    ? `Sale ${DiscountText(SaleFor(product))} off`
+                                                    : "Sale on some sizes"}
+                                            </span>
+                                        )}
                                     </p>
                                     <p className="flex flex-wrap gap-x-2 text-xs text-zinc-500 dark:text-zinc-400">
                                         <span>{product.brand}</span>
                                         <span>{product.variants?.length ?? 0} sizes</span>
                                         <span>{priceRange(product)}</span>
+                                        {(product.options ?? []).length > 0 && (
+                                            <span>
+                                                {(product.options ?? [])
+                                                    .map((o) => o.name)
+                                                    .join(", ")}
+                                            </span>
+                                        )}
                                         {product.trackInventory && (
                                             <span className="font-semibold text-emerald-700 dark:text-emerald-400">
                                                 Tracked &middot;{" "}
                                                 {(product.variants ?? []).reduce(
-                                                    (sum, v) => sum + (v.quantityOnHand ?? 0),
+                                                    (sum, v) =>
+                                                        sum +
+                                                        (v.stocks
+                                                            ? v.stocks.reduce(
+                                                                  (n, st) =>
+                                                                      n + (st.quantityOnHand ?? 0),
+                                                                  0
+                                                              )
+                                                            : (v.quantityOnHand ?? 0)),
                                                     0
                                                 )}{" "}
                                                 on hand

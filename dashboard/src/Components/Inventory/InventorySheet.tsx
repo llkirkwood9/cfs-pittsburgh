@@ -2,6 +2,7 @@ import {
     CategoryNames,
     FormatShortDate,
     GroupInventory,
+    InventoryRowKey,
     InventorySizeLabel,
 } from "../../Lib/ModelHelpers";
 import type { Event } from "../../Models/Event";
@@ -85,7 +86,7 @@ const InventorySheet = ({ saleEvent, items }: Props) => {
                             <tbody>
                                 {group.products.flatMap((product) =>
                                     product.sizes.map((size, index) => (
-                                        <tr key={size.productVariantId}>
+                                        <tr key={InventoryRowKey(size)}>
                                             {index === 0 && (
                                                 <td
                                                     rowSpan={product.sizes.length}

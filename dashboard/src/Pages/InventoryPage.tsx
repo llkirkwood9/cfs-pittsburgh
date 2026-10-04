@@ -12,6 +12,7 @@ import {
     FormatDateTime,
     FormatTime,
     GroupInventory,
+    InventoryRowKey,
     InventorySizeLabel,
 } from "../Lib/ModelHelpers";
 import { useSettings } from "../Context/SettingsContext";
@@ -48,7 +49,7 @@ const InventoryPage = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [search, setSearch] = useState<string>("");
     const [tab, setTab] = useState<ProductCategory | "All">("All");
-    const [busyId, setBusyId] = useState<number | null>(null);
+    const [busyId, setBusyId] = useState<string | null>(null);
 
     const [counting, setCounting] = useState<InventoryItem | null>(null);
     const [countValue, setCountValue] = useState<string>("");
@@ -76,7 +77,7 @@ const InventoryPage = () => {
     const replace = (updated: InventoryItem) =>
         setItems((current) =>
             current.map((i) =>
-                i.productVariantId === updated.productVariantId
+                InventoryRowKey(i) === InventoryRowKey(updated)
                     ? {
                           ...i,
                           quantityOnHand: updated.quantityOnHand,
@@ -88,8 +89,12 @@ const InventoryPage = () => {
 
     const nudge = async (item: InventoryItem, change: number) => {
         if (!item.productVariantId) return;
-        setBusyId(item.productVariantId);
-        const updated = await AdjustInventory({ productVariantId: item.productVariantId, change });
+        setBusyId(InventoryRowKey(item));
+        const updated = await AdjustInventory({
+            productVariantId: item.productVariantId,
+            stockKey: item.stockKey,
+            change,
+        });
         setBusyId(null);
         if (updated) replace(updated);
     };
@@ -110,6 +115,7 @@ const InventoryPage = () => {
         setSavingCount(true);
         const updated = await AdjustInventory({
             productVariantId: counting.productVariantId,
+            stockKey: counting.stockKey,
             setTo: value,
             note: countNote.trim() || undefined,
         });
@@ -125,7 +131,7 @@ const InventoryPage = () => {
         if (!item.productVariantId) return;
         setHistoryFor(item);
         setHistory(null);
-        setHistory(await GetInventoryHistory(item.productVariantId));
+        setHistory(await GetInventoryHistory(item.productVariantId, item.stockKey));
     };
 
     const categories = useMemo(
@@ -338,11 +344,11 @@ const InventoryPage = () => {
                                             <ul className="divide-y divide-zinc-100 dark:divide-zinc-700">
                                                 {product.sizes.map((item) => {
                                                     const onHand = item.quantityOnHand ?? 0;
-                                                    const busy = busyId === item.productVariantId;
+                                                    const busy = busyId === InventoryRowKey(item);
 
                                                     return (
                                                         <li
-                                                            key={item.productVariantId}
+                                                            key={InventoryRowKey(item)}
                                                             className="flex flex-wrap items-center gap-2 py-2"
                                                         >
                                                             <div className="min-w-[7rem] flex-1">

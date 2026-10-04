@@ -9,6 +9,7 @@ import {
     SortLinesForPrint,
 } from "../../Lib/ModelHelpers";
 import TermText from "../Elements/TermText";
+import { ChoicesText, LineDiscountText, LineHasDiscount } from "../../Lib/Pricing";
 import { useSettings } from "../../Context/SettingsContext";
 import { DefaultSalesTerms, TermFor } from "../../Models/GeneralSettings";
 import type { SalesTerm, SalesTermKey } from "../../Models/GeneralSettings";
@@ -344,6 +345,12 @@ const ReceiptSheet = ({ order }: Props) => {
                                         </span>
                                     )}
                                     {line.description}
+                                    {ChoicesText(line.choices) && (
+                                        <span className="font-semibold">
+                                            {" "}
+                                            - {ChoicesText(line.choices)}
+                                        </span>
+                                    )}
                                     {line.lineType === "Included" && (
                                         <span className="text-[9px] italic"> (included)</span>
                                     )}
@@ -360,14 +367,11 @@ const ReceiptSheet = ({ order }: Props) => {
                                         : FormatCurrency(line.unitPrice)}
                                 </td>
                                 <td className={`${itemCell} text-center`}>
-                                    {(line.discountPercent ?? 0) > 0
-                                        ? `${line.discountPercent}%`
-                                        : ""}
+                                    {/* A catalog sale and the rep's own discount both show, e.g. "20% + $100". */}
+                                    {LineDiscountText(line)}
                                 </td>
                                 <td className={`${itemCell} text-right`}>
-                                    {(line.discountPercent ?? 0) > 0
-                                        ? FormatCurrency(line.salePrice)
-                                        : ""}
+                                    {LineHasDiscount(line) ? FormatCurrency(line.salePrice) : ""}
                                 </td>
                                 <td className={`${itemCell} text-right font-semibold`}>
                                     {line.lineType === "Included"

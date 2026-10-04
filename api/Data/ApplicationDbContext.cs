@@ -66,6 +66,21 @@ namespace api.Data
         public DbSet<InventoryAdjustment> InventoryAdjustments => Set<InventoryAdjustment>();
 
         /// <summary>
+        /// Selections a product offers beyond size, such as Color
+        /// </summary>
+        public DbSet<ProductOption> ProductOptions => Set<ProductOption>();
+
+        /// <summary>
+        /// The choices for each selection
+        /// </summary>
+        public DbSet<ProductOptionChoice> ProductOptionChoices => Set<ProductOptionChoice>();
+
+        /// <summary>
+        /// Stock per size and combination of counted choices
+        /// </summary>
+        public DbSet<ChoiceStock> ChoiceStocks => Set<ChoiceStock>();
+
+        /// <summary>
         /// Settings an administrator can change from the dashboard
         /// </summary>
         public DbSet<AppSetting> AppSettings => Set<AppSetting>();
@@ -107,6 +122,31 @@ namespace api.Data
                 entity.HasMany(p => p.DeliveryOptions)
                     .WithOne(d => d.Product)
                     .HasForeignKey(d => d.ProductId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ProductOption>(entity =>
+            {
+                entity.HasIndex(o => new { o.ProductId, o.SortOrder });
+
+                entity.HasOne(o => o.Product)
+                    .WithMany(p => p.Options)
+                    .HasForeignKey(o => o.ProductId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasMany(o => o.Choices)
+                    .WithOne(c => c.ProductOption)
+                    .HasForeignKey(c => c.ProductOptionId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<ChoiceStock>(entity =>
+            {
+                entity.HasIndex(s => new { s.ProductVariantId, s.StockKey }).IsUnique();
+
+                entity.HasOne(s => s.ProductVariant)
+                    .WithMany(v => v.ChoiceStocks)
+                    .HasForeignKey(s => s.ProductVariantId)
                     .OnDelete(DeleteBehavior.Cascade);
             });
 

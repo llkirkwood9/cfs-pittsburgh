@@ -32,6 +32,21 @@ namespace api.Dtos
         public string? Notes { get; set; }
 
         /// <summary>
+        /// A sale on every size, as a percent off
+        /// </summary>
+        public decimal? SaleDiscountPercent { get; set; }
+
+        /// <summary>
+        /// A sale on every size, as a fixed amount off each item
+        /// </summary>
+        public decimal? SaleDiscountAmount { get; set; }
+
+        /// <summary>
+        /// Selections the rep makes beyond size, such as Color
+        /// </summary>
+        public List<ProductOptionDto>? Options { get; set; }
+
+        /// <summary>
         /// Ordering within its category on the product picker
         /// </summary>
         public int? SortOrder { get; set; }

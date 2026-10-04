@@ -402,12 +402,22 @@ export const GroupInventory = (items: InventoryItem[]): InventoryGroup[] => {
 };
 
 /**
- * The size label for an inventory row, e.g. "Queen" or "Queen - Soft".
+ * The size label for an inventory row, e.g. "Queen", "Queen - Soft" or, for stock counted by a
+ * selection such as Color, "Queen - Gray".
  * @param item The inventory row.
  * @returns The label.
  */
 export const InventorySizeLabel = (item: InventoryItem): string =>
-    [item.size, item.configuration].filter(Boolean).join(" - ") || "One size";
+    [item.size, item.configuration, item.choices].filter(Boolean).join(" - ") || "One size";
+
+/**
+ * A key for an inventory row: its size, plus the combination of counted choices (such as a
+ * color) when stock is counted that way.
+ * @param item The inventory row.
+ * @returns The key.
+ */
+export const InventoryRowKey = (item: InventoryItem): string =>
+    `${item.productVariantId ?? 0}|${item.stockKey ?? ""}`;
 
 /**
  * Why a tracked item cannot go home as a Take With, or null when it can. Untracked items (a null

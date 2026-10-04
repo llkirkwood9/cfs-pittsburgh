@@ -60,6 +60,29 @@ namespace api.Models
         public int QuantityOnHand { get; set; }
 
         /// <summary>
+        /// Whether this size has its own sale rather than the product's. With its own sale and no
+        /// discount set, this size is left out of the product's sale.
+        /// </summary>
+        public bool HasOwnSale { get; set; }
+
+        /// <summary>
+        /// This size's own sale as a percent off, when HasOwnSale is set
+        /// </summary>
+        public decimal? SaleDiscountPercent { get; set; }
+
+        /// <summary>
+        /// This size's own sale as a fixed amount off each item, when HasOwnSale is set and there
+        /// is no percent
+        /// </summary>
+        public decimal? SaleDiscountAmount { get; set; }
+
+        /// <summary>
+        /// Units on hand for each combination of counted choices, for products whose selections
+        /// count stock separately
+        /// </summary>
+        public List<ChoiceStock> ChoiceStocks { get; set; } = new();
+
+        /// <summary>
         /// Other catalog items that come with this one at no extra charge, e.g. the adjustable
         /// base in a mattress-and-base set. Empty for anything sold on its own.
         /// </summary>
