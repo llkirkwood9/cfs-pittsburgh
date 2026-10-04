@@ -38,10 +38,13 @@ The catalog and the printed receipt are both built from the supplied source docu
 **Sales floor** (`/sales`, Sales role)
 - A rep holds as many drafts open at once as they have customers. Each one is a tab across the
   top; switching never loses anything because every change is saved server-side as it is made.
-- Items are added from the catalog: pick a category, a product, a size/configuration, and a
-  shipping method. Quantity, percentage discount and a price override for "Inquire" sizes are all
-  on the same screen. Every item gets a shipping row underneath it, including no-charge ones such
-  as Drop Ship and Take With.
+- Items are added from the catalog: pick a category, a product, a size/configuration, any
+  selections the product has (such as a sheet set's Color), and a shipping method. Quantity, a
+  discount (a percent, or a fixed dollar amount off each item) and a price override for "Inquire"
+  sizes are all on the same screen. Every item gets a shipping row underneath it, including
+  no-charge ones such as Drop Ship and Take With.
+- A product on sale shows a Sale badge and its sale prices. The sale comes off first and the
+  rep's own discount comes off the sale price, with the working shown before the item is added.
 - A bundle - such as a mattress sold as a set with an adjustable base - gets each included item
   as its own no-charge "included" row, so the sheet shows exactly what is being delivered. The
   size chips show what each bundle includes.
@@ -127,11 +130,18 @@ The catalog and the printed receipt are both built from the supplied source docu
   switches the whole dashboard to it.
 
 **Management** (Manager and up)
-- `/catalog` — products, their sizes and prices, what each size includes as a bundle, and which
-  delivery services each offers. An item or delivery option is either **global** (sold in every
-  territory) or one territory's own. Only owners and administrators change global ones; a
-  manager adds and edits their territory's. A territory's item can include and offer global
-  things and its own territory's; a global item only global ones.
+- `/catalog` — products, their sizes and prices, what each size includes as a bundle, which
+  delivery services each offers, sales, and selections. An item or delivery option is either
+  **global** (sold in every territory) or one territory's own. Only owners and administrators
+  change global ones; a manager adds and edits their territory's. A territory's item can include
+  and offer global things and its own territory's; a global item only global ones.
+  - **Sale on every size**: a percent or a fixed amount off each item, for the whole product.
+    Each size can follow it, have no sale, or have its own percent or amount, which wins.
+    A sale stays on until it is turned off.
+  - **Selections**: any number of extra picks besides the size (Color, Firmness, anything), each
+    with its own list of choices. A choice can add to or take off the price. A selection can be
+    optional, and on a tracked product it can **count stock for each choice**, so each
+    territory's Inventory screen keeps a count for every size and color combination.
 - `/events` — the territory, sales tax rate, card processing fee, order number sequence, active
   event. An event that has taken no orders can be moved to another territory.
 - `/crew` — accounts, roles, territories, starting passwords and unlocking. A manager sees and
@@ -342,7 +352,8 @@ always has a territory; `User` has one unless they're an owner or administrator;
 administrator travels with each request as an `X-Territory-Id` header, and `AccessScope` turns the
 signed-in user plus that header into the one territory (or none = all) every query filters by.
 
-**Stock is counted per territory.** `InventoryStock` holds one row per territory and size, so a
+**Stock is counted per territory.** `InventoryStock` holds one row per territory and size (or size
+and combination of counted choices, such as Queen in Gray), so a
 global pillow can have 12 on the Pittsburgh cart and 3 in Cleveland. Sales draw from, and
 reopened or voided sales go back to, the territory of the event the sale was taken at; each
 `InventoryAdjustment` records its territory.
@@ -387,6 +398,26 @@ line.
 **Lines are snapshots.** Brand, size, description, price and category are copied onto the order
 line when it is added. Editing or retiring a catalog product never rewrites a printed receipt. A
 product that has already been sold is archived rather than deleted.
+
+**Sales and discounts.** A product can carry a sale (`SaleDiscountPercent` or
+`SaleDiscountAmount`), and a size can override it (`HasOwnSale` plus its own pair, where an
+override of nothing means that size is not on sale). The sale in force is copied onto the line
+when it is added, so ending a sale never changes an order already written. It only applies to
+sizes with a catalog price - a keyed-in Inquire price is taken as the price to charge. The rep's
+own discount (`DiscountPercent` or `DiscountAmount`, never both) comes off the sale price. A
+dollar amount is per item, and nothing ever goes below $0. `OrderCalculator.RecalculateLine`
+does the arithmetic.
+
+**Selections.** `ProductOption` (e.g. Color) has `ProductOptionChoice` rows (Gray, White), each
+with an optional price change. The choices picked are stored on the line as JSON (`ChoicesJson`)
+and printed after the description, e.g. "Hotel Sheets - Color: Gray". A choice removed from the
+catalog is archived, so old lines still read correctly. When a selection **counts stock**, each
+territory keeps a count per size and combination of counted choices: `InventoryStocks` rows
+carry a `StockKey` such as `3:12|4:20` (option id : choice id, ordered by option), and the empty
+key is the size's own count. The line, the adjustment history and the inventory count all carry
+the same key. `Utils/Choices.cs` resolves picks and builds keys and labels;
+`Utils/InventoryRules.cs` reads and changes the counts. Bundled items can have their own selections, which the rep picks when
+adding the bundle.
 
 **An event is named by its organization.** A fundraiser is not always at a school, so an event
 has one name - the organization running it, e.g. "Hampton Band" - which heads the stat sheet and

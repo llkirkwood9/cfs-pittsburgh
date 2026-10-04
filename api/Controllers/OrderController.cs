@@ -108,14 +108,20 @@ namespace api.Controllers
                 var nextSort = order.Lines.Count == 0 ? 1 : order.Lines.Max(l => l.SortOrder) + 1;
                 var line = new OrderLine { OrderId = order.Id, LineType = lineType, SortOrder = nextSort };
                 ProductVariant? soldVariant = null;
+                var includedChoices = new Dictionary<int, List<LineChoice>>();
 
                 if (request.ProductVariantId != null)
                 {
                     var variant = await DB.ProductVariants
                         .Include(v => v.Product)
+                        .ThenInclude(p => p!.Options)
+                        .ThenInclude(o => o.Choices)
                         .Include(v => v.Components)
                         .ThenInclude(c => c.ComponentVariant)
                         .ThenInclude(cv => cv!.Product)
+                        .ThenInclude(cp => cp!.Options)
+                        .ThenInclude(o => o.Choices)
+                        .AsSplitQuery()
                         .FirstOrDefaultAsync(v => v.Id == request.ProductVariantId.Value);
 
                     // Only items sold in the event's territory: global ones and its own.
@@ -126,14 +132,38 @@ namespace api.Controllers
                     if (variant.Price == null && request.UnitPrice == null)
                         return BadRequest(new { error = "This size has no price on file. Enter a price to continue." });
 
+                    // Selections such as Color: every required one needs a choice. Any price
+                    // change for a choice is added to the size's price.
+                    var (chosen, choiceProblem) = Choices.Resolve(variant.Product!, PickedChoices(request.Choices));
+                    if (choiceProblem != null)
+                        return BadRequest(new { error = choiceProblem });
+
+                    // Each included item with selections needs its choices too.
+                    foreach (var component in variant.Components.Where(c => c.ComponentVariant?.Product != null))
+                    {
+                        var picked = request.IncludedChoices?.FirstOrDefault(i => i.ComponentVariantId == component.ComponentVariantId)?.Choices;
+                        var (included, includedProblem) = Choices.Resolve(component.ComponentVariant!.Product!, PickedChoices(picked));
+                        if (includedProblem != null)
+                            return BadRequest(new { error = includedProblem });
+                        includedChoices[component.ComponentVariantId] = included;
+                    }
+
                     line.ProductVariantId = variant.Id;
                     line.Category = variant.Product?.Category ?? ProductCategory.Misc;
                     line.Brand = request.Brand ?? variant.Product?.Brand;
                     line.Size = request.Size ?? variant.Size;
                     line.Description = request.Description ?? BuildDescription(variant);
-                    line.UnitPrice = request.UnitPrice ?? variant.Price ?? 0m;
+                    line.UnitPrice = (request.UnitPrice ?? variant.Price ?? 0m) + chosen.Sum(c => c.PriceAdjustment ?? 0m);
+                    line.ChoicesJson = Choices.ToJson(chosen);
+                    line.StockKey = Choices.KeyFor(chosen, Choices.CountedOptions(variant.Product!));
                     line.IncludesAdjustableBase = variant.Components.Any(c =>
                         c.ComponentVariant?.Product?.Category == ProductCategory.AdjustableBase);
+
+                    // The catalog sale is taken when the item goes on the order and stays with it.
+                    // A size with no catalog price is sold at the price the rep keys in, so no sale.
+                    if (variant.Price != null)
+                        (line.SaleDiscountPercent, line.SaleDiscountAmount) = Choices.SaleFor(variant);
+
                     soldVariant = variant;
                 }
                 else if (lineType == OrderLineType.Delivery && request.DeliveryOptionId != null)
@@ -197,6 +227,15 @@ namespace api.Controllers
                 if (line.DiscountPercent is < 0 or > 100)
                     return BadRequest(new { error = "The discount must be between 0 and 100 percent." });
 
+                if (line.DiscountAmount is < 0)
+                    return BadRequest(new { error = "A discount can't be negative." });
+
+                // One discount style per line: a percent wins over an amount.
+                if (line.DiscountPercent is > 0)
+                    line.DiscountAmount = null;
+                else
+                    line.DiscountPercent = null;
+
                 // A tracked item can only be a Take With while the cart has enough of it on hand;
                 // otherwise it has to ship. The shipping choice that rides along with a product
                 // line and the items inside a bundle count too, so check before anything is saved.
@@ -205,9 +244,9 @@ namespace api.Controllers
                     line.TakeWith = true;
 
                 var bundleDemand = line.TakeWith && soldVariant != null
-                    ? soldVariant.Components.Select(c => new KeyValuePair<int, int>(
-                        c.ComponentVariantId, line.Quantity * Math.Max(1, c.Quantity)))
-                    : Enumerable.Empty<KeyValuePair<int, int>>();
+                    ? soldVariant.Components.Select(c => new KeyValuePair<(int, string), int>(
+                        (c.ComponentVariantId, IncludedStockKey(c, includedChoices)), line.Quantity * Math.Max(1, c.Quantity)))
+                    : Enumerable.Empty<KeyValuePair<(int, string), int>>();
 
                 InventoryRules.SyncIncludedTakeWith(order);
                 var stockError = await InventoryRules.CheckStockAsync(DB, order.Event!.TerritoryId, order.Lines.Append(line), bundleDemand);
@@ -221,7 +260,7 @@ namespace api.Controllers
                 // included item on its own row underneath, so the sheet shows exactly what is being
                 // delivered. Anything sold on its own has no components and adds nothing here.
                 if (line.LineType == OrderLineType.Product && soldVariant is { Components.Count: > 0 })
-                    AddBundleComponentLines(order, line, soldVariant);
+                    AddBundleComponentLines(order, line, soldVariant, includedChoices);
 
                 // A product line may carry its delivery choice with it, so the floor can add both
                 // in one tap without a second round trip.
@@ -851,6 +890,9 @@ namespace api.Controllers
                 if (request.DiscountPercent is < 0 or > 100)
                     return BadRequest(new { error = "The discount must be between 0 and 100 percent." });
 
+                if (request.DiscountAmount is < 0)
+                    return BadRequest(new { error = "A discount can't be negative." });
+
                 if (request.Brand != null)
                     line.Brand = request.Brand;
 
@@ -1211,12 +1253,15 @@ namespace api.Controllers
         /// <param name="order">Owning order</param>
         /// <param name="parent">The bundle line</param>
         /// <param name="variant">The bundle variant, with components and their products loaded</param>
-        private static void AddBundleComponentLines(Order order, OrderLine parent, ProductVariant variant)
+        /// <param name="choices">Each included size's selections, by component variant id</param>
+        private static void AddBundleComponentLines(Order order, OrderLine parent, ProductVariant variant,
+            Dictionary<int, List<LineChoice>> choices)
         {
             foreach (var component in variant.Components.Where(c => c.ComponentVariant?.Product != null))
             {
                 var item = component.ComponentVariant!;
                 var product = item.Product!;
+                var chosen = choices.GetValueOrDefault(item.Id) ?? [];
 
                 order.Lines.Add(new OrderLine
                 {
@@ -1235,9 +1280,30 @@ namespace api.Controllers
                     IsTaxable = false,
                     TakeWith = parent.TakeWith,
                     SortOrder = parent.SortOrder + 1,
+                    ChoicesJson = Choices.ToJson(chosen),
+                    StockKey = Choices.KeyFor(chosen, Choices.CountedOptions(product)),
                 });
             }
         }
+
+        /// <summary>
+        /// The stock an included item draws from, from the selections picked for it.
+        /// </summary>
+        private static string IncludedStockKey(ProductVariantComponent component, Dictionary<int, List<LineChoice>> choices)
+        {
+            var product = component.ComponentVariant?.Product;
+            return product == null
+                ? ""
+                : Choices.KeyFor(choices.GetValueOrDefault(component.ComponentVariantId) ?? [], Choices.CountedOptions(product));
+        }
+
+        /// <summary>
+        /// The selection and choice ids sent by the dashboard.
+        /// </summary>
+        private static IEnumerable<(int OptionId, int ChoiceId)> PickedChoices(List<LineChoiceDto>? choices) =>
+            (choices ?? [])
+                .Where(c => c.OptionId != null && c.ChoiceId != null)
+                .Select(c => (c.OptionId!.Value, c.ChoiceId!.Value));
 
         /// <summary>
         /// Builds the Description cell for a catalog variant, e.g. "Agility 3000 - IMC61 Adjustable".
@@ -1400,7 +1466,7 @@ namespace api.Controllers
                 .Distinct()
                 .ToList();
             var onHand = tracked.Count == 0
-                ? new Dictionary<int, int>()
+                ? new Dictionary<(int VariantId, string StockKey), int>()
                 : await InventoryRules.OnHandAsync(DB, order.Event!.TerritoryId, tracked);
 
             return ToDto(order, onHand);
@@ -1412,7 +1478,7 @@ namespace api.Controllers
         /// <param name="order">Order entity with children loaded</param>
         /// <param name="onHand">The territory's stock of the order's tracked items, or null to leave it out</param>
         /// <returns>The mapped DTO.</returns>
-        private static OrderDto ToDto(Order order, Dictionary<int, int>? onHand)
+        private static OrderDto ToDto(Order order, Dictionary<(int VariantId, string StockKey), int>? onHand)
         {
             return new OrderDto
             {
@@ -1500,6 +1566,19 @@ namespace api.Controllers
                         UnitPrice = l.UnitPrice,
                         DiscountPercent = l.DiscountPercent,
                         DiscountAmount = l.DiscountAmount,
+                        SaleDiscountPercent = l.SaleDiscountPercent,
+                        SaleDiscountAmount = l.SaleDiscountAmount,
+                        Choices = Choices.FromJson(l.ChoicesJson)
+                            .Select(c => new LineChoiceDto
+                            {
+                                OptionId = c.OptionId,
+                                ChoiceId = c.ChoiceId,
+                                Option = c.Option,
+                                Choice = c.Choice,
+                                PriceAdjustment = c.PriceAdjustment,
+                            })
+                            .ToList(),
+                        StockKey = l.StockKey,
                         SalePrice = l.SalePrice,
                         LineTotal = l.LineTotal,
                         IncludesAdjustableBase = l.IncludesAdjustableBase,
@@ -1508,7 +1587,7 @@ namespace api.Controllers
                         SortOrder = l.SortOrder,
                         Notes = l.Notes,
                         QuantityOnHand = l.ProductVariant?.Product?.TrackInventory == true && onHand != null
-                            ? onHand.GetValueOrDefault(l.ProductVariant.Id)
+                            ? onHand.GetValueOrDefault((l.ProductVariant.Id, l.StockKey ?? ""))
                             : null,
                     })
                     .ToList(),

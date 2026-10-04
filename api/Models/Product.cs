@@ -64,6 +64,23 @@ namespace api.Models
         public bool TrackInventory { get; set; }
 
         /// <summary>
+        /// A sale on every size, as a percent off (e.g. 20 for 20%). A size can set its own sale
+        /// instead. Applied when the item goes on an order.
+        /// </summary>
+        public decimal? SaleDiscountPercent { get; set; }
+
+        /// <summary>
+        /// A sale on every size, as a fixed amount off each item (e.g. 300 for $300 off). Used
+        /// only when there is no percent.
+        /// </summary>
+        public decimal? SaleDiscountAmount { get; set; }
+
+        /// <summary>
+        /// Choices the rep makes beyond size, such as Color
+        /// </summary>
+        public List<ProductOption> Options { get; set; } = new();
+
+        /// <summary>
         /// When the product was created
         /// </summary>
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;

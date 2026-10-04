@@ -24,6 +24,12 @@ namespace api.Models
         public int ProductVariantId { get; set; }
 
         /// <summary>
+        /// Which combination of counted choices changed, e.g. "5:12"; empty for stock kept per size
+        /// </summary>
+        [MaxLength(200)]
+        public string StockKey { get; set; } = string.Empty;
+
+        /// <summary>
         /// Navigation property
         /// </summary>
         public ProductVariant? ProductVariant { get; set; }

@@ -102,6 +102,30 @@ namespace api.Models
         public decimal? DiscountAmount { get; set; }
 
         /// <summary>
+        /// The catalog sale on the item when it went on the order, as a percent off. The rep's
+        /// own discount comes off the sale price on top of this.
+        /// </summary>
+        public decimal? SaleDiscountPercent { get; set; }
+
+        /// <summary>
+        /// The catalog sale as a fixed amount off each item, when there was no percent
+        /// </summary>
+        public decimal? SaleDiscountAmount { get; set; }
+
+        /// <summary>
+        /// The selections made for the item (e.g. Color: Gray), as JSON, so the sheet keeps
+        /// printing them even if the catalog changes
+        /// </summary>
+        public string? ChoicesJson { get; set; }
+
+        /// <summary>
+        /// Which stock the item draws from when its selections count stock, e.g. "5:12"; empty
+        /// for stock kept per size
+        /// </summary>
+        [MaxLength(200)]
+        public string StockKey { get; set; } = string.Empty;
+
+        /// <summary>
         /// Sale Price column - unit price after the discount
         /// </summary>
         public decimal SalePrice { get; set; }

@@ -71,7 +71,8 @@ namespace api.Controllers
                 if (!variant.Product.TrackInventory)
                     return BadRequest(new { error = "This product does not track inventory." });
 
-                var stock = await InventoryRules.StockRowAsync(DB, territoryId.Value, variant.Id);
+                var key = request.StockKey ?? "";
+                var stock = await InventoryRules.StockRowAsync(DB, territoryId.Value, variant.Id, key);
                 var change = request.SetTo != null
                     ? request.SetTo.Value - stock.QuantityOnHand
                     : request.Change!.Value;
@@ -80,7 +81,7 @@ namespace api.Controllers
                     return BadRequest(new { error = "The count cannot go below zero." });
 
                 if (change == 0)
-                    return Ok(await LoadItemAsync(territoryId.Value, variant.Id));
+                    return Ok(await LoadItemAsync(territoryId.Value, variant.Id, key));
 
                 stock.QuantityOnHand += change;
 
@@ -88,6 +89,7 @@ namespace api.Controllers
                 {
                     TerritoryId = territoryId,
                     ProductVariantId = variant.Id,
+                    StockKey = key,
                     Kind = InventoryChangeKind.Adjustment,
                     Change = change,
                     QuantityAfter = stock.QuantityOnHand,
@@ -98,7 +100,7 @@ namespace api.Controllers
 
                 await DB.SaveChangesAsync();
 
-                return Ok(await LoadItemAsync(territoryId.Value, variant.Id));
+                return Ok(await LoadItemAsync(territoryId.Value, variant.Id, key));
             }
             catch (Exception e)
             {
@@ -138,12 +140,12 @@ namespace api.Controllers
                     return NotFound(new { error = "Event not found." });
                 var territoryId = saleEvent.TerritoryId;
 
-                // The last entry for a size wins if it was sent twice.
+                // The last entry for a size (and combination of choices) wins if it was sent twice.
                 var counts = request.Counts
-                    .GroupBy(c => c.ProductVariantId!.Value)
+                    .GroupBy(c => (c.ProductVariantId!.Value, c.StockKey ?? ""))
                     .ToDictionary(g => g.Key, g => g.Last().Counted!.Value);
 
-                var ids = counts.Keys.ToList();
+                var ids = counts.Keys.Select(k => k.Item1).Distinct().ToList();
                 var variants = await DB.ProductVariants
                     .Include(v => v.Product)
                     .Where(v => ids.Contains(v.Id))
@@ -160,10 +162,10 @@ namespace api.Controllers
                     : request.Note.Trim();
                 var now = DateTime.UtcNow;
 
-                foreach (var variant in variants)
+                foreach (var ((variantId, key), counted) in counts)
                 {
-                    var counted = counts[variant.Id];
-                    var stock = await InventoryRules.StockRowAsync(DB, territoryId, variant.Id);
+                    var variant = variants.First(v => v.Id == variantId);
+                    var stock = await InventoryRules.StockRowAsync(DB, territoryId, variant.Id, key);
                     var change = counted - stock.QuantityOnHand;
                     stock.QuantityOnHand = counted;
 
@@ -171,6 +173,7 @@ namespace api.Controllers
                     {
                         TerritoryId = territoryId,
                         ProductVariantId = variant.Id,
+                        StockKey = key,
                         Kind = kind,
                         Change = change,
                         QuantityAfter = counted,
@@ -270,11 +273,12 @@ namespace api.Controllers
         /// Recent changes to one size's count in the territory being worked, newest first.
         /// </summary>
         /// <param name="id">Variant id</param>
+        /// <param name="stockKey">Which combination of counted choices; empty for stock kept per size</param>
         /// <param name="take">How many rows to return, at most 200</param>
         /// <returns>Adjustment rows.</returns>
         [HttpGet("variant/{id}/history")]
         [Authorize(AuthenticationSchemes = "Bearer")]
-        public async Task<IActionResult> GetHistory(int id, [FromQuery] int take = 50)
+        public async Task<IActionResult> GetHistory(int id, [FromQuery] string? stockKey = null, [FromQuery] int take = 50)
         {
             try
             {
@@ -282,10 +286,11 @@ namespace api.Controllers
                 if (territoryId == null)
                     return BadRequest(new { error = PickTerritory });
 
+                var key = stockKey ?? "";
                 var rows = await DB.InventoryAdjustments
                     .AsNoTracking()
                     .Include(a => a.Order)
-                    .Where(a => a.ProductVariantId == id && a.TerritoryId == territoryId)
+                    .Where(a => a.ProductVariantId == id && a.TerritoryId == territoryId && a.StockKey == key)
                     .OrderByDescending(a => a.CreatedAt)
                     .ThenByDescending(a => a.Id)
                     .Take(Math.Clamp(take, 1, 200))
@@ -295,6 +300,7 @@ namespace api.Controllers
                 {
                     Id = a.Id,
                     ProductVariantId = a.ProductVariantId,
+                    StockKey = a.StockKey,
                     Kind = a.Kind.ToString(),
                     Change = a.Change,
                     QuantityAfter = a.QuantityAfter,
@@ -331,9 +337,13 @@ namespace api.Controllers
         /// <summary>
         /// Loads one inventory row.
         /// </summary>
-        private async Task<InventoryItemDto?> LoadItemAsync(int territoryId, int variantId)
+        /// <param name="territoryId">The territory</param>
+        /// <param name="variantId">Variant id</param>
+        /// <param name="stockKey">Which combination of counted choices</param>
+        /// <returns>The row, or null.</returns>
+        private async Task<InventoryItemDto?> LoadItemAsync(int territoryId, int variantId, string stockKey)
         {
-            return (await LoadItemsAsync(DB, territoryId, null, variantId)).FirstOrDefault();
+            return (await LoadItemsAsync(DB, territoryId, null, variantId)).FirstOrDefault(i => (i.StockKey ?? "") == stockKey);
         }
 
         /// <summary>
@@ -350,6 +360,9 @@ namespace api.Controllers
             var query = db.ProductVariants
                 .AsNoTracking()
                 .Include(v => v.Product)
+                .ThenInclude(p => p!.Options)
+                .ThenInclude(o => o.Choices)
+                .AsSplitQuery()
                 .Where(v => v.Product!.TrackInventory
                             && (v.Product.TerritoryId == null || v.Product.TerritoryId == territoryId));
 
@@ -363,21 +376,21 @@ namespace api.Controllers
 
             var lastChanged = await db.InventoryAdjustments
                 .Where(a => a.TerritoryId == territoryId && ids.Contains(a.ProductVariantId))
-                .GroupBy(a => a.ProductVariantId)
-                .Select(g => new { VariantId = g.Key, At = g.Max(a => a.CreatedAt) })
-                .ToDictionaryAsync(x => x.VariantId, x => x.At);
+                .GroupBy(a => new { a.ProductVariantId, a.StockKey })
+                .Select(g => new { g.Key.ProductVariantId, g.Key.StockKey, At = g.Max(a => a.CreatedAt) })
+                .ToListAsync();
 
             var sold = eventId == null
-                ? new Dictionary<int, int>()
+                ? []
                 : await db.InventoryAdjustments
                     .Where(a => a.EventId == eventId
                                 && ids.Contains(a.ProductVariantId)
                                 && (a.Kind == InventoryChangeKind.Sale || a.Kind == InventoryChangeKind.Return))
-                    .GroupBy(a => a.ProductVariantId)
-                    .Select(g => new { VariantId = g.Key, Net = g.Sum(a => a.Change) })
-                    .ToDictionaryAsync(x => x.VariantId, x => -x.Net);
+                    .GroupBy(a => new { a.ProductVariantId, a.StockKey })
+                    .Select(g => new { g.Key.ProductVariantId, g.Key.StockKey, Net = g.Sum(a => a.Change) })
+                    .ToListAsync();
 
-            // The latest start and end shelf counts taken at the event, per size.
+            // The latest start and end shelf counts taken at the event, per size and combination.
             var shelfCounts = eventId == null
                 ? []
                 : await db.InventoryAdjustments
@@ -387,43 +400,61 @@ namespace api.Controllers
                                 && (a.Kind == InventoryChangeKind.Count || a.Kind == InventoryChangeKind.OpeningCount))
                     .ToListAsync();
 
-            InventoryAdjustment? Latest(int id, InventoryChangeKind kind) => shelfCounts
-                .Where(a => a.ProductVariantId == id && a.Kind == kind)
+            InventoryAdjustment? Latest(int id, string key, InventoryChangeKind kind) => shelfCounts
+                .Where(a => a.ProductVariantId == id && a.StockKey == key && a.Kind == kind)
                 .OrderByDescending(a => a.CreatedAt)
                 .ThenByDescending(a => a.Id)
                 .FirstOrDefault();
 
-            return variants
-                .OrderBy(v => v.Product!.Category)
-                .ThenBy(v => v.Product!.SortOrder)
-                .ThenBy(v => v.Product!.Name)
-                .ThenBy(v => v.SortOrder)
-                .Select(v => (v,
-                    Opening: Latest(v.Id, InventoryChangeKind.OpeningCount),
-                    Closing: Latest(v.Id, InventoryChangeKind.Count)))
-                .Select(x => new InventoryItemDto
+            var rows = new List<InventoryItemDto>();
+            foreach (var v in variants
+                         .OrderBy(v => v.Product!.Category)
+                         .ThenBy(v => v.Product!.SortOrder)
+                         .ThenBy(v => v.Product!.Name)
+                         .ThenBy(v => v.SortOrder))
+            {
+                // One row per combination of counted choices (just one, with the empty key, when
+                // nothing is counted that way). Leftover counts - from a choice or selection since
+                // retired, or stock counted before choices were - get a row too while any remain,
+                // so they can be counted away.
+                var combinations = Choices.Combinations(v.Product!);
+                var keys = combinations.ToList();
+                foreach (var extra in onHand.Where(x => x.Key.VariantId == v.Id && x.Value != 0 && x.Key.StockKey != ""
+                                                        && keys.All(k => k.Key != x.Key.StockKey)))
+                    keys.Add((extra.Key.StockKey, Choices.LabelFor(v.Product!, extra.Key.StockKey) + " (no longer offered)"));
+                if (keys.All(k => k.Key != "") && onHand.GetValueOrDefault((v.Id, "")) != 0)
+                    keys.Add(("", "Not split by choice"));
+
+                foreach (var (key, label) in keys)
                 {
-                    ProductVariantId = x.v.Id,
-                    ProductId = x.v.ProductId,
-                    ProductName = x.v.Product!.Name,
-                    Brand = x.v.Product.Brand,
-                    Category = x.v.Product.Category.ToString(),
-                    Size = x.v.Size,
-                    Configuration = x.v.Configuration,
-                    QuantityOnHand = onHand.GetValueOrDefault(x.v.Id),
-                    SoldAtEvent = eventId == null ? null : sold.GetValueOrDefault(x.v.Id),
-                    OpeningCountAtEvent = x.Opening?.QuantityAfter,
-                    OpeningCountedAt = x.Opening?.CreatedAt,
-                    OpeningCountedBy = x.Opening?.UserName,
-                    CountedAt = x.Closing?.CreatedAt,
-                    CountedBy = x.Closing?.UserName,
-                    CountedAtEvent = x.Closing?.QuantityAfter,
-                    ExpectedAtCount = x.Closing is { } closing
-                        ? closing.QuantityAfter - closing.Change
-                        : null,
-                    LastChangedAt = lastChanged.TryGetValue(x.v.Id, out var at) ? at : null,
-                })
-                .ToList();
+                    var opening = Latest(v.Id, key, InventoryChangeKind.OpeningCount);
+                    var closing = Latest(v.Id, key, InventoryChangeKind.Count);
+                    rows.Add(new InventoryItemDto
+                    {
+                        ProductVariantId = v.Id,
+                        ProductId = v.ProductId,
+                        ProductName = v.Product!.Name,
+                        Brand = v.Product.Brand,
+                        Category = v.Product.Category.ToString(),
+                        Size = v.Size,
+                        Configuration = v.Configuration,
+                        StockKey = key,
+                        Choices = label,
+                        QuantityOnHand = onHand.GetValueOrDefault((v.Id, key)),
+                        SoldAtEvent = eventId == null ? null : -(sold.FirstOrDefault(x => x.ProductVariantId == v.Id && x.StockKey == key)?.Net ?? 0),
+                        OpeningCountAtEvent = opening?.QuantityAfter,
+                        OpeningCountedAt = opening?.CreatedAt,
+                        OpeningCountedBy = opening?.UserName,
+                        CountedAt = closing?.CreatedAt,
+                        CountedBy = closing?.UserName,
+                        CountedAtEvent = closing?.QuantityAfter,
+                        ExpectedAtCount = closing == null ? null : closing.QuantityAfter - closing.Change,
+                        LastChangedAt = lastChanged.FirstOrDefault(x => x.ProductVariantId == v.Id && x.StockKey == key)?.At,
+                    });
+                }
+            }
+
+            return rows;
         }
 
         #endregion

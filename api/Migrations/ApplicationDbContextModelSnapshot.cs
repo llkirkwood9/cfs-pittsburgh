@@ -169,6 +169,11 @@ namespace api.Migrations
                     b.Property<int>("QuantityAfter")
                         .HasColumnType("int");
 
+                    b.Property<string>("StockKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<int?>("TerritoryId")
                         .HasColumnType("int");
 
@@ -208,6 +213,11 @@ namespace api.Migrations
                     b.Property<int>("QuantityOnHand")
                         .HasColumnType("int");
 
+                    b.Property<string>("StockKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
                     b.Property<int>("TerritoryId")
                         .HasColumnType("int");
 
@@ -215,7 +225,7 @@ namespace api.Migrations
 
                     b.HasIndex("ProductVariantId");
 
-                    b.HasIndex("TerritoryId", "ProductVariantId")
+                    b.HasIndex("TerritoryId", "ProductVariantId", "StockKey")
                         .IsUnique();
 
                     b.ToTable("InventoryStocks");
@@ -466,6 +476,9 @@ namespace api.Migrations
                     b.Property<int>("Category")
                         .HasColumnType("int");
 
+                    b.Property<string>("ChoicesJson")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int?>("DeliveryOptionId")
                         .HasColumnType("int");
 
@@ -508,6 +521,12 @@ namespace api.Migrations
                     b.Property<int>("Quantity")
                         .HasColumnType("int");
 
+                    b.Property<decimal?>("SaleDiscountAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("SaleDiscountPercent")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<decimal>("SalePrice")
                         .HasColumnType("decimal(18,4)");
 
@@ -520,6 +539,11 @@ namespace api.Migrations
 
                     b.Property<int>("SortOrder")
                         .HasColumnType("int");
+
+                    b.Property<string>("StockKey")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
 
                     b.Property<bool>("TakeWith")
                         .HasColumnType("bit");
@@ -604,6 +628,12 @@ namespace api.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<decimal?>("SaleDiscountAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("SaleDiscountPercent")
+                        .HasColumnType("decimal(18,4)");
+
                     b.Property<int>("SortOrder")
                         .HasColumnType("int");
 
@@ -652,6 +682,70 @@ namespace api.Migrations
                     b.ToTable("ProductDeliveryOptions");
                 });
 
+            modelBuilder.Entity("api.Models.ProductOption", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsRequired")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<int>("ProductId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.Property<bool>("TracksStock")
+                        .HasColumnType("bit");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductId", "SortOrder");
+
+                    b.ToTable("ProductOptions");
+                });
+
+            modelBuilder.Entity("api.Models.ProductOptionChoice", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<decimal?>("PriceAdjustment")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<int>("ProductOptionId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductOptionId");
+
+                    b.ToTable("ProductOptionChoices");
+                });
+
             modelBuilder.Entity("api.Models.ProductVariant", b =>
                 {
                     b.Property<int>("Id")
@@ -664,6 +758,9 @@ namespace api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<bool>("HasOwnSale")
+                        .HasColumnType("bit");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
@@ -672,6 +769,12 @@ namespace api.Migrations
 
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
+
+                    b.Property<decimal?>("SaleDiscountAmount")
+                        .HasColumnType("decimal(18,4)");
+
+                    b.Property<decimal?>("SaleDiscountPercent")
+                        .HasColumnType("decimal(18,4)");
 
                     b.Property<string>("Size")
                         .IsRequired()
@@ -1044,6 +1147,28 @@ namespace api.Migrations
                     b.Navigation("Product");
                 });
 
+            modelBuilder.Entity("api.Models.ProductOption", b =>
+                {
+                    b.HasOne("api.Models.Product", "Product")
+                        .WithMany("Options")
+                        .HasForeignKey("ProductId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Product");
+                });
+
+            modelBuilder.Entity("api.Models.ProductOptionChoice", b =>
+                {
+                    b.HasOne("api.Models.ProductOption", "ProductOption")
+                        .WithMany("Choices")
+                        .HasForeignKey("ProductOptionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProductOption");
+                });
+
             modelBuilder.Entity("api.Models.ProductVariant", b =>
                 {
                     b.HasOne("api.Models.Product", "Product")
@@ -1127,7 +1252,14 @@ namespace api.Migrations
                 {
                     b.Navigation("DeliveryOptions");
 
+                    b.Navigation("Options");
+
                     b.Navigation("Variants");
+                });
+
+            modelBuilder.Entity("api.Models.ProductOption", b =>
+                {
+                    b.Navigation("Choices");
                 });
 
             modelBuilder.Entity("api.Models.ProductVariant", b =>

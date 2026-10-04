@@ -64,6 +64,13 @@ namespace api.Models
         public ProductVariant? ProductVariant { get; set; }
 
         /// <summary>
+        /// Which combination of counted choices, e.g. "5:12|6:31" (selection:choice, by selection
+        /// id), for products whose selections count stock separately. Empty for the size itself.
+        /// </summary>
+        [MaxLength(200)]
+        public string StockKey { get; set; } = string.Empty;
+
+        /// <summary>
         /// Units on hand
         /// </summary>
         public int QuantityOnHand { get; set; }

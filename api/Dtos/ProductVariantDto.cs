@@ -47,6 +47,27 @@ namespace api.Dtos
         public int? QuantityOnHand { get; set; }
 
         /// <summary>
+        /// Whether this size has its own sale rather than the product's
+        /// </summary>
+        public bool? HasOwnSale { get; set; }
+
+        /// <summary>
+        /// This size's own sale as a percent off
+        /// </summary>
+        public decimal? SaleDiscountPercent { get; set; }
+
+        /// <summary>
+        /// This size's own sale as a fixed amount off each item
+        /// </summary>
+        public decimal? SaleDiscountAmount { get; set; }
+
+        /// <summary>
+        /// Units on hand for each combination of counted choices, for products whose selections
+        /// count stock
+        /// </summary>
+        public List<ChoiceStockDto>? Stocks { get; set; }
+
+        /// <summary>
         /// Items that come with this variant at no extra charge. Null on write leaves the
         /// existing list alone; an empty list clears it.
         /// </summary>

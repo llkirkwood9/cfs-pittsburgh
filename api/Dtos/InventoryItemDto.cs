@@ -46,6 +46,16 @@ namespace api.Dtos
         public int? QuantityOnHand { get; set; }
 
         /// <summary>
+        /// Which combination of counted choices this row is, e.g. "5:12"; empty for stock kept per size
+        /// </summary>
+        public string? StockKey { get; set; }
+
+        /// <summary>
+        /// The combination's choices, e.g. "Gray / Striped"; empty for stock kept per size
+        /// </summary>
+        public string? Choices { get; set; }
+
+        /// <summary>
         /// Units that left with Take With sales at the requested event, net of any returns
         /// </summary>
         public int? SoldAtEvent { get; set; }

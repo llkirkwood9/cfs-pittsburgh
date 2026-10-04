@@ -5,7 +5,7 @@ import Icon from "../Elements/Icon";
 import { useAuth } from "../../Context/AuthContext";
 import { useSettings } from "../../Context/SettingsContext";
 import { IsOnline } from "../../Lib/Connection";
-import { InventorySizeLabel } from "../../Lib/ModelHelpers";
+import { InventoryRowKey, InventorySizeLabel } from "../../Lib/ModelHelpers";
 import type { InventoryItem } from "../../Models/InventoryItem";
 import { GetInventory } from "../../Services/InventoryServices";
 
@@ -79,7 +79,7 @@ const StockWatch = () => {
                             const onHand = item.quantityOnHand ?? 0;
                             const out = onHand <= 0;
                             return (
-                                <li key={item.productVariantId} className="flex items-center gap-2 py-2">
+                                <li key={InventoryRowKey(item)} className="flex items-center gap-2 py-2">
                                     <span className="min-w-0 flex-1 text-sm">
                                         <span className="font-medium">{item.productName}</span>{" "}
                                         <span className="text-zinc-500 dark:text-zinc-400">

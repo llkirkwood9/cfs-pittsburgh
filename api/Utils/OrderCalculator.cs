@@ -11,21 +11,15 @@ namespace api.Utils
         #region Public Methods
 
         /// <summary>
-        /// Recalculates a single line's sale price and total from its unit price and discount.
-        /// A percent discount wins when both are supplied.
+        /// Recalculates a single line's sale price and total from its unit price and discounts.
+        /// The catalog sale comes off first, then the rep's own discount comes off the sale price.
+        /// Each is a percent or a fixed amount off each item; a percent wins when both are set.
         /// </summary>
         /// <param name="line">Line to recalculate in place</param>
         public static void RecalculateLine(OrderLine line)
         {
-            var unit = line.UnitPrice;
-
-            if (line.DiscountPercent is > 0)
-                unit -= unit * (line.DiscountPercent.Value / 100m);
-            else if (line.DiscountAmount is > 0)
-                unit -= line.DiscountAmount.Value;
-
-            if (unit < 0)
-                unit = 0;
+            var unit = Discounted(line.UnitPrice, line.SaleDiscountPercent, line.SaleDiscountAmount);
+            unit = Discounted(unit, line.DiscountPercent, line.DiscountAmount);
 
             var quantity = line.Quantity < 1 ? 1 : line.Quantity;
 
@@ -96,6 +90,22 @@ namespace api.Utils
         private static decimal Round(decimal value)
         {
             return Math.Round(value, 2, MidpointRounding.AwayFromZero);
+        }
+
+        #endregion
+
+        #region Discounts
+
+        /// <summary>
+        /// A price with one discount taken off: a percent, or else a fixed amount. Never below zero.
+        /// </summary>
+        private static decimal Discounted(decimal price, decimal? percent, decimal? amount)
+        {
+            if (percent is > 0)
+                price -= price * (Math.Min(percent.Value, 100m) / 100m);
+            else if (amount is > 0)
+                price -= amount.Value;
+            return price < 0 ? 0 : price;
         }
 
         #endregion

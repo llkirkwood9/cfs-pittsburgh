@@ -115,5 +115,30 @@ namespace api.Dtos
         /// for anything that is not counted. Read-only.
         /// </summary>
         public int? QuantityOnHand { get; set; }
+
+        /// <summary>
+        /// The catalog sale when the item went on the order, as a percent off (set by the API)
+        /// </summary>
+        public decimal? SaleDiscountPercent { get; set; }
+
+        /// <summary>
+        /// The catalog sale as a fixed amount off each item (set by the API)
+        /// </summary>
+        public decimal? SaleDiscountAmount { get; set; }
+
+        /// <summary>
+        /// The selections for the item, such as Color. Send the option and choice ids.
+        /// </summary>
+        public List<LineChoiceDto>? Choices { get; set; }
+
+        /// <summary>
+        /// Which stock the item draws from when its selections count stock
+        /// </summary>
+        public string? StockKey { get; set; }
+
+        /// <summary>
+        /// When adding a bundle: the selections for the items it includes
+        /// </summary>
+        public List<IncludedChoicesDto>? IncludedChoices { get; set; }
     }
 }

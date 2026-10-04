@@ -8,7 +8,9 @@ namespace api.Utils
     /// Stock rules for Take With sales. A tracked item can only go home with the customer when the
     /// cart has enough of it; otherwise it has to be shipped. Stock is kept per territory - each
     /// territory's cart carries its own, even of global catalog items - and is drawn down when the
-    /// sale is completed and put back if a completed sale is reopened or voided.
+    /// sale is completed and put back if a completed sale is reopened or voided. Within a
+    /// territory it is kept per size, or per size and combination of choices for selections that
+    /// count stock (such as sheet colors), so each demand is keyed by both.
     /// </summary>
     public static class InventoryRules
     {
@@ -30,49 +32,55 @@ namespace api.Utils
         }
 
         /// <summary>
-        /// Units of each variant the order sends home as Take With.
+        /// Units the order sends home as Take With, by size and combination of choices.
         /// </summary>
         /// <param name="lines">Order lines</param>
-        /// <returns>Variant id to quantity.</returns>
-        public static Dictionary<int, int> TakeWithDemand(IEnumerable<OrderLine> lines)
+        /// <returns>(Variant id, stock key) to quantity.</returns>
+        public static Dictionary<(int VariantId, string StockKey), int> TakeWithDemand(IEnumerable<OrderLine> lines)
         {
             return lines
                 .Where(l => l.TakeWith
                             && l.ProductVariantId != null
                             && l.LineType is OrderLineType.Product or OrderLineType.Included)
-                .GroupBy(l => l.ProductVariantId!.Value)
+                .GroupBy(l => (l.ProductVariantId!.Value, l.StockKey ?? ""))
                 .ToDictionary(g => g.Key, g => g.Sum(l => l.Quantity));
         }
 
         /// <summary>
-        /// A territory's on-hand counts for some sizes. A size it has never counted has none.
+        /// A territory's on-hand counts for some sizes, by size and combination of counted choices
+        /// (the empty key for a size counted on its own). Anything it has never counted has none.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <param name="territoryId">The territory</param>
         /// <param name="variantIds">The sizes</param>
-        /// <returns>Variant id to units on hand.</returns>
-        public static async Task<Dictionary<int, int>> OnHandAsync(ApplicationDbContext db, int territoryId, IReadOnlyCollection<int> variantIds)
+        /// <returns>(Variant id, stock key) to units on hand.</returns>
+        public static async Task<Dictionary<(int VariantId, string StockKey), int>> OnHandAsync(
+            ApplicationDbContext db, int territoryId, IReadOnlyCollection<int> variantIds)
         {
-            return await db.InventoryStocks.AsNoTracking()
+            var rows = await db.InventoryStocks.AsNoTracking()
                 .Where(s => s.TerritoryId == territoryId && variantIds.Contains(s.ProductVariantId))
-                .ToDictionaryAsync(s => s.ProductVariantId, s => s.QuantityOnHand);
+                .Select(s => new { s.ProductVariantId, s.StockKey, s.QuantityOnHand })
+                .ToListAsync();
+            return rows.ToDictionary(s => (s.ProductVariantId, s.StockKey), s => s.QuantityOnHand);
         }
 
         /// <summary>
-        /// The tracked stock row for a size in a territory, created at zero if it has none yet.
-        /// The caller saves.
+        /// The tracked stock row for a size (and combination of counted choices) in a territory,
+        /// created at zero if it has none yet. The caller saves.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <param name="territoryId">The territory</param>
         /// <param name="variantId">The size</param>
+        /// <param name="stockKey">The combination of counted choices; empty for the size itself</param>
         /// <returns>The row, tracked.</returns>
-        public static async Task<InventoryStock> StockRowAsync(ApplicationDbContext db, int territoryId, int variantId)
+        public static async Task<InventoryStock> StockRowAsync(ApplicationDbContext db, int territoryId, int variantId, string? stockKey = "")
         {
-            var row = db.InventoryStocks.Local.FirstOrDefault(s => s.TerritoryId == territoryId && s.ProductVariantId == variantId)
-                      ?? await db.InventoryStocks.FirstOrDefaultAsync(s => s.TerritoryId == territoryId && s.ProductVariantId == variantId);
+            var key = stockKey ?? "";
+            var row = db.InventoryStocks.Local.FirstOrDefault(s => s.TerritoryId == territoryId && s.ProductVariantId == variantId && s.StockKey == key)
+                      ?? await db.InventoryStocks.FirstOrDefaultAsync(s => s.TerritoryId == territoryId && s.ProductVariantId == variantId && s.StockKey == key);
             if (row == null)
             {
-                row = new InventoryStock { TerritoryId = territoryId, ProductVariantId = variantId, QuantityOnHand = 0 };
+                row = new InventoryStock { TerritoryId = territoryId, ProductVariantId = variantId, StockKey = key, QuantityOnHand = 0 };
                 db.InventoryStocks.Add(row);
             }
             return row;
@@ -90,30 +98,30 @@ namespace api.Utils
             ApplicationDbContext db,
             int territoryId,
             IEnumerable<OrderLine> lines,
-            IEnumerable<KeyValuePair<int, int>>? extra = null)
+            IEnumerable<KeyValuePair<(int VariantId, string StockKey), int>>? extra = null)
         {
             var demand = TakeWithDemand(lines);
-            foreach (var (variantId, quantity) in extra ?? [])
-                demand[variantId] = demand.GetValueOrDefault(variantId) + quantity;
+            foreach (var (key, quantity) in extra ?? [])
+                demand[key] = demand.GetValueOrDefault(key) + quantity;
 
             if (demand.Count == 0)
                 return null;
 
-            var ids = demand.Keys.ToList();
-            var tracked = await db.ProductVariants
-                .Include(v => v.Product)
-                .Where(v => ids.Contains(v.Id) && v.Product!.TrackInventory)
-                .ToListAsync();
+            var ids = demand.Keys.Select(k => k.VariantId).Distinct().ToList();
+            var tracked = await LoadTrackedAsync(db, ids);
             var onHand = await OnHandAsync(db, territoryId, ids);
 
-            foreach (var variant in tracked)
+            foreach (var ((variantId, key), wanted) in demand)
             {
-                var wanted = demand[variant.Id];
-                var have = onHand.GetValueOrDefault(variant.Id);
+                var variant = tracked.FirstOrDefault(v => v.Id == variantId);
+                if (variant == null)
+                    continue;
+
+                var have = onHand.GetValueOrDefault((variantId, key));
                 if (wanted <= have)
                     continue;
 
-                var name = Describe(variant);
+                var name = Describe(variant, key);
                 return have <= 0
                     ? $"{name} is out of stock, so it cannot be a Take With. Choose a shipping method instead."
                     : $"Only {have} of {name} in stock for Take With. Lower the quantity or choose a shipping method.";
@@ -137,22 +145,25 @@ namespace api.Utils
             if (demand.Count == 0)
                 return;
 
-            var ids = demand.Keys.ToList();
+            var ids = demand.Keys.Select(k => k.VariantId).Distinct().ToList();
             var tracked = await db.ProductVariants
                 .Where(v => ids.Contains(v.Id) && v.Product!.TrackInventory)
                 .Select(v => v.Id)
                 .ToListAsync();
 
-            foreach (var variantId in tracked)
+            foreach (var ((variantId, key), quantity) in demand)
             {
-                var quantity = demand[variantId];
-                var stock = await StockRowAsync(db, territoryId, variantId);
+                if (!tracked.Contains(variantId))
+                    continue;
+
+                var stock = await StockRowAsync(db, territoryId, variantId, key);
                 stock.QuantityOnHand -= quantity;
 
                 db.InventoryAdjustments.Add(new InventoryAdjustment
                 {
                     TerritoryId = territoryId,
                     ProductVariantId = variantId,
+                    StockKey = key,
                     Kind = InventoryChangeKind.Sale,
                     Change = -quantity,
                     QuantityAfter = stock.QuantityOnHand,
@@ -182,8 +193,8 @@ namespace api.Utils
             var outstanding = await db.InventoryAdjustments
                 .Where(a => a.OrderId == order.Id
                             && (a.Kind == InventoryChangeKind.Sale || a.Kind == InventoryChangeKind.Return))
-                .GroupBy(a => new { a.ProductVariantId, a.TerritoryId })
-                .Select(g => new { g.Key.ProductVariantId, g.Key.TerritoryId, Net = g.Sum(a => a.Change) })
+                .GroupBy(a => new { a.ProductVariantId, a.TerritoryId, a.StockKey })
+                .Select(g => new { g.Key.ProductVariantId, g.Key.TerritoryId, g.Key.StockKey, Net = g.Sum(a => a.Change) })
                 .Where(x => x.Net < 0)
                 .ToListAsync();
 
@@ -191,13 +202,14 @@ namespace api.Utils
             {
                 var quantity = -item.Net;
                 var into = item.TerritoryId ?? territoryId;
-                var stock = await StockRowAsync(db, into, item.ProductVariantId);
+                var stock = await StockRowAsync(db, into, item.ProductVariantId, item.StockKey);
                 stock.QuantityOnHand += quantity;
 
                 db.InventoryAdjustments.Add(new InventoryAdjustment
                 {
                     TerritoryId = into,
                     ProductVariantId = item.ProductVariantId,
+                    StockKey = item.StockKey,
                     Kind = InventoryChangeKind.Return,
                     Change = quantity,
                     QuantityAfter = stock.QuantityOnHand,
@@ -215,14 +227,29 @@ namespace api.Utils
         #region Private Methods
 
         /// <summary>
-        /// A short name for a variant in a message, e.g. "SoftCell Chill (2.0) - King".
+        /// The tracked sizes among some variant ids, with their product's selections loaded.
         /// </summary>
-        /// <param name="variant">Variant with its product loaded</param>
+        private static Task<List<ProductVariant>> LoadTrackedAsync(ApplicationDbContext db, List<int> ids) =>
+            db.ProductVariants
+                .Include(v => v.Product)
+                .ThenInclude(p => p!.Options)
+                .ThenInclude(o => o.Choices)
+                .Where(v => ids.Contains(v.Id) && v.Product!.TrackInventory)
+                .ToListAsync();
+
+        /// <summary>
+        /// A short name for a variant in a message, e.g. "Luxury Sheets - Queen (Gray)".
+        /// </summary>
+        /// <param name="variant">Variant with its product (and its selections) loaded</param>
+        /// <param name="key">The stock key</param>
         /// <returns>The name.</returns>
-        private static string Describe(ProductVariant variant)
+        private static string Describe(ProductVariant variant, string key)
         {
             var name = variant.Product?.Name ?? "This item";
-            return string.IsNullOrWhiteSpace(variant.Size) ? name : $"{name} - {variant.Size}";
+            if (!string.IsNullOrWhiteSpace(variant.Size))
+                name = $"{name} - {variant.Size}";
+            var label = variant.Product == null ? "" : Choices.LabelFor(variant.Product, key);
+            return label.Length == 0 ? name : $"{name} ({label})";
         }
 
         #endregion

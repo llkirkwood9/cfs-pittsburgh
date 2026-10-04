@@ -79,8 +79,18 @@ namespace api.Controllers
                 if (componentError != null)
                     return BadRequest(new { error = componentError });
 
+                var saleError = ValidateSales(request);
+                if (saleError != null)
+                    return BadRequest(new { error = saleError });
+
+                var optionError = ValidateOptions(request.Options);
+                if (optionError != null)
+                    return BadRequest(new { error = optionError });
+
+                (product.SaleDiscountPercent, product.SaleDiscountAmount) = CleanSale(request.SaleDiscountPercent, request.SaleDiscountAmount);
                 ApplyVariants(product, request.Variants);
                 ApplyDeliveryOptions(product, request.DeliveryOptions);
+                SyncOptions(product, request.Options);
 
                 DB.Products.Add(product);
                 await DB.SaveChangesAsync();
@@ -120,6 +130,9 @@ namespace api.Controllers
                     .ThenInclude(cv => cv!.Product)
                     .Include(p => p.DeliveryOptions)
                     .ThenInclude(d => d.DeliveryOption)
+                    .Include(p => p.Options)
+                    .ThenInclude(o => o.Choices)
+                    .AsSplitQuery()
                     .AsNoTracking()
                     .AsQueryable();
 
@@ -208,6 +221,9 @@ namespace api.Controllers
                     .Include(p => p.Variants)
                     .ThenInclude(v => v.Components)
                     .Include(p => p.DeliveryOptions)
+                    .Include(p => p.Options)
+                    .ThenInclude(o => o.Choices)
+                    .AsSplitQuery()
                     .FirstOrDefaultAsync(p => p.Id == request.Id.Value);
 
                 if (product == null || !Visible(product.TerritoryId))
@@ -235,6 +251,18 @@ namespace api.Controllers
                                      ?? await ValidateDeliveryOptionsAsync(product.TerritoryId, request.DeliveryOptions);
                 if (componentError != null)
                     return BadRequest(new { error = componentError });
+
+                var saleError = ValidateSales(request);
+                if (saleError != null)
+                    return BadRequest(new { error = saleError });
+
+                var optionError = ValidateOptions(request.Options);
+                if (optionError != null)
+                    return BadRequest(new { error = optionError });
+
+                // The editor always sends the whole sale; 0 or nothing clears it.
+                if (request.SaleDiscountPercent != null || request.SaleDiscountAmount != null)
+                    (product.SaleDiscountPercent, product.SaleDiscountAmount) = CleanSale(request.SaleDiscountPercent, request.SaleDiscountAmount);
 
                 if (request.Name != null)
                 {
@@ -309,6 +337,10 @@ namespace api.Controllers
                         variant.Price = dto.Price;
                         variant.SortOrder = dto.SortOrder ?? 0;
                         variant.IsActive = dto.IsActive ?? true;
+                        variant.HasOwnSale = dto.HasOwnSale ?? false;
+                        (variant.SaleDiscountPercent, variant.SaleDiscountAmount) = variant.HasOwnSale
+                            ? CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount)
+                            : (null, null);
 
                         if (dto.Components != null)
                         {
@@ -325,6 +357,9 @@ namespace api.Controllers
                     product.DeliveryOptions.Clear();
                     ApplyDeliveryOptions(product, request.DeliveryOptions);
                 }
+
+                if (request.Options != null)
+                    await ReplaceOptionsAsync(product, request.Options);
 
                 await DB.SaveChangesAsync();
 
@@ -425,7 +460,10 @@ namespace api.Controllers
                     Price = dto.Price,
                     SortOrder = dto.SortOrder ?? 0,
                     IsActive = dto.IsActive ?? true,
+                    HasOwnSale = dto.HasOwnSale ?? false,
                 };
+                if (variant.HasOwnSale)
+                    (variant.SaleDiscountPercent, variant.SaleDiscountAmount) = CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount);
 
                 SetComponents(variant, dto.Components);
                 product.Variants.Add(variant);
@@ -542,6 +580,68 @@ namespace api.Controllers
         }
 
         /// <summary>
+        /// A sale as stored: a percent, or else an amount, or nothing. Zero clears it.
+        /// </summary>
+        private static (decimal? Percent, decimal? Amount) CleanSale(decimal? percent, decimal? amount) =>
+            percent is > 0 ? (percent, null) : amount is > 0 ? (null, amount) : (null, null);
+
+        /// <summary>
+        /// Checks the product's and each size's sale: percents from 0 to 100, amounts 0 or more.
+        /// </summary>
+        /// <returns>An error message, or null.</returns>
+        private static string? ValidateSales(ProductDto request)
+        {
+            var sales = new List<(decimal? Percent, decimal? Amount)> { (request.SaleDiscountPercent, request.SaleDiscountAmount) };
+            sales.AddRange((request.Variants ?? []).Select(v => (v.SaleDiscountPercent, v.SaleDiscountAmount)));
+
+            if (sales.Any(s => s.Percent is < 0 or > 100))
+                return "A sale percent must be between 0 and 100.";
+            if (sales.Any(s => s.Amount < 0))
+                return "A sale amount can't be negative.";
+            return null;
+        }
+
+        /// <summary>
+        /// Checks the selections in a save request: each needs a name and at least one choice,
+        /// every choice a name, and names can't repeat.
+        /// </summary>
+        /// <returns>An error message, or null.</returns>
+        private static string? ValidateOptions(List<ProductOptionDto>? options)
+        {
+            if (options == null)
+                return null;
+
+            if (options.Count > 10)
+                return "A product can have at most 10 selections.";
+
+            foreach (var option in options)
+            {
+                var name = option.Name?.Trim() ?? "";
+                if (name.Length == 0)
+                    return "Every selection needs a name, such as Color.";
+                if (name.Length > 50)
+                    return "A selection's name can be at most 50 characters.";
+
+                var choices = (option.Choices ?? []).Where(c => c.IsActive ?? true).ToList();
+                if (choices.Count == 0)
+                    return $"Give \"{name}\" at least one choice.";
+                if (choices.Count > 50)
+                    return $"\"{name}\" can have at most 50 choices.";
+                if (choices.Any(c => string.IsNullOrWhiteSpace(c.Name) || c.Name.Trim().Length > 50))
+                    return $"Every choice for \"{name}\" needs a name of up to 50 characters.";
+                if (choices.GroupBy(c => c.Name!.Trim().ToLowerInvariant()).Any(g => g.Count() > 1))
+                    return $"\"{name}\" lists the same choice twice.";
+                if (choices.Any(c => c.PriceAdjustment is < -100000 or > 100000))
+                    return $"A price change for \"{name}\" is too large.";
+            }
+
+            if (options.GroupBy(o => o.Name!.Trim().ToLowerInvariant()).Any(g => g.Count() > 1))
+                return "Two selections have the same name.";
+
+            return null;
+        }
+
+        /// <summary>
         /// Checks an item can move to another territory, or become global: what it includes and
         /// offers must be available there, and no bundle sold elsewhere may include it.
         /// </summary>
@@ -589,14 +689,112 @@ namespace api.Controllers
         /// viewing every territory.
         /// </summary>
         /// <param name="products">Products with their variants loaded</param>
-        /// <returns>Variant id to units on hand, or null.</returns>
-        private async Task<Dictionary<int, int>?> OnHandAsync(IEnumerable<Product> products)
+        /// <returns>(Variant id, stock key) to units on hand, or null.</returns>
+        private async Task<Dictionary<(int VariantId, string StockKey), int>?> OnHandAsync(IEnumerable<Product> products)
         {
             if (Scope.TerritoryId is not { } territoryId)
                 return null;
 
             var ids = products.Where(p => p.TrackInventory).SelectMany(p => p.Variants).Select(v => v.Id).ToList();
             return await InventoryRules.OnHandAsync(DB, territoryId, ids);
+        }
+
+        /// <summary>
+        /// Adds the selections from a save request to a new product.
+        /// </summary>
+        private static void SyncOptions(Product product, List<ProductOptionDto>? options)
+        {
+            foreach (var (dto, index) in (options ?? []).Select((o, i) => (o, i)))
+            {
+                var option = new ProductOption();
+                CopyOption(option, dto, index);
+                foreach (var (choiceDto, choiceIndex) in (dto.Choices ?? []).Where(c => c.IsActive ?? true).Select((c, i) => (c, i)))
+                {
+                    var choice = new ProductOptionChoice();
+                    CopyChoice(choice, choiceDto, choiceIndex);
+                    option.Choices.Add(choice);
+                }
+                product.Options.Add(option);
+            }
+        }
+
+        /// <summary>
+        /// Brings an existing product's selections in line with a save request. A choice taken
+        /// out is retired rather than deleted, so stock and past sales still name it; a selection
+        /// taken out is removed, along with any stock counted by its choices.
+        /// </summary>
+        private async Task ReplaceOptionsAsync(Product product, List<ProductOptionDto> options)
+        {
+            var keep = options.Where(o => o.Id != null).Select(o => o.Id!.Value).ToHashSet();
+            foreach (var gone in product.Options.Where(o => !keep.Contains(o.Id)).ToList())
+            {
+                await RemoveChoiceStockAsync(product, gone.Id);
+                DB.ProductOptions.Remove(gone);
+                product.Options.Remove(gone);
+            }
+
+            foreach (var (dto, index) in options.Select((o, i) => (o, i)))
+            {
+                var option = dto.Id == null ? null : product.Options.FirstOrDefault(o => o.Id == dto.Id.Value);
+                if (option == null)
+                {
+                    option = new ProductOption();
+                    product.Options.Add(option);
+                }
+
+                // Counting stock per choice switched off: those counts no longer apply.
+                if (option.Id != 0 && option.TracksStock && !(dto.TracksStock ?? false))
+                    await RemoveChoiceStockAsync(product, option.Id);
+
+                CopyOption(option, dto, index);
+
+                var wanted = (dto.Choices ?? []).Where(c => c.IsActive ?? true).ToList();
+                var keepChoices = wanted.Where(c => c.Id != null).Select(c => c.Id!.Value).ToHashSet();
+                foreach (var retired in option.Choices.Where(c => c.Id != 0 && !keepChoices.Contains(c.Id)))
+                    retired.IsActive = false;
+
+                foreach (var (choiceDto, choiceIndex) in wanted.Select((c, i) => (c, i)))
+                {
+                    var choice = choiceDto.Id == null ? null : option.Choices.FirstOrDefault(c => c.Id == choiceDto.Id.Value);
+                    if (choice == null)
+                    {
+                        choice = new ProductOptionChoice();
+                        option.Choices.Add(choice);
+                    }
+                    CopyChoice(choice, choiceDto, choiceIndex);
+                }
+            }
+        }
+
+        /// <summary>
+        /// Clears the stock counted for a selection's choices, across the product's sizes and in
+        /// every territory.
+        /// </summary>
+        private async Task RemoveChoiceStockAsync(Product product, int optionId)
+        {
+            var variantIds = product.Variants.Select(v => v.Id).ToList();
+            var marker = $"{optionId}:";
+            var rows = await DB.InventoryStocks
+                .Where(s => variantIds.Contains(s.ProductVariantId) && s.StockKey != "")
+                .ToListAsync();
+            DB.InventoryStocks.RemoveRange(rows.Where(r => r.StockKey.Split('|').Any(part => part.StartsWith(marker))));
+        }
+
+        private static void CopyOption(ProductOption option, ProductOptionDto dto, int index)
+        {
+            option.Name = dto.Name!.Trim();
+            option.SortOrder = index + 1;
+            option.TracksStock = dto.TracksStock ?? false;
+            // A selection that counts stock always needs a choice, or there is nothing to count against.
+            option.IsRequired = option.TracksStock || (dto.IsRequired ?? true);
+        }
+
+        private static void CopyChoice(ProductOptionChoice choice, ProductOptionChoiceDto dto, int index)
+        {
+            choice.Name = dto.Name!.Trim();
+            choice.PriceAdjustment = dto.PriceAdjustment is null or 0 ? null : dto.PriceAdjustment;
+            choice.SortOrder = index + 1;
+            choice.IsActive = true;
         }
 
         /// <summary>
@@ -638,6 +836,9 @@ namespace api.Controllers
                 .ThenInclude(cv => cv!.Product)
                 .Include(p => p.DeliveryOptions)
                 .ThenInclude(d => d.DeliveryOption)
+                .Include(p => p.Options)
+                .ThenInclude(o => o.Choices)
+                .AsSplitQuery()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == id);
 
@@ -651,8 +852,11 @@ namespace api.Controllers
         /// <param name="includeInactive">Whether to keep inactive variants in the result</param>
         /// <param name="onHand">The territory's stock, or null when viewing every territory</param>
         /// <returns>The mapped DTO.</returns>
-        private ProductDto ToDto(Product product, bool includeInactive, Dictionary<int, int>? onHand)
+        private ProductDto ToDto(Product product, bool includeInactive, Dictionary<(int VariantId, string StockKey), int>? onHand)
         {
+            // Every combination of counted choices, for the stock shown on the floor.
+            var combinations = Choices.Combinations(product);
+
             return new ProductDto
             {
                 Id = product.Id,
@@ -666,6 +870,33 @@ namespace api.Controllers
                 SortOrder = product.SortOrder,
                 IsActive = product.IsActive,
                 TrackInventory = product.TrackInventory,
+                SaleDiscountPercent = product.SaleDiscountPercent,
+                SaleDiscountAmount = product.SaleDiscountAmount,
+                Options = product.Options
+                    .OrderBy(o => o.SortOrder)
+                    .ThenBy(o => o.Id)
+                    .Select(o => new ProductOptionDto
+                    {
+                        Id = o.Id,
+                        Name = o.Name,
+                        SortOrder = o.SortOrder,
+                        IsRequired = o.IsRequired,
+                        TracksStock = o.TracksStock,
+                        Choices = o.Choices
+                            .Where(c => c.IsActive)
+                            .OrderBy(c => c.SortOrder)
+                            .ThenBy(c => c.Id)
+                            .Select(c => new ProductOptionChoiceDto
+                            {
+                                Id = c.Id,
+                                Name = c.Name,
+                                PriceAdjustment = c.PriceAdjustment,
+                                SortOrder = c.SortOrder,
+                                IsActive = c.IsActive,
+                            })
+                            .ToList(),
+                    })
+                    .ToList(),
                 Variants = product.Variants
                     .Where(v => includeInactive || v.IsActive)
                     .OrderBy(v => v.SortOrder)
@@ -678,7 +909,18 @@ namespace api.Controllers
                         Price = v.Price,
                         SortOrder = v.SortOrder,
                         IsActive = v.IsActive,
-                        QuantityOnHand = product.TrackInventory && onHand != null ? onHand.GetValueOrDefault(v.Id) : null,
+                        QuantityOnHand = product.TrackInventory && onHand != null ? onHand.GetValueOrDefault((v.Id, "")) : null,
+                        HasOwnSale = v.HasOwnSale,
+                        SaleDiscountPercent = v.SaleDiscountPercent,
+                        SaleDiscountAmount = v.SaleDiscountAmount,
+                        Stocks = combinations.Count == 1 && combinations[0].Key == ""
+                            ? null
+                            : combinations.Select(c => new ChoiceStockDto
+                            {
+                                StockKey = c.Key,
+                                Label = c.Label,
+                                QuantityOnHand = onHand?.GetValueOrDefault((v.Id, c.Key)),
+                            }).ToList(),
                         Components = v.Components
                             .Where(c => c.ComponentVariant?.Product != null)
                             .Select(c => new ProductVariantComponentDto
