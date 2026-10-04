@@ -8,11 +8,13 @@ import TabButton from "../Components/Elements/TabButton";
 import TextField from "../Components/Elements/TextField";
 import DeliveryOptionList from "../Components/Catalog/DeliveryOptionList";
 import EditProductForm from "../Components/Catalog/EditProductForm";
+import ImportCatalogModal from "../Components/Catalog/ImportCatalogModal";
 import { useAuth } from "../Context/AuthContext";
 import { FormatCurrency } from "../Lib/ModelHelpers";
 import { DiscountText, HasDiscount, OnSale, SaleFor } from "../Lib/Pricing";
 import { Toast } from "../Lib/Toast";
 import type { DeliveryOption } from "../Models/DeliveryOption";
+import { ExportCatalog } from "../Services/CatalogServices";
 import type { Product, ProductCategory } from "../Models/Product";
 import {
     AddDeliveryOption,
@@ -45,6 +47,8 @@ const CatalogPage = () => {
     const [search, setSearch] = useState<string>("");
     const [editing, setEditing] = useState<Product | null>(null);
     const [deleting, setDeleting] = useState<Product | null>(null);
+    const [restoring, setRestoring] = useState<boolean>(false);
+    const [exporting, setExporting] = useState<boolean>(false);
 
     const load = async () => {
         setLoading(true);
@@ -97,6 +101,25 @@ const CatalogPage = () => {
         }
     };
 
+    const handleExport = async () => {
+        setExporting(true);
+        const file = await ExportCatalog();
+        setExporting(false);
+        if (!file) return;
+
+        const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = `catalog-${new Date().toLocaleDateString("en-CA")}.json`;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+
+        Toast.Success(`Catalog exported: ${file.products?.length ?? 0} products.`);
+    };
+
     const handleSaveDeliveryOption = async (option: DeliveryOption) => {
         const saved = option.id
             ? await UpdateDeliveryOption(option)
@@ -141,21 +164,40 @@ const CatalogPage = () => {
         <div className="mx-auto max-w-screen-2xl p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h1 className="text-xl font-bold">Catalog</h1>
-                {tab !== "Delivery" && (
-                    <Button
-                        text="New product"
-                        icon="fa-solid fa-plus"
-                        onClick={() =>
-                            setEditing({
-                                category: tab === "All" ? "Misc" : (tab as ProductCategory),
-                                isActive: true,
-                                variants: [],
-                                deliveryOptions: [],
-                            })
-                        }
-                        className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
-                    />
-                )}
+                <div className="flex flex-wrap gap-2">
+                    {isOwner && (
+                        <>
+                            <Button
+                                text="Export catalog"
+                                icon="fa-solid fa-file-export"
+                                onClick={handleExport}
+                                loading={exporting}
+                                className="bg-zinc-600 hover:bg-zinc-700 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                            />
+                            <Button
+                                text="Restore catalog"
+                                icon="fa-solid fa-file-import"
+                                onClick={() => setRestoring(true)}
+                                className="bg-zinc-600 hover:bg-zinc-700 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                            />
+                        </>
+                    )}
+                    {tab !== "Delivery" && (
+                        <Button
+                            text="New product"
+                            icon="fa-solid fa-plus"
+                            onClick={() =>
+                                setEditing({
+                                    category: tab === "All" ? "Misc" : (tab as ProductCategory),
+                                    isActive: true,
+                                    variants: [],
+                                    deliveryOptions: [],
+                                })
+                            }
+                            className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
+                        />
+                    )}
+                </div>
             </div>
 
             <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
@@ -295,6 +337,10 @@ const CatalogPage = () => {
                     onSave={handleSaveProduct}
                     onClose={() => setEditing(null)}
                 />
+            )}
+
+            {restoring && (
+                <ImportCatalogModal onClose={() => setRestoring(false)} onRestored={load} />
             )}
 
             {deleting && (
