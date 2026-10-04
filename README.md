@@ -142,6 +142,12 @@ The catalog and the printed receipt are both built from the supplied source docu
     with its own list of choices. A choice can add to or take off the price. A selection can be
     optional, and on a tracked product it can **count stock for each choice**, so each
     territory's Inventory screen keeps a count for every size and color combination.
+  - **Export catalog / Restore catalog** (owners only): the whole catalog as a JSON file -
+    every product (archived ones too, global and every territory's) with sizes, prices, sales,
+    selections, bundles, delivery choices and Track inventory, plus the delivery options list; no
+    stock counts. Restoring either updates matching products and adds new ones, leaving the rest
+    alone, or clears the whole catalog, every territory (a permanent delete, sold items included),
+    and rebuilds it from the file. See *Catalog files* below.
 - `/events` — the territory, sales tax rate, card processing fee, order number sequence, active
   event. An event that has taken no orders can be moved to another territory.
 - `/crew` — accounts, roles, territories, starting passwords and unlocking. A manager sees and
@@ -394,6 +400,20 @@ as an adjustable base and a bundled pillow as a pillow on the stat sheet, so a s
 mattress *and* one base. A product cannot include itself, and a bundle cannot include another
 bundle. Anything sold on its own - including a standalone adjustable base - adds just its own
 line.
+
+**Catalog files.** `GET /api/catalog/export` and `POST /api/catalog/import` (owners only) save
+and restore the catalog as JSON (`"format": "cfs-catalog", "version": 1`). Nothing in the file is a
+database id: products are matched by brand and name, sizes by size and configuration, and delivery
+options, selections and choices by name, so a matched item keeps its id and with it its stock
+counts and past sales. Two items with the same name are paired up in order. Bundles name what they
+include the same way and are rebuilt after every product is in. `mode: "update"` brings matches in
+line with the file and adds the rest; `mode: "replace"` runs `PermanentDelete.CatalogAsync` first.
+The file is checked in full and the restore runs in one transaction, so a bad file changes
+nothing; anything that can't be brought in (a delivery option or bundled item that doesn't exist)
+is left out and listed in the result. Each item and delivery option also names its territory
+(blank when global): on restore it goes to the territory with that name, or comes in as global
+with a warning when there isn't one, and products are matched within their territory. Clearing
+clears every territory's items. `Utils/CatalogTransfer.cs` does the work.
 
 **Lines are snapshots.** Brand, size, description, price and category are copied onto the order
 line when it is added. Editing or retiring a catalog product never rewrites a printed receipt. A

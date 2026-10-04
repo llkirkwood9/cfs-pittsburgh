@@ -155,6 +155,43 @@ namespace api.Utils
             await transaction.CommitAsync();
         }
 
+        /// <summary>
+        /// Clears the whole catalog: every product and delivery option, sold or not, with their
+        /// sizes, selections, bundles, stock counts and inventory history, in every territory. Past
+        /// sales keep every line as printed but lose the links. Joins the caller's transaction when
+        /// there is one, so a restore can clear and refill the catalog in one go.
+        /// </summary>
+        /// <param name="db">EF context</param>
+        /// <returns>How many products and delivery options were deleted.</returns>
+        public static async Task<(int Products, int DeliveryOptions)> CatalogAsync(ApplicationDbContext db)
+        {
+            await using var transaction = db.Database.CurrentTransaction == null
+                ? await db.Database.BeginTransactionAsync()
+                : null;
+
+            await db.OrderLines
+                .Where(l => l.ProductVariantId != null)
+                .ExecuteUpdateAsync(s => s.SetProperty(l => l.ProductVariantId, (int?)null));
+            await db.OrderLines
+                .Where(l => l.DeliveryOptionId != null)
+                .ExecuteUpdateAsync(s => s.SetProperty(l => l.DeliveryOptionId, (int?)null));
+
+            await db.ProductVariantComponents.ExecuteDeleteAsync();
+            await db.InventoryAdjustments.ExecuteDeleteAsync();
+            await db.InventoryStocks.ExecuteDeleteAsync();
+            await db.ProductDeliveryOptions.ExecuteDeleteAsync();
+            await db.ProductOptionChoices.ExecuteDeleteAsync();
+            await db.ProductOptions.ExecuteDeleteAsync();
+            await db.ProductVariants.ExecuteDeleteAsync();
+            var products = await db.Products.ExecuteDeleteAsync();
+            var deliveryOptions = await db.DeliveryOptions.ExecuteDeleteAsync();
+
+            if (transaction != null)
+                await transaction.CommitAsync();
+
+            return (products, deliveryOptions);
+        }
+
         #endregion
     }
 }

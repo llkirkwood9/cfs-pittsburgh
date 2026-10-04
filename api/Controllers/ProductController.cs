@@ -359,7 +359,7 @@ namespace api.Controllers
                 }
 
                 if (request.Options != null)
-                    await ReplaceOptionsAsync(product, request.Options);
+                    await ReplaceOptionsAsync(DB, product, request.Options);
 
                 await DB.SaveChangesAsync();
 
@@ -582,7 +582,7 @@ namespace api.Controllers
         /// <summary>
         /// A sale as stored: a percent, or else an amount, or nothing. Zero clears it.
         /// </summary>
-        private static (decimal? Percent, decimal? Amount) CleanSale(decimal? percent, decimal? amount) =>
+        internal static (decimal? Percent, decimal? Amount) CleanSale(decimal? percent, decimal? amount) =>
             percent is > 0 ? (percent, null) : amount is > 0 ? (null, amount) : (null, null);
 
         /// <summary>
@@ -606,7 +606,7 @@ namespace api.Controllers
         /// every choice a name, and names can't repeat.
         /// </summary>
         /// <returns>An error message, or null.</returns>
-        private static string? ValidateOptions(List<ProductOptionDto>? options)
+        internal static string? ValidateOptions(List<ProductOptionDto>? options)
         {
             if (options == null)
                 return null;
@@ -702,7 +702,7 @@ namespace api.Controllers
         /// <summary>
         /// Adds the selections from a save request to a new product.
         /// </summary>
-        private static void SyncOptions(Product product, List<ProductOptionDto>? options)
+        internal static void SyncOptions(Product product, List<ProductOptionDto>? options)
         {
             foreach (var (dto, index) in (options ?? []).Select((o, i) => (o, i)))
             {
@@ -723,13 +723,13 @@ namespace api.Controllers
         /// out is retired rather than deleted, so stock and past sales still name it; a selection
         /// taken out is removed, along with any stock counted by its choices.
         /// </summary>
-        private async Task ReplaceOptionsAsync(Product product, List<ProductOptionDto> options)
+        internal static async Task ReplaceOptionsAsync(ApplicationDbContext db, Product product, List<ProductOptionDto> options)
         {
             var keep = options.Where(o => o.Id != null).Select(o => o.Id!.Value).ToHashSet();
             foreach (var gone in product.Options.Where(o => !keep.Contains(o.Id)).ToList())
             {
-                await RemoveChoiceStockAsync(product, gone.Id);
-                DB.ProductOptions.Remove(gone);
+                await RemoveChoiceStockAsync(db, product, gone.Id);
+                db.ProductOptions.Remove(gone);
                 product.Options.Remove(gone);
             }
 
@@ -744,7 +744,7 @@ namespace api.Controllers
 
                 // Counting stock per choice switched off: those counts no longer apply.
                 if (option.Id != 0 && option.TracksStock && !(dto.TracksStock ?? false))
-                    await RemoveChoiceStockAsync(product, option.Id);
+                    await RemoveChoiceStockAsync(db, product, option.Id);
 
                 CopyOption(option, dto, index);
 
@@ -770,14 +770,14 @@ namespace api.Controllers
         /// Clears the stock counted for a selection's choices, across the product's sizes and in
         /// every territory.
         /// </summary>
-        private async Task RemoveChoiceStockAsync(Product product, int optionId)
+        private static async Task RemoveChoiceStockAsync(ApplicationDbContext db, Product product, int optionId)
         {
             var variantIds = product.Variants.Select(v => v.Id).ToList();
             var marker = $"{optionId}:";
-            var rows = await DB.InventoryStocks
+            var rows = await db.InventoryStocks
                 .Where(s => variantIds.Contains(s.ProductVariantId) && s.StockKey != "")
                 .ToListAsync();
-            DB.InventoryStocks.RemoveRange(rows.Where(r => r.StockKey.Split('|').Any(part => part.StartsWith(marker))));
+            db.InventoryStocks.RemoveRange(rows.Where(r => r.StockKey.Split('|').Any(part => part.StartsWith(marker))));
         }
 
         private static void CopyOption(ProductOption option, ProductOptionDto dto, int index)
