@@ -17,6 +17,16 @@ namespace api.Dtos
         public int? EventId { get; set; }
 
         /// <summary>
+        /// The event's territory (returned, not saved)
+        /// </summary>
+        public int? TerritoryId { get; set; }
+
+        /// <summary>
+        /// The territory's name (returned, not saved)
+        /// </summary>
+        public string? TerritoryName { get; set; }
+
+        /// <summary>
         /// Sequential number printed on the sheet
         /// </summary>
         public int? OrderNumber { get; set; }

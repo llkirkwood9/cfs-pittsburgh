@@ -14,6 +14,12 @@ export type SalesTerm = {
 
 /** Business details, dashboard levels, new-event defaults and terms set under Settings. */
 export type GeneralSettings = {
+    /** The territory these are for; null for the company-wide settings. */
+    territoryId?: number | null;
+    /** Whether the signed-in user may change them. */
+    canEdit?: boolean;
+    /** For a territory: which settings it sets itself rather than taking the company's. */
+    overridden?: string[];
     /** In the menu bar, on the sign-in screen, in the browser tab and as the email sender. */
     appName: string;
     /** At the top of every sales sheet and at the end of the receipt email. */
@@ -32,7 +38,10 @@ export type GeneralSettings = {
     defaultCcProcessingFeeRate: number;
     /** The four statements a customer initials, in signing order. */
     terms: SalesTerm[];
-    /** The values when nothing has been changed. */
+    /**
+     * What each setting falls back to: the built-in values for the company-wide settings, the
+     * company's for a territory.
+     */
     defaults?: Omit<GeneralSettings, "defaults">;
 };
 

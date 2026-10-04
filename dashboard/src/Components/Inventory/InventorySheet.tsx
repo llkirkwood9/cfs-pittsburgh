@@ -59,8 +59,8 @@ const InventorySheet = ({ saleEvent, items }: Props) => {
 
             {groups.length === 0 ? (
                 <p className="mt-6 text-[12px] italic">
-                    No products are set to track inventory. An administrator can turn on Track
-                    inventory for a product in the Catalog.
+                    No products are set to track inventory. A manager can turn on Track inventory
+                    for a product in the Catalog.
                 </p>
             ) : (
                 groups.map((group) => (

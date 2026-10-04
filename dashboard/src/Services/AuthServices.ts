@@ -8,14 +8,15 @@ import type { User } from "../Models/User";
 //*************************************//
 
 /**
- * Signs a crew member in with their handle and PIN.
+ * Signs a crew member in. The API answers with a short-lived access token and sets the session
+ * cookie itself.
  * @param username The login handle.
- * @param pin The numeric PIN.
- * @returns The token pair and profile, or null when sign-in failed.
+ * @param password Their password (or, once, the PIN they used before passwords).
+ * @returns The access token and profile, or null when sign-in failed.
  */
-export const Login = async (username: string, pin: string): Promise<AuthResponse | null> => {
+export const Login = async (username: string, password: string): Promise<AuthResponse | null> => {
     try {
-        const response = await api.post<AuthResponse>("/api/Auth/login", { username, pin });
+        const response = await api.post<AuthResponse>("/api/auth/login", { username, password });
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
@@ -24,32 +25,25 @@ export const Login = async (username: string, pin: string): Promise<AuthResponse
 };
 
 /**
- * Changes the signed-in user's own PIN.
- * @param currentPin The PIN they sign in with now.
- * @param newPin The PIN they want instead.
- * @returns True if the PIN was changed.
+ * Changes the signed-in user's own password. Every other device they were signed in on is
+ * signed out.
+ * @param currentPassword The password they sign in with now.
+ * @param newPassword The password they want instead.
+ * @returns The updated profile, or null if it wasn't changed.
  */
-export const ChangePin = async (currentPin: string, newPin: string): Promise<boolean> => {
+export const ChangePassword = async (
+    currentPassword: string,
+    newPassword: string
+): Promise<User | null> => {
     try {
-        const response = await api.post("/api/Auth/change-pin", { currentPin, newPin });
-        return response.status === 200;
+        const response = await api.post<User>("/api/auth/change-password", {
+            currentPassword,
+            newPassword,
+        });
+        return response.data;
     } catch (error) {
         HandleAxiosError(error);
-        return false;
-    }
-};
-
-/**
- * Signs the current user out on the server.
- * @returns True if the operation was successful, false otherwise.
- */
-export const Logout = async (): Promise<boolean> => {
-    try {
-        const response = await api.post("/api/Auth/logout");
-        return response.status === 200;
-    } catch (error) {
-        HandleAxiosError(error);
-        return false;
+        return null;
     }
 };
 
@@ -63,10 +57,23 @@ export const Logout = async (): Promise<boolean> => {
  */
 export const GetCurrentUser = async (): Promise<User | null> => {
     try {
-        const response = await api.get<User>("/api/Auth/me");
+        const response = await api.get<User>("/api/auth/me");
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
+        return null;
+    }
+};
+
+/**
+ * The password rules in words, for the screens where one is chosen.
+ * @returns The description, or null if it couldn't be loaded.
+ */
+export const GetPasswordPolicy = async (): Promise<string | null> => {
+    try {
+        const response = await api.get<{ description?: string }>("/api/auth/password-policy");
+        return response.data.description ?? null;
+    } catch {
         return null;
     }
 };

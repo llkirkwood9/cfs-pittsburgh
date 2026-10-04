@@ -48,10 +48,17 @@ services:
     environment:
       Database__Provider: Postgres
       ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=CfsFundraiser;Username=cfs;Password=${POSTGRES_PASSWORD:-Change_Me_2026}"
-      Jwt__Key: "${JWT_KEY:-CHANGE_THIS_TO_A_LONG_RANDOM_SECRET_OF_AT_LEAST_32_CHARACTERS}"
+      # Required: the app refuses to start without a real secret of 32+ characters.
+      Jwt__Key: "${JWT_KEY:?Set JWT_KEY in the .env file to a random secret of 32+ characters}"
       # Set SKIP_SEED_DATA=true to leave out the sample catalog, delivery options and event.
-      # The first sign-in account (admin / 1234) is still created on an empty database.
+      # The first sign-in account (admin) is still created on an empty database, with the password
+      # in SEED_ADMIN_PASSWORD - or, when that is blank, a random one written once to the log
+      # (docker logs). It has to be changed at first sign-in either way.
       Seed__Skip: "${SKIP_SEED_DATA:-false}"
+      Seed__AdminPassword: "${SEED_ADMIN_PASSWORD:-}"
+      # Browsers reach this box directly rather than through a cloud load balancer, so headers
+      # claiming another address or HTTPS are not believed.
+      ForwardedHeaders__Enabled: "false"
       # Optional: email receipts and event reports. Leave EMAIL_HOST empty to keep email off.
       Email__Host: "${EMAIL_HOST:-}"
       Email__Port: "${EMAIL_PORT:-587}"

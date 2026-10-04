@@ -75,7 +75,12 @@ namespace api.Migrations.Postgres
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("TerritoryId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("TerritoryId");
 
                     b.ToTable("DeliveryOptions");
                 });
@@ -119,9 +124,14 @@ namespace api.Migrations.Postgres
                     b.Property<decimal>("SalesTaxRate")
                         .HasColumnType("numeric(18,4)");
 
+                    b.Property<int>("TerritoryId")
+                        .HasColumnType("integer");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EventDate");
+
+                    b.HasIndex("TerritoryId", "IsActive");
 
                     b.ToTable("Events");
                 });
@@ -159,6 +169,9 @@ namespace api.Migrations.Postgres
                     b.Property<int>("QuantityAfter")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("TerritoryId")
+                        .HasColumnType("integer");
+
                     b.Property<int?>("UserId")
                         .HasColumnType("integer");
 
@@ -176,7 +189,36 @@ namespace api.Migrations.Postgres
 
                     b.HasIndex("ProductVariantId", "CreatedAt");
 
+                    b.HasIndex("TerritoryId", "ProductVariantId");
+
                     b.ToTable("InventoryAdjustments");
+                });
+
+            modelBuilder.Entity("api.Models.InventoryStock", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ProductVariantId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("QuantityOnHand")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TerritoryId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductVariantId");
+
+                    b.HasIndex("TerritoryId", "ProductVariantId")
+                        .IsUnique();
+
+                    b.ToTable("InventoryStocks");
                 });
 
             modelBuilder.Entity("api.Models.Order", b =>
@@ -565,10 +607,15 @@ namespace api.Migrations.Postgres
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
 
+                    b.Property<int?>("TerritoryId")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("TrackInventory")
                         .HasColumnType("boolean");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TerritoryId");
 
                     b.HasIndex("Category", "SortOrder");
 
@@ -626,9 +673,6 @@ namespace api.Migrations.Postgres
                     b.Property<int>("ProductId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("QuantityOnHand")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Size")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -671,6 +715,68 @@ namespace api.Migrations.Postgres
                     b.ToTable("ProductVariantComponents");
                 });
 
+            modelBuilder.Entity("api.Models.Territory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Territories");
+                });
+
+            modelBuilder.Entity("api.Models.TerritorySetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("TerritoryId")
+                        .HasColumnType("integer");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TerritoryId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("TerritorySettings");
+                });
+
             modelBuilder.Entity("api.Models.User", b =>
                 {
                     b.Property<int>("Id")
@@ -686,16 +792,32 @@ namespace api.Migrations.Postgres
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<int>("FailedLoginCount")
+                        .HasColumnType("integer");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
                     b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<DateTime?>("LockoutUntil")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<bool>("MustChangePassword")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime?>("PasswordChangedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
 
                     b.Property<string>("PinHash")
                         .IsRequired()
@@ -707,14 +829,10 @@ namespace api.Migrations.Postgres
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
-                    b.Property<string>("RefreshToken")
-                        .HasMaxLength(200)
-                        .HasColumnType("character varying(200)");
-
-                    b.Property<DateTime?>("RefreshTokenExpiry")
-                        .HasColumnType("timestamp without time zone");
-
                     b.Property<int>("Role")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TerritoryId")
                         .HasColumnType("integer");
 
                     b.Property<string>("Username")
@@ -724,10 +842,72 @@ namespace api.Migrations.Postgres
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TerritoryId");
+
                     b.HasIndex("Username")
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("api.Models.UserSession", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<DateTime>("LastUsedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("character varying(64)");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserSessions");
+                });
+
+            modelBuilder.Entity("api.Models.DeliveryOption", b =>
+                {
+                    b.HasOne("api.Models.Territory", "Territory")
+                        .WithMany()
+                        .HasForeignKey("TerritoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Territory");
+                });
+
+            modelBuilder.Entity("api.Models.Event", b =>
+                {
+                    b.HasOne("api.Models.Territory", "Territory")
+                        .WithMany()
+                        .HasForeignKey("TerritoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Territory");
                 });
 
             modelBuilder.Entity("api.Models.InventoryAdjustment", b =>
@@ -753,6 +933,25 @@ namespace api.Migrations.Postgres
                     b.Navigation("ProductVariant");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("api.Models.InventoryStock", b =>
+                {
+                    b.HasOne("api.Models.ProductVariant", "ProductVariant")
+                        .WithMany("Stock")
+                        .HasForeignKey("ProductVariantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("api.Models.Territory", "Territory")
+                        .WithMany()
+                        .HasForeignKey("TerritoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProductVariant");
+
+                    b.Navigation("Territory");
                 });
 
             modelBuilder.Entity("api.Models.Order", b =>
@@ -816,6 +1015,16 @@ namespace api.Migrations.Postgres
                     b.Navigation("Order");
                 });
 
+            modelBuilder.Entity("api.Models.Product", b =>
+                {
+                    b.HasOne("api.Models.Territory", "Territory")
+                        .WithMany()
+                        .HasForeignKey("TerritoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Territory");
+                });
+
             modelBuilder.Entity("api.Models.ProductDeliveryOption", b =>
                 {
                     b.HasOne("api.Models.DeliveryOption", "DeliveryOption")
@@ -865,6 +1074,38 @@ namespace api.Migrations.Postgres
                     b.Navigation("ComponentVariant");
                 });
 
+            modelBuilder.Entity("api.Models.TerritorySetting", b =>
+                {
+                    b.HasOne("api.Models.Territory", "Territory")
+                        .WithMany()
+                        .HasForeignKey("TerritoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Territory");
+                });
+
+            modelBuilder.Entity("api.Models.User", b =>
+                {
+                    b.HasOne("api.Models.Territory", "Territory")
+                        .WithMany()
+                        .HasForeignKey("TerritoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Territory");
+                });
+
+            modelBuilder.Entity("api.Models.UserSession", b =>
+                {
+                    b.HasOne("api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("api.Models.DeliveryOption", b =>
                 {
                     b.Navigation("Products");
@@ -892,6 +1133,8 @@ namespace api.Migrations.Postgres
             modelBuilder.Entity("api.Models.ProductVariant", b =>
                 {
                     b.Navigation("Components");
+
+                    b.Navigation("Stock");
                 });
 #pragma warning restore 612, 618
         }

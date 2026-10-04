@@ -97,6 +97,7 @@ namespace api.Utils
                     .SetProperty(a => a.UserId, (int?)null)
                     .SetProperty(a => a.UserName, (string?)null));
 
+            await db.UserSessions.Where(us => us.UserId == id).ExecuteDeleteAsync();
             await db.Users.Where(u => u.Id == id).ExecuteDeleteAsync();
             await transaction.CommitAsync();
         }
@@ -104,7 +105,7 @@ namespace api.Utils
         /// <summary>
         /// Deletes a product and all its sizes. Past sales keep the item exactly as it was printed
         /// but lose the link to the catalog; bundles that included it lose that item; its inventory
-        /// history goes with it.
+        /// history and stock counts in every territory go with it.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <param name="productId">Product to delete</param>
@@ -126,6 +127,7 @@ namespace api.Utils
                 .ExecuteDeleteAsync();
 
             await db.InventoryAdjustments.Where(a => variantIds.Contains(a.ProductVariantId)).ExecuteDeleteAsync();
+            await db.InventoryStocks.Where(st => variantIds.Contains(st.ProductVariantId)).ExecuteDeleteAsync();
             await db.ProductDeliveryOptions.Where(d => d.ProductId == productId).ExecuteDeleteAsync();
             await db.ProductVariants.Where(v => v.ProductId == productId).ExecuteDeleteAsync();
             await db.Products.Where(p => p.Id == productId).ExecuteDeleteAsync();

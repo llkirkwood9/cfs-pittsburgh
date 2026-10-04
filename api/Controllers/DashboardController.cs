@@ -13,7 +13,8 @@ namespace api.Controllers
     /// <summary>
     /// The School Stat Sheet, computed live. Only completed orders feed the money figures;
     /// drafts and voided orders are reported separately so the floor can see work in progress
-    /// without it inflating the day's numbers.
+    /// without it inflating the day's numbers. Figures cover the territory being viewed; owners
+    /// and administrators can also view every territory together, or compare them side by side.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -39,7 +40,7 @@ namespace api.Controllers
             try
             {
                 var saleEvent = await DB.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == eventId);
-                if (saleEvent == null)
+                if (saleEvent == null || !CanSee(saleEvent))
                     return NotFound(new { error = "Event not found." });
 
                 var stats = await BuildStatsAsync(DB, o => o.EventId == eventId);
@@ -51,13 +52,13 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while getting the stats.", exception = e.Message });
+                return ServerError("Internal error occurred while getting the stats.", e);
             }
         }
 
         /// <summary>
-        /// Stat sheet figures for a single calendar day across every event.
+        /// Stat sheet figures for a single calendar day across every event in the territory being
+        /// viewed, or across every territory for an owner or administrator viewing them all.
         /// </summary>
         /// <param name="date">Day to report on; defaults to today</param>
         /// <returns>The computed stat sheet.</returns>
@@ -70,15 +71,89 @@ namespace api.Controllers
                 var day = (date ?? DateTime.Today).Date;
                 var next = day.AddDays(1);
 
-                var stats = await BuildStatsAsync(DB, o => o.SaleDate >= day && o.SaleDate < next);
+                var territoryId = Scope.TerritoryId;
+
+                var stats = await BuildStatsAsync(DB, o => o.SaleDate >= day && o.SaleDate < next
+                                                           && (territoryId == null || o.Event!.TerritoryId == territoryId));
                 stats.EventDate = day;
 
                 return Ok(stats);
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while getting the stats.", exception = e.Message });
+                return ServerError("Internal error occurred while getting the stats.", e);
+            }
+        }
+
+        /// <summary>
+        /// Every territory side by side: the headline figures from each one's completed sales
+        /// between two dates. Owners and administrators only.
+        /// </summary>
+        /// <param name="from">First day to include; leave out for no lower limit</param>
+        /// <param name="to">Last day to include; leave out for no upper limit</param>
+        /// <returns>One row per territory, biggest total first.</returns>
+        [HttpGet("stats/territories")]
+        [Authorize(AuthenticationSchemes = "Bearer")]
+        public async Task<IActionResult> GetTerritoryComparison([FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
+        {
+            try
+            {
+                if (!Scope.IsCompanyWide)
+                    return Forbidden("Only an owner or administrator may compare territories.");
+
+                var start = from?.Date;
+                var end = to?.Date.AddDays(1);
+
+                var orders = await DB.Orders
+                    .Where(o => o.Status == OrderStatus.Completed
+                                && (start == null || o.SaleDate >= start)
+                                && (end == null || o.SaleDate < end))
+                    .Include(o => o.Event)
+                    .Include(o => o.Lines)
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                var territories = await DB.Territories.AsNoTracking().OrderBy(t => t.Name).ToListAsync();
+                var activeEvents = await DB.Events.AsNoTracking()
+                    .Where(e => e.IsActive)
+                    .Select(e => new { e.TerritoryId, e.Organization })
+                    .ToListAsync();
+                var activeByTerritory = activeEvents
+                    .GroupBy(e => e.TerritoryId)
+                    .ToDictionary(g => g.Key, g => g.First().Organization);
+
+                var rows = territories
+                    .Select(t =>
+                    {
+                        var mine = orders.Where(o => o.Event!.TerritoryId == t.Id).ToList();
+                        var stats = Build(mine, []);
+                        return new TerritoryStatsDto
+                        {
+                            TerritoryId = t.Id,
+                            TerritoryName = t.Name,
+                            IsActive = t.IsActive,
+                            ActiveEvent = activeByTerritory.GetValueOrDefault(t.Id),
+                            EventCount = mine.Select(o => o.EventId).Distinct().Count(),
+                            CompletedOrderCount = stats.CompletedOrderCount,
+                            TotalSales = stats.TotalSales,
+                            NetSales = stats.NetSales,
+                            AverageSale = stats.AverageSale,
+                            MattressCount = stats.MattressCount,
+                            AdjustableBaseCount = stats.AdjustableBaseCount,
+                            OutstandingBalance = stats.OutstandingBalance,
+                        };
+                    })
+                    // A switched-off territory with nothing in the dates is just clutter.
+                    .Where(r => r.IsActive == true || r.CompletedOrderCount > 0)
+                    .OrderByDescending(r => r.TotalSales)
+                    .ThenBy(r => r.TerritoryName)
+                    .ToList();
+
+                return Ok(rows);
+            }
+            catch (Exception e)
+            {
+                return ServerError("Internal error occurred while comparing territories.", e);
             }
         }
 
@@ -103,7 +178,17 @@ namespace api.Controllers
                 .AsNoTracking()
                 .ToListAsync();
 
-            var completed = orders.Where(o => o.Status == OrderStatus.Completed).ToList();
+            return Build(orders.Where(o => o.Status == OrderStatus.Completed).ToList(), orders);
+        }
+
+        /// <summary>
+        /// Computes the stat sheet from orders already loaded.
+        /// </summary>
+        /// <param name="completed">Completed orders, with lines (and payments, for the payment totals)</param>
+        /// <param name="orders">Every order in range, for the work-in-progress counts</param>
+        /// <returns>The computed stat sheet.</returns>
+        private static DashboardStatsDto Build(List<Order> completed, List<Order> orders)
+        {
             var lines = completed.SelectMany(o => o.Lines).ToList();
             var payments = completed.SelectMany(o => o.Payments).ToList();
 

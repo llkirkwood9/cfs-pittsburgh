@@ -8,19 +8,21 @@ type Props = {
     children: ReactNode;
     footer?: ReactNode;
     wide?: boolean;
+    /** False hides the close button and ignores taps outside, for a step that can't be skipped. */
+    dismissible?: boolean;
 };
 
 /**
  * Overlay sheet. On a phone it fills the screen and on a tablet it centres as a card, because a
  * small centred dialog is hard to work in with a thumb.
  */
-const Modal = ({ title, onClose, children, footer, wide = false }: Props) => {
+const Modal = ({ title, onClose, children, footer, wide = false, dismissible = true }: Props) => {
     useLockBodyScroll();
 
     return (
         <div
             className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center"
-            onClick={onClose}
+            onClick={dismissible ? onClose : undefined}
         >
             <div
                 onClick={(e) => e.stopPropagation()}
@@ -31,15 +33,17 @@ const Modal = ({ title, onClose, children, footer, wide = false }: Props) => {
                     <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
                         {title}
                     </h2>
-                    <button
-                        type="button"
-                        onClick={onClose}
-                        aria-label="Close"
-                        className="flex h-11 w-11 items-center justify-center rounded-xl text-zinc-500
-                            hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-700"
-                    >
-                        <Icon icon="fa-solid fa-xmark" className="text-xl" />
-                    </button>
+                    {dismissible && (
+                        <button
+                            type="button"
+                            onClick={onClose}
+                            aria-label="Close"
+                            className="flex h-11 w-11 items-center justify-center rounded-xl text-zinc-500
+                                hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-700"
+                        >
+                            <Icon icon="fa-solid fa-xmark" className="text-xl" />
+                        </button>
+                    )}
                 </div>
 
                 <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>

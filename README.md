@@ -1,7 +1,10 @@
 # CFS Mattress Fundraiser
 
 Order-taking, checkout and reporting for CFS mattress fundraisers. An ASP.NET Core 10 Web API
-backs a single React 19 + Vite + TypeScript SPA that runs on the cart's tablets.
+backs a single React 19 + Vite + TypeScript SPA that runs on the cart's tablets. It runs on a
+cloud container host with a managed PostgreSQL database (see
+[Documents/Cloud Deployment.md](Documents/Cloud%20Deployment.md)), or on a single box at the
+venue - a Docker host or a Raspberry Pi.
 
 The catalog and the printed receipt are both built from the supplied source documents: the
 9/12/26 price cards and the Hampton 9/12 sales sheets.
@@ -9,6 +12,28 @@ The catalog and the printed receipt are both built from the supplied source docu
 ---
 
 ## 1. What it does
+
+**Territories and roles**
+- The business is split into **territories** (Pittsburgh, Cleveland, ...). Every event belongs to
+  one, and so do its crew, its stock and any catalog items of its own. Each territory has one
+  active event at a time.
+- **Owners** and **administrators** work across every territory. A territory picker in the menu
+  bar chooses which one the screens show - or **All territories**. Selling, checkout and stock
+  counts need a single territory, so those screens ask for one when All is picked.
+- Everyone else belongs to one territory and only ever sees its events, orders, stock and
+  settings. A **manager** runs a territory: its crew (Sales, Checkout, Sales & Checkout), its
+  events, its own catalog items and delivery options, and its settings. **Sales**, **Checkout**
+  and **Sales & Checkout** work the floor and the checkout table as before.
+- The API enforces all of this on every request; the dashboard just hides what a role can't use.
+
+| | Sales / Checkout | Sales & Checkout | Manager | Admin | Owner |
+|---|---|---|---|---|---|
+| Territories | own | own | own | all | all |
+| Sell / checkout | one each | both | both | both | both |
+| Events, crew, settings | - | - | own territory | everything | everything |
+| Catalog | - | - | own territory's items | global and territory items | global and territory items |
+| Territories screen | - | - | - | yes | yes |
+| Permanent deletes | - | - | - | - | yes |
 
 **Sales floor** (`/sales`, Sales role)
 - A rep holds as many drafts open at once as they have customers. Each one is a tab across the
@@ -57,7 +82,8 @@ The catalog and the printed receipt are both built from the supplied source docu
 - **Email** (completed sales only) sends the customer the sheet as a PDF attachment, with a
   friendly note: thanks, what happens next (take-home items, drop shipping to their address, how a
   boxed mattress expands, keeping a protector on for the warranty, any balance still owed) and the
-  customer service number. The note's wording is set by an administrator under **Settings**. Goes
+  customer service number. The note's wording is set under **Settings** (company-wide, or per
+  territory). Goes
   to their billing email or any address typed in. Needs the Email settings below.
 - The PDF is built in the browser from the sheet on screen (html2canvas-pro + jsPDF, loaded on
   demand), laid out at paper width whatever the device, one sheet per Letter page - so it matches
@@ -69,14 +95,15 @@ The catalog and the printed receipt are both built from the supplied source docu
 **Orders** (`/orders`, all roles)
 - Every order for the event being worked, filterable by status and searchable by customer, rep or
   order number, with the printable sales sheet one tap away.
-- An administrator additionally gets an **All events** tab and a per-event picker, so a past
+- A manager or above additionally gets an **All events** tab and a per-event picker for their
+  territory (owners and administrators: the territory in view, or every territory), so a past
   fundraiser can be looked back over weeks later.
-- An administrator can **Reopen** a completed (or at-checkout) order and send it to the checkout
+- A manager or above can **Reopen** a completed (or at-checkout) order and send it to the checkout
   table - to fix a payment, initials or signature - or back to the sales floor to change what was
   sold. Payments already recorded stay on the order; a reopened sale leaves the event's totals and
   printed sheets until it is completed again.
 
-**Event sales sheets** (`/events/:id/sheets`, Admin role)
+**Event sales sheets** (`/events/:id/sheets`, Manager and up)
 - A filled-in Fundraiser Stat Sheet first, laid out like the paper School Stat Sheet: unit counts, each
   financing, check, layaway and cash sale itemised, and the summary box. As on the paper form,
   AVERAGE SALE is total sales divided by the number of mattresses and adjustable bases.
@@ -92,14 +119,25 @@ The catalog and the printed receipt are both built from the supplied source docu
 - The stat sheet, computed live: total and net sales, units by category, mattresses plus
   adjustable bases, average sale, payment breakdown and best sellers. Items that come inside a
   bundle count in their own unit column but are not listed as best sellers - the bundle is.
-- Scoped to one event or to a whole day across events. Only completed sales feed the money
-  figures; drafts and voided orders are reported separately so nothing is counted twice.
+- Scoped to one event or to a whole day across the territory's events. Only completed sales feed
+  the money figures; drafts and voided orders are reported separately so nothing is counted twice.
+- With **All territories** picked, owners and administrators also get **Territories side by
+  side**: each territory's completed sales, total and net, average sale, mattresses and bases, and
+  what is still owed, for today, 7 days, 30 days, this year or all time. Tapping a territory
+  switches the whole dashboard to it.
 
-**Admin** (Admin role)
+**Management** (Manager and up)
 - `/catalog` — products, their sizes and prices, what each size includes as a bundle, and which
-  delivery services each offers.
-- `/events` — sales tax rate, card processing fee, order number sequence, active event.
-- `/crew` — accounts and roles.
+  delivery services each offers. An item or delivery option is either **global** (sold in every
+  territory) or one territory's own. Only owners and administrators change global ones; a
+  manager adds and edits their territory's. A territory's item can include and offer global
+  things and its own territory's; a global item only global ones.
+- `/events` — the territory, sales tax rate, card processing fee, order number sequence, active
+  event. An event that has taken no orders can be moved to another territory.
+- `/crew` — accounts, roles, territories, starting passwords and unlocking. A manager sees and
+  looks after their territory's Sales and Checkout crew.
+- `/territories` (owners and administrators) — add, rename, switch off (which signs the
+  territory's crew out and closes its active event) or delete an empty territory.
 - `/settings` — five cards, each saved on its own:
   - **Business details**: the company name and customer service number printed on every sales
     sheet and in emails, and the app name shown in the menu bar, sign-in screen, browser tab and as
@@ -118,9 +156,16 @@ The catalog and the printed receipt are both built from the supplied source docu
   - **Dashboard**: the net sales for the first star and between stars, and the running-low level
     used by Stock to watch and the Inventory screen.
 
-  Stored in the `AppSettings` table, one row per setting that differs from its default, so an
-  untouched setting follows the built-in default. `GET /api/settings/general` is open (the
-  sign-in screen needs the app name); everything else is admin-only.
+  Owners and administrators edit the **company-wide** settings, or pick a territory to set its
+  own. A territory follows the company for anything it hasn't changed; **Follow company
+  settings** on a card puts it back. Managers edit their own territory's. The app name is the same
+  everywhere. Sales sheets, receipts and emails use the settings of the territory the sale was
+  taken in.
+
+  Stored in the `AppSettings` table (company-wide, one row per setting that differs from the
+  built-in default) and `TerritorySettings` (one row per setting a territory has changed).
+  `GET /api/settings/public` is open - the sign-in screen needs the app name; everything else needs
+  a signed-in user.
 
 ---
 
@@ -140,12 +185,15 @@ Then open `http://localhost:8080`. The first start takes about a minute while SQ
 initialises its data volume; after that it is ready in around 20 seconds. The database lives in
 the `cfs-data` volume and survives restarts and rebuilds.
 
-Set real secrets before a real event, in a `.env` file next to `docker-compose.yml`:
+Put the secrets in a `.env` file next to `docker-compose.yml` - the app won't start without a
+real `JWT_KEY`:
 
 ```
 MSSQL_SA_PASSWORD=Use-A-Strong-Passw0rd
 JWT_KEY=a-long-random-string-of-at-least-32-characters
 ```
+
+`openssl rand -base64 48` makes a good key.
 
 To switch on emailed receipts and reports, add SMTP settings to the same `.env` (Gmail needs an
 app password):
@@ -168,8 +216,8 @@ set, email stays off and the dashboard says so when the buttons are pressed.
 To start without the sample catalog, delivery options and event, add `SKIP_SEED_DATA=true` to the
 same `.env` (locally, `Seed:Skip` in `appsettings.local.json`). Without it, the seed refills
 anything missing on every start, so sample items deleted on purpose come back. The first sign-in
-account (`admin` / `1234`) is still created when the database has no accounts at all, so a new
-database is never locked.
+account (`admin`, an owner) is still created when the database has no accounts at all, so a new
+database is never locked - see **First sign-in** below.
 
 The SA password must meet SQL Server's complexity rules and must not contain `;`. The container
 needs about 2 GB of memory for SQL Server and runs on x86-64 hosts. `api/docker-compose.yml` is a
@@ -192,17 +240,62 @@ cd dashboard && npm install && npm run dev
 
 The SPA listens on `http://localhost:3000` and reads the API URL from `dashboard/.env.local`.
 
-### Seeded sign-ins
+### First sign-in
 
-| Username | PIN | Role |
-|---|---|---|
-| `admin` | `1234` | Admin |
-| `sales` | `1111` | Sales |
-| `checkout` | `2222` | Checkout |
+An empty database gets one account, `admin`, made an owner. Its starting password is
+`SEED_ADMIN_PASSWORD` from the `.env` (`Seed:AdminPassword` locally) or, when that is blank, a
+random one written once to the API's log:
 
-**Change these before the app goes anywhere near a real event** (`/crew`), and replace
-`Jwt:Key` in `api/appsettings.json` with a long random secret — put it in
-`api/appsettings.local.json`, which is gitignored, rather than committing it.
+```
+Created the first account. Username: admin  Temporary password: ...
+```
+
+Either way it has to be changed at the first sign-in. Add everyone else on the Crew screen.
+
+Locally, replace `Jwt:Key` in `api/appsettings.json` with a long random secret - put it in
+`api/appsettings.local.json`, which is gitignored, rather than committing it. Development runs
+with the placeholder; nothing else does.
+
+### Upgrading from PINs
+
+A database from before passwords keeps working. The migration puts every existing event, Sales /
+Checkout account and stock count into a first territory, **Pittsburgh** (rename it on the
+Territories screen). Each person signs in once more with their old PIN as the password and is
+then made to choose a real password; after that the PIN no longer works.
+`Auth:AllowLegacyPins=false` turns the one-time PIN sign-in off altogether - then a manager sets
+a starting password for each account on the Crew screen.
+
+## 2a. Security
+
+- **Passwords.** At least 10 characters (up to 128), not a commonly used one, and not containing
+  the username or name. Stored with ASP.NET Core Identity's PBKDF2 hasher. A password set by a
+  manager or above - a new account or a reset - has to be changed at the next sign-in. Five wrong
+  passwords in a row lock the account for 15 minutes (`Auth:MaxFailedAttempts`,
+  `Auth:LockoutMinutes`); a manager can unlock it sooner on the Crew screen.
+- **Sessions.** Signing in returns a 15-minute access token (`Jwt:AccessTokenMinutes`, up to 60)
+  that the dashboard keeps only in memory, never in browser storage, and sets an httpOnly,
+  SameSite=Strict session cookie scoped to `/api/auth`. The dashboard renews the access token from
+  the cookie as needed; each renewal replaces the cookie, and only a SHA-256 of it is stored
+  (`UserSessions`). Renewing and signing out also need an `X-CFS-Client` header, which another
+  site can't send. Changing a password signs out every other device; switching an account or a
+  territory off signs its people out at their next request.
+- **Every request is checked against the database.** `AccessScopeMiddleware` loads the user on
+  each call, so a switched-off account, a switched-off territory or a changed role takes effect
+  straight away rather than when the token expires. Territory rules are enforced in the API, not
+  just hidden in the dashboard.
+- **Rate limits.** Sign-in, renewal and sign-out are limited to 30 a minute per address on top of
+  the per-account lockout; everything else to 120 per 10 seconds per user.
+- **Headers.** Every response carries a Content-Security-Policy (same-origin scripts only),
+  `X-Content-Type-Options`, `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy` and
+  `Cross-Origin-Opener-Policy`; HSTS outside development; no `Server` header.
+- **Errors.** A 500 tells the dashboard what failed but not why; the exception text is only
+  returned in Development. Everything is still logged.
+- **Configuration.** Outside Development the API refuses to start without a real `Jwt:Key` (32+
+  characters, not the placeholder) and a connection string. CORS allows no other origin unless
+  `Cors:AllowedOrigins` names one - the deployed app serves its own dashboard.
+- **Behind a load balancer** the API reads `X-Forwarded-For` / `X-Forwarded-Proto`, believing
+  only the hop the balancer added (`ForwardedHeaders:ForwardLimit`). The single-box compose files
+  turn this off (`ForwardedHeaders__Enabled=false`) because nothing sits in front of them.
 
 ---
 
@@ -210,7 +303,9 @@ The SPA listens on `http://localhost:3000` and reads the API URL from `dashboard
 
 ```
 Dockerfile                  Single-container image: SQL Server + API + dashboard
-docker-compose.yml          Runs that one container with a data volume on port 8080
+Dockerfile.app              App-only image (API + dashboard) for PostgreSQL: the cloud and the Pi
+docker-compose.yml          Runs the single container with a data volume on port 8080
+docker-compose.pi.yml       The app image plus a PostgreSQL container
 docker/start.sh             Container entrypoint: starts SQL Server, then the API
 
 api/                        ASP.NET Core 10 Web API (net10.0)
@@ -218,8 +313,9 @@ api/                        ASP.NET Core 10 Web API (net10.0)
 ├── Dtos/                   Request/response shapes; EF models are never exposed directly
 ├── Models/                 EF entities
 ├── Data/                   ApplicationDbContext, SeedData, CatalogSeed.json
-├── Services/               TokenService (JWT, refresh tokens, PIN hashing)
-├── Utils/                  BasicController, TraceControl, OrderCalculator
+├── Services/               TokenService (JWT, sessions, password hashing), EmailService
+├── Utils/                  BasicController, AccessScope (who may see what), PasswordPolicy,
+│                           SettingsStore, InventoryRules, OrderCalculator, TraceControl
 └── Migrations/
 
 dashboard/                  Vite + React 19 + TS SPA
@@ -227,18 +323,29 @@ dashboard/                  Vite + React 19 + TS SPA
     ├── Components/Elements/    Button, Icon, Modal, TextField, StatCard, ...
     ├── Components/Navbar/      Navbar, ThemeToggle, UserProfileDropdown
     ├── Components/{Sales,Checkout,Catalog}/  incl. the customer-facing sheets
-    ├── Context/AuthContext.tsx
+    ├── Context/                AuthContext, TerritoryContext, SettingsContext
     ├── Hooks/                  UseTheme.ts, UseLockBodyScroll.ts
     ├── Lib/                    api.ts, ErrorHandler.ts, Toast.ts, ModelHelpers.ts
     ├── Models/                 One type per DTO
     ├── Pages/                  One per route
-    ├── Routes/                 Routes.tsx, ProtectedRoute.tsx, HomeRedirect.tsx
+    ├── Routes/                 Routes.tsx, ProtectedRoute.tsx, RequireTerritory.tsx, HomeRedirect.tsx
     └── Services/               One file per backend controller
 ```
 
 ---
 
 ## 4. How the domain is modelled
+
+**Territories partition the business.** `Territory` has a name and an on/off switch. `Event`
+always has a territory; `User` has one unless they're an owner or administrator; `Product` and
+`DeliveryOption` have one or none (none = global). The territory in view for an owner or
+administrator travels with each request as an `X-Territory-Id` header, and `AccessScope` turns the
+signed-in user plus that header into the one territory (or none = all) every query filters by.
+
+**Stock is counted per territory.** `InventoryStock` holds one row per territory and size, so a
+global pillow can have 12 on the Pittsburgh cart and 3 in Cleveland. Sales draw from, and
+reopened or voided sales go back to, the territory of the event the sale was taken at; each
+`InventoryAdjustment` records its territory.
 
 **A product owns its prices.** `Product` (model name, brand, category) has many `ProductVariant`
 rows, each a size plus an optional configuration — `Queen / Mattress Only`, `Queen / Hi-Rise`,
@@ -283,9 +390,10 @@ product that has already been sold is archived rather than deleted.
 
 **An event is named by its organization.** A fundraiser is not always at a school, so an event
 has one name - the organization running it, e.g. "Hampton Band" - which heads the stat sheet and
-is copied onto each order. Only one event is active at a time, and new orders can only be taken
-while one is: with no active event the Sell and Checkout screens say so and the API refuses new
-orders. Existing orders can still be looked up, and an admin still sees every event's history.
+is copied onto each order. Each territory has one active event at a time, and new orders can only
+be taken while one is: with no active event the Sell and Checkout screens say so and the API
+refuses new orders. Existing orders can still be looked up, and a manager still sees every event's
+history.
 
 **Rates are snapshots too.** Each order stores the tax rate and card fee rate it was written
 under, so changing the rate on an event only affects orders taken from that point on.
@@ -375,14 +483,16 @@ are identical throughout. Both are transcribed as printed rather than corrected.
 ## 7. Conventions
 
 Backend: every controller inherits `BasicController` with primary-constructor DI; every action is
-wrapped in its own try/catch that traces and returns `{ error, exception }`; actions are grouped
+wrapped in its own try/catch that traces and returns `ServerError(...)` - `{ error }`, plus
+`exception` in Development only; access checks go through `Scope`, `IsAtLeast`, `CanSee` and
+`CanEditCatalog` on `BasicController`; actions are grouped
 in `#region POST/GET/PATCH/DELETE Methods`; validation is done by hand at the top of each mutating
 action; DTO properties are all nullable and EF models are never returned.
 
 Frontend: PascalCase folders and filenames; one service file per controller with
 POST/GET/PATCH/DELETE banner comments; services never throw, they call `HandleAxiosError` and
-return a safe default; all HTTP goes through `Lib/api.ts` (bearer token + queued refresh
-interceptor); Tailwind utilities only with an explicit `dark:` variant on every colour; no
+return a safe default; all HTTP goes through `Lib/api.ts` (in-memory bearer token, the territory
+header, and a shared session-renewal interceptor); Tailwind utilities only with an explicit `dark:` variant on every colour; no
 component library; icons only through the local `Icon` wrapper; feedback only through `Toast`.
 
 Tablet-first specifics: controls are at least 48px tall, inputs are 16px so iPad Safari does not
@@ -397,10 +507,11 @@ Three, each deliberate:
 
 1. **One SPA, not two.** The blueprint's `frontend/` is a public guest site; every user here is
    crew, so there is only `dashboard/`.
-2. **PIN sign-in instead of Google OAuth.** The blueprint authenticates through Google. Floor
-   reps share a tablet at a school gym and often have no Google account on it, so sign-in is a
-   username and a numeric keypad. The rest is unchanged: JWT bearer access tokens, opaque
-   refresh tokens on the user row, the same `TokenService` shape, and no self-service signup.
+2. **Username and password instead of Google OAuth.** The blueprint authenticates through
+   Google. Floor reps share a tablet at a school gym and often have no Google account on it, so
+   sign-in is a username and a password. The rest follows the blueprint: JWT bearer access
+   tokens, opaque refresh tokens (now hashed, one per device, in an httpOnly cookie), the same
+   `TokenService` shape, and no self-service signup.
 3. **Only the FontAwesome solid set is registered.** `library.add(fas, far, fab)` roughly doubles
    the bundle and nothing here uses a regular or brand icon; on venue wifi that is worth the
    deviation.

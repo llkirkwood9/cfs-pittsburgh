@@ -13,6 +13,8 @@ namespace api.Controllers
     /// <summary>
     /// The product catalog. A product owns its priced size/configuration variants and the set of
     /// delivery options offered for it, so delivery types can differ from one mattress to the next.
+    /// An item is either global - sold in every territory - or one territory's own. Managers look
+    /// after their territory's items; only owners and administrators change global ones.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -24,6 +26,13 @@ namespace api.Controllers
         TokenService tokenService)
         : BasicController(db, httpClientFactory, config, logger, tokenService)
     {
+        #region Private Fields
+
+        private const string ManagersOnly = "Only a manager, administrator or owner may change the catalog.";
+        private const string GlobalReadOnly = "Global items can only be changed by an owner or administrator.";
+
+        #endregion
+
         #region POST Methods
 
         /// <summary>
@@ -37,6 +46,9 @@ namespace api.Controllers
         {
             try
             {
+                if (!IsAtLeast(UserRole.Manager))
+                    return Forbidden(ManagersOnly);
+
                 if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Category))
                     return BadRequest(new { error = "Missing parameter." });
 
@@ -46,8 +58,13 @@ namespace api.Controllers
                 if (!Enum.TryParse<ProductCategory>(request.Category, true, out var category))
                     return BadRequest(new { error = "Invalid parameter." });
 
+                var (territoryId, problem) = await CatalogTerritoryAsync(request.TerritoryId);
+                if (problem != null)
+                    return problem;
+
                 var product = new Product
                 {
+                    TerritoryId = territoryId,
                     Name = request.Name,
                     Brand = request.Brand ?? string.Empty,
                     Category = category,
@@ -57,7 +74,8 @@ namespace api.Controllers
                     TrackInventory = request.TrackInventory ?? false,
                 };
 
-                var componentError = await ValidateComponentsAsync(null, request.Variants);
+                var componentError = await ValidateComponentsAsync(null, territoryId, request.Variants)
+                                     ?? await ValidateDeliveryOptionsAsync(territoryId, request.DeliveryOptions);
                 if (componentError != null)
                     return BadRequest(new { error = componentError });
 
@@ -71,8 +89,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while adding the product.", exception = e.Message });
+                return ServerError("Internal error occurred while adding the product.", e);
             }
         }
 
@@ -81,7 +98,9 @@ namespace api.Controllers
         #region GET Methods
 
         /// <summary>
-        /// Lists the catalog. Defaults to active products only, which is what the floor needs.
+        /// Lists the catalog of the territory being worked - global items and its own - or every
+        /// item for an owner or administrator viewing every territory. Defaults to active products
+        /// only, which is what the floor needs.
         /// </summary>
         /// <param name="includeInactive">Pass true from the catalog admin screen</param>
         /// <returns>Products with their variants and delivery options.</returns>
@@ -91,7 +110,10 @@ namespace api.Controllers
         {
             try
             {
+                var territoryId = Scope.TerritoryId;
                 var query = DB.Products
+                    .Where(p => territoryId == null || p.TerritoryId == null || p.TerritoryId == territoryId)
+                    .Include(p => p.Territory)
                     .Include(p => p.Variants)
                     .ThenInclude(v => v.Components)
                     .ThenInclude(c => c.ComponentVariant)
@@ -110,12 +132,12 @@ namespace api.Controllers
                     .ThenBy(p => p.Name)
                     .ToListAsync();
 
-                return Ok(products.Select(p => ToDto(p, includeInactive)).ToList());
+                var onHand = await OnHandAsync(products);
+                return Ok(products.Select(p => ToDto(p, includeInactive, onHand)).ToList());
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while getting products.", exception = e.Message });
+                return ServerError("Internal error occurred while getting products.", e);
             }
         }
 
@@ -131,15 +153,14 @@ namespace api.Controllers
             try
             {
                 var dto = await LoadDtoAsync(id);
-                if (dto == null)
+                if (dto == null || !Visible(dto.TerritoryId))
                     return NotFound(new { error = "Product not found." });
 
                 return Ok(dto);
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while getting the product.", exception = e.Message });
+                return ServerError("Internal error occurred while getting the product.", e);
             }
         }
 
@@ -157,8 +178,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while getting categories.", exception = e.Message });
+                return ServerError("Internal error occurred while getting categories.", e);
             }
         }
 
@@ -178,6 +198,9 @@ namespace api.Controllers
         {
             try
             {
+                if (!IsAtLeast(UserRole.Manager))
+                    return Forbidden(ManagersOnly);
+
                 if (request.Id == null)
                     return BadRequest(new { error = "Missing parameter." });
 
@@ -187,10 +210,29 @@ namespace api.Controllers
                     .Include(p => p.DeliveryOptions)
                     .FirstOrDefaultAsync(p => p.Id == request.Id.Value);
 
-                if (product == null)
+                if (product == null || !Visible(product.TerritoryId))
                     return NotFound(new { error = "Product not found." });
 
-                var componentError = await ValidateComponentsAsync(product.Id, request.Variants);
+                if (!CanEditCatalog(product.TerritoryId))
+                    return Forbidden(GlobalReadOnly);
+
+                // The edit form always sends the name and the territory, null meaning global. Only an
+                // owner or administrator can move an item; a partial update leaves it where it is.
+                if (Scope.IsCompanyWide && request.Name != null && request.TerritoryId != product.TerritoryId)
+                {
+                    var (territoryId, problem) = await CatalogTerritoryAsync(request.TerritoryId);
+                    if (problem != null)
+                        return problem;
+
+                    var moveError = await ValidateMoveAsync(product, territoryId, request);
+                    if (moveError != null)
+                        return BadRequest(new { error = moveError });
+
+                    product.TerritoryId = territoryId;
+                }
+
+                var componentError = await ValidateComponentsAsync(product.Id, product.TerritoryId, request.Variants)
+                                     ?? await ValidateDeliveryOptionsAsync(product.TerritoryId, request.DeliveryOptions);
                 if (componentError != null)
                     return BadRequest(new { error = componentError });
 
@@ -290,8 +332,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while updating the product.", exception = e.Message });
+                return ServerError("Internal error occurred while updating the product.", e);
             }
         }
 
@@ -312,24 +353,27 @@ namespace api.Controllers
         {
             try
             {
-                if (permanent)
-                {
-                    if (!IsOwner())
-                        return StatusCode(403, new { error = "Only an owner can delete a product permanently." });
-
-                    if (!await DB.Products.AnyAsync(p => p.Id == id))
-                        return NotFound(new { error = "Product not found." });
-
-                    await PermanentDelete.ProductAsync(DB, id);
-                    return Ok(new { archived = false });
-                }
+                if (!IsAtLeast(UserRole.Manager))
+                    return Forbidden(ManagersOnly);
 
                 var product = await DB.Products
                     .Include(p => p.Variants)
                     .FirstOrDefaultAsync(p => p.Id == id);
 
-                if (product == null)
+                if (product == null || !Visible(product.TerritoryId))
                     return NotFound(new { error = "Product not found." });
+
+                if (!CanEditCatalog(product.TerritoryId))
+                    return Forbidden(GlobalReadOnly);
+
+                if (permanent)
+                {
+                    if (!IsOwner())
+                        return Forbidden("Only an owner can delete a product permanently.");
+
+                    await PermanentDelete.ProductAsync(DB, id);
+                    return Ok(new { archived = false });
+                }
 
                 var variantIds = product.Variants.Select(v => v.Id).ToList();
                 var isSold = await DB.OrderLines.AnyAsync(l => l.ProductVariantId != null
@@ -354,8 +398,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while deleting the product.", exception = e.Message });
+                return ServerError("Internal error occurred while deleting the product.", e);
             }
         }
 
@@ -412,14 +455,25 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// Checks every bundle component in a save request. A product cannot include itself, and
-        /// a bundle cannot include another bundle - one level keeps the sheet and the stat
-        /// tallies predictable.
+        /// Whether the signed-in user can see a catalog item at all: owners and administrators see
+        /// everything; everyone else sees global items and their own territory's.
+        /// </summary>
+        /// <param name="itemTerritoryId">The item's territory, null for global</param>
+        /// <returns>True when visible.</returns>
+        private bool Visible(int? itemTerritoryId) =>
+            InCatalog(itemTerritoryId, Scope.IsCompanyWide ? null : Scope.HomeTerritoryId);
+
+        /// <summary>
+        /// Checks every bundle component in a save request. A product cannot include itself, a
+        /// bundle cannot include another bundle - one level keeps the sheet and the stat tallies
+        /// predictable - and everything in it has to be sold where the bundle is: a global bundle
+        /// only includes global items; a territory's bundle global items or that territory's own.
         /// </summary>
         /// <param name="productId">The product being saved, or null when it is new</param>
+        /// <param name="territoryId">The product's territory, null for global</param>
         /// <param name="variants">Variant DTOs from the request</param>
         /// <returns>An error message, or null when everything is valid.</returns>
-        private async Task<string?> ValidateComponentsAsync(int? productId, List<ProductVariantDto>? variants)
+        private async Task<string?> ValidateComponentsAsync(int? productId, int? territoryId, List<ProductVariantDto>? variants)
         {
             var requested = (variants ?? new List<ProductVariantDto>())
                 .SelectMany(v => v.Components ?? new List<ProductVariantComponentDto>())
@@ -438,7 +492,7 @@ namespace api.Controllers
 
             var found = await DB.ProductVariants
                 .Where(v => ids.Contains(v.Id))
-                .Select(v => new { v.Id, v.ProductId, IsBundle = v.Components.Any() })
+                .Select(v => new { v.Id, v.ProductId, IsBundle = v.Components.Any(), v.Product!.TerritoryId })
                 .ToListAsync();
 
             if (found.Count != ids.Count)
@@ -450,7 +504,99 @@ namespace api.Controllers
             if (found.Any(v => v.IsBundle))
                 return "A bundle cannot include another bundle. Pick the individual items instead.";
 
+            if (found.Any(v => v.TerritoryId != null && v.TerritoryId != territoryId))
+                return territoryId == null
+                    ? "A global item can only include other global items."
+                    : "A bundle can only include global items and items from its own territory.";
+
             return null;
+        }
+
+        /// <summary>
+        /// Checks the delivery options in a save request are offered where the product is sold:
+        /// global options, or the product's own territory's.
+        /// </summary>
+        /// <param name="territoryId">The product's territory, null for global</param>
+        /// <param name="options">Delivery option DTOs from the request</param>
+        /// <returns>An error message, or null when everything is valid.</returns>
+        private async Task<string?> ValidateDeliveryOptionsAsync(int? territoryId, List<ProductDeliveryOptionDto>? options)
+        {
+            var ids = (options ?? []).Where(o => o.DeliveryOptionId != null).Select(o => o.DeliveryOptionId!.Value).Distinct().ToList();
+            if (ids.Count == 0)
+                return null;
+
+            var found = await DB.DeliveryOptions
+                .Where(d => ids.Contains(d.Id))
+                .Select(d => d.TerritoryId)
+                .ToListAsync();
+
+            if (found.Count != ids.Count)
+                return "A delivery option no longer exists.";
+
+            if (found.Any(t => t != null && t != territoryId))
+                return territoryId == null
+                    ? "A global item can only offer global delivery options."
+                    : "An item can only offer global delivery options and its own territory's.";
+
+            return null;
+        }
+
+        /// <summary>
+        /// Checks an item can move to another territory, or become global: what it includes and
+        /// offers must be available there, and no bundle sold elsewhere may include it.
+        /// </summary>
+        /// <param name="product">The product, with variants, components and delivery options loaded</param>
+        /// <param name="territoryId">Where it's going, null for global</param>
+        /// <param name="request">The save request; lists it replaces are checked later instead</param>
+        /// <returns>An error message, or null when the move is fine.</returns>
+        private async Task<string?> ValidateMoveAsync(Product product, int? territoryId, ProductDto request)
+        {
+            var variantIds = product.Variants.Select(v => v.Id).ToList();
+
+            if (territoryId != null)
+            {
+                var usedElsewhere = await DB.ProductVariantComponents
+                    .AnyAsync(c => variantIds.Contains(c.ComponentVariantId)
+                                   && !variantIds.Contains(c.BundleVariantId)
+                                   && (c.BundleVariant!.Product!.TerritoryId == null || c.BundleVariant.Product.TerritoryId != territoryId));
+                if (usedElsewhere)
+                    return "A bundle outside that territory includes this item. Take it out of the bundle first.";
+            }
+
+            if (request.Variants == null)
+            {
+                var componentIds = product.Variants.SelectMany(v => v.Components).Select(c => c.ComponentVariantId).Distinct().ToList();
+                if (await DB.ProductVariants.AnyAsync(v => componentIds.Contains(v.Id)
+                                                           && v.Product!.TerritoryId != null
+                                                           && v.Product.TerritoryId != territoryId))
+                    return "This bundle includes items that aren't sold there.";
+            }
+
+            if (request.DeliveryOptions == null)
+            {
+                var optionIds = product.DeliveryOptions.Select(d => d.DeliveryOptionId).ToList();
+                if (await DB.DeliveryOptions.AnyAsync(d => optionIds.Contains(d.Id)
+                                                           && d.TerritoryId != null
+                                                           && d.TerritoryId != territoryId))
+                    return "This item offers delivery options that aren't available there.";
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// Units on hand of each tracked size in the territory being worked, or nothing when
+        /// viewing every territory.
+        /// </summary>
+        /// <param name="products">Products with their variants loaded</param>
+        /// <returns>Variant id to units on hand, or null.</returns>
+        private async Task<Dictionary<int, int>?> OnHandAsync(IEnumerable<Product> products)
+        {
+            if (Scope.TerritoryId is not { } territoryId)
+                return null;
+
+            var ids = products.Where(p => p.TrackInventory).SelectMany(p => p.Variants).Select(v => v.Id).ToList();
+            return await InventoryRules.OnHandAsync(DB, territoryId, ids);
         }
 
         /// <summary>
@@ -485,6 +631,7 @@ namespace api.Controllers
         private async Task<ProductDto?> LoadDtoAsync(int id)
         {
             var product = await DB.Products
+                .Include(p => p.Territory)
                 .Include(p => p.Variants)
                 .ThenInclude(v => v.Components)
                 .ThenInclude(c => c.ComponentVariant)
@@ -494,7 +641,7 @@ namespace api.Controllers
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == id);
 
-            return product == null ? null : ToDto(product, true);
+            return product == null ? null : ToDto(product, true, await OnHandAsync([product]));
         }
 
         /// <summary>
@@ -502,12 +649,16 @@ namespace api.Controllers
         /// </summary>
         /// <param name="product">Product entity with variants and delivery options loaded</param>
         /// <param name="includeInactive">Whether to keep inactive variants in the result</param>
+        /// <param name="onHand">The territory's stock, or null when viewing every territory</param>
         /// <returns>The mapped DTO.</returns>
-        private static ProductDto ToDto(Product product, bool includeInactive)
+        private ProductDto ToDto(Product product, bool includeInactive, Dictionary<int, int>? onHand)
         {
             return new ProductDto
             {
                 Id = product.Id,
+                TerritoryId = product.TerritoryId,
+                TerritoryName = product.Territory?.Name,
+                CanEdit = CanEditCatalog(product.TerritoryId),
                 Name = product.Name,
                 Brand = product.Brand,
                 Category = product.Category.ToString(),
@@ -527,7 +678,7 @@ namespace api.Controllers
                         Price = v.Price,
                         SortOrder = v.SortOrder,
                         IsActive = v.IsActive,
-                        QuantityOnHand = v.QuantityOnHand,
+                        QuantityOnHand = product.TrackInventory && onHand != null ? onHand.GetValueOrDefault(v.Id) : null,
                         Components = v.Components
                             .Where(c => c.ComponentVariant?.Product != null)
                             .Select(c => new ProductVariantComponentDto

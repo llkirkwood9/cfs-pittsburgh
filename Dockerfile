@@ -6,7 +6,7 @@
 #
 #   docker build -t cfs-fundraiser .
 #   docker run -d -p 8080:8080 -e MSSQL_SA_PASSWORD='Str0ng!Passw0rd' -e Jwt__Key='<long secret>' \
-#       -v cfs-data:/var/opt/mssql --name cfs-fundraiser cfs-fundraiser
+#       -e ForwardedHeaders__Enabled=false -v cfs-data:/var/opt/mssql --name cfs-fundraiser cfs-fundraiser
 #
 # Then browse to http://localhost:8080. The API serves the dashboard itself, so there is one origin
 # and one port and no CORS to configure.

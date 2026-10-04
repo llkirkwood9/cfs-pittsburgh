@@ -14,6 +14,11 @@ namespace api.Models
         public int Id { get; set; }
 
         /// <summary>
+        /// The territory whose stock changed. Null only for changes recorded before territories.
+        /// </summary>
+        public int? TerritoryId { get; set; }
+
+        /// <summary>
         /// FK to the variant whose count changed
         /// </summary>
         public int ProductVariantId { get; set; }

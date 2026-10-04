@@ -5,6 +5,7 @@ import { library } from "@fortawesome/fontawesome-svg-core";
 import { fas } from "@fortawesome/free-solid-svg-icons";
 import { AuthProvider } from "./Context/AuthContext";
 import { SettingsProvider } from "./Context/SettingsContext";
+import { TerritoryProvider } from "./Context/TerritoryContext";
 import { router } from "./Routes/Routes";
 import "./index.css";
 
@@ -15,9 +16,11 @@ library.add(fas);
 createRoot(document.getElementById("root")!).render(
     <StrictMode>
         <AuthProvider>
-            <SettingsProvider>
-                <RouterProvider router={router} />
-            </SettingsProvider>
+            <TerritoryProvider>
+                <SettingsProvider>
+                    <RouterProvider router={router} />
+                </SettingsProvider>
+            </TerritoryProvider>
         </AuthProvider>
     </StrictMode>
 );

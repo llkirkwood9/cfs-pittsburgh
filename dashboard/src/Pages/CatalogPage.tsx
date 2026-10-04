@@ -6,13 +6,16 @@ import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import TabButton from "../Components/Elements/TabButton";
 import TextField from "../Components/Elements/TextField";
+import { ScopeBadge } from "../Components/Catalog/CatalogScope";
 import DeliveryOptionList from "../Components/Catalog/DeliveryOptionList";
 import EditProductForm from "../Components/Catalog/EditProductForm";
 import { useAuth } from "../Context/AuthContext";
+import { useTerritory } from "../Context/TerritoryContext";
 import { FormatCurrency } from "../Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
 import type { DeliveryOption } from "../Models/DeliveryOption";
 import type { Product, ProductCategory } from "../Models/Product";
+import { IsCompanyWide } from "../Models/User";
 import {
     AddDeliveryOption,
     DeleteDeliveryOption,
@@ -29,11 +32,15 @@ import {
 
 /**
  * Catalog administration. Everything the floor can sell is defined here: products, the sizes and
- * configurations they come in, their prices, and which delivery services each one offers.
+ * configurations they come in, their prices, and which delivery services each one offers. Global
+ * items are sold in every territory and only owners and administrators change them; a manager
+ * adds and looks after items for their own territory.
  */
 const CatalogPage = () => {
     const { user } = useAuth();
+    const { territories, territoryId: territoryInView, territoryName } = useTerritory();
     const isOwner = user?.role === "Owner";
+    const companyWide = IsCompanyWide(user?.role);
 
     const [products, setProducts] = useState<Product[]>([]);
     const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOption[]>([]);
@@ -147,6 +154,8 @@ const CatalogPage = () => {
                         onClick={() =>
                             setEditing({
                                 category: tab === "All" ? "Misc" : (tab as ProductCategory),
+                                // New items go in the territory being viewed, or global from All.
+                                territoryId: companyWide ? territoryInView : user.territoryId,
                                 isActive: true,
                                 variants: [],
                                 deliveryOptions: [],
@@ -156,6 +165,13 @@ const CatalogPage = () => {
                     />
                 )}
             </div>
+
+            {!companyWide && (
+                <p className="mb-3 text-sm text-zinc-500 dark:text-zinc-400">
+                    Global items are set company-wide and can&apos;t be changed here. Anything you
+                    add is sold in {territoryName || "your territory"} only.
+                </p>
+            )}
 
             <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
                 <TabButton text="All" active={tab === "All"} onClick={() => setTab("All")} />
@@ -182,6 +198,10 @@ const CatalogPage = () => {
                     onSave={handleSaveDeliveryOption}
                     onDelete={handleDeleteDeliveryOption}
                     permanentDelete={isOwner}
+                    territories={territories}
+                    canChooseTerritory={companyWide}
+                    ownTerritoryName={territoryName}
+                    defaultTerritoryId={companyWide ? territoryInView : (user.territoryId ?? null)}
                 />
             ) : (
                 <>
@@ -202,6 +222,7 @@ const CatalogPage = () => {
                                 <div className="min-w-0 flex-1">
                                     <p className="font-semibold">
                                         {product.name}
+                                        <ScopeBadge territoryName={product.territoryName} />
                                         {!product.isActive && (
                                             <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
                                                 Archived
@@ -214,12 +235,20 @@ const CatalogPage = () => {
                                         <span>{priceRange(product)}</span>
                                         {product.trackInventory && (
                                             <span className="font-semibold text-emerald-700 dark:text-emerald-400">
-                                                Tracked &middot;{" "}
-                                                {(product.variants ?? []).reduce(
-                                                    (sum, v) => sum + (v.quantityOnHand ?? 0),
-                                                    0
-                                                )}{" "}
-                                                on hand
+                                                Tracked
+                                                {/* Stock is counted per territory, so there's no one figure for All. */}
+                                                {territoryInView != null && (
+                                                    <>
+                                                        {" "}
+                                                        &middot;{" "}
+                                                        {(product.variants ?? []).reduce(
+                                                            (sum, v) =>
+                                                                sum + (v.quantityOnHand ?? 0),
+                                                            0
+                                                        )}{" "}
+                                                        on hand
+                                                    </>
+                                                )}
                                             </span>
                                         )}
                                         <span>
@@ -236,21 +265,33 @@ const CatalogPage = () => {
                                     )}
                                 </div>
 
-                                <Button
-                                    text="Edit"
-                                    icon="fa-solid fa-pen"
-                                    onClick={() => setEditing(product)}
-                                    className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
-                                />
-                                <button
-                                    type="button"
-                                    onClick={() => setDeleting(product)}
-                                    aria-label="Delete product"
-                                    className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
-                                        hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
-                                >
-                                    <Icon icon="fa-solid fa-trash" />
-                                </button>
+                                {product.canEdit === false ? (
+                                    <span
+                                        className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400"
+                                        title="Global items are set by an owner or administrator"
+                                    >
+                                        <Icon icon="fa-solid fa-lock" />
+                                        Set company-wide
+                                    </span>
+                                ) : (
+                                    <>
+                                        <Button
+                                            text="Edit"
+                                            icon="fa-solid fa-pen"
+                                            onClick={() => setEditing(product)}
+                                            className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                                        />
+                                        <button
+                                            type="button"
+                                            onClick={() => setDeleting(product)}
+                                            aria-label="Delete product"
+                                            className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
+                                                hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
+                                        >
+                                            <Icon icon="fa-solid fa-trash" />
+                                        </button>
+                                    </>
+                                )}
                             </li>
                         ))}
 
@@ -271,6 +312,9 @@ const CatalogPage = () => {
                     deliveryOptions={deliveryOptions.filter((o) => o.isActive)}
                     onSave={handleSaveProduct}
                     onClose={() => setEditing(null)}
+                    territories={territories}
+                    canChooseTerritory={companyWide}
+                    ownTerritoryName={territoryName}
                 />
             )}
 

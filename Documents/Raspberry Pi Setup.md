@@ -135,8 +135,20 @@ echo 'SKIP_SEED_DATA=true' >> /opt/cfs/.env
 ```
 
 You can add it later too; it takes effect at the next restart and leaves everything already in the
-database alone. Either way, a brand-new database still gets one account to sign in with -
-`admin`, PIN `1234` - so change that PIN as soon as you sign in.
+database alone. Either way, a brand-new database still gets one account to sign in with, `admin`.
+
+**Optional - choose the first password.** That first account's starting password is random and
+written to the app's log when it is created (Step 7 shows where). To pick it yourself instead,
+add it to the file before the first start:
+
+```bash
+echo 'SEED_ADMIN_PASSWORD=pick-something-long' >> /opt/cfs/.env
+```
+
+Either way it has to be changed at the first sign-in; take the line back out afterwards.
+
+> **Moving the whole business to the cloud instead?** See *Cloud Deployment.md* alongside this
+> guide - same app, run by a cloud host with a managed database, reachable from every territory.
 
 ## Step 6 - Publish the Pi image
 
@@ -187,12 +199,24 @@ Press `Ctrl+C` to stop watching. Both containers should say `healthy`:
 docker compose -f docker-compose.pi.yml ps
 ```
 
-Now open `http://cfs.local:8080` (or `http://<the Pi's IP>:8080`) from any device on the network and
-sign in as **admin / 1234**. That first account is made the **Owner** automatically, the one
-role that can permanently delete events, orders and crew.
+Unless you set `SEED_ADMIN_PASSWORD`, find the first account's starting password in the log:
 
-> **Change that PIN straight away**: tap your initials in the top-right corner, then **Change PIN**.
-> Then add accounts for the rest of the team under **Crew**.
+```bash
+docker compose -f docker-compose.pi.yml logs app | grep "Created the first account"
+```
+
+Now open `http://cfs.local:8080` (or `http://<the Pi's IP>:8080`) from any device on the network and
+sign in as **admin** with that password. That first account is made the **Owner** automatically,
+the one role that can permanently delete events, orders and crew.
+
+> **You'll be asked to choose your own password straight away.** Then, under **Territories**,
+> rename the first territory to where this cart works, and add accounts for the rest of the team
+> under **Crew** - each one gets a starting password to pass on, and chooses their own at their
+> first sign-in.
+
+> **Updating a Pi that used PINs?** Everything already on it goes into a territory called
+> Pittsburgh (rename it under **Territories**). Each person signs in once more with their old PIN
+> in the password box and is then asked to choose a password.
 
 ## Step 8 - Start it automatically at boot
 
@@ -400,6 +424,11 @@ docker inspect --format '{{index .Config.Image}} {{.Created}}' cfs-app
 ## A note on security
 
 This runs plain HTTP on your local network, which is fine for a cart on an event Wi-Fi. Don't
-forward port 8080 through a router to the internet: there's no HTTPS and the sign-in is a short
-PIN. If you ever need it reachable from outside the venue, put it behind a VPN or a reverse proxy
-with a certificate.
+forward port 8080 through a router to the internet: there's no HTTPS. If you need it reachable
+from outside the venue, run it in the cloud instead (*Cloud Deployment.md*), or put it behind a
+VPN.
+
+The app still guards itself: passwords of at least 10 characters, a 15-minute lockout after 5
+wrong ones, short-lived sign-ins kept only in the tablet's memory, and a session cookie the page
+can't read. The compose file turns off trusting forwarded-address headers
+(`ForwardedHeaders__Enabled: "false"`) because nothing sits in front of the Pi.

@@ -75,7 +75,12 @@ namespace api.Migrations
                     b.Property<int>("SortOrder")
                         .HasColumnType("int");
 
+                    b.Property<int?>("TerritoryId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("TerritoryId");
 
                     b.ToTable("DeliveryOptions");
                 });
@@ -119,9 +124,14 @@ namespace api.Migrations
                     b.Property<decimal>("SalesTaxRate")
                         .HasColumnType("decimal(18,4)");
 
+                    b.Property<int>("TerritoryId")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("EventDate");
+
+                    b.HasIndex("TerritoryId", "IsActive");
 
                     b.ToTable("Events");
                 });
@@ -159,6 +169,9 @@ namespace api.Migrations
                     b.Property<int>("QuantityAfter")
                         .HasColumnType("int");
 
+                    b.Property<int?>("TerritoryId")
+                        .HasColumnType("int");
+
                     b.Property<int?>("UserId")
                         .HasColumnType("int");
 
@@ -176,7 +189,36 @@ namespace api.Migrations
 
                     b.HasIndex("ProductVariantId", "CreatedAt");
 
+                    b.HasIndex("TerritoryId", "ProductVariantId");
+
                     b.ToTable("InventoryAdjustments");
+                });
+
+            modelBuilder.Entity("api.Models.InventoryStock", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("ProductVariantId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("QuantityOnHand")
+                        .HasColumnType("int");
+
+                    b.Property<int>("TerritoryId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ProductVariantId");
+
+                    b.HasIndex("TerritoryId", "ProductVariantId")
+                        .IsUnique();
+
+                    b.ToTable("InventoryStocks");
                 });
 
             modelBuilder.Entity("api.Models.Order", b =>
@@ -565,10 +607,15 @@ namespace api.Migrations
                     b.Property<int>("SortOrder")
                         .HasColumnType("int");
 
+                    b.Property<int?>("TerritoryId")
+                        .HasColumnType("int");
+
                     b.Property<bool>("TrackInventory")
                         .HasColumnType("bit");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("TerritoryId");
 
                     b.HasIndex("Category", "SortOrder");
 
@@ -626,9 +673,6 @@ namespace api.Migrations
                     b.Property<int>("ProductId")
                         .HasColumnType("int");
 
-                    b.Property<int>("QuantityOnHand")
-                        .HasColumnType("int");
-
                     b.Property<string>("Size")
                         .IsRequired()
                         .HasMaxLength(50)
@@ -671,6 +715,68 @@ namespace api.Migrations
                     b.ToTable("ProductVariantComponents");
                 });
 
+            modelBuilder.Entity("api.Models.Territory", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("Name")
+                        .IsUnique();
+
+                    b.ToTable("Territories");
+                });
+
+            modelBuilder.Entity("api.Models.TerritorySetting", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Key")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<int>("TerritoryId")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(150)
+                        .HasColumnType("nvarchar(150)");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TerritoryId", "Key")
+                        .IsUnique();
+
+                    b.ToTable("TerritorySettings");
+                });
+
             modelBuilder.Entity("api.Models.User", b =>
                 {
                     b.Property<int>("Id")
@@ -686,16 +792,32 @@ namespace api.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
+                    b.Property<int>("FailedLoginCount")
+                        .HasColumnType("int");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("bit");
 
                     b.Property<DateTime?>("LastLoginAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("LockoutUntil")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("MustChangePassword")
+                        .HasColumnType("bit");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(150)
                         .HasColumnType("nvarchar(150)");
+
+                    b.Property<DateTime?>("PasswordChangedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("PasswordHash")
+                        .HasMaxLength(300)
+                        .HasColumnType("nvarchar(300)");
 
                     b.Property<string>("PinHash")
                         .IsRequired()
@@ -707,14 +829,10 @@ namespace api.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("nvarchar(200)");
 
-                    b.Property<string>("RefreshToken")
-                        .HasMaxLength(200)
-                        .HasColumnType("nvarchar(200)");
-
-                    b.Property<DateTime?>("RefreshTokenExpiry")
-                        .HasColumnType("datetime2");
-
                     b.Property<int>("Role")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("TerritoryId")
                         .HasColumnType("int");
 
                     b.Property<string>("Username")
@@ -724,10 +842,72 @@ namespace api.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("TerritoryId");
+
                     b.HasIndex("Username")
                         .IsUnique();
 
                     b.ToTable("Users");
+                });
+
+            modelBuilder.Entity("api.Models.UserSession", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("ExpiresAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateTime>("LastUsedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("TokenHash")
+                        .IsRequired()
+                        .HasMaxLength(64)
+                        .HasColumnType("nvarchar(64)");
+
+                    b.Property<string>("UserAgent")
+                        .HasMaxLength(200)
+                        .HasColumnType("nvarchar(200)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TokenHash")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("UserSessions");
+                });
+
+            modelBuilder.Entity("api.Models.DeliveryOption", b =>
+                {
+                    b.HasOne("api.Models.Territory", "Territory")
+                        .WithMany()
+                        .HasForeignKey("TerritoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Territory");
+                });
+
+            modelBuilder.Entity("api.Models.Event", b =>
+                {
+                    b.HasOne("api.Models.Territory", "Territory")
+                        .WithMany()
+                        .HasForeignKey("TerritoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Territory");
                 });
 
             modelBuilder.Entity("api.Models.InventoryAdjustment", b =>
@@ -753,6 +933,25 @@ namespace api.Migrations
                     b.Navigation("ProductVariant");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("api.Models.InventoryStock", b =>
+                {
+                    b.HasOne("api.Models.ProductVariant", "ProductVariant")
+                        .WithMany("Stock")
+                        .HasForeignKey("ProductVariantId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("api.Models.Territory", "Territory")
+                        .WithMany()
+                        .HasForeignKey("TerritoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("ProductVariant");
+
+                    b.Navigation("Territory");
                 });
 
             modelBuilder.Entity("api.Models.Order", b =>
@@ -816,6 +1015,16 @@ namespace api.Migrations
                     b.Navigation("Order");
                 });
 
+            modelBuilder.Entity("api.Models.Product", b =>
+                {
+                    b.HasOne("api.Models.Territory", "Territory")
+                        .WithMany()
+                        .HasForeignKey("TerritoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Territory");
+                });
+
             modelBuilder.Entity("api.Models.ProductDeliveryOption", b =>
                 {
                     b.HasOne("api.Models.DeliveryOption", "DeliveryOption")
@@ -865,6 +1074,38 @@ namespace api.Migrations
                     b.Navigation("ComponentVariant");
                 });
 
+            modelBuilder.Entity("api.Models.TerritorySetting", b =>
+                {
+                    b.HasOne("api.Models.Territory", "Territory")
+                        .WithMany()
+                        .HasForeignKey("TerritoryId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Territory");
+                });
+
+            modelBuilder.Entity("api.Models.User", b =>
+                {
+                    b.HasOne("api.Models.Territory", "Territory")
+                        .WithMany()
+                        .HasForeignKey("TerritoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Territory");
+                });
+
+            modelBuilder.Entity("api.Models.UserSession", b =>
+                {
+                    b.HasOne("api.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
             modelBuilder.Entity("api.Models.DeliveryOption", b =>
                 {
                     b.Navigation("Products");
@@ -892,6 +1133,8 @@ namespace api.Migrations
             modelBuilder.Entity("api.Models.ProductVariant", b =>
                 {
                     b.Navigation("Components");
+
+                    b.Navigation("Stock");
                 });
 #pragma warning restore 612, 618
         }

@@ -1,6 +1,9 @@
 # CFS Fundraiser - the app on its own (API + dashboard), talking to a PostgreSQL server.
 #
-# This is the image for small ARM hosts such as a Raspberry Pi, where SQL Server cannot run.
+# This is the image for small ARM hosts such as a Raspberry Pi, where SQL Server cannot run, and
+# for cloud hosting: any container host (Azure Container Apps, AWS App Runner or ECS, Google Cloud
+# Run, Fly.io, Render...) with a managed PostgreSQL database. See Documents/Cloud Deployment.md.
+# It runs as an unprivileged user and keeps nothing on its own disk.
 # The all-in-one Dockerfile alongside it (SQL Server in the same container) stays the x86 option.
 #
 #   docker compose -f docker-compose.pi.yml up -d

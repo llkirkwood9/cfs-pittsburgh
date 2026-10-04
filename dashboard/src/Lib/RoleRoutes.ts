@@ -10,6 +10,7 @@ export const HomePathForRole = (role?: UserRole | null): string => {
     switch (role) {
         case "Checkout":
             return "/checkout";
+        case "Manager":
         case "Admin":
         case "Owner":
             return "/dashboard";

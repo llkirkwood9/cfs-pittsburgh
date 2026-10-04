@@ -6,6 +6,16 @@ namespace api.Dtos
     public class ReceiptEmailSettingsDto
     {
         /// <summary>
+        /// The territory these settings are for; null for the company-wide settings
+        /// </summary>
+        public int? TerritoryId { get; set; }
+
+        /// <summary>
+        /// Whether the signed-in user may change them (returned, not saved)
+        /// </summary>
+        public bool? CanEdit { get; set; }
+
+        /// <summary>
         /// The subject line in use - the saved one, or the default when none is saved
         /// </summary>
         public string? Subject { get; set; }
@@ -16,7 +26,8 @@ namespace api.Dtos
         public string? Body { get; set; }
 
         /// <summary>
-        /// Whether both the subject and body are the built-in defaults
+        /// Whether neither the subject nor the body has its own value here: company-wide, that
+        /// means the built-in wording; for a territory, the company-wide wording
         /// </summary>
         public bool? IsDefault { get; set; }
 
@@ -147,6 +158,22 @@ namespace api.Dtos
     public class GeneralSettingsDto
     {
         /// <summary>
+        /// The territory these settings are for; null for the company-wide settings
+        /// </summary>
+        public int? TerritoryId { get; set; }
+
+        /// <summary>
+        /// Whether the signed-in user may change them (returned, not saved)
+        /// </summary>
+        public bool? CanEdit { get; set; }
+
+        /// <summary>
+        /// The settings a territory has its own value for (returned, not saved). Anything not
+        /// listed follows the company-wide value.
+        /// </summary>
+        public List<string>? Overridden { get; set; }
+
+        /// <summary>
         /// Shown in the menu bar, on the sign-in screen and as the email sender
         /// </summary>
         public string? AppName { get; set; }
@@ -192,7 +219,8 @@ namespace api.Dtos
         public List<SalesTermDto>? Terms { get; set; }
 
         /// <summary>
-        /// The values when nothing has been changed (returned, not saved)
+        /// What each setting would be without this scope's own values (returned, not saved): the
+        /// built-in defaults company-wide, the company-wide values for a territory
         /// </summary>
         public GeneralSettingsDto? Defaults { get; set; }
     }

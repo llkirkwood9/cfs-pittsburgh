@@ -6,11 +6,15 @@ export type EmailPlaceholder = {
 
 /** The wording of the email that goes with a customer's receipt. */
 export type ReceiptEmailSettings = {
+    /** The territory this wording is for; null for the company-wide wording. */
+    territoryId?: number | null;
+    /** Whether the signed-in user may change it. */
+    canEdit?: boolean;
     /** The subject line in use: the saved one, or the default. */
     subject?: string;
     /** The body in use: the saved wording, or the default. */
     body?: string;
-    /** Whether the subject and body are both the defaults. */
+    /** Whether the subject and body are both the defaults (for a territory: the company's). */
     isDefault?: boolean;
     defaultSubject?: string;
     defaultBody?: string;

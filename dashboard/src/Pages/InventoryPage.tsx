@@ -280,7 +280,7 @@ const InventoryPage = () => {
                     <Icon icon="fa-solid fa-boxes-stacked" className="text-3xl text-zinc-400" />
                     <p className="mt-3 text-base font-semibold">Nothing is being counted yet</p>
                     <p className="mx-auto mt-1 max-w-sm text-sm text-zinc-500 dark:text-zinc-400">
-                        An administrator can turn on Track inventory for a product in the Catalog.
+                        A manager can turn on Track inventory for a product in the Catalog.
                     </p>
                 </div>
             ) : (

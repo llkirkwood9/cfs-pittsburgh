@@ -1,22 +1,23 @@
 namespace api.Dtos.Authentication
 {
     /// <summary>
-    /// Token pair and profile returned from a successful sign-in or refresh.
+    /// What a sign-in or refresh returns. The refresh token is never in the body - it's set as an
+    /// httpOnly cookie the dashboard's code can't read.
     /// </summary>
     public class AuthResponseDto
     {
         /// <summary>
-        /// Short-lived JWT bearer token
+        /// Short-lived bearer token for API calls, kept in memory only
         /// </summary>
         public string? AccessToken { get; set; }
 
         /// <summary>
-        /// Long-lived opaque refresh token
+        /// Seconds until the access token expires
         /// </summary>
-        public string? RefreshToken { get; set; }
+        public int? ExpiresIn { get; set; }
 
         /// <summary>
-        /// Profile of the signed-in user
+        /// The signed-in user
         /// </summary>
         public UserDto? User { get; set; }
     }

@@ -1,21 +1,24 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { getAccessToken, getRefreshToken, setTokens, subscribeTokenChanged } from "../Lib/api";
 import {
-    GetCurrentUser,
-    Login as LoginRequest,
-    Logout as LogoutRequest,
-} from "../Services/AuthServices";
+    endSession,
+    refreshSession,
+    setAccessToken,
+    subscribePasswordRequired,
+    subscribeTokenChanged,
+} from "../Lib/api";
+import { GetCurrentUser, Login as LoginRequest } from "../Services/AuthServices";
+import { RoleRank } from "../Models/User";
 import type { User, UserRole } from "../Models/User";
 
 type AuthState = {
     user: User | null;
-    accessToken: string | null;
-    refreshToken: string | null;
     loading: boolean;
-    login: (username: string, pin: string) => Promise<User | null>;
+    login: (username: string, password: string) => Promise<User | null>;
     logout: () => Promise<void>;
     fetchUserProfile: () => Promise<void>;
+    /** Replaces the profile, e.g. after the user changes their own password. */
+    setProfile: (profile: User | null) => void;
     hasRole: (...roles: UserRole[]) => boolean;
 };
 
@@ -26,52 +29,55 @@ type Props = {
 };
 
 /**
- * Holds the signed-in crew member for the whole app and keeps itself in sync with the token
- * store, so a refresh that happens inside an interceptor is reflected here too.
+ * Holds the signed-in crew member for the whole app. The access token is only ever in memory,
+ * so a reload restores the session from the httpOnly session cookie instead.
  */
 export const AuthProvider = ({ children }: Props) => {
     const [user, setUser] = useState<User | null>(null);
-    const [accessToken, setAccessToken] = useState<string | null>(getAccessToken());
-    const [refreshToken, setRefreshToken] = useState<string | null>(getRefreshToken());
     const [loading, setLoading] = useState<boolean>(true);
 
     useEffect(() => {
-        const unsubscribe = subscribeTokenChanged((access, refresh) => {
-            setAccessToken(access);
-            setRefreshToken(refresh);
-            if (!access) setUser(null);
+        const offToken = subscribeTokenChanged((token) => {
+            if (!token) setUser(null);
         });
+        // The API refuses everything but changing the password until a new one is chosen.
+        const offPassword = subscribePasswordRequired(() =>
+            setUser((current) => (current ? { ...current, mustChangePassword: true } : current))
+        );
 
-        return unsubscribe;
+        return () => {
+            offToken();
+            offPassword();
+        };
     }, []);
 
     useEffect(() => {
         const restore = async () => {
-            if (!getAccessToken()) {
+            try {
+                const session = await refreshSession();
+                setUser(session?.user ?? null);
+            } catch {
+                // Offline at start-up: stay signed out until the connection is back.
+                setUser(null);
+            } finally {
                 setLoading(false);
-                return;
             }
-
-            const profile = await GetCurrentUser();
-            setUser(profile);
-            setLoading(false);
         };
 
         restore();
     }, []);
 
-    const login = async (username: string, pin: string): Promise<User | null> => {
-        const result = await LoginRequest(username, pin);
-        if (!result?.accessToken || !result.refreshToken) return null;
+    const login = async (username: string, password: string): Promise<User | null> => {
+        const result = await LoginRequest(username, password);
+        if (!result?.accessToken) return null;
 
-        setTokens(result.accessToken, result.refreshToken);
+        setAccessToken(result.accessToken);
         setUser(result.user ?? null);
         return result.user ?? null;
     };
 
     const logout = async (): Promise<void> => {
-        await LogoutRequest();
-        setTokens(null, null);
+        await endSession();
         setUser(null);
     };
 
@@ -80,31 +86,26 @@ export const AuthProvider = ({ children }: Props) => {
         setUser(profile);
     };
 
-    // Admin is deliberately a superset. Sales & Checkout covers both tables but never the admin
-    // screens, for a crew member working the whole cart at a small event.
+    // Each role can do everything a less senior one can: a manager also works the floor and
+    // checkout, an administrator everything a manager can, an owner everything. Sales & Checkout
+    // covers both tables but never the management screens.
     const hasRole = (...roles: UserRole[]): boolean => {
         if (!user?.role) return false;
-        // An owner can do everything; an administrator everything but the owner-only deletes.
-        if (user.role === "Owner") return true;
-        if (user.role === "Admin") return !roles.every((r) => r === "Owner");
-        if (
-            user.role === "SalesCheckout" &&
-            (roles.includes("Sales") || roles.includes("Checkout"))
-        )
-            return true;
-        return roles.includes(user.role);
+        const mine = user.role;
+        if (roles.includes(mine)) return true;
+        if (mine === "SalesCheckout") return roles.includes("Sales") || roles.includes("Checkout");
+        return roles.some((r) => RoleRank[mine] > RoleRank[r]);
     };
 
     return (
         <AuthContext.Provider
             value={{
                 user,
-                accessToken,
-                refreshToken,
                 loading,
                 login,
                 logout,
                 fetchUserProfile,
+                setProfile: setUser,
                 hasRole,
             }}
         >

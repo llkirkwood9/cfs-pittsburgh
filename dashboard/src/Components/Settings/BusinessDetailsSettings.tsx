@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import TextField from "../Elements/TextField";
 import SettingsCard from "./SettingsCard";
-import { useSettings } from "../../Context/SettingsContext";
+import { useSettingsScope } from "./SettingsScope";
 import { Toast } from "../../Lib/Toast";
 import { DefaultGeneralSettings } from "../../Models/GeneralSettings";
 import { SaveGeneralSettings } from "../../Services/SettingsServices";
@@ -19,7 +19,8 @@ const hint = "text-xs text-zinc-500 dark:text-zinc-400";
  * sales sheet, and the customer service phone.
  */
 const BusinessDetailsSettings = () => {
-    const { settings, apply } = useSettings();
+    const { settings, apply, territoryId } = useSettingsScope();
+    const isTerritory = territoryId != null;
     const defaults = settings.defaults ?? DefaultGeneralSettings;
 
     const [appName, setAppName] = useState<string>(settings.appName);
@@ -40,17 +41,21 @@ const BusinessDetailsSettings = () => {
         company.trim() !== settings.companyName ||
         phone.trim() !== settings.customerServicePhone;
     const isDefault =
-        settings.appName === defaults.appName &&
+        (isTerritory || settings.appName === defaults.appName) &&
         settings.companyName === defaults.companyName &&
         settings.customerServicePhone === defaults.customerServicePhone;
 
     const save = async (values: { appName: string; companyName: string; phone: string }) => {
         setSaving(true);
-        const result = await SaveGeneralSettings({
-            appName: values.appName.trim(),
-            companyName: values.companyName.trim(),
-            customerServicePhone: values.phone.trim(),
-        });
+        const result = await SaveGeneralSettings(
+            {
+                // The app's name is the same everywhere, so only the company-wide settings set it.
+                ...(isTerritory ? {} : { appName: values.appName.trim() }),
+                companyName: values.companyName.trim(),
+                customerServicePhone: values.phone.trim(),
+            },
+            territoryId
+        );
         setSaving(false);
         if (!result) return false;
         apply(result);
@@ -95,7 +100,7 @@ const BusinessDetailsSettings = () => {
             }}
             onReset={isDefault ? undefined : () => setResetting(true)}
         >
-            <div className="grid gap-4 md:grid-cols-3">
+            <div className={`grid gap-4 ${isTerritory ? "md:grid-cols-2" : "md:grid-cols-3"}`}>
                 <div>
                     <TextField
                         label="Company name"
@@ -124,7 +129,7 @@ const BusinessDetailsSettings = () => {
                         <code className="font-mono">{"{CustomerServicePhone}"}</code> in emails.
                     </p>
                 </div>
-                <div>
+                <div className={isTerritory ? "hidden" : ""}>
                     <TextField
                         label="App name"
                         value={appName}
@@ -142,7 +147,11 @@ const BusinessDetailsSettings = () => {
             {resetting && (
                 <ConfirmationModal
                     title="Go back to the default details"
-                    message={`Use "${defaults.companyName}", ${defaults.customerServicePhone} and "${defaults.appName}" again?`}
+                    message={
+                        isTerritory
+                            ? `Follow the company-wide details again ("${defaults.companyName}", ${defaults.customerServicePhone})?`
+                            : `Use "${defaults.companyName}", ${defaults.customerServicePhone} and "${defaults.appName}" again?`
+                    }
                     confirmText="Use the defaults"
                     onConfirm={handleReset}
                     onCancel={() => setResetting(false)}

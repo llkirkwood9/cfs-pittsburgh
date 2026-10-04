@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
+import { useSettingsScope } from "./SettingsScope";
 
 type Props = {
     id: string;
@@ -39,6 +40,16 @@ const SettingsCard = ({
     onDiscard,
     onReset,
 }: Props) => {
+    // For a territory, "the defaults" are the company-wide settings: a card with nothing to reset
+    // follows them, and resetting goes back to them.
+    const { territoryId, scopeName } = useSettingsScope();
+    const isTerritory = territoryId != null;
+    const footer = isTerritory
+        ? onReset
+            ? `Set for ${scopeName}.`
+            : "Following the company-wide settings."
+        : status;
+
     return (
         <section
             id={id}
@@ -56,18 +67,33 @@ const SettingsCard = ({
                     </h2>
                     <p className="text-sm text-zinc-600 dark:text-zinc-400">{description}</p>
                 </div>
-                {badge}
+                {isTerritory ? (
+                    <span
+                        className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                            onReset
+                                ? "bg-sky-100 text-sky-800 dark:bg-sky-900/50 dark:text-sky-300"
+                                : "bg-zinc-100 text-zinc-600 dark:bg-zinc-700 dark:text-zinc-300"
+                        }`}
+                    >
+                        <Icon
+                            icon={onReset ? "fa-solid fa-location-dot" : "fa-solid fa-building"}
+                        />
+                        {onReset ? `${scopeName}'s own` : "Company-wide"}
+                    </span>
+                ) : (
+                    badge
+                )}
             </div>
 
             {children}
 
             <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-700">
                 <p className="mr-auto text-xs text-zinc-500 dark:text-zinc-400">
-                    {dirty ? "You have unsaved changes." : status}
+                    {dirty ? "You have unsaved changes." : footer}
                 </p>
                 {onReset && (
                     <Button
-                        text="Reset to default"
+                        text={isTerritory ? "Follow company settings" : "Reset to default"}
                         icon="fa-solid fa-rotate-left"
                         onClick={onReset}
                         disabled={saving}

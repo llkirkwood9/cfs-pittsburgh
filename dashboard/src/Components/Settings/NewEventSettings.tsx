@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import TextField from "../Elements/TextField";
 import SettingsCard from "./SettingsCard";
-import { useSettings } from "../../Context/SettingsContext";
+import { useSettingsScope } from "./SettingsScope";
 import { Toast } from "../../Lib/Toast";
 import { DefaultGeneralSettings } from "../../Models/GeneralSettings";
 import { SaveGeneralSettings } from "../../Services/SettingsServices";
@@ -22,7 +22,7 @@ const AsRate = (percent: string) => Number(percent.replace(/[%\s]/g, "")) / 100;
  * changed on the Events screen; these just save typing them in every time.
  */
 const NewEventSettings = () => {
-    const { settings, apply } = useSettings();
+    const { settings, apply, territoryId } = useSettingsScope();
     const defaults = settings.defaults ?? DefaultGeneralSettings;
 
     const [tax, setTax] = useState<string>(AsPercent(settings.defaultSalesTaxRate));
@@ -51,7 +51,7 @@ const NewEventSettings = () => {
         defaultCcProcessingFeeRate: number;
     }) => {
         setSaving(true);
-        const result = await SaveGeneralSettings(values);
+        const result = await SaveGeneralSettings(values, territoryId);
         setSaving(false);
         if (!result) return false;
         apply(result);

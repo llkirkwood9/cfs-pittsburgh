@@ -1,8 +1,11 @@
+using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
 using api.Data;
 using api.Services;
+using api.Utils;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.HttpOverrides;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 
@@ -26,8 +29,28 @@ builder.Configuration
     .AddEnvironmentVariables()
     .AddCommandLine(args);
 
+// No "Server: Kestrel" header telling the world what to aim at.
+builder.WebHost.ConfigureKestrel(options => options.AddServerHeader = false);
+
+// Outside development, refuse to start on settings that would leave the app open: a missing or
+// placeholder signing key would let anyone who has read this repository forge a sign-in.
+if (!builder.Environment.IsDevelopment())
+{
+    var jwtKey = builder.Configuration["Jwt:Key"] ?? string.Empty;
+    if (Encoding.UTF8.GetByteCount(jwtKey) < 32
+        || jwtKey.Contains("REPLACE", StringComparison.OrdinalIgnoreCase)
+        || jwtKey.Contains("CHANGE_THIS", StringComparison.OrdinalIgnoreCase))
+        throw new InvalidOperationException(
+            "Jwt:Key must be set to a random secret of at least 32 characters (Jwt__Key in the environment).");
+
+    if (string.IsNullOrWhiteSpace(builder.Configuration.GetConnectionString("DefaultConnection")))
+        throw new InvalidOperationException(
+            "ConnectionStrings:DefaultConnection must be set (ConnectionStrings__DefaultConnection in the environment).");
+}
+
 // SQL Server on a Windows or x86 box, PostgreSQL where SQL Server cannot run - a Raspberry Pi,
-// for one. Set Database__Provider=Postgres (or CFS_DB_PROVIDER) alongside the connection string.
+// or a managed cloud database. Set Database__Provider=Postgres (or CFS_DB_PROVIDER) alongside the
+// connection string.
 var dbProvider = builder.Configuration["Database:Provider"]
                  ?? builder.Configuration["CFS_DB_PROVIDER"]
                  ?? "SqlServer";
@@ -53,12 +76,38 @@ builder.Services.AddHttpClient();
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<EmailService>();
 
+// Behind a cloud load balancer the API sees the balancer's address and plain HTTP. The forwarded
+// headers give back the visitor's address (for rate limiting and lockout logs) and the original
+// scheme (for secure cookies and HSTS). Only the right-most hop is believed - the one the balancer
+// itself added - so a visitor can't pose as another address by sending their own header.
+// ForwardedHeaders__ForwardLimit raises that for a chain of proxies; ForwardedHeaders__Enabled=false
+// turns it off for a server reached directly.
+var trustForwarded = !string.Equals(builder.Configuration["ForwardedHeaders:Enabled"], "false", StringComparison.OrdinalIgnoreCase);
+builder.Services.Configure<ForwardedHeadersOptions>(options =>
+{
+    options.ForwardedHeaders = ForwardedHeaders.XForwardedFor | ForwardedHeaders.XForwardedProto;
+    options.ForwardLimit = int.TryParse(builder.Configuration["ForwardedHeaders:ForwardLimit"], out var hops)
+        ? Math.Clamp(hops, 1, 5)
+        : 1;
+    // A container host's balancer address isn't known in advance.
+    options.KnownIPNetworks.Clear();
+    options.KnownProxies.Clear();
+});
+
+builder.Services.AddHsts(options =>
+{
+    options.MaxAge = TimeSpan.FromDays(365);
+    options.IncludeSubDomains = false;
+});
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowReactApp", policy =>
     {
+        // The deployed app serves its own dashboard from the same origin, so outside development
+        // no other site is let in unless Cors:AllowedOrigins names it.
         var origins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>()
-                      ?? new[] { "http://localhost:3000" };
+                      ?? (builder.Environment.IsDevelopment() ? ["http://localhost:3000"] : []);
 
         policy.WithOrigins(origins)
             .AllowAnyHeader()
@@ -86,28 +135,45 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = builder.Configuration["Jwt:Issuer"],
         ValidAudience = builder.Configuration["Jwt:Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key)),
+        ValidAlgorithms = [SecurityAlgorithms.HmacSha256],
         ClockSkew = TimeSpan.FromMinutes(1),
     };
 });
 
 builder.Services.AddAuthorization();
 
-// A busy cart runs several tablets against one API; the window is generous enough for a rep
-// typing quickly but still caps a runaway client.
 builder.Services.AddRateLimiter(options =>
 {
     options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
+
+    // A busy cart runs several tablets against one API; the window is generous enough for a rep
+    // typing quickly but still caps a runaway client. Signed-in users are counted by account,
+    // everyone else by address.
     options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(context =>
         RateLimitPartition.GetFixedWindowLimiter(
-            partitionKey: context.User.Identity?.Name
-                          ?? context.Connection.RemoteIpAddress?.ToString()
-                          ?? "anonymous",
+            partitionKey: context.User.FindFirstValue(ClaimTypes.NameIdentifier) is { } userId
+                ? $"user:{userId}"
+                : $"ip:{context.Connection.RemoteIpAddress?.ToString() ?? "unknown"}",
             factory: _ => new FixedWindowRateLimiterOptions
             {
                 PermitLimit = 120,
                 Window = TimeSpan.FromSeconds(10),
                 QueueProcessingOrder = QueueProcessingOrder.OldestFirst,
                 QueueLimit = 20,
+            }));
+
+    // Signing in, renewing and signing out: per address, on top of the per-account lockout, to slow
+    // password guessing across many accounts. A venue's tablets share one address, so it still
+    // allows a whole crew signing in at once.
+    options.AddPolicy(RateLimits.SignIn, context =>
+        RateLimitPartition.GetSlidingWindowLimiter(
+            partitionKey: context.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+            factory: _ => new SlidingWindowRateLimiterOptions
+            {
+                PermitLimit = 30,
+                Window = TimeSpan.FromMinutes(1),
+                SegmentsPerWindow = 6,
+                QueueLimit = 0,
             }));
 });
 
@@ -116,8 +182,40 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+if (trustForwarded)
+    app.UseForwardedHeaders();
+
 if (app.Environment.IsDevelopment())
     app.MapOpenApi();
+else
+    app.UseHsts();
+
+// Browser hardening on every response. The dashboard draws sales sheets and signatures onto
+// canvases (data: and blob: images), previews the receipt email in a sandboxed frame, and loads
+// nothing from anywhere else.
+app.Use(async (context, next) =>
+{
+    var headers = context.Response.Headers;
+    headers["X-Content-Type-Options"] = "nosniff";
+    headers["X-Frame-Options"] = "SAMEORIGIN";
+    headers["Referrer-Policy"] = "strict-origin-when-cross-origin";
+    headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=(), payment=(), usb=()";
+    headers["Cross-Origin-Opener-Policy"] = "same-origin";
+    headers["Content-Security-Policy"] =
+        "default-src 'self'; " +
+        "script-src 'self'; " +
+        "style-src 'self' 'unsafe-inline'; " +
+        "img-src 'self' data: blob: https:; " +
+        "font-src 'self' data:; " +
+        "connect-src 'self'; " +
+        "frame-src 'self' blob:; " +
+        "worker-src 'self' blob:; " +
+        "object-src 'none'; " +
+        "base-uri 'self'; " +
+        "form-action 'self'; " +
+        "frame-ancestors 'self'";
+    await next();
+});
 
 // In the Docker image the built dashboard sits in wwwroot and the API serves it, so the whole app
 // is one origin on one port. In local development there is no wwwroot and Vite serves it instead.
@@ -136,8 +234,11 @@ if (hostsDashboard)
 app.UseRouting();
 
 app.UseCors("AllowReactApp");
-app.UseRateLimiter();
 app.UseAuthentication();
+app.UseRateLimiter();
+// Who is asking and which territory they may see, checked against the database on every request
+// so a switched-off account or territory stops working straight away.
+app.UseMiddleware<AccessScopeMiddleware>();
 app.UseAuthorization();
 app.MapControllers();
 
@@ -157,8 +258,8 @@ using (var scope = app.Services.CreateScope())
     var tokenService = scope.ServiceProvider.GetRequiredService<TokenService>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
-    // SQL Server can still be starting when the API comes up (it shares the container in the
-    // Docker image), so give it a minute before giving up.
+    // The database can still be starting when the API comes up (SQL Server shares the container in
+    // the Docker image; a managed database may be waking), so give it a minute before giving up.
     var attempts = int.TryParse(builder.Configuration["Startup:DatabaseAttempts"], out var configured)
         ? Math.Max(1, configured)
         : 12;
@@ -172,9 +273,17 @@ using (var scope = app.Services.CreateScope())
             // SKIP_SEED_DATA in the Docker .env (Seed:Skip) leaves out the sample catalog,
             // delivery options and event.
             var skipSeed = builder.Configuration["Seed:Skip"]?.Trim().ToLowerInvariant() is "true" or "1" or "yes";
-            await api.Data.SeedData.SeedAsync(db, tokenService, accountsOnly: skipSeed);
+            var generated = await api.Data.SeedData.SeedAsync(
+                db, tokenService, builder.Configuration["Seed:AdminPassword"], accountsOnly: skipSeed);
             if (skipSeed && attempt == 1)
                 logger.LogWarning("Seed:Skip is set, so the sample catalog, delivery options and event were not loaded.");
+
+            // Only ever written once, when the first account is created on an empty database, and it
+            // has to be changed at first sign-in.
+            if (generated != null)
+                logger.LogWarning(
+                    "Created the first account. Username: admin  Temporary password: {Password}  (it must be changed at first sign-in)",
+                    generated);
 
             var promoted = await api.Data.SeedData.EnsureOwnerAsync(db);
             if (promoted != null)

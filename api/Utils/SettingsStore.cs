@@ -91,22 +91,16 @@ namespace api.Utils
         #region Public Methods
 
         /// <summary>
-        /// Every general setting, with defaults filled in for those never changed.
+        /// Every general setting in force for a territory - its own overrides, then the
+        /// company-wide values, then the defaults - or the company-wide settings when no territory
+        /// is given. The app name is always company-wide.
         /// </summary>
         /// <param name="db">EF context</param>
+        /// <param name="territoryId">The territory, or null for company-wide</param>
         /// <returns>The settings in force.</returns>
-        public static async Task<GeneralSettings> LoadAsync(ApplicationDbContext db)
+        public static async Task<GeneralSettings> LoadAsync(ApplicationDbContext db, int? territoryId = null)
         {
-            var keys = new[]
-            {
-                AppSettingKeys.AppName, AppSettingKeys.CompanyName, AppSettingKeys.CustomerServicePhone,
-                AppSettingKeys.StarsFirstAt, AppSettingKeys.StarsEvery, AppSettingKeys.LowStockAt,
-                AppSettingKeys.DefaultSalesTaxRate, AppSettingKeys.DefaultCcProcessingFeeRate,
-                AppSettingKeys.SalesSheetTerms,
-            };
-            var rows = await db.AppSettings.AsNoTracking()
-                .Where(s => keys.Contains(s.Key))
-                .ToDictionaryAsync(s => s.Key, s => s.Value);
+            var rows = await RowsAsync(db, territoryId, GeneralKeys);
 
             string Text(string key, string fallback) =>
                 rows.TryGetValue(key, out var v) && !string.IsNullOrWhiteSpace(v) ? v : fallback;
@@ -129,6 +123,55 @@ namespace api.Utils
         }
 
         /// <summary>
+        /// The raw stored values for some keys: the company-wide row, overlaid by the territory's own
+        /// row where it has one. The app name is never taken from a territory.
+        /// </summary>
+        /// <param name="db">EF context</param>
+        /// <param name="territoryId">The territory, or null for company-wide only</param>
+        /// <param name="keys">Which settings</param>
+        /// <returns>Key to stored value; keys with no row are left out.</returns>
+        public static async Task<Dictionary<string, string>> RowsAsync(ApplicationDbContext db, int? territoryId, IReadOnlyCollection<string> keys)
+        {
+            var rows = await db.AppSettings.AsNoTracking()
+                .Where(s => keys.Contains(s.Key))
+                .ToDictionaryAsync(s => s.Key, s => s.Value);
+
+            if (territoryId != null)
+            {
+                var own = await db.TerritorySettings.AsNoTracking()
+                    .Where(s => s.TerritoryId == territoryId && keys.Contains(s.Key) && s.Key != AppSettingKeys.AppName)
+                    .ToListAsync();
+                foreach (var row in own)
+                    rows[row.Key] = row.Value;
+            }
+
+            return rows;
+        }
+
+        /// <summary>
+        /// Which settings a territory has its own value for.
+        /// </summary>
+        /// <param name="db">EF context</param>
+        /// <param name="territoryId">The territory</param>
+        /// <returns>The keys it overrides.</returns>
+        public static async Task<List<string>> OverriddenKeysAsync(ApplicationDbContext db, int territoryId)
+        {
+            return await db.TerritorySettings.AsNoTracking()
+                .Where(s => s.TerritoryId == territoryId)
+                .Select(s => s.Key)
+                .ToListAsync();
+        }
+
+        /// <summary>The keys LoadAsync reads.</summary>
+        public static readonly string[] GeneralKeys =
+        [
+            AppSettingKeys.AppName, AppSettingKeys.CompanyName, AppSettingKeys.CustomerServicePhone,
+            AppSettingKeys.StarsFirstAt, AppSettingKeys.StarsEvery, AppSettingKeys.LowStockAt,
+            AppSettingKeys.DefaultSalesTaxRate, AppSettingKeys.DefaultCcProcessingFeeRate,
+            AppSettingKeys.SalesSheetTerms,
+        ];
+
+        /// <summary>
         /// The general settings as they are when nothing has been changed.
         /// </summary>
         public static GeneralSettings Defaults { get; } = new(
@@ -137,16 +180,25 @@ namespace api.Utils
             DefaultSalesTaxRate, DefaultCcProcessingFeeRate, DefaultTerms);
 
         /// <summary>
-        /// Saves one setting, or removes its row when the value is empty or the default. The
-        /// caller saves the changes.
+        /// Saves one setting, or removes its row when the value is empty or the same as what it
+        /// would otherwise be. For a territory, "otherwise" is the company-wide value, so a
+        /// territory that sets a setting back to the company's simply follows the company again.
+        /// The caller saves the changes.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <param name="key">Which setting</param>
         /// <param name="value">The new value</param>
-        /// <param name="defaultValue">Its default</param>
+        /// <param name="defaultValue">What it is without a row: the default, or for a territory the company-wide value</param>
         /// <param name="updatedBy">Who changed it</param>
-        public static async Task SetAsync(ApplicationDbContext db, string key, string? value, string defaultValue, string? updatedBy)
+        /// <param name="territoryId">The territory, or null for company-wide</param>
+        public static async Task SetAsync(ApplicationDbContext db, string key, string? value, string defaultValue, string? updatedBy, int? territoryId = null)
         {
+            if (territoryId != null)
+            {
+                await SetTerritoryAsync(db, territoryId.Value, key, value, defaultValue, updatedBy);
+                return;
+            }
+
             var row = await db.AppSettings.FirstOrDefaultAsync(s => s.Key == key);
             if (string.IsNullOrWhiteSpace(value) || value == defaultValue)
             {
@@ -159,6 +211,28 @@ namespace api.Utils
             {
                 row = new AppSetting { Key = key };
                 db.AppSettings.Add(row);
+            }
+            if (row.Value == value)
+                return;
+            row.Value = value;
+            row.UpdatedAt = DateTime.UtcNow;
+            row.UpdatedBy = updatedBy;
+        }
+
+        private static async Task SetTerritoryAsync(ApplicationDbContext db, int territoryId, string key, string? value, string companyValue, string? updatedBy)
+        {
+            var row = await db.TerritorySettings.FirstOrDefaultAsync(s => s.TerritoryId == territoryId && s.Key == key);
+            if (string.IsNullOrWhiteSpace(value) || value == companyValue)
+            {
+                if (row != null)
+                    db.TerritorySettings.Remove(row);
+                return;
+            }
+
+            if (row == null)
+            {
+                row = new TerritorySetting { TerritoryId = territoryId, Key = key };
+                db.TerritorySettings.Add(row);
             }
             if (row.Value == value)
                 return;

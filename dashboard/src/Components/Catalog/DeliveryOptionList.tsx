@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ScopeBadge, ScopeField } from "./CatalogScope";
 import Button from "../Elements/Button";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Icon from "../Elements/Icon";
@@ -7,6 +8,7 @@ import TextField from "../Elements/TextField";
 import { FormatCurrency, ParseMoney } from "../../Lib/ModelHelpers";
 import { Toast } from "../../Lib/Toast";
 import type { DeliveryOption } from "../../Models/DeliveryOption";
+import type { Territory } from "../../Models/Territory";
 
 type Props = {
     options: DeliveryOption[];
@@ -14,13 +16,30 @@ type Props = {
     onDelete: (id: number) => Promise<void>;
     /** Owner: deleting removes the option for good rather than archiving a used one. */
     permanentDelete?: boolean;
+    territories: Territory[];
+    /** Owners and administrators choose where an option is offered; managers' stay in their territory. */
+    canChooseTerritory: boolean;
+    /** The manager's own territory, shown when they can't choose. */
+    ownTerritoryName?: string | null;
+    /** Where a new option goes by default: the territory in view, or global. */
+    defaultTerritoryId?: number | null;
 };
 
 /**
- * The shared catalog of delivery methods and in-home services. Products pick from this list, so
- * adding White Glove here makes it available to attach anywhere.
+ * The catalog of delivery methods and in-home services. Products pick from this list, so adding
+ * White Glove here makes it available to attach anywhere it's offered. Global options are offered
+ * in every territory; a territory can add its own, which only its items can offer.
  */
-const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false }: Props) => {
+const DeliveryOptionList = ({
+    options,
+    onSave,
+    onDelete,
+    permanentDelete = false,
+    territories,
+    canChooseTerritory,
+    ownTerritoryName,
+    defaultTerritoryId = null,
+}: Props) => {
     const [editing, setEditing] = useState<DeliveryOption | null>(null);
     const [deleting, setDeleting] = useState<DeliveryOption | null>(null);
     const [saving, setSaving] = useState<boolean>(false);
@@ -31,6 +50,7 @@ const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false
     const [isTakeWith, setIsTakeWith] = useState<boolean>(false);
     const [showOnSalesSheet, setShowOnSalesSheet] = useState<boolean>(true);
     const [isActive, setIsActive] = useState<boolean>(true);
+    const [territoryId, setTerritoryId] = useState<number | null>(null);
 
     const open = (option: DeliveryOption) => {
         setEditing(option);
@@ -40,6 +60,7 @@ const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false
         setIsTakeWith(option.isTakeWith ?? false);
         setShowOnSalesSheet(option.showOnSalesSheet ?? true);
         setIsActive(option.isActive ?? true);
+        setTerritoryId(option.id ? (option.territoryId ?? null) : defaultTerritoryId);
     };
 
     const handleSave = async () => {
@@ -51,6 +72,7 @@ const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false
         setSaving(true);
         await onSave({
             id: editing?.id,
+            territoryId,
             name: name.trim(),
             price: parsed,
             isTaxable,
@@ -84,7 +106,10 @@ const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false
                         className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800"
                     >
                         <div className="min-w-0 flex-1">
-                            <p className="font-semibold">{option.name}</p>
+                            <p className="font-semibold">
+                                {option.name}
+                                <ScopeBadge territoryName={option.territoryName} />
+                            </p>
                             <p className="flex flex-wrap gap-x-2 text-xs text-zinc-500 dark:text-zinc-400">
                                 <span>{FormatCurrency(option.price)}</span>
                                 <span>{option.isTaxable ? "Taxable" : "Not taxable"}</span>
@@ -100,21 +125,33 @@ const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false
                             </p>
                         </div>
 
-                        <Button
-                            text="Edit"
-                            icon="fa-solid fa-pen"
-                            onClick={() => open(option)}
-                            className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setDeleting(option)}
-                            aria-label="Delete option"
-                            className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
-                                hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
-                        >
-                            <Icon icon="fa-solid fa-trash" />
-                        </button>
+                        {option.canEdit === false ? (
+                            <span
+                                className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400"
+                                title="Global options are set by an owner or administrator"
+                            >
+                                <Icon icon="fa-solid fa-lock" />
+                                Set company-wide
+                            </span>
+                        ) : (
+                            <>
+                                <Button
+                                    text="Edit"
+                                    icon="fa-solid fa-pen"
+                                    onClick={() => open(option)}
+                                    className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setDeleting(option)}
+                                    aria-label="Delete option"
+                                    className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
+                                        hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
+                                >
+                                    <Icon icon="fa-solid fa-trash" />
+                                </button>
+                            </>
+                        )}
                     </li>
                 ))}
             </ul>
@@ -140,6 +177,14 @@ const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false
                     }
                 >
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <ScopeField
+                            value={territoryId}
+                            onChange={setTerritoryId}
+                            territories={territories}
+                            canChoose={canChooseTerritory}
+                            fixedName={ownTerritoryName}
+                            className="sm:col-span-2"
+                        />
                         <TextField label="Name" value={name} onChange={setName} maxLength={100} />
                         <TextField
                             label="Price"

@@ -44,10 +44,13 @@ export const HandleAxiosError = (error: unknown): void => {
             Toast.Warning(message ?? "Please sign in again.");
             break;
         case 403:
+            // The change-password screen takes over; a toast as well would just be noise.
+            if ((data as { mustChangePassword?: boolean })?.mustChangePassword) break;
             Toast.Warning(message ?? "You are not allowed to do that.");
             break;
         case 429:
-            Toast.Warning("Slow down a moment - too many requests.");
+            // A locked account says how long for; the general limit doesn't.
+            Toast.Warning(message ?? "Slow down a moment - too many requests.");
             break;
         case 500:
             // A server fault gets its own page rather than a toast, because the rep needs

@@ -3,7 +3,7 @@ import ConfirmationModal from "../Elements/ConfirmationModal";
 import Icon from "../Elements/Icon";
 import ListSkeleton from "../Elements/ListSkeleton";
 import SettingsCard from "./SettingsCard";
-import { useSettings } from "../../Context/SettingsContext";
+import { useSettingsScope } from "./SettingsScope";
 import { FormatDateTime } from "../../Lib/ModelHelpers";
 import { Toast } from "../../Lib/Toast";
 import type {
@@ -29,7 +29,7 @@ const field =
  * preview for a sample order.
  */
 const ReceiptEmailSettings = () => {
-    const { settings: general } = useSettings();
+    const { settings: general, territoryId } = useSettingsScope();
     const [saved, setSaved] = useState<ReceiptEmail | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [subject, setSubject] = useState<string>("");
@@ -44,14 +44,14 @@ const ReceiptEmailSettings = () => {
 
     useEffect(() => {
         const load = async () => {
-            const found = await GetReceiptEmailSettings();
+            const found = await GetReceiptEmailSettings(territoryId);
             setSaved(found);
             setSubject(found?.subject ?? "");
             setBody(found?.body ?? "");
             setLoading(false);
         };
         load();
-    }, []);
+    }, [territoryId]);
 
     // Refresh the preview once typing pauses, or when the business details change. A newer
     // request supersedes an older one.
@@ -59,14 +59,14 @@ const ReceiptEmailSettings = () => {
         if (loading) return;
         let current = true;
         const timer = setTimeout(async () => {
-            const result = await PreviewReceiptEmail(subject, body);
+            const result = await PreviewReceiptEmail(subject, body, territoryId);
             if (current && result) setPreview(result);
         }, PREVIEW_DELAY_MS);
         return () => {
             current = false;
             clearTimeout(timer);
         };
-    }, [subject, body, loading, general.companyName, general.customerServicePhone]);
+    }, [subject, body, loading, territoryId, general.companyName, general.customerServicePhone]);
 
     if (loading) {
         return (
@@ -110,7 +110,7 @@ const ReceiptEmailSettings = () => {
 
     const save = async (nextSubject: string, nextBody: string) => {
         setSaving(true);
-        const result = await SaveReceiptEmailSettings(nextSubject, nextBody);
+        const result = await SaveReceiptEmailSettings(nextSubject, nextBody, territoryId);
         setSaving(false);
         if (!result) return false;
         setSaved(result);

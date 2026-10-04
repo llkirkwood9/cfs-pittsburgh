@@ -4193,6 +4193,7 @@
       "defaultDelivery": "Take With"
     }
   ],
+  "territory": "Pittsburgh",
   "event": {
     "organization": "Sample School Band",
     "cartName": "Pittsburgh",
@@ -4204,7 +4205,6 @@
     {
       "name": "Administrator",
       "username": "admin",
-      "pin": "1234",
       "role": "Admin"
     }
   ]

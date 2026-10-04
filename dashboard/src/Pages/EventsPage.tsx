@@ -8,6 +8,7 @@ import Modal from "../Components/Elements/Modal";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
 import { useSettings } from "../Context/SettingsContext";
+import { useTerritory } from "../Context/TerritoryContext";
 import {
     FormatRate,
     FormatShortDate,
@@ -18,16 +19,20 @@ import {
 } from "../Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
 import type { Event } from "../Models/Event";
+import { IsCompanyWide } from "../Models/User";
 import { AddEvent, DeleteEvent, GetEvents, UpdateEvent } from "../Services/EventServices";
 
 /**
  * Event administration. The sales tax rate, the card processing fee and the order number
- * sequence all live on the event, so each fundraiser can run with its own figures.
+ * sequence all live on the event, so each fundraiser can run with its own figures. Every event
+ * belongs to a territory, and each territory has one active event at a time.
  */
 const EventsPage = () => {
     const { user } = useAuth();
-    const { settings } = useSettings();
+    const { settingsFor } = useSettings();
+    const { territories, territoryId: territoryInView } = useTerritory();
     const navigate = useNavigate();
+    const companyWide = IsCompanyWide(user?.role);
 
     const [events, setEvents] = useState<Event[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -43,6 +48,7 @@ const EventsPage = () => {
     const [feePercent, setFeePercent] = useState<string>("2");
     const [nextOrderNumber, setNextOrderNumber] = useState<string>("1001");
     const [isActive, setIsActive] = useState<boolean>(true);
+    const [territoryId, setTerritoryId] = useState<number | null>(null);
 
     const load = async () => {
         setLoading(true);
@@ -68,20 +74,33 @@ const EventsPage = () => {
         setFeePercent(String(Number(((event.ccProcessingFeeRate ?? 0.02) * 100).toFixed(4))));
         setNextOrderNumber(String(event.nextOrderNumber ?? 1001));
         setIsActive(event.isActive ?? true);
+        setTerritoryId(event.territoryId ?? territoryInView ?? user?.territoryId ?? null);
+    };
+
+    // A new event's rates come from its territory's settings.
+    const pickTerritory = async (id: number | null) => {
+        setTerritoryId(id);
+        if (editing?.id || id == null) return;
+        const defaults = await settingsFor(id);
+        setTaxPercent(String(Number((defaults.defaultSalesTaxRate * 100).toFixed(4))));
+        setFeePercent(String(Number((defaults.defaultCcProcessingFeeRate * 100).toFixed(4))));
     };
 
     // A new event starts with the tax rate and card fee set under Settings, the most recent event's
     // cart, and order numbers carrying on from the highest used so far so no two sales sheets
     // share a number.
-    const newEventDefaults = (): Event => {
+    const newEventDefaults = async (): Promise<Event> => {
         const latest = [...events].sort((a, b) =>
             (b.eventDate ?? "").localeCompare(a.eventDate ?? "")
         )[0];
         const nextNumber = Math.max(1001, ...events.map((e) => e.nextOrderNumber ?? 0));
+        const territory = territoryInView ?? user?.territoryId ?? null;
+        const defaults = await settingsFor(territory);
         return {
+            territoryId: territory ?? undefined,
             cartName: latest?.cartName,
-            salesTaxRate: settings.defaultSalesTaxRate,
-            ccProcessingFeeRate: settings.defaultCcProcessingFeeRate,
+            salesTaxRate: defaults.defaultSalesTaxRate,
+            ccProcessingFeeRate: defaults.defaultCcProcessingFeeRate,
             nextOrderNumber: nextNumber,
             isActive: true,
         };
@@ -99,6 +118,9 @@ const EventsPage = () => {
         if (fee === null || fee < 0 || fee > 100)
             return Toast.Warning("The card fee must be between 0 and 100 percent.");
 
+        if (companyWide && territoryId == null)
+            return Toast.Warning("Pick the territory the event is in.");
+
         const payload: Event = {
             id: editing?.id,
             organization: organization.trim(),
@@ -108,6 +130,7 @@ const EventsPage = () => {
             ccProcessingFeeRate: fee / 100,
             nextOrderNumber: Number(nextOrderNumber) || 1001,
             isActive,
+            territoryId: companyWide ? (territoryId ?? undefined) : undefined,
         };
 
         setSaving(true);
@@ -170,6 +193,12 @@ const EventsPage = () => {
                     )}
                 </p>
                 <p className="flex flex-wrap gap-x-3 text-xs text-zinc-500 dark:text-zinc-400">
+                    {companyWide && territoryInView == null && event.territoryName && (
+                        <span className="font-semibold text-zinc-700 dark:text-zinc-300">
+                            <Icon icon="fa-solid fa-location-dot" className="mr-1" />
+                            {event.territoryName}
+                        </span>
+                    )}
                     <span>{FormatShortDate(event.eventDate)}</span>
                     {event.cartName && <span>Cart: {event.cartName}</span>}
                     <span>Tax {FormatRate(event.salesTaxRate)}</span>
@@ -223,7 +252,7 @@ const EventsPage = () => {
                 <Button
                     text="New event"
                     icon="fa-solid fa-plus"
-                    onClick={() => open(newEventDefaults())}
+                    onClick={async () => open(await newEventDefaults())}
                     className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                 />
             </div>
@@ -274,6 +303,38 @@ const EventsPage = () => {
                     }
                 >
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        {companyWide && (
+                            <label className="flex flex-col gap-1 sm:col-span-2">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                    Territory
+                                </span>
+                                <select
+                                    value={territoryId ?? ""}
+                                    onChange={(e) =>
+                                        pickTerritory(
+                                            e.target.value ? Number(e.target.value) : null
+                                        )
+                                    }
+                                    className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base
+                                        dark:border-zinc-600 dark:bg-zinc-800 dark:[color-scheme:dark]"
+                                >
+                                    <option value="">Pick a territory...</option>
+                                    {territories
+                                        .filter((t) => t.isActive !== false || t.id === territoryId)
+                                        .map((t) => (
+                                            <option key={t.id} value={t.id}>
+                                                {t.name}
+                                            </option>
+                                        ))}
+                                </select>
+                                {editing.id && territoryId !== editing.territoryId && (
+                                    <span className="text-xs text-amber-700 dark:text-amber-400">
+                                        Only an event with no orders yet can move. It is switched
+                                        off when it moves; activate it again afterwards.
+                                    </span>
+                                )}
+                            </label>
+                        )}
                         <TextField
                             label="Organization"
                             value={organization}
@@ -320,7 +381,12 @@ const EventsPage = () => {
                                 onChange={(e) => setIsActive(e.target.checked)}
                                 className="h-5 w-5 accent-sky-600"
                             />
-                            <span className="text-sm font-medium">Active event</span>
+                            <span className="text-sm font-medium">
+                                Active event{" "}
+                                <span className="font-normal text-zinc-500 dark:text-zinc-400">
+                                    (one per territory)
+                                </span>
+                            </span>
                         </label>
                     </div>
 

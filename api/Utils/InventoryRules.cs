@@ -6,8 +6,9 @@ namespace api.Utils
 {
     /// <summary>
     /// Stock rules for Take With sales. A tracked item can only go home with the customer when the
-    /// cart has enough of it; otherwise it has to be shipped. Stock is drawn down when the sale is
-    /// completed and put back if a completed sale is reopened or voided.
+    /// cart has enough of it; otherwise it has to be shipped. Stock is kept per territory - each
+    /// territory's cart carries its own, even of global catalog items - and is drawn down when the
+    /// sale is completed and put back if a completed sale is reopened or voided.
     /// </summary>
     public static class InventoryRules
     {
@@ -44,14 +45,50 @@ namespace api.Utils
         }
 
         /// <summary>
-        /// Checks that every tracked Take With item on the order is in stock.
+        /// A territory's on-hand counts for some sizes. A size it has never counted has none.
         /// </summary>
         /// <param name="db">EF context</param>
+        /// <param name="territoryId">The territory</param>
+        /// <param name="variantIds">The sizes</param>
+        /// <returns>Variant id to units on hand.</returns>
+        public static async Task<Dictionary<int, int>> OnHandAsync(ApplicationDbContext db, int territoryId, IReadOnlyCollection<int> variantIds)
+        {
+            return await db.InventoryStocks.AsNoTracking()
+                .Where(s => s.TerritoryId == territoryId && variantIds.Contains(s.ProductVariantId))
+                .ToDictionaryAsync(s => s.ProductVariantId, s => s.QuantityOnHand);
+        }
+
+        /// <summary>
+        /// The tracked stock row for a size in a territory, created at zero if it has none yet.
+        /// The caller saves.
+        /// </summary>
+        /// <param name="db">EF context</param>
+        /// <param name="territoryId">The territory</param>
+        /// <param name="variantId">The size</param>
+        /// <returns>The row, tracked.</returns>
+        public static async Task<InventoryStock> StockRowAsync(ApplicationDbContext db, int territoryId, int variantId)
+        {
+            var row = db.InventoryStocks.Local.FirstOrDefault(s => s.TerritoryId == territoryId && s.ProductVariantId == variantId)
+                      ?? await db.InventoryStocks.FirstOrDefaultAsync(s => s.TerritoryId == territoryId && s.ProductVariantId == variantId);
+            if (row == null)
+            {
+                row = new InventoryStock { TerritoryId = territoryId, ProductVariantId = variantId, QuantityOnHand = 0 };
+                db.InventoryStocks.Add(row);
+            }
+            return row;
+        }
+
+        /// <summary>
+        /// Checks that every tracked Take With item on the order is in stock in the territory.
+        /// </summary>
+        /// <param name="db">EF context</param>
+        /// <param name="territoryId">The order's territory</param>
         /// <param name="lines">Order lines, including any not yet saved</param>
         /// <param name="extra">Additional demand not yet on the order, such as a bundle's items</param>
         /// <returns>A message for the rep when something is short, otherwise null.</returns>
         public static async Task<string?> CheckStockAsync(
             ApplicationDbContext db,
+            int territoryId,
             IEnumerable<OrderLine> lines,
             IEnumerable<KeyValuePair<int, int>>? extra = null)
         {
@@ -67,30 +104,34 @@ namespace api.Utils
                 .Include(v => v.Product)
                 .Where(v => ids.Contains(v.Id) && v.Product!.TrackInventory)
                 .ToListAsync();
+            var onHand = await OnHandAsync(db, territoryId, ids);
 
             foreach (var variant in tracked)
             {
                 var wanted = demand[variant.Id];
-                if (wanted <= variant.QuantityOnHand)
+                var have = onHand.GetValueOrDefault(variant.Id);
+                if (wanted <= have)
                     continue;
 
                 var name = Describe(variant);
-                return variant.QuantityOnHand <= 0
+                return have <= 0
                     ? $"{name} is out of stock, so it cannot be a Take With. Choose a shipping method instead."
-                    : $"Only {variant.QuantityOnHand} of {name} in stock for Take With. Lower the quantity or choose a shipping method.";
+                    : $"Only {have} of {name} in stock for Take With. Lower the quantity or choose a shipping method.";
             }
 
             return null;
         }
 
         /// <summary>
-        /// Draws the order's tracked Take With items out of stock and records each change.
+        /// Draws the order's tracked Take With items out of its territory's stock and records each
+        /// change.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <param name="order">The order being completed</param>
+        /// <param name="territoryId">The order's territory</param>
         /// <param name="userId">Crew member completing it</param>
         /// <param name="userName">Their name</param>
-        public static async Task DeductForSaleAsync(ApplicationDbContext db, Order order, int? userId, string? userName)
+        public static async Task DeductForSaleAsync(ApplicationDbContext db, Order order, int territoryId, int? userId, string? userName)
         {
             var demand = TakeWithDemand(order.Lines);
             if (demand.Count == 0)
@@ -98,21 +139,23 @@ namespace api.Utils
 
             var ids = demand.Keys.ToList();
             var tracked = await db.ProductVariants
-                .Include(v => v.Product)
                 .Where(v => ids.Contains(v.Id) && v.Product!.TrackInventory)
+                .Select(v => v.Id)
                 .ToListAsync();
 
-            foreach (var variant in tracked)
+            foreach (var variantId in tracked)
             {
-                var quantity = demand[variant.Id];
-                variant.QuantityOnHand -= quantity;
+                var quantity = demand[variantId];
+                var stock = await StockRowAsync(db, territoryId, variantId);
+                stock.QuantityOnHand -= quantity;
 
                 db.InventoryAdjustments.Add(new InventoryAdjustment
                 {
-                    ProductVariantId = variant.Id,
+                    TerritoryId = territoryId,
+                    ProductVariantId = variantId,
                     Kind = InventoryChangeKind.Sale,
                     Change = -quantity,
-                    QuantityAfter = variant.QuantityOnHand,
+                    QuantityAfter = stock.QuantityOnHand,
                     OrderId = order.Id,
                     EventId = order.EventId,
                     UserId = userId,
@@ -124,42 +167,40 @@ namespace api.Utils
 
         /// <summary>
         /// Puts back whatever a completed sale drew out of stock, when that sale is reopened or
-        /// voided. Works from the recorded changes, so it returns exactly what was taken even if
-        /// the order or the catalog has changed since.
+        /// voided. Works from the recorded changes, so it returns exactly what was taken, to the
+        /// territory it was taken from, even if the order or the catalog has changed since.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <param name="order">The order being reopened or voided</param>
+        /// <param name="territoryId">The order's territory, for changes recorded before territories</param>
         /// <param name="userId">Crew member making the change</param>
         /// <param name="userName">Their name</param>
         /// <param name="reason">What happened to the order, e.g. "reopened" or "voided"</param>
         public static async Task RestoreForOrderAsync(
-            ApplicationDbContext db, Order order, int? userId, string? userName, string reason)
+            ApplicationDbContext db, Order order, int territoryId, int? userId, string? userName, string reason)
         {
             var outstanding = await db.InventoryAdjustments
                 .Where(a => a.OrderId == order.Id
                             && (a.Kind == InventoryChangeKind.Sale || a.Kind == InventoryChangeKind.Return))
-                .GroupBy(a => a.ProductVariantId)
-                .Select(g => new { VariantId = g.Key, Net = g.Sum(a => a.Change) })
+                .GroupBy(a => new { a.ProductVariantId, a.TerritoryId })
+                .Select(g => new { g.Key.ProductVariantId, g.Key.TerritoryId, Net = g.Sum(a => a.Change) })
                 .Where(x => x.Net < 0)
                 .ToListAsync();
 
-            if (outstanding.Count == 0)
-                return;
-
-            var ids = outstanding.Select(x => x.VariantId).ToList();
-            var variants = await db.ProductVariants.Where(v => ids.Contains(v.Id)).ToListAsync();
-
-            foreach (var variant in variants)
+            foreach (var item in outstanding)
             {
-                var quantity = -outstanding.First(x => x.VariantId == variant.Id).Net;
-                variant.QuantityOnHand += quantity;
+                var quantity = -item.Net;
+                var into = item.TerritoryId ?? territoryId;
+                var stock = await StockRowAsync(db, into, item.ProductVariantId);
+                stock.QuantityOnHand += quantity;
 
                 db.InventoryAdjustments.Add(new InventoryAdjustment
                 {
-                    ProductVariantId = variant.Id,
+                    TerritoryId = into,
+                    ProductVariantId = item.ProductVariantId,
                     Kind = InventoryChangeKind.Return,
                     Change = quantity,
-                    QuantityAfter = variant.QuantityOnHand,
+                    QuantityAfter = stock.QuantityOnHand,
                     OrderId = order.Id,
                     EventId = order.EventId,
                     UserId = userId,

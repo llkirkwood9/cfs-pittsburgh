@@ -11,8 +11,11 @@ using Microsoft.EntityFrameworkCore;
 namespace api.Controllers
 {
     /// <summary>
-    /// Settings an administrator changes from the dashboard: the business details printed on
-    /// sheets and emails, the dashboard's levels, and the wording of the receipt email.
+    /// Settings: the business details printed on sheets and emails, the sales sheet terms, the
+    /// receipt email's wording, new-event rates and the dashboard's levels. Owners and
+    /// administrators set the company-wide values; each territory can override any of them (bar
+    /// the app name) - its manager edits its own. A setting a territory hasn't changed follows the
+    /// company-wide value, which in turn falls back to the built-in default.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -24,54 +27,76 @@ namespace api.Controllers
         TokenService tokenService)
         : BasicController(db, httpClientFactory, config, logger, tokenService)
     {
-        #region Private Fields
-
-        private const string AdminOnly = "Only an administrator may change the app's settings.";
-
-        #endregion
-
         #region GET Methods
 
         /// <summary>
-        /// The general settings in force, with their defaults. Open to anyone - the sign-in
-        /// screen shows the app name - and nothing in it is private.
+        /// What the sign-in screen needs before anyone has signed in: the app name. Nothing else
+        /// is shared with an unauthenticated caller.
         /// </summary>
-        /// <returns>The settings.</returns>
-        [HttpGet("general")]
+        /// <returns>{ appName }</returns>
+        [HttpGet("public")]
         [AllowAnonymous]
-        public async Task<IActionResult> GetGeneral()
+        public async Task<IActionResult> GetPublic()
         {
             try
             {
-                return Ok(ToDto(await SettingsStore.LoadAsync(DB), includeDefaults: true));
+                var settings = await SettingsStore.LoadAsync(DB);
+                return Ok(new { appName = settings.AppName });
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while getting the settings.", exception = e.Message });
+                return ServerError("Internal error occurred while getting the settings.", e);
             }
         }
 
         /// <summary>
-        /// The receipt email's subject and wording, with the defaults and the placeholders they
-        /// can use.
+        /// The general settings in force for a territory, or company-wide. Any signed-in user can
+        /// read their own territory's - the sales sheet prints them.
         /// </summary>
-        /// <returns>The settings.</returns>
-        [HttpGet("receipt-email")]
+        /// <param name="territoryId">The territory; leave out for the company-wide settings (crew get their own territory's)</param>
+        /// <returns>The settings, what they'd be without this scope's own values, and which are overridden.</returns>
+        [HttpGet("general")]
         [Authorize(AuthenticationSchemes = "Bearer")]
-        public async Task<IActionResult> GetReceiptEmail()
+        public async Task<IActionResult> GetGeneral([FromQuery] int? territoryId = null)
         {
             try
             {
-                if (!IsInRole(UserRole.Admin))
-                    return StatusCode(403, new { error = AdminOnly });
+                var (scopeId, problem) = await ResolveAsync(territoryId, editing: false);
+                if (problem != null)
+                    return problem;
 
-                return Ok(await ReceiptEmailDtoAsync());
+                return Ok(await GeneralDtoAsync(scopeId));
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while getting the settings.", exception = e.Message });
+                return ServerError("Internal error occurred while getting the settings.", e);
+            }
+        }
+
+        /// <summary>
+        /// The receipt email's subject and wording for a territory or company-wide, with what it'd
+        /// be otherwise and the placeholders it can use.
+        /// </summary>
+        /// <param name="territoryId">The territory; leave out for company-wide</param>
+        /// <returns>The settings.</returns>
+        [HttpGet("receipt-email")]
+        [Authorize(AuthenticationSchemes = "Bearer")]
+        public async Task<IActionResult> GetReceiptEmail([FromQuery] int? territoryId = null)
+        {
+            try
+            {
+                if (!IsAtLeast(UserRole.Manager))
+                    return Forbidden("Only a manager, administrator or owner may see the email settings.");
+
+                var (scopeId, problem) = await ResolveAsync(territoryId, editing: false);
+                if (problem != null)
+                    return problem;
+
+                return Ok(await ReceiptEmailDtoAsync(scopeId));
+            }
+            catch (Exception e)
+            {
+                return ServerError("Internal error occurred while getting the settings.", e);
             }
         }
 
@@ -80,26 +105,33 @@ namespace api.Controllers
         #region POST Methods
 
         /// <summary>
-        /// Shows how a receipt email reads for a sample order, without saving it.
+        /// Shows how a receipt email reads for a sample order, without saving it, using the
+        /// territory's business details.
         /// </summary>
         /// <param name="request">The subject and wording to try</param>
+        /// <param name="territoryId">The territory being edited; leave out for company-wide</param>
         /// <returns>The subject and body as they would be sent.</returns>
         [HttpPost("receipt-email/preview")]
         [Authorize(AuthenticationSchemes = "Bearer")]
-        public async Task<IActionResult> PreviewReceiptEmail([FromBody] ReceiptEmailBodyDto request)
+        public async Task<IActionResult> PreviewReceiptEmail([FromBody] ReceiptEmailBodyDto request, [FromQuery] int? territoryId = null)
         {
             try
             {
-                if (!IsInRole(UserRole.Admin))
-                    return StatusCode(403, new { error = AdminOnly });
+                if (!IsAtLeast(UserRole.Manager))
+                    return Forbidden("Only a manager, administrator or owner may preview the email.");
+
+                var (scopeId, problem) = await ResolveAsync(territoryId, editing: false);
+                if (problem != null)
+                    return problem;
 
                 var body = Clip(request.Body, EmailTemplates.MaxReceiptBodyLength);
                 var subject = Clip(request.Subject, EmailTemplates.MaxReceiptSubjectLength);
 
                 var saleEvent = await DB.Events.AsNoTracking()
+                    .Where(e => scopeId == null || e.TerritoryId == scopeId)
                     .OrderByDescending(e => e.IsActive).ThenByDescending(e => e.EventDate)
                     .FirstOrDefaultAsync();
-                var settings = await SettingsStore.LoadAsync(DB);
+                var settings = await SettingsStore.LoadAsync(DB, scopeId);
                 var sample = SampleOrder(saleEvent);
                 var (sentSubject, html, _) = EmailTemplates.ReceiptMessage(sample, saleEvent, settings, body, subject);
 
@@ -113,8 +145,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while previewing the email.", exception = e.Message });
+                return ServerError("Internal error occurred while previewing the email.", e);
             }
         }
 
@@ -123,21 +154,30 @@ namespace api.Controllers
         #region PUT Methods
 
         /// <summary>
-        /// Saves the general settings. A field left out keeps its value; one set back to its
-        /// default (or emptied) goes back to following the default.
+        /// Saves general settings company-wide or for one territory. A field left out keeps its
+        /// value; one set back to what it would otherwise be (or emptied) goes back to following
+        /// that - the default company-wide, the company-wide value in a territory. The app name is
+        /// company-wide only.
         /// </summary>
         /// <param name="request">The settings to change</param>
+        /// <param name="territoryId">The territory; leave out for company-wide</param>
         /// <returns>The settings in force afterwards.</returns>
         [HttpPut("general")]
         [Authorize(AuthenticationSchemes = "Bearer")]
-        public async Task<IActionResult> SaveGeneral([FromBody] GeneralSettingsDto request)
+        public async Task<IActionResult> SaveGeneral([FromBody] GeneralSettingsDto request, [FromQuery] int? territoryId = null)
         {
             try
             {
-                if (!IsInRole(UserRole.Admin))
-                    return StatusCode(403, new { error = AdminOnly });
+                var (scopeId, problem) = await ResolveAsync(territoryId, editing: true);
+                if (problem != null)
+                    return problem;
 
-                var current = await SettingsStore.LoadAsync(DB);
+                if (scopeId != null && request.AppName != null)
+                    return BadRequest(new { error = "The app name is the same for every territory - change it in the company-wide settings." });
+
+                var current = await SettingsStore.LoadAsync(DB, scopeId);
+                var fallback = scopeId == null ? SettingsStore.Defaults : await SettingsStore.LoadAsync(DB);
+
                 var appName = request.AppName?.Trim();
                 var company = request.CompanyName?.Trim();
                 var phone = request.CustomerServicePhone?.Trim();
@@ -163,57 +203,60 @@ namespace api.Controllers
                 List<SalesTerm>? terms = null;
                 if (request.Terms != null)
                 {
-                    (terms, var problem) = CheckTerms(request.Terms);
-                    if (problem != null)
-                        return BadRequest(new { error = problem });
+                    (terms, var termsProblem) = CheckTerms(request.Terms);
+                    if (termsProblem != null)
+                        return BadRequest(new { error = termsProblem });
                 }
 
                 var by = GetCurrentUserName();
-                var defaults = SettingsStore.Defaults;
+                async Task Set(string key, string? value, string otherwise) =>
+                    await SettingsStore.SetAsync(DB, key, value, otherwise, by, scopeId);
+
                 if (request.AppName != null)
-                    await SettingsStore.SetAsync(DB, AppSettingKeys.AppName, appName, defaults.AppName, by);
+                    await Set(AppSettingKeys.AppName, appName, fallback.AppName);
                 if (request.CompanyName != null)
-                    await SettingsStore.SetAsync(DB, AppSettingKeys.CompanyName, company, defaults.CompanyName, by);
+                    await Set(AppSettingKeys.CompanyName, company, fallback.CompanyName);
                 if (request.CustomerServicePhone != null)
-                    await SettingsStore.SetAsync(DB, AppSettingKeys.CustomerServicePhone, phone, defaults.CustomerServicePhone, by);
+                    await Set(AppSettingKeys.CustomerServicePhone, phone, fallback.CustomerServicePhone);
                 if (request.StarsFirstAt != null)
-                    await SettingsStore.SetAsync(DB, AppSettingKeys.StarsFirstAt, SettingsStore.Store(firstAt), SettingsStore.Store(defaults.StarsFirstAt), by);
+                    await Set(AppSettingKeys.StarsFirstAt, SettingsStore.Store(firstAt), SettingsStore.Store(fallback.StarsFirstAt));
                 if (request.StarsEvery != null)
-                    await SettingsStore.SetAsync(DB, AppSettingKeys.StarsEvery, SettingsStore.Store(every), SettingsStore.Store(defaults.StarsEvery), by);
+                    await Set(AppSettingKeys.StarsEvery, SettingsStore.Store(every), SettingsStore.Store(fallback.StarsEvery));
                 if (request.LowStockAt != null)
-                    await SettingsStore.SetAsync(DB, AppSettingKeys.LowStockAt, SettingsStore.Store(lowAt), SettingsStore.Store(defaults.LowStockAt), by);
+                    await Set(AppSettingKeys.LowStockAt, SettingsStore.Store(lowAt), SettingsStore.Store(fallback.LowStockAt));
                 if (request.DefaultSalesTaxRate != null)
-                    await SettingsStore.SetAsync(DB, AppSettingKeys.DefaultSalesTaxRate, SettingsStore.Store(taxRate), SettingsStore.Store(defaults.DefaultSalesTaxRate), by);
+                    await Set(AppSettingKeys.DefaultSalesTaxRate, SettingsStore.Store(taxRate), SettingsStore.Store(fallback.DefaultSalesTaxRate));
                 if (request.DefaultCcProcessingFeeRate != null)
-                    await SettingsStore.SetAsync(DB, AppSettingKeys.DefaultCcProcessingFeeRate, SettingsStore.Store(feeRate), SettingsStore.Store(defaults.DefaultCcProcessingFeeRate), by);
+                    await Set(AppSettingKeys.DefaultCcProcessingFeeRate, SettingsStore.Store(feeRate), SettingsStore.Store(fallback.DefaultCcProcessingFeeRate));
                 if (terms != null)
-                    await SettingsStore.SetAsync(DB, AppSettingKeys.SalesSheetTerms, SettingsStore.Store(terms), SettingsStore.Store(defaults.Terms), by);
+                    await Set(AppSettingKeys.SalesSheetTerms, SettingsStore.Store(terms), SettingsStore.Store(fallback.Terms));
 
                 await DB.SaveChangesAsync();
-                Trace(TraceEventType.Information, $"General settings changed by {by}.");
-                return Ok(ToDto(await SettingsStore.LoadAsync(DB), includeDefaults: true));
+                Trace(TraceEventType.Information, $"{(scopeId == null ? "Company-wide" : $"Territory {scopeId}")} settings changed by {by}.");
+                return Ok(await GeneralDtoAsync(scopeId));
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while saving the settings.", exception = e.Message });
+                return ServerError("Internal error occurred while saving the settings.", e);
             }
         }
 
         /// <summary>
-        /// Saves the receipt email's subject and wording. Either one saved empty, or exactly as
-        /// its default, goes back to the default, so later improvements to it reach everyone.
+        /// Saves the receipt email's subject and wording company-wide or for one territory. Either
+        /// one saved empty, or exactly as it would otherwise be, goes back to following that.
         /// </summary>
         /// <param name="request">The subject and wording</param>
+        /// <param name="territoryId">The territory; leave out for company-wide</param>
         /// <returns>The settings as saved.</returns>
         [HttpPut("receipt-email")]
         [Authorize(AuthenticationSchemes = "Bearer")]
-        public async Task<IActionResult> SaveReceiptEmail([FromBody] ReceiptEmailBodyDto request)
+        public async Task<IActionResult> SaveReceiptEmail([FromBody] ReceiptEmailBodyDto request, [FromQuery] int? territoryId = null)
         {
             try
             {
-                if (!IsInRole(UserRole.Admin))
-                    return StatusCode(403, new { error = AdminOnly });
+                var (scopeId, problem) = await ResolveAsync(territoryId, editing: true);
+                if (problem != null)
+                    return problem;
 
                 var body = request.Body?.Replace("\r\n", "\n").Trim();
                 var subject = request.Subject?.Replace("\r", " ").Replace("\n", " ").Trim();
@@ -222,21 +265,24 @@ namespace api.Controllers
                 if (subject?.Length > EmailTemplates.MaxReceiptSubjectLength)
                     return BadRequest(new { error = $"The subject line can be at most {EmailTemplates.MaxReceiptSubjectLength} characters." });
 
+                var (otherSubject, otherBody) = scopeId == null
+                    ? (EmailTemplates.DefaultReceiptSubject, EmailTemplates.DefaultReceiptBody)
+                    : await CompanyReceiptEmailAsync();
+
                 var by = GetCurrentUserName();
                 if (request.Body != null)
-                    await SettingsStore.SetAsync(DB, AppSettingKeys.ReceiptEmailBody, body, EmailTemplates.DefaultReceiptBody, by);
+                    await SettingsStore.SetAsync(DB, AppSettingKeys.ReceiptEmailBody, body, otherBody, by, scopeId);
                 if (request.Subject != null)
-                    await SettingsStore.SetAsync(DB, AppSettingKeys.ReceiptEmailSubject, subject, EmailTemplates.DefaultReceiptSubject, by);
+                    await SettingsStore.SetAsync(DB, AppSettingKeys.ReceiptEmailSubject, subject, otherSubject, by, scopeId);
                 await DB.SaveChangesAsync();
 
-                var saved = await ReceiptEmailDtoAsync();
-                Trace(TraceEventType.Information, $"Receipt email wording {(saved.IsDefault == true ? "reset to the default" : "changed")} by {by}.");
+                var saved = await ReceiptEmailDtoAsync(scopeId);
+                Trace(TraceEventType.Information, $"Receipt email wording ({(scopeId == null ? "company-wide" : $"territory {scopeId}")}) changed by {by}.");
                 return Ok(saved);
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while saving the settings.", exception = e.Message });
+                return ServerError("Internal error occurred while saving the settings.", e);
             }
         }
 
@@ -245,21 +291,71 @@ namespace api.Controllers
         #region Internal Methods
 
         /// <summary>
-        /// The receipt email's saved subject and wording; null for either means its default.
+        /// The receipt email's subject and wording in force for a territory (or company-wide); null
+        /// for either means the built-in wording.
         /// </summary>
         /// <param name="db">EF context</param>
-        /// <returns>The saved subject and body.</returns>
-        internal static async Task<(string? Subject, string? Body)> LoadReceiptEmailAsync(ApplicationDbContext db)
+        /// <param name="territoryId">The territory, or null for company-wide</param>
+        /// <returns>The subject and body.</returns>
+        internal static async Task<(string? Subject, string? Body)> LoadReceiptEmailAsync(ApplicationDbContext db, int? territoryId)
         {
-            var rows = await db.AppSettings.AsNoTracking()
-                .Where(s => s.Key == AppSettingKeys.ReceiptEmailBody || s.Key == AppSettingKeys.ReceiptEmailSubject)
-                .ToDictionaryAsync(s => s.Key, s => s.Value);
+            var rows = await SettingsStore.RowsAsync(db, territoryId, [AppSettingKeys.ReceiptEmailBody, AppSettingKeys.ReceiptEmailSubject]);
             return (rows.GetValueOrDefault(AppSettingKeys.ReceiptEmailSubject), rows.GetValueOrDefault(AppSettingKeys.ReceiptEmailBody));
         }
 
         #endregion
 
         #region Private Methods
+
+        /// <summary>
+        /// Works out which settings a request is about, and checks the user may see (or change) them:
+        /// anyone signed in reads their own territory's; managers change their own territory's;
+        /// owners and administrators read and change any territory's and the company-wide ones.
+        /// </summary>
+        /// <param name="territoryId">The territory asked for, or null</param>
+        /// <param name="editing">Whether the request changes them</param>
+        /// <returns>The territory (null for company-wide), or the response to return instead.</returns>
+        private async Task<(int? TerritoryId, IActionResult? Problem)> ResolveAsync(int? territoryId, bool editing)
+        {
+            var scope = Scope;
+
+            // Crew always work in their own territory's settings.
+            var resolved = scope.IsCompanyWide ? territoryId : territoryId ?? scope.HomeTerritoryId;
+
+            if (resolved == null)
+            {
+                if (editing && !scope.IsCompanyWide)
+                    return (null, Forbidden("Only an owner or administrator can change the company-wide settings."));
+                return (null, null);
+            }
+
+            if (!scope.CanSee(resolved))
+                return (null, Forbidden("Those are another territory's settings."));
+
+            if (!await DB.Territories.AnyAsync(t => t.Id == resolved))
+                return (null, NotFound(new { error = "Territory not found." }));
+
+            if (editing && !IsAtLeast(UserRole.Manager))
+                return (null, Forbidden("Only a manager, administrator or owner may change settings."));
+
+            return (resolved, null);
+        }
+
+        private bool CanEdit(int? territoryId) =>
+            territoryId == null ? Scope.IsCompanyWide : IsAtLeast(UserRole.Manager) && Scope.CanSee(territoryId);
+
+        private async Task<GeneralSettingsDto> GeneralDtoAsync(int? territoryId)
+        {
+            var settings = await SettingsStore.LoadAsync(DB, territoryId);
+            var otherwise = territoryId == null ? SettingsStore.Defaults : await SettingsStore.LoadAsync(DB);
+
+            var dto = ToDto(settings);
+            dto.TerritoryId = territoryId;
+            dto.CanEdit = CanEdit(territoryId);
+            dto.Defaults = ToDto(otherwise);
+            dto.Overridden = territoryId == null ? null : await SettingsStore.OverriddenKeysAsync(DB, territoryId.Value);
+            return dto;
+        }
 
         /// <summary>
         /// Checks edited terms: each of the four must be there, with a paragraph, and short
@@ -288,7 +384,7 @@ namespace api.Controllers
         private static string? Clip(string? value, int max) =>
             value != null && value.Length > max ? value[..max] : value;
 
-        private static GeneralSettingsDto ToDto(GeneralSettings settings, bool includeDefaults)
+        private static GeneralSettingsDto ToDto(GeneralSettings settings)
         {
             return new GeneralSettingsDto
             {
@@ -303,33 +399,53 @@ namespace api.Controllers
                 Terms = settings.Terms
                     .Select(t => new SalesTermDto { Key = t.Key, Title = t.Title, Heading = t.Heading, Text = t.Text })
                     .ToList(),
-                Defaults = includeDefaults ? ToDto(SettingsStore.Defaults, includeDefaults: false) : null,
             };
         }
 
-        private async Task<ReceiptEmailSettingsDto> ReceiptEmailDtoAsync()
+        /// <summary>The company-wide subject and body in force (saved wording or the built-in).</summary>
+        private async Task<(string Subject, string Body)> CompanyReceiptEmailAsync()
         {
-            var rows = await DB.AppSettings.AsNoTracking()
-                .Where(s => s.Key == AppSettingKeys.ReceiptEmailBody || s.Key == AppSettingKeys.ReceiptEmailSubject)
-                .ToListAsync();
-            var body = rows.FirstOrDefault(r => r.Key == AppSettingKeys.ReceiptEmailBody);
-            var subject = rows.FirstOrDefault(r => r.Key == AppSettingKeys.ReceiptEmailSubject);
-            var latest = rows.OrderByDescending(r => r.UpdatedAt).FirstOrDefault();
+            var (subject, body) = await LoadReceiptEmailAsync(DB, null);
+            return (subject ?? EmailTemplates.DefaultReceiptSubject, body ?? EmailTemplates.DefaultReceiptBody);
+        }
+
+        private async Task<ReceiptEmailSettingsDto> ReceiptEmailDtoAsync(int? territoryId)
+        {
+            // This scope's own rows: the company-wide ones, or the territory's.
+            List<(string Key, string Value, DateTime UpdatedAt, string? UpdatedBy)> own = territoryId == null
+                ? (await DB.AppSettings.AsNoTracking()
+                    .Where(s => s.Key == AppSettingKeys.ReceiptEmailBody || s.Key == AppSettingKeys.ReceiptEmailSubject)
+                    .ToListAsync())
+                    .Select(s => (s.Key, s.Value, s.UpdatedAt, s.UpdatedBy)).ToList()
+                : (await DB.TerritorySettings.AsNoTracking()
+                    .Where(s => s.TerritoryId == territoryId && (s.Key == AppSettingKeys.ReceiptEmailBody || s.Key == AppSettingKeys.ReceiptEmailSubject))
+                    .ToListAsync())
+                    .Select(s => (s.Key, s.Value, s.UpdatedAt, s.UpdatedBy)).ToList();
+
+            var (otherSubject, otherBody) = territoryId == null
+                ? (EmailTemplates.DefaultReceiptSubject, EmailTemplates.DefaultReceiptBody)
+                : await CompanyReceiptEmailAsync();
+
+            var body = own.FirstOrDefault(r => r.Key == AppSettingKeys.ReceiptEmailBody);
+            var subject = own.FirstOrDefault(r => r.Key == AppSettingKeys.ReceiptEmailSubject);
+            var latest = own.OrderByDescending(r => r.UpdatedAt).FirstOrDefault();
 
             return new ReceiptEmailSettingsDto
             {
-                Subject = subject?.Value ?? EmailTemplates.DefaultReceiptSubject,
-                Body = body?.Value ?? EmailTemplates.DefaultReceiptBody,
-                IsDefault = rows.Count == 0,
-                DefaultSubject = EmailTemplates.DefaultReceiptSubject,
-                DefaultBody = EmailTemplates.DefaultReceiptBody,
+                TerritoryId = territoryId,
+                CanEdit = CanEdit(territoryId),
+                Subject = subject.Value ?? otherSubject,
+                Body = body.Value ?? otherBody,
+                IsDefault = own.Count == 0,
+                DefaultSubject = otherSubject,
+                DefaultBody = otherBody,
                 MaxSubjectLength = EmailTemplates.MaxReceiptSubjectLength,
                 MaxLength = EmailTemplates.MaxReceiptBodyLength,
                 Placeholders = EmailTemplates.ReceiptPlaceholders
                     .Select(p => new PlaceholderDto { Name = p.Name, Description = p.Description })
                     .ToList(),
-                UpdatedAt = latest?.UpdatedAt,
-                UpdatedBy = latest?.UpdatedBy,
+                UpdatedAt = latest.Key == null ? null : latest.UpdatedAt,
+                UpdatedBy = latest.UpdatedBy,
             };
         }
 

@@ -8,6 +8,7 @@ import ListSkeleton from "../Components/Elements/ListSkeleton";
 import TabButton from "../Components/Elements/TabButton";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
+import { useTerritory } from "../Context/TerritoryContext";
 import {
     EventsForFilter,
     FormatCurrency,
@@ -45,13 +46,15 @@ const statusLabels: Record<OrderStatus, string> = {
 
 /**
  * Past orders. Everyone can look back over the event they are working and open any sales sheet
- * for reprinting; an administrator can additionally search across every event that has ever run.
+ * for reprinting; a manager or above can additionally search across every event in their territory
+ * (an owner or administrator, every territory).
  */
 const OrdersPage = () => {
     const { user, hasRole } = useAuth();
+    const { canSwitch, territoryId: territoryInView } = useTerritory();
     const navigate = useNavigate();
 
-    const isAdmin = hasRole("Admin");
+    const isManager = hasRole("Manager");
     const isOwner = user?.role === "Owner";
     const [removing, setRemoving] = useState<OrderSummary | null>(null);
 
@@ -101,15 +104,15 @@ const OrdersPage = () => {
     useEffect(() => {
         const boot = async () => {
             const [list, active] = await Promise.all([
-                isAdmin ? GetEvents() : Promise.resolve([]),
+                isManager ? GetEvents() : Promise.resolve([]),
                 GetActiveEvent(),
             ]);
 
             setEvents(EventsForFilter(list));
 
-            // Between fundraisers there is no active event. An admin falls back to every event;
-            // everyone else has nothing current to show, and all-events history is admin-only.
-            if (!active?.id && !isAdmin) {
+            // Between fundraisers there is no active event. A manager falls back to every event;
+            // everyone else has nothing current to show, and all-events history is for managers up.
+            if (!active?.id && !isManager) {
                 setScope(null);
                 setLoading(false);
                 return;
@@ -124,9 +127,12 @@ const OrdersPage = () => {
         };
 
         boot();
-    }, [isAdmin, load]);
+    }, [isManager, load]);
 
     if (!user) return <Navigate to="/unauthorized" replace />;
+
+    // Viewing every territory, each order says which one it came from.
+    const showTerritory = canSwitch && territoryInView == null;
 
     const switchScope = async (target: Scope) => {
         setScope(target);
@@ -160,7 +166,7 @@ const OrdersPage = () => {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h1 className="text-xl font-bold">Orders</h1>
                 <div className="flex flex-wrap gap-2">
-                    {isAdmin && scope?.kind === "event" && (
+                    {isManager && scope?.kind === "event" && (
                         <Button
                             text="Print all completed sheets"
                             icon="fa-solid fa-print"
@@ -180,7 +186,7 @@ const OrdersPage = () => {
                 </div>
             </div>
 
-            {isAdmin && (
+            {isManager && (
                 <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
                     <TabButton
                         text="All events"
@@ -278,6 +284,13 @@ const OrdersPage = () => {
                                                 {order.eventOrganization}
                                             </span>
                                         )}
+                                        {scope?.kind === "all" &&
+                                            showTerritory &&
+                                            order.territoryName && (
+                                                <span className="font-medium text-sky-700 dark:text-sky-400">
+                                                    {order.territoryName}
+                                                </span>
+                                            )}
                                         <span>
                                             {FormatShortDate(order.eventDate ?? order.createdAt)}
                                         </span>
@@ -323,7 +336,7 @@ const OrdersPage = () => {
                                     }
                                     className="min-h-[44px] px-3 text-sm"
                                 />
-                                {isAdmin &&
+                                {isManager &&
                                     (order.status === "Completed" ||
                                         order.status === "AwaitingCheckout") && (
                                         <Button

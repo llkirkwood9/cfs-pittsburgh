@@ -42,13 +42,13 @@ namespace api.Controllers
                     return BadRequest(new { error = "Missing parameter." });
 
                 var saleEvent = await DB.Events.FindAsync(request.EventId.Value);
-                if (saleEvent == null)
+                if (saleEvent == null || !CanSee(saleEvent))
                     return NotFound(new { error = "Event not found." });
 
                 // New sales are only written against the active event, so nothing is taken under an
                 // event that has finished or not been set up yet.
                 if (!saleEvent.IsActive)
-                    return BadRequest(new { error = "There is no active event. An administrator needs to activate one before new orders can be taken." });
+                    return BadRequest(new { error = "There is no active event. A manager needs to activate one before new orders can be taken." });
 
                 var order = new Order
                 {
@@ -76,8 +76,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while starting the order.", exception = e.Message });
+                return ServerError("Internal error occurred while starting the order.", e);
             }
         }
 
@@ -119,7 +118,8 @@ namespace api.Controllers
                         .ThenInclude(cv => cv!.Product)
                         .FirstOrDefaultAsync(v => v.Id == request.ProductVariantId.Value);
 
-                    if (variant == null)
+                    // Only items sold in the event's territory: global ones and its own.
+                    if (variant == null || !InCatalog(variant.Product?.TerritoryId, order.Event!.TerritoryId))
                         return NotFound(new { error = "Product not found." });
 
                     // A variant with no price is an "Inquire" card - the rep has to key a price in.
@@ -139,7 +139,7 @@ namespace api.Controllers
                 else if (lineType == OrderLineType.Delivery && request.DeliveryOptionId != null)
                 {
                     var option = await DB.DeliveryOptions.FindAsync(request.DeliveryOptionId.Value);
-                    if (option == null)
+                    if (option == null || !InCatalog(option.TerritoryId, order.Event!.TerritoryId))
                         return NotFound(new { error = "Delivery option not found." });
 
                     line.DeliveryOptionId = option.Id;
@@ -210,7 +210,7 @@ namespace api.Controllers
                     : Enumerable.Empty<KeyValuePair<int, int>>();
 
                 InventoryRules.SyncIncludedTakeWith(order);
-                var stockError = await InventoryRules.CheckStockAsync(DB, order.Lines.Append(line), bundleDemand);
+                var stockError = await InventoryRules.CheckStockAsync(DB, order.Event!.TerritoryId, order.Lines.Append(line), bundleDemand);
                 if (stockError != null)
                     return BadRequest(new { error = stockError });
 
@@ -241,8 +241,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while adding the line.", exception = e.Message });
+                return ServerError("Internal error occurred while adding the line.", e);
             }
         }
 
@@ -291,8 +290,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while adding the payment.", exception = e.Message });
+                return ServerError("Internal error occurred while adding the payment.", e);
             }
         }
 
@@ -331,8 +329,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while sending the order to checkout.", exception = e.Message });
+                return ServerError("Internal error occurred while sending the order to checkout.", e);
             }
         }
 
@@ -369,34 +366,33 @@ namespace api.Controllers
 
                 // Another sale may have taken the last one since this order was written up.
                 InventoryRules.SyncIncludedTakeWith(order);
-                var stockError = await InventoryRules.CheckStockAsync(DB, order.Lines);
+                var stockError = await InventoryRules.CheckStockAsync(DB, order.Event!.TerritoryId, order.Lines);
                 if (stockError != null)
                     return BadRequest(new { error = stockError });
 
                 OrderCalculator.RecalculateOrder(order);
                 order.Status = OrderStatus.Completed;
                 order.CompletedAt = DateTime.UtcNow;
-                // Keep the wording the customer just initialled with the sale.
-                order.TermsJson = SettingsStore.Store((await SettingsStore.LoadAsync(DB)).Terms);
+                // Keep the wording the customer just initialled - the territory's - with the sale.
+                order.TermsJson = SettingsStore.Store((await SettingsStore.LoadAsync(DB, order.Event!.TerritoryId)).Terms);
                 order.CompletedByUserId = GetCurrentUserId();
                 order.ReceivedBy ??= GetCurrentUserName();
                 order.ReceivedDate ??= DateTime.UtcNow;
                 order.UpdatedAt = DateTime.UtcNow;
-                await InventoryRules.DeductForSaleAsync(DB, order, GetCurrentUserId(), GetCurrentUserName());
+                await InventoryRules.DeductForSaleAsync(DB, order, order.Event!.TerritoryId, GetCurrentUserId(), GetCurrentUserName());
                 await DB.SaveChangesAsync();
 
                 return Ok(await LoadDtoAsync(order.Id));
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while completing the order.", exception = e.Message });
+                return ServerError("Internal error occurred while completing the order.", e);
             }
         }
 
         /// <summary>
         /// Sends an order back to the checkout table or the sales floor. Checkout uses this when it
-        /// spots something wrong; an administrator can also use it on a completed sale, which takes
+        /// spots something wrong; a manager or above can also use it on a completed sale, which takes
         /// it out of the day's totals until it is completed again. Payments already recorded stay
         /// on the order.
         /// </summary>
@@ -425,8 +421,8 @@ namespace api.Controllers
                 if (target == null)
                     return BadRequest(new { error = "Invalid parameter." });
 
-                if (order.Status == OrderStatus.Completed && !IsInRole(UserRole.Admin))
-                    return StatusCode(403, new { error = "Only an administrator may reopen a completed sale." });
+                if (order.Status == OrderStatus.Completed && !IsAtLeast(UserRole.Manager))
+                    return Forbidden("Only a manager, administrator or owner may reopen a completed sale.");
 
                 if (order.Status == target)
                     return BadRequest(new { error = target == OrderStatus.Draft
@@ -435,7 +431,7 @@ namespace api.Controllers
 
                 // Anything the sale took home goes back on the shelf until it is completed again.
                 if (order.Status == OrderStatus.Completed)
-                    await InventoryRules.RestoreForOrderAsync(DB, order, GetCurrentUserId(), GetCurrentUserName(), "reopened");
+                    await InventoryRules.RestoreForOrderAsync(DB, order, order.Event!.TerritoryId, GetCurrentUserId(), GetCurrentUserName(), "reopened");
 
                 order.Status = target.Value;
                 order.SubmittedAt = target == OrderStatus.AwaitingCheckout
@@ -452,8 +448,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while reopening the order.", exception = e.Message });
+                return ServerError("Internal error occurred while reopening the order.", e);
             }
         }
 
@@ -473,7 +468,7 @@ namespace api.Controllers
                     return NotFound(new { error = "Order not found." });
 
                 if (order.Status == OrderStatus.Completed)
-                    await InventoryRules.RestoreForOrderAsync(DB, order, GetCurrentUserId(), GetCurrentUserName(), "voided");
+                    await InventoryRules.RestoreForOrderAsync(DB, order, order.Event!.TerritoryId, GetCurrentUserId(), GetCurrentUserName(), "voided");
 
                 order.Status = OrderStatus.Voided;
                 order.UpdatedAt = DateTime.UtcNow;
@@ -483,8 +478,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while voiding the order.", exception = e.Message });
+                return ServerError("Internal error occurred while voiding the order.", e);
             }
         }
 
@@ -504,6 +498,9 @@ namespace api.Controllers
         {
             try
             {
+                if (!await EventVisibleAsync(eventId))
+                    return NotFound(new { error = "Event not found." });
+
                 var query = DB.Orders.Where(o => o.EventId == eventId);
 
                 if (!string.IsNullOrWhiteSpace(status))
@@ -517,6 +514,7 @@ namespace api.Controllers
                 var orders = await query
                     .Include(o => o.Lines)
                     .Include(o => o.Event)
+                    .ThenInclude(e => e!.Territory)
                     .AsNoTracking()
                     .OrderByDescending(o => o.UpdatedAt)
                     .ToListAsync();
@@ -525,8 +523,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while getting orders.", exception = e.Message });
+                return ServerError("Internal error occurred while getting orders.", e);
             }
         }
 
@@ -543,6 +540,9 @@ namespace api.Controllers
         {
             try
             {
+                if (!await EventVisibleAsync(eventId))
+                    return NotFound(new { error = "Event not found." });
+
                 var userId = GetCurrentUserId();
 
                 var query = DB.Orders
@@ -554,6 +554,7 @@ namespace api.Controllers
                 var orders = await query
                     .Include(o => o.Lines)
                     .Include(o => o.Event)
+                    .ThenInclude(e => e!.Territory)
                     .AsNoTracking()
                     .OrderBy(o => o.CreatedAt)
                     .ToListAsync();
@@ -562,8 +563,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while getting drafts.", exception = e.Message });
+                return ServerError("Internal error occurred while getting drafts.", e);
             }
         }
 
@@ -579,10 +579,14 @@ namespace api.Controllers
         {
             try
             {
+                if (!await EventVisibleAsync(eventId))
+                    return NotFound(new { error = "Event not found." });
+
                 var orders = await DB.Orders
                     .Where(o => o.EventId == eventId && o.Status == OrderStatus.AwaitingCheckout)
                     .Include(o => o.Lines)
                     .Include(o => o.Event)
+                    .ThenInclude(e => e!.Territory)
                     .AsNoTracking()
                     .OrderBy(o => o.SubmittedAt)
                     .ToListAsync();
@@ -591,14 +595,14 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while getting the checkout queue.", exception = e.Message });
+                return ServerError("Internal error occurred while getting the checkout queue.", e);
             }
         }
 
         /// <summary>
-        /// Every order across every event, newest first. Admin only - this is how a manager looks
-        /// back at a fundraiser that finished weeks ago.
+        /// Every order across every event in the territory being viewed - or every territory for an
+        /// owner or administrator viewing them all - newest first. Managers and above only; this is
+        /// how they look back at a fundraiser that finished weeks ago.
         /// </summary>
         /// <param name="status">Optional status name</param>
         /// <param name="search">Optional match on customer name, rep name, order number, phone or email</param>
@@ -613,10 +617,11 @@ namespace api.Controllers
         {
             try
             {
-                if (!IsInRole(UserRole.Admin))
-                    return StatusCode(403, new { error = "Only an administrator may browse every event." });
+                if (!IsAtLeast(UserRole.Manager))
+                    return Forbidden("Only a manager, administrator or owner may browse every event.");
 
-                var query = DB.Orders.AsQueryable();
+                var territoryId = Scope.TerritoryId;
+                var query = DB.Orders.Where(o => territoryId == null || o.Event!.TerritoryId == territoryId);
 
                 if (!string.IsNullOrWhiteSpace(status))
                 {
@@ -650,6 +655,7 @@ namespace api.Controllers
                 var orders = await query
                     .Include(o => o.Lines)
                     .Include(o => o.Event)
+                    .ThenInclude(e => e!.Territory)
                     .AsNoTracking()
                     .OrderByDescending(o => o.SaleDate)
                     .ThenByDescending(o => o.OrderNumber)
@@ -660,13 +666,13 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while getting orders.", exception = e.Message });
+                return ServerError("Internal error occurred while getting orders.", e);
             }
         }
 
         /// <summary>
-        /// Full orders for an event, ready to print as a stack of sales sheets or export. Admin only.
+        /// Full orders for an event, ready to print as a stack of sales sheets or export. Managers
+        /// and above only.
         /// Defaults to completed sales, which is what goes in the event's paperwork.
         /// </summary>
         /// <param name="eventId">Event id</param>
@@ -678,10 +684,10 @@ namespace api.Controllers
         {
             try
             {
-                if (!IsInRole(UserRole.Admin))
-                    return StatusCode(403, new { error = "Only an administrator may export an event's sales sheets." });
+                if (!IsAtLeast(UserRole.Manager))
+                    return Forbidden("Only a manager, administrator or owner may export an event's sales sheets.");
 
-                if (!await DB.Events.AnyAsync(e => e.Id == eventId))
+                if (!await EventVisibleAsync(eventId))
                     return NotFound(new { error = "Event not found." });
 
                 var wanted = OrderStatus.Completed;
@@ -693,18 +699,18 @@ namespace api.Controllers
                     .Include(o => o.Lines)
                     .Include(o => o.Payments)
                     .Include(o => o.Event)
+                    .ThenInclude(e => e!.Territory)
                     .Include(o => o.CreatedByUser)
                     .Include(o => o.CompletedByUser)
                     .AsNoTracking()
                     .OrderBy(o => o.OrderNumber)
                     .ToListAsync();
 
-                return Ok(orders.Select(ToDto).ToList());
+                return Ok(orders.Select(o => ToDto(o, null)).ToList());
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while getting the sales sheets.", exception = e.Message });
+                return ServerError("Internal error occurred while getting the sales sheets.", e);
             }
         }
 
@@ -727,8 +733,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while getting the order.", exception = e.Message });
+                return ServerError("Internal error occurred while getting the order.", e);
             }
         }
 
@@ -795,8 +800,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while updating the order.", exception = e.Message });
+                return ServerError("Internal error occurred while updating the order.", e);
             }
         }
 
@@ -904,7 +908,7 @@ namespace api.Controllers
                     line.Category = category;
 
                 InventoryRules.SyncIncludedTakeWith(order);
-                var stockError = await InventoryRules.CheckStockAsync(DB, order.Lines);
+                var stockError = await InventoryRules.CheckStockAsync(DB, order.Event!.TerritoryId, order.Lines);
                 if (stockError != null)
                     return BadRequest(new { error = stockError });
 
@@ -916,8 +920,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while updating the line.", exception = e.Message });
+                return ServerError("Internal error occurred while updating the line.", e);
             }
         }
 
@@ -976,8 +979,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while updating the payment.", exception = e.Message });
+                return ServerError("Internal error occurred while updating the payment.", e);
             }
         }
 
@@ -1001,8 +1003,8 @@ namespace api.Controllers
                 if (permanent && !IsOwner())
                     return StatusCode(403, new { error = "Only an owner can delete an order permanently." });
 
-                var order = await DB.Orders.FindAsync(id);
-                if (order == null)
+                var order = await DB.Orders.Include(o => o.Event).FirstOrDefaultAsync(o => o.Id == id);
+                if (order == null || !CanSee(order.Event))
                     return NotFound(new { error = "Order not found." });
 
                 if (permanent)
@@ -1023,8 +1025,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while deleting the order.", exception = e.Message });
+                return ServerError("Internal error occurred while deleting the order.", e);
             }
         }
 
@@ -1080,8 +1081,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while deleting the line.", exception = e.Message });
+                return ServerError("Internal error occurred while deleting the line.", e);
             }
         }
 
@@ -1119,8 +1119,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while deleting the payment.", exception = e.Message });
+                return ServerError("Internal error occurred while deleting the payment.", e);
             }
         }
 
@@ -1129,16 +1128,31 @@ namespace api.Controllers
         #region Private Methods
 
         /// <summary>
-        /// Loads an order with its lines and payments tracked, ready to recalculate and save.
+        /// Loads an order with its lines, payments and event tracked, ready to recalculate and save.
+        /// An order from another territory's event counts as not found.
         /// </summary>
         /// <param name="id">Order id</param>
-        /// <returns>The order, or null when not found.</returns>
+        /// <returns>The order, or null when not found or not visible.</returns>
         private async Task<Order?> LoadOrderAsync(int id)
         {
-            return await DB.Orders
+            var order = await DB.Orders
                 .Include(o => o.Lines)
                 .Include(o => o.Payments)
+                .Include(o => o.Event)
                 .FirstOrDefaultAsync(o => o.Id == id);
+
+            return order != null && CanSee(order.Event) ? order : null;
+        }
+
+        /// <summary>
+        /// Whether an event exists and the signed-in user may see it.
+        /// </summary>
+        /// <param name="eventId">Event id</param>
+        /// <returns>True when it exists and is in their territory, or they're company-wide.</returns>
+        private async Task<bool> EventVisibleAsync(int eventId)
+        {
+            var territoryId = await DB.Events.Where(e => e.Id == eventId).Select(e => (int?)e.TerritoryId).FirstOrDefaultAsync();
+            return territoryId != null && Scope.CanSee(territoryId);
         }
 
         /// <summary>
@@ -1153,7 +1167,7 @@ namespace api.Controllers
         private async Task<bool> AddLinkedDeliveryLineAsync(Order order, OrderLine parent, int deliveryOptionId)
         {
             var option = await DB.DeliveryOptions.FindAsync(deliveryOptionId);
-            if (option == null)
+            if (option == null || !InCatalog(option.TerritoryId, order.Event!.TerritoryId))
                 return false;
 
             var productDelivery = await DB.ProductDeliveryOptions
@@ -1370,25 +1384,42 @@ namespace api.Controllers
                 .ThenInclude(v => v!.Product)
                 .Include(o => o.Payments)
                 .Include(o => o.Event)
+                .ThenInclude(e => e!.Territory)
                 .Include(o => o.CreatedByUser)
                 .Include(o => o.CompletedByUser)
                 .AsNoTracking()
                 .FirstOrDefaultAsync(o => o.Id == id);
 
-            return order == null ? null : ToDto(order);
+            if (order == null || !CanSee(order.Event))
+                return null;
+
+            // What the event's territory has on hand, so the floor can see whether a Take With is possible.
+            var tracked = order.Lines
+                .Where(l => l.ProductVariant?.Product?.TrackInventory == true)
+                .Select(l => l.ProductVariant!.Id)
+                .Distinct()
+                .ToList();
+            var onHand = tracked.Count == 0
+                ? new Dictionary<int, int>()
+                : await InventoryRules.OnHandAsync(DB, order.Event!.TerritoryId, tracked);
+
+            return ToDto(order, onHand);
         }
 
         /// <summary>
         /// Maps an order entity to the full DTO.
         /// </summary>
         /// <param name="order">Order entity with children loaded</param>
+        /// <param name="onHand">The territory's stock of the order's tracked items, or null to leave it out</param>
         /// <returns>The mapped DTO.</returns>
-        private static OrderDto ToDto(Order order)
+        private static OrderDto ToDto(Order order, Dictionary<int, int>? onHand)
         {
             return new OrderDto
             {
                 Id = order.Id,
                 EventId = order.EventId,
+                TerritoryId = order.Event?.TerritoryId,
+                TerritoryName = order.Event?.Territory?.Name,
                 OrderNumber = order.OrderNumber,
                 Status = order.Status.ToString(),
                 DraftLabel = order.DraftLabel,
@@ -1476,8 +1507,8 @@ namespace api.Controllers
                         IsTaxable = l.IsTaxable,
                         SortOrder = l.SortOrder,
                         Notes = l.Notes,
-                        QuantityOnHand = l.ProductVariant?.Product?.TrackInventory == true
-                            ? l.ProductVariant.QuantityOnHand
+                        QuantityOnHand = l.ProductVariant?.Product?.TrackInventory == true && onHand != null
+                            ? onHand.GetValueOrDefault(l.ProductVariant.Id)
                             : null,
                     })
                     .ToList(),
@@ -1506,6 +1537,8 @@ namespace api.Controllers
             {
                 Id = order.Id,
                 EventId = order.EventId,
+                TerritoryId = order.Event?.TerritoryId,
+                TerritoryName = order.Event?.Territory?.Name,
                 OrderNumber = order.OrderNumber,
                 EventOrganization = order.Event?.Organization,
                 EventDate = order.Event?.EventDate,
