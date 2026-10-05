@@ -21,11 +21,11 @@ type Detail = {
  * entry applies up to its page count.
  */
 const DETAIL: { upTo: number; detail: Detail }[] = [
-    { upTo: 1, detail: { scale: 3, quality: 0.92 } },
-    { upTo: 3, detail: { scale: 2.5, quality: 0.9 } },
-    { upTo: 10, detail: { scale: 2, quality: 0.86 } },
-    { upTo: 30, detail: { scale: 1.75, quality: 0.82 } },
-    { upTo: Infinity, detail: { scale: 1.5, quality: 0.78 } },
+    { upTo: 1, detail: { scale: 3, quality: 1 } },
+    { upTo: 3, detail: { scale: 2.5, quality: 0.92 } },
+    { upTo: 10, detail: { scale: 2, quality: 0.9 } },
+    { upTo: 30, detail: { scale: 1.75, quality: 0.86 } },
+    { upTo: Infinity, detail: { scale: 1.5, quality: 0.82 } },
 ];
 
 /** Where in DETAIL a PDF of this many pages starts. */
