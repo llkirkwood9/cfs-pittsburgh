@@ -8,6 +8,7 @@ node_modules/
 api/appsettings.local.json
 api/appsettings.local.*.json
 dashboard/.env.local
+.env
 
 # IDE / OS
 .vs/
