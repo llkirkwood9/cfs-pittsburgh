@@ -10,7 +10,7 @@ or CLI does it.
 
 ```
  tablets ──HTTPS──> load balancer (TLS) ──HTTP──> app container :8080 ──TLS──> managed PostgreSQL
-                    (the host's own)              (Dockerfile.app)              (backups on)
+                    (the host's own)              (Dockerfile)                  (backups on)
 ```
 
 ---
@@ -29,19 +29,20 @@ or CLI does it.
 
 ## Step 1 - Build and publish the image
 
-The cloud uses `Dockerfile.app`: the API with the dashboard built into it, talking to an outside
-PostgreSQL. It runs as an unprivileged user and keeps nothing on its own disk, so any number of
+The cloud uses the same `Dockerfile` as every other host: the API with the dashboard built into
+it, talking to an outside PostgreSQL. It runs as an unprivileged user and keeps nothing on its own disk, so any number of
 copies can be started and thrown away.
 
 From the repository root, on any machine with Docker:
 
 ```bash
-docker buildx build --platform linux/amd64 -f Dockerfile.app -t ghcr.io/<owner>/cfs-fundraiser:2026-10-01 --push .
+docker buildx build --platform linux/amd64 -t ghcr.io/<owner>/cfs-fundraiser:2026-10-01 --push .
 ```
 
 Use a new tag for every release (a date works) rather than only `latest`, so a deploy is always a
 known version and going back is just redeploying the previous tag. Most cloud hosts run x86-64;
-add `linux/arm64` to `--platform` (comma-separated) if yours runs on ARM.
+add `linux/arm64` to `--platform` (comma-separated) if yours runs on ARM. Pushing to `main` also
+publishes `:latest` (and a tag per commit) for both through `.github/workflows/app-image.yml`.
 
 ---
 
@@ -98,7 +99,7 @@ the image, the repository or a plain variable anyone with console access can rea
 | `Email__Host`, `Email__Port`, `Email__Security`, `Email__Username`, `Email__Password`, `Email__From` | see Email below | password secret |
 
 Already set by the image, so leave them: `ASPNETCORE_ENVIRONMENT=Production`,
-`ASPNETCORE_HTTP_PORTS=8080`, `Database__Provider=Postgres`.
+`ASPNETCORE_HTTP_PORTS=8080`. PostgreSQL is the only database the app uses.
 
 Rarely needed:
 
@@ -165,9 +166,9 @@ the cart goes into a territory called **Pittsburgh**, which you can rename, and 
 once more with their old PIN and is then made to choose a password. Leave `Auth__AllowLegacyPins`
 unset until they all have.
 
-**From the all-in-one SQL Server image**: there is no direct copy between SQL Server and
-PostgreSQL. Either keep running SQL Server in the cloud (set `Database__Provider=SqlServer` and a
-SQL Server connection string - the app supports both) or start the cloud copy fresh and keep the
+**From the old all-in-one SQL Server image**: the app no longer runs on SQL Server, and there is
+no direct copy between SQL Server and PostgreSQL. Start the cloud copy fresh - move the catalog
+across with **Export catalog** / **Restore catalog** (owners, on the Catalog screen) - and keep the
 old box for looking back at past events.
 
 ---

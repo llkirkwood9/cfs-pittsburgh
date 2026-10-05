@@ -1,20 +1,53 @@
-# Runs the single CFS Fundraiser container (SQL Server + API + dashboard).
+# CFS Fundraiser: the app in one container and PostgreSQL in another. The same file runs on an
+# x86 PC or server and on a Raspberry Pi.
 #
-#   docker compose up -d --build
+#   docker compose up -d --build        # build the app image here from source, then start
+#   docker compose pull && docker compose up -d     # or use the published image
 #
-# Then open http://localhost:8080. Put the two secrets in a .env file next to this one
-# (MSSQL_SA_PASSWORD=..., JWT_KEY=...) - the app will not start without JWT_KEY.
-# EMAIL_HOST, EMAIL_FROM and friends switch on emailed receipts and reports (see below).
+# Put the secrets in a .env file next to this one:
+#
+#   POSTGRES_PASSWORD=<a long random password>
+#   JWT_KEY=<a long random secret, 32+ characters>      (required: the app won't start without it)
+#   SEED_ADMIN_PASSWORD=<the first account's password>  (optional: otherwise one is written to the log)
+#   CFS_IMAGE=ghcr.io/<owner>/cfs-fundraiser:latest    (optional: which published image to pull)
+#
+# To email receipts and reports, also add the EMAIL_* settings (see README.md).
 # SKIP_SEED_DATA=true starts with an empty catalog instead of the sample one.
+#
+# Then browse to http://<this machine's IP>:8080 from any device on the network.
 services:
-  cfs:
-    build: .
-    image: cfs-fundraiser:latest
-    container_name: cfs-fundraiser
+  db:
+    image: postgres:16-alpine
+    container_name: cfs-db
+    environment:
+      POSTGRES_DB: CfsFundraiser
+      POSTGRES_USER: cfs
+      POSTGRES_PASSWORD: "${POSTGRES_PASSWORD:-Change_Me_2026}"
+    volumes:
+      - cfs-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cfs -d CfsFundraiser"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  app:
+    # The published image by default; `docker compose up -d --build` builds it here from source
+    # instead (and tags the result with this same name).
+    image: "${CFS_IMAGE:-ghcr.io/llkirkwood9/cfs-fundraiser:latest}"
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: cfs-app
+    depends_on:
+      db:
+        condition: service_healthy
     ports:
       - "8080:8080"
     environment:
-      MSSQL_SA_PASSWORD: "${MSSQL_SA_PASSWORD:-Change_Me_2026!}"
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=CfsFundraiser;Username=cfs;Password=${POSTGRES_PASSWORD:-Change_Me_2026}"
       # Required: the app refuses to start without a real secret of 32+ characters.
       Jwt__Key: "${JWT_KEY:?Set JWT_KEY in the .env file to a random secret of 32+ characters}"
       # Set SKIP_SEED_DATA=true to leave out the sample catalog, delivery options and event.
@@ -34,9 +67,7 @@ services:
       Email__Password: "${EMAIL_PASSWORD:-}"
       Email__From: "${EMAIL_FROM:-}"
       Email__FromName: "${EMAIL_FROM_NAME:-}"
-    volumes:
-      - cfs-data:/var/opt/mssql
     restart: unless-stopped
 
 volumes:
-  cfs-data:
+  cfs-pgdata:

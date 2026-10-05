@@ -14,6 +14,7 @@ import { useAuth } from "../Context/AuthContext";
 import { useTerritory } from "../Context/TerritoryContext";
 import { FormatCurrency } from "../Lib/ModelHelpers";
 import { DiscountText, HasDiscount, OnSale, SaleFor } from "../Lib/Pricing";
+import { ProductSortOptions, SortProducts, type ProductSortKey } from "../Lib/ProductSort";
 import { Toast } from "../Lib/Toast";
 import type { DeliveryOption } from "../Models/DeliveryOption";
 import { ExportCatalog } from "../Services/CatalogServices";
@@ -52,6 +53,7 @@ const CatalogPage = () => {
 
     const [tab, setTab] = useState<ProductCategory | "All" | "Delivery">("Mattress");
     const [search, setSearch] = useState<string>("");
+    const [sortKey, setSortKey] = useState<ProductSortKey>("name-asc");
     const [editing, setEditing] = useState<Product | null>(null);
     const [deleting, setDeleting] = useState<Product | null>(null);
     const [restoring, setRestoring] = useState<boolean>(false);
@@ -76,7 +78,7 @@ const CatalogPage = () => {
 
     const filtered = useMemo(() => {
         const term = search.trim().toLowerCase();
-        return products.filter((product) => {
+        const matches = products.filter((product) => {
             if (tab !== "All" && tab !== "Delivery" && product.category !== tab) return false;
             if (!term) return true;
             return (
@@ -84,7 +86,9 @@ const CatalogPage = () => {
                 (product.brand ?? "").toLowerCase().includes(term)
             );
         });
-    }, [products, tab, search]);
+        // Sorted as the Add item list is: categories in tab order, the chosen sort within each.
+        return SortProducts(matches, sortKey, categories);
+    }, [products, tab, search, sortKey, categories]);
 
     if (!user) return <Navigate to="/unauthorized" replace />;
 
@@ -255,6 +259,20 @@ const CatalogPage = () => {
                         placeholder="Model or brand"
                         className="mb-3 max-w-md"
                     />
+
+                    <div className="-mx-1 mb-3 flex items-center gap-2 overflow-x-auto px-1 pb-1">
+                        <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                            Sort
+                        </span>
+                        {ProductSortOptions.map((option) => (
+                            <TabButton
+                                key={option.key}
+                                text={option.label}
+                                active={sortKey === option.key}
+                                onClick={() => setSortKey(option.key)}
+                            />
+                        ))}
+                    </div>
 
                     <ul className="space-y-2">
                         {filtered.map((product) => (

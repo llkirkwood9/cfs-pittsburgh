@@ -3,7 +3,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 
 #nullable disable
 
-namespace api.Migrations.Postgres
+namespace api.Migrations
 {
     /// <inheritdoc />
     public partial class UserLastLogin : Migration

@@ -5,22 +5,15 @@
 namespace api.Migrations
 {
     /// <inheritdoc />
-    public partial class CustomerSignatureAndCardFeeIntent : Migration
+    public partial class OrderTerms : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
         {
-            migrationBuilder.AddColumn<bool>(
-                name: "ApplyCcProcessingFee",
-                table: "Orders",
-                type: "bit",
-                nullable: false,
-                defaultValue: false);
-
             migrationBuilder.AddColumn<string>(
-                name: "CustomerSignature",
+                name: "TermsJson",
                 table: "Orders",
-                type: "nvarchar(max)",
+                type: "text",
                 nullable: true);
         }
 
@@ -28,11 +21,7 @@ namespace api.Migrations
         protected override void Down(MigrationBuilder migrationBuilder)
         {
             migrationBuilder.DropColumn(
-                name: "ApplyCcProcessingFee",
-                table: "Orders");
-
-            migrationBuilder.DropColumn(
-                name: "CustomerSignature",
+                name: "TermsJson",
                 table: "Orders");
         }
     }

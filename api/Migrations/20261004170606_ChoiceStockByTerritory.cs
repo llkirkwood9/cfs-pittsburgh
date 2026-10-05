@@ -1,4 +1,5 @@
-using Microsoft.EntityFrameworkCore.Migrations;
+﻿using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
@@ -23,7 +24,7 @@ namespace api.Migrations
             migrationBuilder.AddColumn<string>(
                 name: "StockKey",
                 table: "InventoryStocks",
-                type: "nvarchar(200)",
+                type: "character varying(200)",
                 maxLength: 200,
                 nullable: false,
                 defaultValue: "");
@@ -35,10 +36,10 @@ namespace api.Migrations
                 unique: true);
 
             migrationBuilder.Sql(
-                "INSERT INTO [InventoryStocks] ([TerritoryId], [ProductVariantId], [StockKey], [QuantityOnHand]) " +
-                "SELECT t.[Id], c.[ProductVariantId], c.[StockKey], c.[QuantityOnHand] FROM [ChoiceStocks] c " +
-                "CROSS JOIN (SELECT COALESCE((SELECT MIN([Id]) FROM [Territories] WHERE [Name] = 'Pittsburgh'), (SELECT MIN([Id]) FROM [Territories])) AS [Id]) t " +
-                "WHERE c.[QuantityOnHand] <> 0 AND c.[StockKey] <> '' AND t.[Id] IS NOT NULL;");
+                "INSERT INTO \"InventoryStocks\" (\"TerritoryId\", \"ProductVariantId\", \"StockKey\", \"QuantityOnHand\") " +
+                "SELECT t.\"Id\", c.\"ProductVariantId\", c.\"StockKey\", c.\"QuantityOnHand\" FROM \"ChoiceStocks\" c " +
+                "CROSS JOIN (SELECT COALESCE((SELECT MIN(\"Id\") FROM \"Territories\" WHERE \"Name\" = 'Pittsburgh'), (SELECT MIN(\"Id\") FROM \"Territories\")) AS \"Id\") t " +
+                "WHERE c.\"QuantityOnHand\" <> 0 AND c.\"StockKey\" <> '' AND t.\"Id\" IS NOT NULL;");
 
             migrationBuilder.DropTable(
                 name: "ChoiceStocks");
@@ -51,11 +52,11 @@ namespace api.Migrations
                 name: "ChoiceStocks",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    ProductVariantId = table.Column<int>(type: "int", nullable: false),
-                    StockKey = table.Column<string>(type: "nvarchar(200)", maxLength: 200, nullable: false),
-                    QuantityOnHand = table.Column<int>(type: "int", nullable: false)
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    ProductVariantId = table.Column<int>(type: "integer", nullable: false),
+                    StockKey = table.Column<string>(type: "character varying(200)", maxLength: 200, nullable: false),
+                    QuantityOnHand = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -75,7 +76,7 @@ namespace api.Migrations
                 unique: true);
 
             // Per-choice counts can't keep their territory; they're dropped along with the key.
-            migrationBuilder.Sql("DELETE FROM [InventoryStocks] WHERE [StockKey] <> '';");
+            migrationBuilder.Sql("DELETE FROM \"InventoryStocks\" WHERE \"StockKey\" <> '';");
 
             migrationBuilder.DropIndex(
                 name: "IX_InventoryStocks_TerritoryId_ProductVariantId_StockKey",

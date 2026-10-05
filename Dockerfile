@@ -1,12 +1,15 @@
-# CFS Fundraiser - the whole app in one container: SQL Server, the API, and the dashboard.
+# CFS Fundraiser - the app (API + dashboard) in one image, talking to a PostgreSQL server in its
+# own container. The same image runs on an x86 PC or server, a Raspberry Pi and a cloud host: any
+# container host (Azure Container Apps, AWS App Runner or ECS, Google Cloud Run, Fly.io, Render...)
+# with a managed PostgreSQL database - see Documents/Cloud Deployment.md. It runs as an unprivileged
+# user and keeps nothing on its own disk.
 #
-#   docker compose up -d --build        (uses docker-compose.yml alongside this file)
+#   docker compose up -d --build        (builds this image and starts it with PostgreSQL)
 #
-# or without compose:
+# Published for both architectures by .github/workflows/app-image.yml, or by hand:
 #
-#   docker build -t cfs-fundraiser .
-#   docker run -d -p 8080:8080 -e MSSQL_SA_PASSWORD='Str0ng!Passw0rd' -e Jwt__Key='<long secret>' \
-#       -e ForwardedHeaders__Enabled=false -v cfs-data:/var/opt/mssql --name cfs-fundraiser cfs-fundraiser
+#   docker buildx build --platform linux/amd64,linux/arm64 \
+#       -t ghcr.io/<owner>/cfs-fundraiser:latest --push .
 #
 # Then browse to http://localhost:8080. The API serves the dashboard itself, so there is one origin
 # and one port and no CORS to configure.
@@ -14,7 +17,7 @@
 # ---------------------------------------------------------------------------------------------
 # 1. Dashboard: static build. VITE_API_URL is left unset so every API call is same-origin.
 # ---------------------------------------------------------------------------------------------
-FROM node:22-alpine AS dashboard
+FROM --platform=$BUILDPLATFORM node:22-alpine AS dashboard
 WORKDIR /src
 COPY dashboard/package.json dashboard/package-lock.json ./
 RUN npm ci
@@ -22,57 +25,46 @@ COPY dashboard/ ./
 RUN npm run build
 
 # ---------------------------------------------------------------------------------------------
-# 2. API: framework-dependent publish.
+# 2. API: published for the target architecture. The build itself always runs on the build
+#    machine's own architecture, which keeps an emulated ARM build to a copy rather than a compile.
 # ---------------------------------------------------------------------------------------------
-FROM mcr.microsoft.com/dotnet/sdk:10.0 AS api
+FROM --platform=$BUILDPLATFORM mcr.microsoft.com/dotnet/sdk:10.0 AS api
+ARG TARGETARCH
 WORKDIR /src
 COPY api/api.csproj ./
-RUN dotnet restore api.csproj
+RUN dotnet restore api.csproj -a $TARGETARCH
 COPY api/ ./
-RUN dotnet publish api.csproj -c Release -o /out --no-restore /p:UseAppHost=false
+RUN dotnet publish api.csproj -c Release -a $TARGETARCH -o /out --no-restore /p:UseAppHost=false
 
 # ---------------------------------------------------------------------------------------------
-# 3. Runtime: SQL Server's own image, with the ASP.NET runtime added alongside it.
+# 3. Runtime: just the ASP.NET runtime. The database lives in its own container.
 # ---------------------------------------------------------------------------------------------
-FROM mcr.microsoft.com/mssql/server:2022-latest
+FROM mcr.microsoft.com/dotnet/aspnet:10.0
 
-USER root
-
-# ICU for .NET globalization; the SQL Server image is Ubuntu 22.04.
+# Npgsql loads the system Kerberos library when it opens a connection; the slim runtime image
+# does not carry it.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libicu70 \
+    && apt-get install -y --no-install-recommends libgssapi-krb5-2 \
     && rm -rf /var/lib/apt/lists/*
 
-# The ASP.NET Core runtime, lifted from Microsoft's own image rather than a package feed.
-COPY --from=mcr.microsoft.com/dotnet/aspnet:10.0 /usr/share/dotnet /usr/share/dotnet
-RUN ln -s /usr/share/dotnet/dotnet /usr/bin/dotnet
-
+WORKDIR /app
 COPY --from=api /out /app
 COPY --from=dashboard /src/dist /app/wwwroot
-COPY docker/start.sh /usr/local/bin/start.sh
 
-# Strip Windows line endings in case the script was checked out on Windows.
-RUN sed -i 's/\r$//' /usr/local/bin/start.sh \
-    && chmod +x /usr/local/bin/start.sh \
-    && chown -R mssql /app
-
-USER mssql
-
-# Express is free for production use (10 GB per database - far more than an event needs).
-# Change MSSQL_PID if you hold a different licence.
-ENV ACCEPT_EULA=Y \
-    MSSQL_PID=Express \
-    ASPNETCORE_ENVIRONMENT=Production \
+ENV ASPNETCORE_ENVIRONMENT=Production \
     ASPNETCORE_HTTP_PORTS=8080 \
     DOTNET_RUNNING_IN_CONTAINER=true
 
-EXPOSE 8080
-VOLUME ["/var/opt/mssql"]
+# PostgreSQL can take a while to start (a Pi 3B especially), so wait longer for the first
+# connection.
+ENV Startup__DatabaseAttempts=30
 
-HEALTHCHECK --interval=30s --timeout=5s --start-period=90s --retries=3 \
+EXPOSE 8080
+
+# Asks the API's own /health endpoint over the loopback, using bash rather than adding curl.
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
     CMD bash -c 'exec 3<>/dev/tcp/127.0.0.1/8080 && printf "GET /health HTTP/1.0\r\n\r\n" >&3 && grep -q Healthy <&3'
 
-# start.sh is PID 1 so that `docker stop` reaches its trap and SQL Server shuts down cleanly. It
-# runs the SQL Server image's own permissions check before anything else.
-ENTRYPOINT ["/usr/local/bin/start.sh"]
-CMD []
+USER $APP_UID
+
+ENTRYPOINT ["dotnet", "api.dll"]

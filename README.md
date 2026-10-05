@@ -81,7 +81,11 @@ The catalog and the printed receipt are both built from the supplied source docu
   with a banner explaining why, on screen and on paper, so it can never pass for a final sale.
 - **Back** returns to wherever the sheet was opened from - the Orders list, the checkout table or
   the event export.
-- Print-only CSS hides the app chrome, so the paper copy is just the sheet.
+- **Print** makes the same picture-per-page PDF that email sends (below) and prints that, so the
+  paper looks the same whichever device printed it. A desktop browser goes straight to its print
+  dialog (the PDF is loaded into a hidden frame); a tablet or phone - and Safari, which prints an
+  embedded PDF blank - opens the PDF in a new tab to print or share from there. Print-only CSS
+  still hides the app chrome if someone prints the page itself with Ctrl+P.
 - **Email** (completed sales only) sends the customer the sheet as a PDF attachment, with a
   friendly note: thanks, what happens next (take-home items, drop shipping to their address, how a
   boxed mattress expands, keeping a protector on for the warranty, any balance still owed) and the
@@ -89,8 +93,8 @@ The catalog and the printed receipt are both built from the supplied source docu
   territory). Goes
   to their billing email or any address typed in. Needs the Email settings below.
 - The PDF is built in the browser from the sheet on screen (html2canvas-pro + jsPDF, loaded on
-  demand), laid out at paper width whatever the device, one sheet per Letter page - so it matches
-  the printed copy exactly. Sharpness follows the page count: a single receipt is captured at about
+  demand), laid out at paper width whatever the device, one sheet per Letter page - the same PDF
+  Print uses, so the emailed and printed copies match exactly. Sharpness follows the page count: a single receipt is captured at about
   300 dpi, an event's stack steps down (to about 145 dpi past 30 pages) so it still fits in an
   email, and a PDF that comes out too big is rebuilt a step smaller. The API checks it is a PDF
   under 18 MB, then attaches it.
@@ -110,8 +114,9 @@ The catalog and the printed receipt are both built from the supplied source docu
 - A filled-in Fundraiser Stat Sheet first, laid out like the paper School Stat Sheet: unit counts, each
   financing, check, layaway and cash sale itemised, and the summary box. As on the paper form,
   AVERAGE SALE is total sales divided by the number of mattresses and adjustable bases.
-- Then every completed sales sheet for the event, one per printed page. **Print / Save PDF** sends the
-  whole stack to a printer or, with Save as PDF as the printer, downloads it as a single PDF.
+- Then every completed sales sheet for the event, one per printed page. **Print / Save PDF** builds
+  the whole stack as one PDF (showing its progress page by page) and prints it - or, with Save as
+  PDF as the printer, saves it. On a tablet the PDF opens in a new tab instead.
   **Download CSV** exports the same sales as a spreadsheet: one row per sale with customer,
   items, totals and each payment method.
 - **Email report** sends the whole stack - stat sheet, every completed sales sheet and the
@@ -130,7 +135,8 @@ The catalog and the printed receipt are both built from the supplied source docu
   switches the whole dashboard to it.
 
 **Management** (Manager and up)
-- `/catalog` — products, their sizes and prices, what each size includes as a bundle, which
+- `/catalog` — products (sorted with the same **Sort** buttons as Add item: name, price or brand,
+  categories kept together), their sizes and prices, what each size includes as a bundle, which
   delivery services each offers, sales, and selections. An item or delivery option is either
   **global** (sold in every territory) or one territory's own. Only owners and administrators
   change global ones; a manager adds and edits their territory's. A territory's item can include
@@ -187,29 +193,39 @@ The catalog and the printed receipt are both built from the supplied source docu
 
 ## 2. Running it
 
-### In Docker (one container)
+### In Docker
 
-The `Dockerfile` in the repo root builds the whole app - SQL Server 2022 Express, the API and the
-dashboard - into a single image. The API serves the dashboard itself, so there is one port and
-one origin.
-
-```bash
-docker compose up -d --build
-```
-
-Then open `http://localhost:8080`. The first start takes about a minute while SQL Server
-initialises its data volume; after that it is ready in around 20 seconds. The database lives in
-the `cfs-data` volume and survives restarts and rebuilds.
+The app runs as two containers - the app image (the API serving the dashboard, so one port and one
+origin) and PostgreSQL - from one `docker-compose.yml`, the same on an x86 PC or server and on a
+Raspberry Pi. In the cloud the same image runs against a managed PostgreSQL database instead (see
+[Documents/Cloud Deployment.md](Documents/Cloud%20Deployment.md)).
 
 Put the secrets in a `.env` file next to `docker-compose.yml` - the app won't start without a
 real `JWT_KEY`:
 
 ```
-MSSQL_SA_PASSWORD=Use-A-Strong-Passw0rd
+POSTGRES_PASSWORD=a-long-random-password
 JWT_KEY=a-long-random-string-of-at-least-32-characters
 ```
 
-`openssl rand -base64 48` makes a good key.
+`openssl rand -base64 48` makes a good key. Then build the image here from source and start both:
+
+```bash
+docker compose up -d --build
+```
+
+or pull the published image instead (built for amd64 and arm64 by
+`.github/workflows/app-image.yml`; set `CFS_IMAGE` in `.env` to use another one):
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+Then open `http://localhost:8080` (or `http://<this machine's IP>:8080` from a tablet). The first
+start takes a few seconds while PostgreSQL initialises; the app then creates its tables and loads
+the catalog. The database lives in the `cfs-pgdata` volume and survives restarts, rebuilds and
+updates. `docker-compose.pi.yml` simply includes `docker-compose.yml`, so a Pi set up with that file
+name carries on unchanged; see [Documents/Raspberry Pi Setup.md](Documents/Raspberry%20Pi%20Setup.md).
 
 To switch on emailed receipts and reports, add SMTP settings to the same `.env` (Gmail needs an
 app password):
@@ -235,13 +251,19 @@ anything missing on every start, so sample items deleted on purpose come back. T
 account (`admin`, an owner) is still created when the database has no accounts at all, so a new
 database is never locked - see **First sign-in** below.
 
-The SA password must meet SQL Server's complexity rules and must not contain `;`. The container
-needs about 2 GB of memory for SQL Server and runs on x86-64 hosts. `api/docker-compose.yml` is a
-separate, SQL-Server-only compose file for local development and is not used by the image.
-
 ### Locally
 
-Prerequisites: .NET 10 SDK, Node 20+, SQL Server (LocalDB is fine).
+Prerequisites: .NET 10 SDK, Node 20+, Docker (for PostgreSQL).
+
+```bash
+docker compose -f api/docker-compose.yml up -d
+```
+
+That starts PostgreSQL 16 on `localhost:5432` with the database, user and password that
+`api/appsettings.json` expects (`CfsFundraiser` / `cfs` / `cfs-dev`), keeping its data in the
+`cfs-dev-pgdata` volume. `docker compose -f api/docker-compose.yml down -v` starts over with an
+empty database. Any other PostgreSQL works too: put its connection string in
+`ConnectionStrings:DefaultConnection` in `api/appsettings.local.json`.
 
 ```bash
 cd api && dotnet run --launch-profile http
@@ -255,6 +277,9 @@ cd dashboard && npm install && npm run dev
 ```
 
 The SPA listens on `http://localhost:3000` and reads the API URL from `dashboard/.env.local`.
+
+New migrations: `cd api && dotnet ef migrations add Name`. The design-time context points at the
+local container; set `CFS_POSTGRES_CONNECTION` to use another server.
 
 ### First sign-in
 
@@ -318,21 +343,22 @@ a starting password for each account on the Crew screen.
 ## 3. Repo layout
 
 ```
-Dockerfile                  Single-container image: SQL Server + API + dashboard
-Dockerfile.app              App-only image (API + dashboard) for PostgreSQL: the cloud and the Pi
-docker-compose.yml          Runs the single container with a data volume on port 8080
-docker-compose.pi.yml       The app image plus a PostgreSQL container
-docker/start.sh             Container entrypoint: starts SQL Server, then the API
+Dockerfile                  The app image: API + dashboard (amd64 and arm64), for every host
+docker-compose.yml          The app image plus a PostgreSQL container, on port 8080
+docker-compose.pi.yml       Includes docker-compose.yml, for Pis set up with this name
+docker/pi/                  Raspberry Pi boot, update, backup and reset scripts
+.github/workflows/          app-image.yml publishes the image to ghcr.io
 
 api/                        ASP.NET Core 10 Web API (net10.0)
 ├── Controllers/            One controller per resource, all inheriting BasicController
 ├── Dtos/                   Request/response shapes; EF models are never exposed directly
 ├── Models/                 EF entities
-├── Data/                   ApplicationDbContext, SeedData, CatalogSeed.json
+├── Data/                   ApplicationDbContext (PostgreSQL), SeedData, CatalogSeed.json
 ├── Services/               TokenService (JWT, sessions, password hashing), EmailService
 ├── Utils/                  BasicController, AccessScope (who may see what), PasswordPolicy,
 │                           SettingsStore, InventoryRules, OrderCalculator, TraceControl
-└── Migrations/
+├── Migrations/             PostgreSQL migrations
+└── docker-compose.yml      PostgreSQL for local development
 
 dashboard/                  Vite + React 19 + TS SPA
 └── src/

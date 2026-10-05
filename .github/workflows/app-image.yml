@@ -1,7 +1,7 @@
-# Builds the Raspberry Pi image (ARM64) and publishes it to this repository's container registry,
-# so the Pi only ever has to pull. Runs on every push to main that touches the app, and can be
-# started by hand from the Actions tab.
-name: Pi image
+# Builds the app image for x86 (amd64) and ARM (arm64, the Raspberry Pi) and publishes it to this
+# repository's container registry, so a venue box or a Pi only ever has to pull. Runs on every push
+# to main that touches the app, and can be started by hand from the Actions tab.
+name: App image
 
 on:
   push:
@@ -9,8 +9,8 @@ on:
     paths:
       - "api/**"
       - "dashboard/**"
-      - "Dockerfile.app"
-      - ".github/workflows/pi-image.yml"
+      - "Dockerfile"
+      - ".github/workflows/app-image.yml"
   workflow_dispatch:
 
 jobs:
@@ -23,7 +23,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # The final stage installs a package as ARM64, which needs emulation on an x86 runner.
+      # The ARM64 final stage installs a package, which needs emulation on an x86 runner.
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
 
@@ -37,8 +37,8 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: Dockerfile.app
-          platforms: linux/arm64
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: |
             ghcr.io/${{ github.repository_owner }}/cfs-fundraiser:latest

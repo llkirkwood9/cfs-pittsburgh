@@ -6,7 +6,7 @@ import LoadingPage from "../Components/Elements/LoadingPage";
 import ReceiptSheet from "../Components/Checkout/ReceiptSheet";
 import { useAuth } from "../Context/AuthContext";
 import { HomePathForRole } from "../Lib/RoleRoutes";
-import { FindSheets, TryBuildSheetsPdf } from "../Lib/SheetPdf";
+import { FindSheets, PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
 import { Toast } from "../Lib/Toast";
 import type { Order } from "../Models/Order";
 import { EmailReceipt, GetEmailStatus } from "../Services/EmailServices";
@@ -14,9 +14,9 @@ import type { EmailStatus } from "../Services/EmailServices";
 import { GetOrder } from "../Services/OrderServices";
 
 /**
- * The printable copy of a sale. Unfinished orders are stamped as such by the sheet itself. The toolbar is marked no-print so the paper that comes
- * out of the tray is just the sales sheet. A completed sale can also be emailed to the customer, as
- * a PDF of this same sheet.
+ * The printable copy of a sale. Unfinished orders are stamped as such by the sheet itself. Print
+ * makes a PDF of the sheet - the same one email sends - and prints that, so the paper looks the
+ * same from any device. A completed sale can also be emailed to the customer.
  */
 const ReceiptPage = () => {
     const { user } = useAuth();
@@ -39,6 +39,7 @@ const ReceiptPage = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
     const [emailing, setEmailing] = useState<boolean>(false);
+    const [printing, setPrinting] = useState<boolean>(false);
     const sheetRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -86,6 +87,13 @@ const ReceiptPage = () => {
             );
     };
 
+    // Printed from the same PDF that email sends, so the sheet comes out the same from any device.
+    const handlePrint = async () => {
+        setPrinting(true);
+        await PrintSheetsPdf(FindSheets(sheetRef.current), `sales-sheet-${order.orderNumber}`);
+        setPrinting(false);
+    };
+
     return (
         <div className="print-root min-h-screen bg-zinc-200 py-4 dark:bg-zinc-900">
             <div className="no-print mx-auto mb-4 flex max-w-[8in] flex-wrap items-center gap-2 px-3">
@@ -104,7 +112,13 @@ const ReceiptPage = () => {
                             className="bg-zinc-600 hover:bg-zinc-700 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                         />
                     )}
-                    <Button text="Print" icon="fa-solid fa-print" onClick={() => window.print()} />
+                    <Button
+                        text={printing ? "Making the PDF..." : "Print"}
+                        icon="fa-solid fa-print"
+                        onClick={handlePrint}
+                        loading={printing}
+                        disabled={printing}
+                    />
                 </div>
             </div>
 
