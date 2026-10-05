@@ -9,11 +9,11 @@ using api.Data;
 
 #nullable disable
 
-namespace api.Migrations.Postgres
+namespace api.Migrations
 {
-    [DbContext(typeof(PostgresDbContext))]
-    [Migration("20260928005746_ItemAndInventoryNotes")]
-    partial class ItemAndInventoryNotes
+    [DbContext(typeof(ApplicationDbContext))]
+    [Migration("20261001025258_AppSettings")]
+    partial class AppSettings
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,6 +24,28 @@ namespace api.Migrations.Postgres
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
+
+            modelBuilder.Entity("api.Models.AppSetting", b =>
+                {
+                    b.Property<string>("Key")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<DateTime>("UpdatedAt")
+                        .HasColumnType("timestamp without time zone");
+
+                    b.Property<string>("UpdatedBy")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("Value")
+                        .IsRequired()
+                        .HasColumnType("text");
+
+                    b.HasKey("Key");
+
+                    b.ToTable("AppSettings");
+                });
 
             modelBuilder.Entity("api.Models.DeliveryOption", b =>
                 {
@@ -666,6 +688,9 @@ namespace api.Migrations.Postgres
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("LastLoginAt")
+                        .HasColumnType("timestamp without time zone");
 
                     b.Property<string>("Name")
                         .IsRequired()

@@ -6,25 +6,19 @@ on, updates itself when it can reach the internet, and everyone on the same netw
 
 ---
 
-## Before you start: what changed, and why
+## Before you start: how it's put together
 
-The all-in-one container (`Dockerfile` / `docker-compose.yml`) puts **SQL Server** in the image.
-Microsoft only publishes SQL Server for x86_64 machines, and it wants about 2 GB of RAM. A Pi 3B is
-an ARM board with 1 GB, so that image cannot run there at all.
-
-For the Pi there is a second setup that swaps SQL Server for **PostgreSQL**, which does have an ARM
-build and is much lighter:
+The app runs the same way everywhere - a PC, a venue server and this Pi - as two containers: the app
+itself and **PostgreSQL**, which has an ARM build and is light enough for a Pi 3B.
 
 | File | What it is |
 | --- | --- |
-| `Dockerfile.app` | The app on its own (API + dashboard), no database inside |
-| `docker-compose.pi.yml` | Two containers: the app and PostgreSQL |
+| `Dockerfile` | The app (API + dashboard), no database inside - built for x86 and ARM |
+| `docker-compose.yml` | Two containers: the app and PostgreSQL |
+| `docker-compose.pi.yml` | Simply includes `docker-compose.yml`; the boot script below uses this name |
 | `docker/pi/cfs-update.sh` | Pull the newest image and start everything |
 | `docker/pi/cfs.service` | Runs that script at every boot |
-| `.github/workflows/pi-image.yml` | Builds the ARM image for you whenever you push to `main` |
-
-Nothing about your Windows development setup changes: it still uses SQL Server. The app picks its
-database from `Database__Provider`, which the Pi image sets to `Postgres`.
+| `.github/workflows/app-image.yml` | Builds the image for you whenever you push to `main` |
 
 On the Pi this uses roughly **175 MB of RAM** (about 135 MB for the app, 40 MB for PostgreSQL),
 which leaves plenty of room on a 1 GB board.
@@ -138,12 +132,13 @@ You can add it later too; it takes effect at the next restart and leaves everyth
 database alone. Either way, a brand-new database still gets one account to sign in with -
 `admin`, PIN `1234` - so change that PIN as soon as you sign in.
 
-## Step 6 - Publish the Pi image
+## Step 6 - Publish the app image
 
-The Pi doesn't build anything - it pulls a ready-made ARM image. GitHub Actions builds it for you:
+The Pi doesn't build anything - it pulls a ready-made image. GitHub Actions builds it for you, for
+both ARM (the Pi) and x86:
 
-1. Push this branch to `main`. The **Pi image** workflow starts automatically.
-2. Watch it on GitHub under **Actions** → **Pi image**. The first run takes roughly 10-15 minutes.
+1. Push this branch to `main`. The **App image** workflow starts automatically.
+2. Watch it on GitHub under **Actions** → **App image**. The first run takes roughly 10-15 minutes.
 3. When it finishes, the image exists at `ghcr.io/llkirkwood9/cfs-fundraiser:latest`.
 
 **Let the Pi read it.** Packages start out private, so do one of these:
@@ -161,30 +156,30 @@ The Pi doesn't build anything - it pulls a ready-made ARM image. GitHub Actions 
 
 > **Prefer to build it yourself?** On a computer with Docker Desktop:
 > ```bash
-> docker buildx build --platform linux/arm64 -f Dockerfile.app -t ghcr.io/llkirkwood9/cfs-fundraiser:latest --push .
+> docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/llkirkwood9/cfs-fundraiser:latest --push .
 > ```
 
 ## Step 7 - First run
 
 ```bash
-cd /opt/cfs && docker compose -f docker-compose.pi.yml pull
+cd /opt/cfs && docker compose pull
 ```
 
 ```bash
-docker compose -f docker-compose.pi.yml up -d
+docker compose up -d
 ```
 
 The first start takes a minute or two: PostgreSQL sets itself up, then the app creates its tables
 and loads the product catalogue. Watch it happen with:
 
 ```bash
-docker compose -f docker-compose.pi.yml logs -f app
+docker compose logs -f app
 ```
 
 Press `Ctrl+C` to stop watching. Both containers should say `healthy`:
 
 ```bash
-docker compose -f docker-compose.pi.yml ps
+docker compose ps
 ```
 
 Now open `http://cfs.local:8080` (or `http://<the Pi's IP>:8080`) from any device on the network and
@@ -242,7 +237,7 @@ hostname -I
 
 ## Day-to-day
 
-**Updating the app.** Push to `main`, wait for the Pi image workflow to finish, then on the Pi:
+**Updating the app.** Push to `main`, wait for the App image workflow to finish, then on the Pi:
 
 ```bash
 sudo systemctl restart cfs.service
@@ -254,17 +249,17 @@ lives in a Docker volume, not in the image.
 **Checking on it.**
 
 ```bash
-cd /opt/cfs && docker compose -f docker-compose.pi.yml ps
+cd /opt/cfs && docker compose ps
 ```
 
 ```bash
-cd /opt/cfs && docker compose -f docker-compose.pi.yml logs --tail 50 app
+cd /opt/cfs && docker compose logs --tail 50 app
 ```
 
 **Stopping and starting by hand.**
 
 ```bash
-cd /opt/cfs && docker compose -f docker-compose.pi.yml stop
+cd /opt/cfs && docker compose stop
 ```
 
 ```bash
@@ -275,7 +270,7 @@ sudo systemctl restart cfs.service
 the Pi:
 
 ```bash
-cd /opt/cfs && docker compose -f docker-compose.pi.yml exec -T db pg_dump -U cfs CfsFundraiser | gzip > ~/cfs-backup-$(date +%F).sql.gz
+cd /opt/cfs && docker compose exec -T db pg_dump -U cfs CfsFundraiser | gzip > ~/cfs-backup-$(date +%F).sql.gz
 ```
 
 Copy it to your computer (run this on the computer, not the Pi):
@@ -287,7 +282,7 @@ scp cfs@cfs.local:~/cfs-backup-*.sql.gz .
 **Restoring a backup** onto a fresh Pi, after Step 7:
 
 ```bash
-gunzip -c ~/cfs-backup-2026-09-22.sql.gz | docker compose -f /opt/cfs/docker-compose.pi.yml exec -T db psql -U cfs -d CfsFundraiser
+gunzip -c ~/cfs-backup-2026-09-22.sql.gz | docker compose -f /opt/cfs/docker-compose.yml exec -T db psql -U cfs -d CfsFundraiser
 ```
 
 ---
@@ -336,7 +331,7 @@ time after the event.
 If a send fails, the app shows the mail server's reason. To see more:
 
 ```bash
-cd /opt/cfs && docker compose -f docker-compose.pi.yml logs --tail 50 app | grep -i email
+cd /opt/cfs && docker compose logs --tail 50 app | grep -i email
 ```
 
 ---
@@ -356,13 +351,13 @@ cd /opt/cfs && docker compose -f docker-compose.pi.yml logs --tail 50 app | grep
 **The page doesn't load at all.**
 
 ```bash
-cd /opt/cfs && docker compose -f docker-compose.pi.yml ps
+cd /opt/cfs && docker compose ps
 ```
 
 If `cfs-app` is missing or restarting, read its log:
 
 ```bash
-cd /opt/cfs && docker compose -f docker-compose.pi.yml logs --tail 80 app
+cd /opt/cfs && docker compose logs --tail 80 app
 ```
 
 **"denied" or "unauthorized" when pulling.** The Pi can't read the package. Redo the
@@ -372,7 +367,7 @@ cd /opt/cfs && docker compose -f docker-compose.pi.yml logs --tail 80 app
 card. The app retries for a couple of minutes on its own. If it never settles:
 
 ```bash
-cd /opt/cfs && docker compose -f docker-compose.pi.yml logs --tail 40 db
+cd /opt/cfs && docker compose logs --tail 40 db
 ```
 
 **A password mismatch after changing `.env`.** PostgreSQL keeps the password from the first run.
@@ -380,7 +375,7 @@ Either restore the old password in `.env`, or wipe the database and start fresh 
 every order**:
 
 ```bash
-cd /opt/cfs && docker compose -f docker-compose.pi.yml down -v && docker compose -f docker-compose.pi.yml up -d
+cd /opt/cfs && docker compose down -v && docker compose up -d
 ```
 
 **Out of space.** SD cards fill up with old images:

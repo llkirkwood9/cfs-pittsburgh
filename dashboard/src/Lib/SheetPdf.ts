@@ -88,12 +88,14 @@ const InlineStylesheets = (doc: Document, css: Map<string, string>) => {
  * @param sheets The sheet elements, in page order.
  * @param onProgress Called before each page with its number and the total.
  * @param detail How sharp to capture; by default, as sharp as this many pages allow.
+ * @param title The PDF's title, which a print dialog offers as the file name.
  * @returns The PDF.
  */
 export const BuildSheetsPdf = async (
     sheets: HTMLElement[],
     onProgress?: (page: number, total: number) => void,
-    detail: Detail = DETAIL[DetailIndexFor(sheets.length)].detail
+    detail: Detail = DETAIL[DetailIndexFor(sheets.length)].detail,
+    title?: string
 ): Promise<Blob> => {
     // Loaded on demand: together they are larger than the rest of the app.
     const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
@@ -107,6 +109,7 @@ export const BuildSheetsPdf = async (
         orientation: "portrait",
         compress: true,
     });
+    if (title) pdf.setProperties({ title });
     const css = LoadedStylesheets();
     const boxW = PAGE_W - MARGIN * 2;
     const boxH = PAGE_H - MARGIN * 2;
@@ -195,3 +198,94 @@ export const TryBuildSheetsPdf = async (
  */
 export const FindSheets = (root: HTMLElement | null): HTMLElement[] =>
     root ? Array.from(root.querySelectorAll<HTMLElement>(".print-sheet")) : [];
+
+/**
+ * Whether this browser can't print a PDF from inside the page: tablets and phones (an iPad says
+ * it is a Mac, but a Mac has no touch screen), and Safari, which prints an embedded PDF blank.
+ */
+const OpensPdfInTab = (): boolean =>
+    /iPad|iPhone|iPod|Android/i.test(navigator.userAgent) ||
+    (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ||
+    /^((?!chrome|chromium|android|edg).)*safari/i.test(navigator.userAgent);
+
+/** The hidden frame the last PDF was printed from, cleared when the next one prints. */
+let printFrame: HTMLIFrameElement | null = null;
+
+/**
+ * Prints the sheets on screen from the same picture-per-page PDF that email sends, so the paper
+ * looks the same from every device. A desktop browser goes straight to its print dialog; a tablet
+ * or phone - whose browsers can't print a PDF from inside the page - opens the PDF in a new tab,
+ * to print or share from there.
+ *
+ * Call it straight from the tap, before awaiting anything else: the new tab has to be opened while
+ * the tap still counts, or the browser blocks it as a pop-up.
+ * @param sheets The sheet elements, in page order.
+ * @param title The PDF's title, which a print dialog offers as the file name.
+ * @param onProgress Called before each page with its number and the total.
+ * @returns Whether the PDF was made.
+ */
+export const PrintSheetsPdf = async (
+    sheets: HTMLElement[],
+    title: string,
+    onProgress?: (page: number, total: number) => void
+): Promise<boolean> => {
+    if (sheets.length === 0) {
+        Toast.Warning("There are no sheets to print.");
+        return false;
+    }
+
+    const tab = OpensPdfInTab() ? window.open("", "_blank") : null;
+    if (tab) {
+        tab.document.title = title;
+        tab.document.body.innerHTML =
+            '<p style="font:18px system-ui,sans-serif;padding:2em;color:#3f3f46">Making the PDF to print...</p>';
+    }
+
+    let pdf: Blob;
+    try {
+        pdf = await BuildSheetsPdf(sheets, onProgress, undefined, title);
+    } catch (error) {
+        console.error("Building the PDF failed", error);
+        tab?.close();
+        Toast.Error("The PDF couldn't be made. Try again.");
+        return false;
+    }
+
+    const url = URL.createObjectURL(pdf);
+
+    if (OpensPdfInTab()) {
+        if (tab) {
+            tab.location.href = url;
+        } else {
+            // The pop-up was blocked: save the file instead.
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `${title}.pdf`;
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            Toast.Info("The PDF was saved to this device. Open it to print.");
+        }
+        return true;
+    }
+
+    printFrame?.remove();
+    const frame = document.createElement("iframe");
+    frame.title = title;
+    frame.style.cssText = "position:fixed;right:0;bottom:0;width:0;height:0;border:0";
+    frame.onload = () => {
+        // A moment for the PDF viewer inside the frame to finish drawing the first page.
+        setTimeout(() => {
+            try {
+                frame.contentWindow?.focus();
+                frame.contentWindow?.print();
+            } catch {
+                window.open(url, "_blank");
+            }
+        }, 250);
+    };
+    frame.src = url;
+    document.body.appendChild(frame);
+    printFrame = frame;
+    return true;
+};

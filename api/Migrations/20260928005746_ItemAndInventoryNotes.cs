@@ -2,7 +2,7 @@
 
 #nullable disable
 
-namespace api.Migrations.Postgres
+namespace api.Migrations
 {
     /// <inheritdoc />
     public partial class ItemAndInventoryNotes : Migration

@@ -97,12 +97,12 @@ namespace api.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // Money is stored as decimal(18,2) everywhere so totals never drift.
+            // Money is stored as numeric(18,4) everywhere - exact, so totals never drift.
             foreach (var property in modelBuilder.Model.GetEntityTypes()
                          .SelectMany(t => t.GetProperties())
                          .Where(p => p.ClrType == typeof(decimal) || p.ClrType == typeof(decimal?)))
             {
-                property.SetColumnType("decimal(18,4)");
+                property.SetColumnType("numeric(18,4)");
             }
 
             modelBuilder.Entity<Event>(entity =>

@@ -11,7 +11,7 @@ import InventorySheet from "../Components/Inventory/InventorySheet";
 import { useAuth } from "../Context/AuthContext";
 import { FormatCurrency, FormatShortDate } from "../Lib/ModelHelpers";
 import { BuildSalesCsv, DownloadCsv } from "../Lib/SalesExport";
-import { FindSheets, TryBuildSheetsPdf } from "../Lib/SheetPdf";
+import { FindSheets, PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
 import { Toast } from "../Lib/Toast";
 import type { DashboardStats } from "../Models/DashboardStats";
 import type { Event } from "../Models/Event";
@@ -26,8 +26,8 @@ import { GetSalesSheetsForEvent } from "../Services/OrderServices";
 
 /**
  * Every completed sales sheet for one event, stacked one per printed page, between the stat sheet
- * and the accessory inventory sheet. Print sends the whole
- * stack to the printer, or to a PDF via the browser's Save as PDF; Download CSV exports the same
+ * and the accessory inventory sheet. Print makes a PDF of the whole stack - the same one email
+ * sends - and prints it, or saves it via the browser's Save as PDF; Download CSV exports the same
  * sales as a spreadsheet; Email report sends the same stack of sheets as a single PDF. Admin only -
  * this is the event's paperwork.
  */
@@ -44,6 +44,7 @@ const EventSheetsPage = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
     const [emailing, setEmailing] = useState<boolean>(false);
+    const [printProgress, setPrintProgress] = useState<string | null>(null);
     const sheetsRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -87,15 +88,18 @@ const EventSheetsPage = () => {
         DownloadCsv(`${slug}-${date}-sales.csv`, BuildSalesCsv(orders));
     };
 
-    const handlePrint = () => {
+    // Printed from the same PDF that email sends, so the sheets come out the same from any device.
+    const handlePrint = async () => {
         if (orders.length === 0 && inventory.length === 0)
             return Toast.Warning("There are no completed sales to print.");
 
-        // The browser uses the page title as the suggested PDF file name.
-        const previous = document.title;
-        document.title = `${slug}-${date}-sales-sheets`;
-        window.print();
-        document.title = previous;
+        setPrintProgress("Making the PDF...");
+        await PrintSheetsPdf(
+            FindSheets(sheetsRef.current),
+            `${slug}-${date}-sales-sheets`,
+            (page, total) => setPrintProgress(`Making the PDF: ${page} of ${total}...`)
+        );
+        setPrintProgress(null);
     };
 
     const handleEmail = () => {
@@ -134,9 +138,11 @@ const EventSheetsPage = () => {
                             className="bg-zinc-600 hover:bg-zinc-700 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                         />
                         <Button
-                            text="Print / Save PDF"
+                            text={printProgress ?? "Print / Save PDF"}
                             icon="fa-solid fa-print"
                             onClick={handlePrint}
+                            loading={printProgress !== null}
+                            disabled={printProgress !== null}
                         />
                     </div>
                 </div>
@@ -150,7 +156,8 @@ const EventSheetsPage = () => {
                     </p>
                     <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
                         The stat sheet prints first, then each sales sheet on its own page, then the
-                        accessory inventory sheet. To save a PDF, choose Save as PDF as the printer.
+                        accessory inventory sheet. To save a PDF, choose Save as PDF as the printer
+                        - on a tablet the PDF opens in a new tab, to print or share from there.
                     </p>
                 </div>
             </div>

@@ -1,16 +1,27 @@
-version: "3.9"
+# PostgreSQL for local development, matching the connection string in appsettings.json:
+#
+#   docker compose -f api/docker-compose.yml up -d
+#
+# The data lives in the cfs-dev-pgdata volume, so it survives restarts. To start over with an empty
+# database: docker compose -f api/docker-compose.yml down -v
 services:
-  # SQL Server 2022
-  sqlserver:
-    image: mcr.microsoft.com/mssql/server:2022-latest
-    container_name: cfspittsburghdb
+  postgres:
+    image: postgres:16-alpine
+    container_name: cfs-dev-postgres
     ports:
-      - "1433:1433"
+      - "5432:5432"
     environment:
-      ACCEPT_EULA: "Y"
-      MSSQL_SA_PASSWORD: "YourStrong!Passw0rd"
+      POSTGRES_DB: CfsFundraiser
+      POSTGRES_USER: cfs
+      POSTGRES_PASSWORD: cfs-dev
     volumes:
-      - sqlserver_data:/var/opt/mssql
+      - cfs-dev-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cfs -d CfsFundraiser"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
 
 volumes:
-  sqlserver_data:
+  cfs-dev-pgdata:
