@@ -226,7 +226,7 @@ domain so receipts don't land in spam.
 
 ### What the app does itself
 
-Passwords of at least 10 characters that aren't common ones, stored hashed; accounts locked for 15
+Passwords of at least 8 characters that aren't common ones, stored hashed; accounts locked for 15
 minutes after 5 wrong passwords; sign-in rate-limited per address; 15-minute access tokens held
 only in the tablet's memory plus an httpOnly, SameSite=Strict session cookie that is replaced
 every time it's used and only stored as a hash; every request checked against the database, so a

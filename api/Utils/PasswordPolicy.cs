@@ -10,14 +10,14 @@ namespace api.Utils
         #region Public Fields
 
         /// <summary>Shortest password accepted.</summary>
-        public const int MinLength = 10;
+        public const int MinLength = 8;
 
         /// <summary>Longest password accepted - long enough for any passphrase or password manager.</summary>
         public const int MaxLength = 128;
 
         /// <summary>The rule in words, for the sign-in and crew screens.</summary>
         public const string Description =
-            "At least 10 characters. A short phrase works well, like \"blue tablet on the cart\".";
+            "At least 8 characters. A short phrase works well, like \"blue tablet on the cart\".";
 
         #endregion
 

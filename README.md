@@ -283,7 +283,7 @@ a starting password for each account on the Crew screen.
 
 ## 2a. Security
 
-- **Passwords.** At least 10 characters (up to 128), not a commonly used one, and not containing
+- **Passwords.** At least 8 characters (up to 128), not a commonly used one, and not containing
   the username or name. Stored with ASP.NET Core Identity's PBKDF2 hasher. A password set by a
   manager or above - a new account or a reset - has to be changed at the next sign-in. Five wrong
   passwords in a row lock the account for 15 minutes (`Auth:MaxFailedAttempts`,

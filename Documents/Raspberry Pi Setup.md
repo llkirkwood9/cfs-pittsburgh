@@ -428,7 +428,7 @@ forward port 8080 through a router to the internet: there's no HTTPS. If you nee
 from outside the venue, run it in the cloud instead (*Cloud Deployment.md*), or put it behind a
 VPN.
 
-The app still guards itself: passwords of at least 10 characters, a 15-minute lockout after 5
+The app still guards itself: passwords of at least 8 characters, a 15-minute lockout after 5
 wrong ones, short-lived sign-ins kept only in the tablet's memory, and a session cookie the page
 can't read. The compose file turns off trusting forwarded-address headers
 (`ForwardedHeaders__Enabled: "false"`) because nothing sits in front of the Pi.

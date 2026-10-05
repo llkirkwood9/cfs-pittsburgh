@@ -33,8 +33,8 @@ const ChangePasswordModal = ({ onClose, forced = false }: Props) => {
     const save = async (e?: FormEvent) => {
         e?.preventDefault();
         if (!current) return Toast.Warning("Enter your current password.");
-        if (next.length < 10)
-            return Toast.Warning("The new password must be at least 10 characters.");
+        if (next.length < 8)
+            return Toast.Warning("The new password must be at least 8 characters.");
         if (next !== confirm)
             return Toast.Warning("The new password and its confirmation don't match.");
         if (next === current)
@@ -122,7 +122,7 @@ const ChangePasswordModal = ({ onClose, forced = false }: Props) => {
                     autoComplete="new-password"
                 />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {policy ?? "At least 10 characters."} Forgotten your current password? Your
+                    {policy ?? "At least 8 characters."} Forgotten your current password? Your
                     manager can set a new one for you on the Crew screen.
                 </p>
                 {/* Enter in any field submits. */}

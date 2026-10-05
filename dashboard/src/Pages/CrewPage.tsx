@@ -120,8 +120,8 @@ const CrewPage = () => {
 
         if (!editing?.id && !password) return Toast.Warning("Set a starting password.");
 
-        if (password && password.length < 10)
-            return Toast.Warning("The password must be at least 10 characters.");
+        if (password && password.length < 8)
+            return Toast.Warning("The password must be at least 8 characters.");
 
         if (companyWide && needsTerritory(role) && territoryId == null)
             return Toast.Warning("Pick the territory this person works in.");
