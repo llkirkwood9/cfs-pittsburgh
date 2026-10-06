@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import Icon from "../Elements/Icon";
+import SizeGuideButton from "./SizeGuideButton";
 import TerritoryPicker from "./TerritoryPicker";
 import ThemeToggle from "./ThemeToggle";
 import UserProfileDropdown from "./UserProfileDropdown";
@@ -191,6 +192,7 @@ const Navbar = () => {
 
                     <div className="ml-auto flex shrink-0 items-center gap-1">
                         <TerritoryPicker />
+                        <SizeGuideButton />
                         <ThemeToggle />
                         <UserProfileDropdown />
                     </div>

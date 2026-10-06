@@ -449,7 +449,7 @@ const ReceiptSheet = ({ order }: Props) => {
                         <td className={`${cell} text-right`}>{paidBy("Cash")}</td>
                         <td className={`${cell} font-semibold`}>Total</td>
                         <td className={`${cell} text-right font-bold`}>
-                            {FormatCurrency(order.total)}
+                            {FormatCurrency((order.subtotal ?? 0) + (order.taxAmount ?? 0))}
                         </td>
                     </tr>
                     <tr>
@@ -469,7 +469,7 @@ const ReceiptSheet = ({ order }: Props) => {
                         <td className={`${cell} text-right`}>{paidBy("Financing")}</td>
                         <td className={`${cell} font-semibold`}>Balance Due</td>
                         <td className={`${cell} text-right font-bold`}>
-                            {FormatCurrency(order.balanceDue)}
+                            {FormatCurrency(order.total)}
                         </td>
                     </tr>
                     {hasLayaway && (
