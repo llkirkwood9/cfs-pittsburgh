@@ -18,6 +18,9 @@ The catalog and the printed receipt are both built from the supplied source docu
   discount (a percent, or a fixed dollar amount off each item) and a price override for "Inquire"
   sizes are all on the same screen. Every item gets a shipping row underneath it, including
   no-charge ones such as Drop Ship and Take With.
+- **Size guide**: the ruler button in the menu bar (every role, every screen) and **Size guide**
+  beside the sizes in Add item open the mattress size chart (`dashboard/public/mattress_sizes.png`,
+  drawn to scale) with each size's width and length in inches.
 - A product on sale shows a Sale badge and its sale prices. The sale comes off first and the
   rep's own discount comes off the sale price, with the working shown before the item is added.
 - A bundle - such as a mattress sold as a set with an adjustable base - gets each included item

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import Icon from "../Elements/Icon";
+import SizeGuideButton from "./SizeGuideButton";
 import ThemeToggle from "./ThemeToggle";
 import UserProfileDropdown from "./UserProfileDropdown";
 import { useAuth } from "../../Context/AuthContext";
@@ -177,6 +178,7 @@ const Navbar = () => {
                     </nav>
 
                     <div className="ml-auto flex shrink-0 items-center gap-1">
+                        <SizeGuideButton />
                         <ThemeToggle />
                         <UserProfileDropdown />
                     </div>

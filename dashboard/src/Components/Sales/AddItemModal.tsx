@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
+import SizeGuideModal from "../Elements/SizeGuideModal";
 import TabButton from "../Elements/TabButton";
 import TextArea from "../Elements/TextArea";
 import TextField from "../Elements/TextField";
@@ -126,6 +127,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
     const [tab, setTab] = useState<CategoryTab>("Mattress");
     const [search, setSearch] = useState<string>("");
     const [sortKey, setSortKey] = useState<ProductSortKey>("name-asc");
+    const [showSizes, setShowSizes] = useState<boolean>(false);
     const [selected, setSelected] = useState<Product | null>(null);
     const [variantId, setVariantId] = useState<number | null>(null);
     const [deliveryId, setDeliveryId] = useState<number | null>(null);
@@ -541,9 +543,19 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                     )}
 
                     <div>
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                            Size &amp; configuration
-                        </p>
+                        <div className="mb-2 flex items-center justify-between gap-2">
+                            <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                Size &amp; configuration
+                            </p>
+                            <button
+                                type="button"
+                                onClick={() => setShowSizes(true)}
+                                className="flex min-h-[36px] items-center gap-1.5 rounded-lg px-2 text-sm font-semibold text-sky-700 hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950/40"
+                            >
+                                <Icon icon="fa-solid fa-ruler-combined" />
+                                Size guide
+                            </button>
+                        </div>
                         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
                             {(selected.variants ?? []).map((v) => (
                                 <button
@@ -821,6 +833,8 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                     />
                 </div>
             )}
+
+            {showSizes && <SizeGuideModal onClose={() => setShowSizes(false)} />}
         </Modal>
     );
 };
