@@ -96,6 +96,12 @@ namespace api.Migrations
                     b.Property<decimal>("Price")
                         .HasColumnType("numeric(18,4)");
 
+                    b.Property<decimal?>("SaleDiscountAmount")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal?>("SaleDiscountPercent")
+                        .HasColumnType("numeric(18,4)");
+
                     b.Property<bool>("ShowOnSalesSheet")
                         .HasColumnType("boolean");
 
@@ -638,6 +644,9 @@ namespace api.Migrations
                     b.Property<int>("DeliveryOptionId")
                         .HasColumnType("integer");
 
+                    b.Property<bool>("HasOwnSale")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsDefault")
                         .HasColumnType("boolean");
 
@@ -646,6 +655,12 @@ namespace api.Migrations
 
                     b.Property<int>("ProductId")
                         .HasColumnType("integer");
+
+                    b.Property<decimal?>("SaleDiscountAmount")
+                        .HasColumnType("numeric(18,4)");
+
+                    b.Property<decimal?>("SaleDiscountPercent")
+                        .HasColumnType("numeric(18,4)");
 
                     b.HasKey("Id");
 

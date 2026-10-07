@@ -88,6 +88,8 @@ namespace api.Utils
                     IsTakeWith = d.IsTakeWith,
                     ShowOnSalesSheet = d.ShowOnSalesSheet,
                     IsActive = d.IsActive,
+                    SaleDiscountPercent = d.SaleDiscountPercent,
+                    SaleDiscountAmount = d.SaleDiscountAmount,
                 }).ToList(),
                 Products = products.Select(p => new CatalogProductDto
                 {
@@ -135,6 +137,9 @@ namespace api.Utils
                             Name = d.DeliveryOption!.Name,
                             PriceOverride = d.PriceOverride,
                             IsDefault = d.IsDefault,
+                            HasOwnSale = d.HasOwnSale,
+                            SaleDiscountPercent = d.SaleDiscountPercent,
+                            SaleDiscountAmount = d.SaleDiscountAmount,
                         })
                         .ToList(),
                     Options = p.Options.Count == 0
@@ -260,6 +265,8 @@ namespace api.Utils
                     return "Every delivery option needs a name of up to 100 characters.";
                 if (d.Price is null or < 0 or > 100_000)
                     return $"Delivery option \"{name}\": the price must be 0 or more.";
+                if (d.SaleDiscountPercent is < 0 or > 100 || d.SaleDiscountAmount < 0)
+                    return $"Delivery option \"{name}\": a sale must be 0 to 100 percent, or an amount of 0 or more.";
             }
 
             foreach (var p in products)
@@ -278,6 +285,7 @@ namespace api.Utils
 
                 var sales = new List<(decimal? Percent, decimal? Amount)> { (p.SaleDiscountPercent, p.SaleDiscountAmount) };
                 sales.AddRange((p.Variants ?? []).Select(v => (v.SaleDiscountPercent, v.SaleDiscountAmount)));
+                sales.AddRange((p.DeliveryOptions ?? []).Select(d => (d.SaleDiscountPercent, d.SaleDiscountAmount)));
                 if (sales.Any(s => s.Percent is < 0 or > 100 || s.Amount < 0))
                     return $"{label}: a sale must be 0 to 100 percent, or an amount of 0 or more.";
 
@@ -335,6 +343,8 @@ namespace api.Utils
                 option.ShowOnSalesSheet = dto.ShowOnSalesSheet ?? true;
                 option.IsActive = dto.IsActive ?? true;
                 option.SortOrder = index + 1;
+                (option.SaleDiscountPercent, option.SaleDiscountAmount) =
+                    ProductController.CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount);
             }
 
             await db.SaveChangesAsync();
@@ -442,6 +452,9 @@ namespace api.Utils
                     DeliveryOption = option,
                     PriceOverride = d.PriceOverride is < 0 ? null : d.PriceOverride,
                     IsDefault = d.IsDefault ?? false,
+                    HasOwnSale = d.HasOwnSale ?? false,
+                    SaleDiscountPercent = d.HasOwnSale == true ? ProductController.CleanSale(d.SaleDiscountPercent, d.SaleDiscountAmount).Percent : null,
+                    SaleDiscountAmount = d.HasOwnSale == true ? ProductController.CleanSale(d.SaleDiscountPercent, d.SaleDiscountAmount).Amount : null,
                 });
             }
 

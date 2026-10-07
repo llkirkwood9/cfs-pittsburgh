@@ -3,6 +3,7 @@ import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
 import SizeGuideModal from "../Elements/SizeGuideModal";
+import DiscountField, { DiscountFrom, DiscountProblem, type DiscountMode } from "./DiscountField";
 import TabButton from "../Elements/TabButton";
 import TextArea from "../Elements/TextArea";
 import TextField from "../Elements/TextField";
@@ -18,6 +19,7 @@ import {
     ChoicesPriceChange,
     CleanDiscount,
     CountedOptions,
+    DeliverySaleFor,
     DiscountText,
     HasDiscount,
     OnSale,
@@ -134,6 +136,8 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
     const [quantity, setQuantity] = useState<number>(1);
     const [discount, setDiscount] = useState<string>("");
     const [discountMode, setDiscountMode] = useState<"percent" | "amount">("percent");
+    const [shipDiscount, setShipDiscount] = useState<string>("");
+    const [shipDiscountMode, setShipDiscountMode] = useState<DiscountMode>("percent");
     const [picks, setPicks] = useState<Record<number, number>>({});
     // Choices for the items a bundle includes, by the included size's id.
     const [includedPicks, setIncludedPicks] = useState<Record<number, Record<number, number>>>({});
@@ -182,6 +186,14 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
             : CleanDiscount(null, ParseMoney(discount));
     const finalPrice = salePrice === null ? null : ApplyDiscount(salePrice, repDiscount);
 
+    // The shipping picked, with its sale (the product's own, or the option's) and the rep's discount.
+    const shipping = selected?.deliveryOptions?.find((d) => d.deliveryOptionId === deliveryId);
+    const shipList = shipping?.price ?? 0;
+    const shipSale = shipping ? DeliverySaleFor(shipping) : CleanDiscount();
+    const shipSalePrice = ApplyDiscount(shipList, shipSale);
+    const shipRep = DiscountFrom(shipDiscountMode, shipDiscount);
+    const shipFinal = ApplyDiscount(shipSalePrice, shipRep);
+
     // Stock for the exact choices picked; null while a counted selection is still unpicked.
     const stockNow = (
         product: Product,
@@ -209,6 +221,8 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
         setQuantity(1);
         setDiscount("");
         setDiscountMode("percent");
+        setShipDiscount("");
+        setShipDiscountMode("percent");
         setPriceOverride("");
         setItemNotes("");
     };
@@ -304,6 +318,10 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
         if (discountMode === "percent" && (discountValue ?? 0) > 100)
             return Toast.Warning("The discount must be between 0 and 100 percent.");
 
+        const shipProblem =
+            shipList > 0 ? DiscountProblem(shipDiscountMode, shipDiscount, "shipping") : null;
+        if (shipProblem) return Toast.Warning(shipProblem);
+
         setSaving(true);
         await onAdd({
             lineType: "Product",
@@ -318,6 +336,8 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                 choices: toLineChoices(includedPicks[component.componentVariantId ?? 0] ?? {}),
             })),
             deliveryOptionId: deliveryId ?? undefined,
+            deliveryDiscountPercent: shipList > 0 ? (shipRep.percent ?? undefined) : undefined,
+            deliveryDiscountAmount: shipList > 0 ? (shipRep.amount ?? undefined) : undefined,
             notes: itemNotes.trim() || undefined,
         });
         setSaving(false);
@@ -360,7 +380,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                             className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                         />
                         <Button
-                            text={`Add ${FormatCurrency((finalPrice ?? 0) * quantity)}`}
+                            text={`Add ${FormatCurrency((finalPrice ?? 0) * quantity + shipFinal)}`}
                             icon="fa-solid fa-plus"
                             onClick={handleAddCatalogItem}
                             loading={saving}
@@ -716,7 +736,27 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                         >
                                             {option.name}
                                             {(option.price ?? 0) > 0 &&
-                                                ` +${FormatCurrency(option.price)}`}
+                                                (HasDiscount(DeliverySaleFor(option)) ? (
+                                                    <>
+                                                        {" +"}
+                                                        <s className="opacity-70">
+                                                            {FormatCurrency(option.price)}
+                                                        </s>{" "}
+                                                        {FormatCurrency(
+                                                            ApplyDiscount(
+                                                                option.price ?? 0,
+                                                                DeliverySaleFor(option)
+                                                            )
+                                                        )}
+                                                        <span className="block text-[11px] font-medium">
+                                                            Sale{" "}
+                                                            {DiscountText(DeliverySaleFor(option))}{" "}
+                                                            off
+                                                        </span>
+                                                    </>
+                                                ) : (
+                                                    ` +${FormatCurrency(option.price)}`
+                                                ))}
                                             {blocked && (
                                                 <span className="block text-[11px] font-medium">
                                                     {blocked}
@@ -726,6 +766,45 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                     );
                                 })}
                             </div>
+                            {shipList > 0 && (
+                                <div className="mt-3 max-w-sm">
+                                    <DiscountField
+                                        label={
+                                            HasDiscount(shipSale)
+                                                ? "Extra shipping discount"
+                                                : "Shipping discount"
+                                        }
+                                        name="Shipping discount"
+                                        mode={shipDiscountMode}
+                                        onMode={setShipDiscountMode}
+                                        text={shipDiscount}
+                                        onText={setShipDiscount}
+                                    />
+                                </div>
+                            )}
+                            {shipList > 0 && (HasDiscount(shipSale) || HasDiscount(shipRep)) && (
+                                <p className="mt-2 rounded-lg bg-zinc-100 px-3 py-2 text-sm dark:bg-zinc-700">
+                                    {shipping?.name} {FormatCurrency(shipList)}
+                                    {HasDiscount(shipSale) && (
+                                        <>
+                                            {" "}
+                                            - sale {DiscountText(shipSale)} off ={" "}
+                                            <span className="font-semibold">
+                                                {FormatCurrency(shipSalePrice)}
+                                            </span>
+                                        </>
+                                    )}
+                                    {HasDiscount(shipRep) && (
+                                        <>
+                                            {" "}
+                                            - {DiscountText(shipRep)} off ={" "}
+                                            <span className="font-semibold">
+                                                {FormatCurrency(shipFinal)}
+                                            </span>
+                                        </>
+                                    )}
+                                </p>
+                            )}
                             <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
                                 Need a second service, such as White Glove plus Haul Away? Add the
                                 item, then use Add service on the line.

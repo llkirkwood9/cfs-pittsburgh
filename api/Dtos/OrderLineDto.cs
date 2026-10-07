@@ -31,6 +31,16 @@ namespace api.Dtos
         public int? DeliveryOptionId { get; set; }
 
         /// <summary>
+        /// Adding a product with its shipping: the rep's discount on that shipping row, as a percent
+        /// </summary>
+        public decimal? DeliveryDiscountPercent { get; set; }
+
+        /// <summary>
+        /// Adding a product with its shipping: the rep's discount on that shipping row, as an amount
+        /// </summary>
+        public decimal? DeliveryDiscountAmount { get; set; }
+
+        /// <summary>
         /// Id of the product line this delivery charge hangs off
         /// </summary>
         public int? ParentLineId { get; set; }

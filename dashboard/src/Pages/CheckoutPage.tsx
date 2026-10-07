@@ -563,6 +563,7 @@ const CheckoutPage = () => {
                 <AddServiceModal
                     parentLine={servicingLine}
                     options={deliveryOptions}
+                    products={products}
                     onAdd={handleAddLine}
                     onClose={() => setServicingLine(null)}
                 />

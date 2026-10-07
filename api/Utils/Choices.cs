@@ -241,6 +241,25 @@ namespace api.Utils
                 ? (variant.SaleDiscountPercent, variant.SaleDiscountAmount)
                 : (variant.Product?.SaleDiscountPercent, variant.Product?.SaleDiscountAmount);
 
+            return Clean(percent, amount);
+        }
+
+        /// <summary>
+        /// The sale on a delivery option for a product: the product's own when it has one,
+        /// otherwise the option's. A percent wins over an amount; zero or less means no sale.
+        /// </summary>
+        /// <param name="option">The delivery option</param>
+        /// <param name="forProduct">The product's entry for the option, if it offers it</param>
+        /// <returns>Percent and amount off - at most one of them set.</returns>
+        public static (decimal? Percent, decimal? Amount) DeliverySaleFor(DeliveryOption option, ProductDeliveryOption? forProduct)
+        {
+            return forProduct is { HasOwnSale: true }
+                ? Clean(forProduct.SaleDiscountPercent, forProduct.SaleDiscountAmount)
+                : Clean(option.SaleDiscountPercent, option.SaleDiscountAmount);
+        }
+
+        private static (decimal? Percent, decimal? Amount) Clean(decimal? percent, decimal? amount)
+        {
             if (percent is > 0)
                 return (Math.Min(percent.Value, 100m), null);
             if (amount is > 0)

@@ -4,7 +4,9 @@ import ConfirmationModal from "../Elements/ConfirmationModal";
 import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
 import TextField from "../Elements/TextField";
+import SaleEditor, { FromSaleDraft, SaleProblem, ToSaleDraft, type SaleDraft } from "./SaleEditor";
 import { FormatCurrency, ParseMoney } from "../../Lib/ModelHelpers";
+import { CleanDiscount, DiscountText, HasDiscount } from "../../Lib/Pricing";
 import { Toast } from "../../Lib/Toast";
 import type { DeliveryOption } from "../../Models/DeliveryOption";
 
@@ -31,6 +33,7 @@ const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false
     const [isTakeWith, setIsTakeWith] = useState<boolean>(false);
     const [showOnSalesSheet, setShowOnSalesSheet] = useState<boolean>(true);
     const [isActive, setIsActive] = useState<boolean>(true);
+    const [sale, setSale] = useState<SaleDraft>({ mode: "none", text: "" });
 
     const open = (option: DeliveryOption) => {
         setEditing(option);
@@ -40,6 +43,7 @@ const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false
         setIsTakeWith(option.isTakeWith ?? false);
         setShowOnSalesSheet(option.showOnSalesSheet ?? true);
         setIsActive(option.isActive ?? true);
+        setSale(ToSaleDraft(option.saleDiscountPercent, option.saleDiscountAmount));
     };
 
     const handleSave = async () => {
@@ -47,6 +51,10 @@ const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false
 
         const parsed = ParseMoney(price) ?? 0;
         if (parsed < 0) return Toast.Warning("The price cannot be negative.");
+
+        const saleProblem = SaleProblem(sale);
+        if (saleProblem) return Toast.Warning(saleProblem);
+        const saleOff = FromSaleDraft(sale);
 
         setSaving(true);
         await onSave({
@@ -58,6 +66,8 @@ const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false
             showOnSalesSheet,
             isActive,
             sortOrder: editing?.sortOrder ?? options.length * 10,
+            saleDiscountPercent: saleOff.percent,
+            saleDiscountAmount: saleOff.amount,
         });
         setSaving(false);
         setEditing(null);
@@ -87,6 +97,23 @@ const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false
                             <p className="font-semibold">{option.name}</p>
                             <p className="flex flex-wrap gap-x-2 text-xs text-zinc-500 dark:text-zinc-400">
                                 <span>{FormatCurrency(option.price)}</span>
+                                {HasDiscount(
+                                    CleanDiscount(
+                                        option.saleDiscountPercent,
+                                        option.saleDiscountAmount
+                                    )
+                                ) && (
+                                    <span className="rounded bg-rose-100 px-1.5 font-semibold text-rose-800 dark:bg-rose-900/50 dark:text-rose-300">
+                                        Sale{" "}
+                                        {DiscountText(
+                                            CleanDiscount(
+                                                option.saleDiscountPercent,
+                                                option.saleDiscountAmount
+                                            )
+                                        )}{" "}
+                                        off
+                                    </span>
+                                )}
                                 <span>{option.isTaxable ? "Taxable" : "Not taxable"}</span>
                                 {option.isTakeWith && <span>Ticks Take With</span>}
                                 {option.showOnSalesSheet === false && (
@@ -193,6 +220,18 @@ const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false
                             />
                             <span className="text-sm font-medium">Offered on the floor</span>
                         </label>
+
+                        <div className="sm:col-span-2">
+                            <SaleEditor
+                                draft={sale}
+                                onChange={setSale}
+                                label="Sale on this option"
+                            />
+                            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+                                Taken off whenever this option is added to an order, until it is
+                                turned off. A product can set its own sale on it instead.
+                            </p>
+                        </div>
                     </div>
                 </Modal>
             )}

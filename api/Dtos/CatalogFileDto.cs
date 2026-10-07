@@ -69,6 +69,16 @@ namespace api.Dtos
         /// Whether it is offered
         /// </summary>
         public bool? IsActive { get; set; }
+
+        /// <summary>
+        /// A sale on the option, as a percent off
+        /// </summary>
+        public decimal? SaleDiscountPercent { get; set; }
+
+        /// <summary>
+        /// A sale on the option, as a fixed amount off, when there is no percent
+        /// </summary>
+        public decimal? SaleDiscountAmount { get; set; }
     }
 
     /// <summary>
@@ -233,6 +243,21 @@ namespace api.Dtos
         /// Whether it is picked first
         /// </summary>
         public bool? IsDefault { get; set; }
+
+        /// <summary>
+        /// Whether this product has its own sale on the option instead of the option's
+        /// </summary>
+        public bool? HasOwnSale { get; set; }
+
+        /// <summary>
+        /// This product's own sale on the option, as a percent off
+        /// </summary>
+        public decimal? SaleDiscountPercent { get; set; }
+
+        /// <summary>
+        /// This product's own sale on the option, as a fixed amount off, when there is no percent
+        /// </summary>
+        public decimal? SaleDiscountAmount { get; set; }
     }
 
     /// <summary>

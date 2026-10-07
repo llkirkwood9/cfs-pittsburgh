@@ -10,7 +10,7 @@ import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
 import TextField from "../Elements/TextField";
 import { ParseMoney } from "../../Lib/ModelHelpers";
-import { DiscountText } from "../../Lib/Pricing";
+import { CleanDiscount, DiscountText, HasDiscount } from "../../Lib/Pricing";
 import { Toast } from "../../Lib/Toast";
 import type { DeliveryOption } from "../../Models/DeliveryOption";
 import type { Product, ProductCategory } from "../../Models/Product";
@@ -71,6 +71,17 @@ const EditProductForm = ({
     const [delivery, setDelivery] = useState<ProductDeliveryOption[]>(
         product.deliveryOptions ?? []
     );
+    // This product's own sale on each delivery choice, or "follow" for the option's own.
+    const [deliverySales, setDeliverySales] = useState<Record<number, SaleDraft>>(() =>
+        Object.fromEntries(
+            (product.deliveryOptions ?? []).map((d) => [
+                d.deliveryOptionId ?? 0,
+                ToSaleDraft(d.saleDiscountPercent, d.saleDiscountAmount, !d.hasOwnSale),
+            ])
+        )
+    );
+    const deliverySale = (id?: number): SaleDraft =>
+        deliverySales[id ?? 0] ?? { mode: "follow", text: "" };
     const [bundlingIndex, setBundlingIndex] = useState<number | null>(null);
 
     const setVariant = (index: number, changes: Partial<DraftVariant>) =>
@@ -205,6 +216,12 @@ const EditProductForm = ({
         const optionsProblem = OptionsProblem(options);
         if (optionsProblem) return Toast.Warning(optionsProblem);
 
+        const badDelivery = delivery.find((d) => SaleProblem(deliverySale(d.deliveryOptionId)));
+        if (badDelivery)
+            return Toast.Warning(
+                `${badDelivery.name}: ${SaleProblem(deliverySale(badDelivery.deliveryOptionId))}`
+            );
+
         setSaving(true);
         await onSave({
             id: product.id,
@@ -235,7 +252,16 @@ const EditProductForm = ({
                 saleDiscountPercent: FromSaleDraft(v.sale).percent,
                 saleDiscountAmount: FromSaleDraft(v.sale).amount,
             })),
-            deliveryOptions: delivery,
+            deliveryOptions: delivery.map((d) => {
+                const draft = deliverySale(d.deliveryOptionId);
+                const off = FromSaleDraft(draft);
+                return {
+                    ...d,
+                    hasOwnSale: draft.mode !== "follow",
+                    saleDiscountPercent: off.percent,
+                    saleDiscountAmount: off.amount,
+                };
+            }),
         });
         setSaving(false);
         onClose();
@@ -306,8 +332,8 @@ const EditProductForm = ({
                         <span className="text-sm">
                             <span className="font-medium">Track inventory</span>
                             <span className="block text-xs text-zinc-500 dark:text-zinc-400">
-                                For items kept at the cart, such as pillows and protectors. Take With
-                                is only allowed while a size is in stock. Set the counts on the
+                                For items kept at the cart, such as pillows and protectors. Take
+                                With is only allowed while a size is in stock. Set the counts on the
                                 Inventory screen.
                             </span>
                         </span>
@@ -510,6 +536,35 @@ const EditProductForm = ({
                                                 />
                                                 Default
                                             </label>
+                                            <div className="w-full">
+                                                <SaleEditor
+                                                    draft={deliverySale(option.id)}
+                                                    onChange={(draft) =>
+                                                        setDeliverySales((current) => ({
+                                                            ...current,
+                                                            [option.id ?? 0]: draft,
+                                                        }))
+                                                    }
+                                                    allowFollow
+                                                    followName="Same as option"
+                                                    followLabel={
+                                                        HasDiscount(
+                                                            CleanDiscount(
+                                                                option.saleDiscountPercent,
+                                                                option.saleDiscountAmount
+                                                            )
+                                                        )
+                                                            ? `${DiscountText(
+                                                                  CleanDiscount(
+                                                                      option.saleDiscountPercent,
+                                                                      option.saleDiscountAmount
+                                                                  )
+                                                              )} off`
+                                                            : "no sale"
+                                                    }
+                                                    label={`${option.name} sale`}
+                                                />
+                                            </div>
                                         </>
                                     )}
                                 </li>

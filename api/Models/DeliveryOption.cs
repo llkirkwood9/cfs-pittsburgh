@@ -52,6 +52,16 @@ namespace api.Models
         public bool IsActive { get; set; } = true;
 
         /// <summary>
+        /// A sale on this delivery option, taken off whenever it is added to an order, as a percent off
+        /// </summary>
+        public decimal? SaleDiscountPercent { get; set; }
+
+        /// <summary>
+        /// A sale on this delivery option, taken off whenever it is added to an order, as a fixed amount off, when there is no percent
+        /// </summary>
+        public decimal? SaleDiscountAmount { get; set; }
+
+        /// <summary>
         /// Products that offer this option
         /// </summary>
         public List<ProductDeliveryOption> Products { get; set; } = new();

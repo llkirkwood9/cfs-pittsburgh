@@ -40,5 +40,21 @@ namespace api.Models
         /// Preselects this option when the product is added to an order
         /// </summary>
         public bool IsDefault { get; set; }
+
+        /// <summary>
+        /// Whether this product has its own sale on this delivery option, instead of the option's
+        /// own sale. An own sale of nothing means no sale for this product.
+        /// </summary>
+        public bool HasOwnSale { get; set; }
+
+        /// <summary>
+        /// This product's own sale on the delivery option, as a percent off
+        /// </summary>
+        public decimal? SaleDiscountPercent { get; set; }
+
+        /// <summary>
+        /// This product's own sale on the delivery option, as a fixed amount off, when there is no percent
+        /// </summary>
+        public decimal? SaleDiscountAmount { get; set; }
     }
 }

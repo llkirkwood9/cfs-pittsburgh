@@ -23,6 +23,8 @@ The catalog and the printed receipt are both built from the supplied source docu
   drawn to scale) with each size's width and length in inches.
 - A product on sale shows a Sale badge and its sale prices. The sale comes off first and the
   rep's own discount comes off the sale price, with the working shown before the item is added.
+  Shipping works the same way: a shipping choice on sale shows its sale price, and the rep can
+  give a percent or dollar **Shipping discount** on top, in Add item or in Add service.
 - A bundle - such as a mattress sold as a set with an adjustable base - gets each included item
   as its own no-charge "included" row, so the sheet shows exactly what is being delivered. The
   size chips show what each bundle includes.
@@ -113,6 +115,8 @@ The catalog and the printed receipt are both built from the supplied source docu
   - **Sale on every size**: a percent or a fixed amount off each item, for the whole product.
     Each size can follow it, have no sale, or have its own percent or amount, which wins.
     A sale stays on until it is turned off.
+  - **Delivery sales**: a delivery option (Catalog -> Delivery) can be on sale - a percent or an
+    amount off - and each product can follow that, have none, or set its own for the option.
   - **Selections**: any number of extra picks besides the size (Color, Firmness, anything), each
     with its own list of choices. A choice can add to or take off the price. A selection can be
     optional, and on a tracked product it can **count stock for each choice**, so the Inventory
@@ -346,6 +350,14 @@ sizes with a catalog price - a keyed-in Inquire price is taken as the price to c
 own discount (`DiscountPercent` or `DiscountAmount`, never both) comes off the sale price. A
 dollar amount is per item, and nothing ever goes below $0. `OrderCalculator.RecalculateLine`
 does the arithmetic.
+
+Shipping rows work the same way. A `DeliveryOption` can carry a sale, and a product's
+`ProductDeliveryOption` can override it for that product (`HasOwnSale` plus its own pair).
+`Choices.DeliverySaleFor` picks the one in force, and it is copied onto the shipping row when it is
+added - with the product's own price for the option - whether the row comes with the item (Add
+item) or on its own (Add service). A keyed-in shipping price takes no sale. The rep's discount
+on the shipping is sent with the item as `DeliveryDiscountPercent` / `DeliveryDiscountAmount`,
+or as the row's own discount from Add service, and stacks on the sale.
 
 **Selections.** `ProductOption` (e.g. Color) has `ProductOptionChoice` rows (Gray, White), each
 with an optional price change. The choices picked are stored on the line as JSON (`ChoicesJson`)
