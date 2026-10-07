@@ -183,7 +183,7 @@ docker compose ps
 ```
 
 Now open `http://cfs.local:8080` (or `http://<the Pi's IP>:8080`) from any device on the network and
-sign in as **admin / 1234**. That first account is made the **Owner** automatically, the one
+sign in as **admin / 1234**. That first account is made the **System Admin** automatically, the one
 role that can permanently delete events, orders and crew.
 
 > **Change that PIN straight away**: tap your initials in the top-right corner, then **Change PIN**.

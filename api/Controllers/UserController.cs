@@ -54,8 +54,8 @@ namespace api.Controllers
                 if (request.Pin.Length < 4 || request.Pin.Length > 12 || !request.Pin.All(char.IsDigit))
                     return BadRequest(new { error = "The PIN must be 4 to 12 digits." });
 
-                if (string.Equals(request.Role, nameof(UserRole.Owner), StringComparison.OrdinalIgnoreCase) && !IsOwner())
-                    return StatusCode(403, new { error = "Only an owner can make someone an owner." });
+                if (string.Equals(request.Role, nameof(UserRole.SystemAdmin), StringComparison.OrdinalIgnoreCase) && !IsSystemAdmin())
+                    return StatusCode(403, new { error = "Only a system admin can make someone a system admin." });
 
                 var salt = TokenService.CreateSalt();
                 var user = new User
@@ -100,12 +100,12 @@ namespace api.Controllers
 
                 var users = await DB.Users.OrderBy(u => u.Name).ToListAsync();
 
-                // Sign-in times are for the owner's eyes only.
-                var owner = IsOwner();
+                // Sign-in times are for the system admin's eyes only.
+                var systemAdmin = IsSystemAdmin();
                 return Ok(users.Select(u =>
                 {
                     var dto = ToDto(u);
-                    if (owner)
+                    if (systemAdmin)
                         dto.LastLoginAt = u.LastLoginAt;
                     return dto;
                 }).ToList());
@@ -167,10 +167,10 @@ namespace api.Controllers
                 if (user == null)
                     return NotFound(new { error = "User not found." });
 
-                // Only an owner can change an owner's account, and nobody can change their own role
-                // - so there is always at least the owner making the change.
-                if (user.Role == UserRole.Owner && !IsOwner())
-                    return StatusCode(403, new { error = "Only an owner can change an owner's account." });
+                // Only a system admin can change a system admin's account, and nobody can change their own role
+                // - so there is always at least the system admin making the change.
+                if (user.Role == UserRole.SystemAdmin && !IsSystemAdmin())
+                    return StatusCode(403, new { error = "Only a system admin can change a system admin's account." });
 
                 if (!string.IsNullOrWhiteSpace(request.Role)
                     && Enum.TryParse<UserRole>(request.Role, true, out var requestedRole)
@@ -179,8 +179,8 @@ namespace api.Controllers
                     if (user.Id == GetCurrentUserId())
                         return BadRequest(new { error = "You cannot change your own role." });
 
-                    if (requestedRole == UserRole.Owner && !IsOwner())
-                        return StatusCode(403, new { error = "Only an owner can make someone an owner." });
+                    if (requestedRole == UserRole.SystemAdmin && !IsSystemAdmin())
+                        return StatusCode(403, new { error = "Only a system admin can make someone a system admin." });
                 }
 
                 if (!string.IsNullOrWhiteSpace(request.Username) && request.Username != user.Username)
@@ -248,11 +248,11 @@ namespace api.Controllers
         #region DELETE Methods
 
         /// <summary>
-        /// Deactivates a crew account, keeping it on file. An owner can instead delete it for good
+        /// Deactivates a crew account, keeping it on file. A system admin can instead delete it for good
         /// with permanent=true: their sales stay, but every place that named them is cleared.
         /// </summary>
         /// <param name="id">User id</param>
-        /// <param name="permanent">True to delete the account rather than deactivate it (owner only)</param>
+        /// <param name="permanent">True to delete the account rather than deactivate it (system admin only)</param>
         /// <returns>200 when the account was deactivated or deleted.</returns>
         [HttpDelete("user/{id}")]
         [Authorize(AuthenticationSchemes = "Bearer")]
@@ -263,8 +263,8 @@ namespace api.Controllers
                 if (!IsInRole(UserRole.Admin))
                     return StatusCode(403, new { error = "Only an administrator may manage crew accounts." });
 
-                if (permanent && !IsOwner())
-                    return StatusCode(403, new { error = "Only an owner can delete an account permanently." });
+                if (permanent && !IsSystemAdmin())
+                    return StatusCode(403, new { error = "Only a system admin can delete an account permanently." });
 
                 var user = await DB.Users.FindAsync(id);
                 if (user == null)
@@ -273,8 +273,8 @@ namespace api.Controllers
                 if (GetCurrentUserId() == id)
                     return BadRequest(new { error = "You cannot deactivate or delete your own account." });
 
-                if (user.Role == UserRole.Owner && !IsOwner())
-                    return StatusCode(403, new { error = "Only an owner can change an owner's account." });
+                if (user.Role == UserRole.SystemAdmin && !IsSystemAdmin())
+                    return StatusCode(403, new { error = "Only a system admin can change a system admin's account." });
 
                 if (permanent)
                 {

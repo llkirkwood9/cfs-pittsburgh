@@ -9,9 +9,6 @@ export type OrderLine = {
     category?: ProductCategory;
     productVariantId?: number | null;
     deliveryOptionId?: number | null;
-    /** Adding a product with its shipping: the rep's discount on that shipping row. */
-    deliveryDiscountPercent?: number | null;
-    deliveryDiscountAmount?: number | null;
     parentLineId?: number | null;
     brand?: string | null;
     size?: string | null;

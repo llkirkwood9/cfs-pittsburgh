@@ -42,7 +42,7 @@ namespace api.Dtos.Authentication
         public string? Pin { get; set; }
 
         /// <summary>
-        /// When the user last signed in (UTC). Read-only, and only sent to an owner.
+        /// When the user last signed in (UTC). Read-only, and only sent to a system admin.
         /// </summary>
         public DateTime? LastLoginAt { get; set; }
     }

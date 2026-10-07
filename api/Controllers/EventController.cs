@@ -235,11 +235,11 @@ namespace api.Controllers
         #region DELETE Methods
 
         /// <summary>
-        /// Deletes an event that has no orders against it. An owner can pass permanent=true to delete
+        /// Deletes an event that has no orders against it. A system admin can pass permanent=true to delete
         /// an event together with every order taken at it.
         /// </summary>
         /// <param name="id">Event id</param>
-        /// <param name="permanent">True to delete the event's orders too (owner only)</param>
+        /// <param name="permanent">True to delete the event's orders too (system admin only)</param>
         /// <returns>200 when the event was removed.</returns>
         [HttpDelete("event/{id}")]
         [Authorize(AuthenticationSchemes = "Bearer")]
@@ -250,8 +250,8 @@ namespace api.Controllers
                 if (!IsInRole(UserRole.Admin))
                     return StatusCode(403, new { error = "Only an administrator may delete an event." });
 
-                if (permanent && !IsOwner())
-                    return StatusCode(403, new { error = "Only an owner can delete an event with its orders." });
+                if (permanent && !IsSystemAdmin())
+                    return StatusCode(403, new { error = "Only a system admin can delete an event with its orders." });
 
                 var found = await DB.Events.FindAsync(id);
                 if (found == null)

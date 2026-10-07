@@ -37,7 +37,7 @@ import {
  */
 const CatalogPage = () => {
     const { user } = useAuth();
-    const isOwner = user?.role === "Owner";
+    const isSystemAdmin = user?.role === "SystemAdmin";
 
     const [products, setProducts] = useState<Product[]>([]);
     const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOption[]>([]);
@@ -96,7 +96,7 @@ const CatalogPage = () => {
     const handleDeleteProduct = async () => {
         if (!deleting?.id) return;
 
-        const success = await DeleteProduct(deleting.id, isOwner);
+        const success = await DeleteProduct(deleting.id, isSystemAdmin);
         setDeleting(null);
 
         if (success) {
@@ -136,7 +136,7 @@ const CatalogPage = () => {
     };
 
     const handleDeleteDeliveryOption = async (id: number) => {
-        if (await DeleteDeliveryOption(id, isOwner)) {
+        if (await DeleteDeliveryOption(id, isSystemAdmin)) {
             Toast.Success("Delivery option removed.");
             await load();
         }
@@ -169,7 +169,7 @@ const CatalogPage = () => {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h1 className="text-xl font-bold">Catalog</h1>
                 <div className="flex flex-wrap gap-2">
-                    {isOwner && (
+                    {isSystemAdmin && (
                         <>
                             <Button
                                 text="Export catalog"
@@ -228,7 +228,7 @@ const CatalogPage = () => {
                     options={deliveryOptions}
                     onSave={handleSaveDeliveryOption}
                     onDelete={handleDeleteDeliveryOption}
-                    permanentDelete={isOwner}
+                    permanentDelete={isSystemAdmin}
                 />
             ) : (
                 <>
@@ -365,12 +365,12 @@ const CatalogPage = () => {
                 <ConfirmationModal
                     title="Delete product"
                     message={
-                        isOwner
+                        isSystemAdmin
                             ? `Permanently delete "${deleting.name}" and all its sizes? Past sales sheets keep the item exactly as it was printed, but it leaves the catalog, any bundle that included it, and the inventory. This cannot be undone. To keep it, untick "Offered on the floor" instead.`
                             : `Delete "${deleting.name}"? If it has already been sold it will be archived instead, so past receipts keep working.`
                     }
-                    confirmText={isOwner ? "Delete for good" : "Delete"}
-                    confirmWord={isOwner ? "DELETE" : undefined}
+                    confirmText={isSystemAdmin ? "Delete for good" : "Delete"}
+                    confirmWord={isSystemAdmin ? "DELETE" : undefined}
                     destructive
                     onConfirm={handleDeleteProduct}
                     onCancel={() => setDeleting(null)}

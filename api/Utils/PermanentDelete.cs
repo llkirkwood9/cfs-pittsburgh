@@ -5,7 +5,7 @@ using Microsoft.EntityFrameworkCore;
 namespace api.Utils
 {
     /// <summary>
-    /// Owner-only permanent deletes. Each one clears every reference to the record first, then
+    /// System-admin-only permanent deletes. Each one clears every reference to the record first, then
     /// removes it, inside one transaction, so nothing is left pointing at a row that no longer
     /// exists. The references are cleared here rather than by database cascades because SQL Server
     /// refuses more than one cascading path between two tables (Orders has two links to Users), and

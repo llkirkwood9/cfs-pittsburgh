@@ -11,7 +11,7 @@ export const HomePathForRole = (role?: UserRole | null): string => {
         case "Checkout":
             return "/checkout";
         case "Admin":
-        case "Owner":
+        case "SystemAdmin":
             return "/dashboard";
         default:
             return "/sales";

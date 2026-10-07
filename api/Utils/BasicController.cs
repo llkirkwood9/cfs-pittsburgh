@@ -85,20 +85,22 @@ namespace api.Utils
         /// <returns>True when the user is in that role.</returns>
         protected bool IsInRole(UserRole role)
         {
-            // An owner can do everything an administrator can.
-            if (role == UserRole.Admin && User.IsInRole(nameof(UserRole.Owner)))
+            // A system admin can do everything an administrator can.
+            if (role == UserRole.Admin && IsSystemAdmin())
                 return true;
 
             return User.IsInRole(role.ToString());
         }
 
         /// <summary>
-        /// Whether the signed-in user is an owner - the only role allowed to delete permanently.
+        /// Whether the signed-in user is a system admin - the only role allowed to delete permanently.
         /// </summary>
-        /// <returns>True for an owner.</returns>
-        protected bool IsOwner()
+        /// <returns>True for a system admin.</returns>
+        protected bool IsSystemAdmin()
         {
-            return User.IsInRole(nameof(UserRole.Owner));
+            // "Owner" is the role's old name, still carried by a sign-in issued before the rename
+            // until it expires.
+            return User.IsInRole(nameof(UserRole.SystemAdmin)) || User.IsInRole("Owner");
         }
 
         #endregion

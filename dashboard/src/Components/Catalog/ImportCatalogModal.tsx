@@ -14,7 +14,7 @@ type Props = {
 const CONFIRM_WORD = "REPLACE";
 
 /**
- * Restores a catalog file made with Export catalog (owners only): either bringing matching
+ * Restores a catalog file made with Export catalog (system admins only): either bringing matching
  * products in line with the file and adding the rest, or clearing the catalog and rebuilding it
  * from the file.
  */

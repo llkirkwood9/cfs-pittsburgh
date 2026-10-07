@@ -46,15 +46,15 @@ namespace api.Data
         }
 
         /// <summary>
-        /// Makes sure someone can do owner-only work. When no active owner exists - an existing
+        /// Makes sure someone can do system-admin-only work. When no active system admin exists - an existing
         /// database from before the role, or a fresh one seeded with an administrator - the longest-
-        /// standing active administrator becomes the owner.
+        /// standing active administrator becomes the system admin.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <returns>The promoted user's username, or null when nothing changed.</returns>
-        public static async Task<string?> EnsureOwnerAsync(ApplicationDbContext db)
+        public static async Task<string?> EnsureSystemAdminAsync(ApplicationDbContext db)
         {
-            if (await db.Users.AnyAsync(u => u.Role == UserRole.Owner && u.IsActive))
+            if (await db.Users.AnyAsync(u => u.Role == UserRole.SystemAdmin && u.IsActive))
                 return null;
 
             var admin = await db.Users
@@ -65,7 +65,7 @@ namespace api.Data
             if (admin == null)
                 return null;
 
-            admin.Role = UserRole.Owner;
+            admin.Role = UserRole.SystemAdmin;
             await db.SaveChangesAsync();
             return admin.Username;
         }

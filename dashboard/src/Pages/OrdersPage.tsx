@@ -52,7 +52,7 @@ const OrdersPage = () => {
     const navigate = useNavigate();
 
     const isAdmin = hasRole("Admin");
-    const isOwner = user?.role === "Owner";
+    const isSystemAdmin = user?.role === "SystemAdmin";
     const [removing, setRemoving] = useState<OrderSummary | null>(null);
 
     const [events, setEvents] = useState<Event[]>([]);
@@ -333,7 +333,7 @@ const OrdersPage = () => {
                                             className="min-h-[44px] bg-amber-600 px-3 text-sm hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700"
                                         />
                                     )}
-                                {isOwner && (
+                                {isSystemAdmin && (
                                     <button
                                         type="button"
                                         onClick={() => setRemoving(order)}

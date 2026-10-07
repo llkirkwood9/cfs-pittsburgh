@@ -97,12 +97,12 @@ export const UpdateProduct = async (productData: Product): Promise<Product | nul
 /**
  * Removes a product, or archives it when it already appears on an order.
  * @param id The product id.
- * @param permanent Owner only: delete for good.
+ * @param permanent System admin only: delete for good.
  * @returns True if the operation was successful, false otherwise.
  */
 export const DeleteProduct = async (id: number, permanent = false): Promise<boolean> => {
     try {
-        // permanent is owner-only: it deletes for good instead of archiving or refusing.
+        // permanent is system-admin-only: it deletes for good instead of archiving or refusing.
         const response = await api.delete(`/api/Product/product/${id}`, {
             params: permanent ? { permanent: true } : undefined,
         });

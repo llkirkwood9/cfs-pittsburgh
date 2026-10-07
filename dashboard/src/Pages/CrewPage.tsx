@@ -13,14 +13,14 @@ import { UserRoleLabels } from "../Models/User";
 import type { User, UserRole } from "../Models/User";
 import { AddUser, DeleteUser, GetUsers, UpdateUser } from "../Services/UserServices";
 
-const roles: UserRole[] = ["Sales", "Checkout", "SalesCheckout", "Admin", "Owner"];
+const roles: UserRole[] = ["Sales", "Checkout", "SalesCheckout", "Admin", "SystemAdmin"];
 
 const roleBlurb: Record<UserRole, string> = {
     Sales: "Takes orders on the floor",
     Checkout: "Takes payment and prints receipts",
     SalesCheckout: "Both tables, without the admin screens",
     Admin: "Everything, plus catalog and crew",
-    Owner: "Everything, plus permanent deletes",
+    SystemAdmin: "Everything, plus permanent deletes",
 };
 
 /**
@@ -35,7 +35,7 @@ const CrewPage = () => {
     const [editing, setEditing] = useState<User | null>(null);
     const [deactivating, setDeactivating] = useState<User | null>(null);
     const [removing, setRemoving] = useState<User | null>(null);
-    const isOwner = user?.role === "Owner";
+    const isSystemAdmin = user?.role === "SystemAdmin";
     const [saving, setSaving] = useState<boolean>(false);
 
     const [name, setName] = useState<string>("");
@@ -110,7 +110,7 @@ const CrewPage = () => {
         }
     };
 
-    // Owner only: delete the account for good. Their sales stay; every place that named them is cleared.
+    // System admin only: delete the account for good. Their sales stay; every place that named them is cleared.
     const handleRemove = async () => {
         if (!removing?.id) return;
 
@@ -163,8 +163,8 @@ const CrewPage = () => {
                                 {crew.role ? UserRoleLabels[crew.role] : ""}
                                 {crew.email ? ` · ${crew.email}` : ""}
                             </p>
-                            {/* Sign-in times are only sent to an owner. */}
-                            {isOwner && (
+                            {/* Sign-in times are only sent to a system admin. */}
+                            {isSystemAdmin && (
                                 <p className="mt-0.5 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                                     <Icon icon="fa-solid fa-clock-rotate-left" />
                                     {crew.lastLoginAt ? (
@@ -181,8 +181,8 @@ const CrewPage = () => {
                             )}
                         </div>
 
-                        {/* An administrator can see an owner's account but not change it. */}
-                        {(isOwner || crew.role !== "Owner") && (
+                        {/* An administrator can see a system admin's account but not change it. */}
+                        {(isSystemAdmin || crew.role !== "SystemAdmin") && (
                             <Button
                                 text="Edit"
                                 icon="fa-solid fa-pen"
@@ -190,7 +190,7 @@ const CrewPage = () => {
                                 className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                             />
                         )}
-                        {isOwner && crew.id !== user.id && (
+                        {isSystemAdmin && crew.id !== user.id && (
                             <button
                                 type="button"
                                 onClick={() => setRemoving(crew)}
@@ -204,7 +204,7 @@ const CrewPage = () => {
                         )}
                         {crew.isActive &&
                             crew.id !== user.id &&
-                            (isOwner || crew.role !== "Owner") && (
+                            (isSystemAdmin || crew.role !== "SystemAdmin") && (
                                 <button
                                     type="button"
                                     onClick={() => setDeactivating(crew)}
@@ -274,7 +274,7 @@ const CrewPage = () => {
                             )}
                             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                 {roles
-                                    .filter((r) => r !== "Owner" || isOwner)
+                                    .filter((r) => r !== "SystemAdmin" || isSystemAdmin)
                                     .map((r) => (
                                         <button
                                             key={r}

@@ -1,4 +1,4 @@
-export type UserRole = "Sales" | "Checkout" | "SalesCheckout" | "Admin" | "Owner";
+export type UserRole = "Sales" | "Checkout" | "SalesCheckout" | "Admin" | "SystemAdmin";
 
 /** How each role is named on screen. */
 export const UserRoleLabels: Record<UserRole, string> = {
@@ -6,7 +6,7 @@ export const UserRoleLabels: Record<UserRole, string> = {
     Checkout: "Checkout",
     SalesCheckout: "Sales & Checkout",
     Admin: "Admin",
-    Owner: "Owner",
+    SystemAdmin: "System Admin",
 };
 
 export type User = {
@@ -17,6 +17,6 @@ export type User = {
     role?: UserRole;
     isActive?: boolean;
     pin?: string;
-    /** When they last signed in (UTC). Only sent to an owner. */
+    /** When they last signed in (UTC). Only sent to a system admin. */
     lastLoginAt?: string | null;
 };

@@ -23,8 +23,8 @@ The catalog and the printed receipt are both built from the supplied source docu
   drawn to scale) with each size's width and length in inches.
 - A product on sale shows a Sale badge and its sale prices. The sale comes off first and the
   rep's own discount comes off the sale price, with the working shown before the item is added.
-  Shipping works the same way: a shipping choice on sale shows its sale price, and the rep can
-  give a percent or dollar **Shipping discount** on top, in Add item or in Add service.
+  A shipping choice on sale shows its sale price too. A rep's discount on shipping is given
+  afterwards, with **Edit** on the shipping row.
 - A bundle - such as a mattress sold as a set with an adjustable base - gets each included item
   as its own no-charge "included" row, so the sheet shows exactly what is being delivered. The
   size chips show what each bundle includes.
@@ -121,7 +121,7 @@ The catalog and the printed receipt are both built from the supplied source docu
     with its own list of choices. A choice can add to or take off the price. A selection can be
     optional, and on a tracked product it can **count stock for each choice**, so the Inventory
     screen keeps a count for every size and color combination.
-  - **Export catalog / Restore catalog** (owners only): the whole catalog as a JSON file -
+  - **Export catalog / Restore catalog** (system admins only): the whole catalog as a JSON file -
     every product (archived ones too) with sizes, prices, sales, selections, bundles, delivery
     choices and Track inventory, plus the delivery options list; no stock counts. Restoring either
     updates matching products and adds new ones, leaving the rest alone, or clears the catalog
@@ -327,7 +327,7 @@ mattress *and* one base. A product cannot include itself, and a bundle cannot in
 bundle. Anything sold on its own - including a standalone adjustable base - adds just its own
 line.
 
-**Catalog files.** `GET /api/catalog/export` and `POST /api/catalog/import` (owners only) save
+**Catalog files.** `GET /api/catalog/export` and `POST /api/catalog/import` (system admins only) save
 and restore the catalog as JSON (`"format": "cfs-catalog", "version": 1`). Nothing in the file is a
 database id: products are matched by brand and name, sizes by size and configuration, and delivery
 options, selections and choices by name, so a matched item keeps its id and with it its stock
@@ -355,9 +355,8 @@ Shipping rows work the same way. A `DeliveryOption` can carry a sale, and a prod
 `ProductDeliveryOption` can override it for that product (`HasOwnSale` plus its own pair).
 `Choices.DeliverySaleFor` picks the one in force, and it is copied onto the shipping row when it is
 added - with the product's own price for the option - whether the row comes with the item (Add
-item) or on its own (Add service). A keyed-in shipping price takes no sale. The rep's discount
-on the shipping is sent with the item as `DeliveryDiscountPercent` / `DeliveryDiscountAmount`,
-or as the row's own discount from Add service, and stacks on the sale.
+item) or on its own (Add service). A keyed-in shipping price takes no sale. A rep's discount on
+shipping is set afterwards with Edit on the row, and stacks on the sale as an item's does.
 
 **Selections.** `ProductOption` (e.g. Color) has `ProductOptionChoice` rows (Gray, White), each
 with an optional price change. The choices picked are stored on the line as JSON (`ChoicesJson`)

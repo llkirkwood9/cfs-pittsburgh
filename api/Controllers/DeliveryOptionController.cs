@@ -204,12 +204,12 @@ namespace api.Controllers
         {
             try
             {
-                // An owner can delete an option that has been used; past sales keep the shipping
+                // A system admin can delete an option that has been used; past sales keep the shipping
                 // row as printed.
                 if (permanent)
                 {
-                    if (!IsOwner())
-                        return StatusCode(403, new { error = "Only an owner can delete a delivery option permanently." });
+                    if (!IsSystemAdmin())
+                        return StatusCode(403, new { error = "Only a system admin can delete a delivery option permanently." });
 
                     if (!await DB.DeliveryOptions.AnyAsync(d => d.Id == id))
                         return NotFound(new { error = "Delivery option not found." });

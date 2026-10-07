@@ -14,7 +14,7 @@ type Props = {
     options: DeliveryOption[];
     onSave: (option: DeliveryOption) => Promise<void>;
     onDelete: (id: number) => Promise<void>;
-    /** Owner: deleting removes the option for good rather than archiving a used one. */
+    /** System Admin: deleting removes the option for good rather than archiving a used one. */
     permanentDelete?: boolean;
 };
 

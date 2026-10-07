@@ -163,9 +163,9 @@ using (var scope = app.Services.CreateScope())
             if (skipSeed && attempt == 1)
                 logger.LogWarning("Seed:Skip is set, so the sample catalog, delivery options and event were not loaded.");
 
-            var promoted = await api.Data.SeedData.EnsureOwnerAsync(db);
+            var promoted = await api.Data.SeedData.EnsureSystemAdminAsync(db);
             if (promoted != null)
-                logger.LogWarning("No owner account existed, so {Username} is now the owner.", promoted);
+                logger.LogWarning("No system admin account existed, so {Username} is now the system admin.", promoted);
             break;
         }
         catch (Exception e) when (attempt < attempts)
