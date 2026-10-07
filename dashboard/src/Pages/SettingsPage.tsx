@@ -22,7 +22,7 @@ const sections = [
 
 /**
  * Settings: the business details printed on sheets and emails, the terms customers initial, the
- * receipt email's wording, new events' rates and the dashboard's levels. Owners and
+ * receipt email's wording, new events' rates and the dashboard's levels. System Admins and
  * administrators set the company-wide values; each territory can change any of them for itself
  * (its manager can too), and anything it leaves alone follows the company. Each card saves on
  * its own.
@@ -31,7 +31,7 @@ const SettingsPage = () => {
     const { refresh: refreshInView } = useSettings();
     const { territories, territoryId: territoryInView, canSwitch, territoryName } = useTerritory();
 
-    // Owners and administrators start on the territory in view, or the company-wide settings
+    // System Admins and administrators start on the territory in view, or the company-wide settings
     // when viewing every territory; a manager only ever edits their own territory's.
     const [scopeId, setScopeId] = useState<number | null>(territoryInView);
     const [settings, setSettings] = useState<GeneralSettings | null>(null);

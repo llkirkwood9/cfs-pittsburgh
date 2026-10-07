@@ -14,7 +14,7 @@ import { IsCompanyWide, UserRoleLabels } from "../Models/User";
 import type { User, UserRole } from "../Models/User";
 import { AddUser, DeleteUser, GetUsers, UpdateUser } from "../Services/UserServices";
 
-const roles: UserRole[] = ["Sales", "Checkout", "SalesCheckout", "Manager", "Admin", "Owner"];
+const roles: UserRole[] = ["Sales", "Checkout", "SalesCheckout", "Manager", "Admin", "SystemAdmin"];
 
 const roleBlurb: Record<UserRole, string> = {
     Sales: "Takes orders on the floor",
@@ -22,10 +22,10 @@ const roleBlurb: Record<UserRole, string> = {
     SalesCheckout: "Both tables, without the admin screens",
     Manager: "Runs one territory: its crew, events, catalog items and settings",
     Admin: "Every territory, plus territories and global catalog",
-    Owner: "Everything, plus permanent deletes",
+    SystemAdmin: "Everything, plus permanent deletes",
 };
 
-/** Owners and administrators work across every territory; every other role belongs to one. */
+/** System Admins and administrators work across every territory; every other role belongs to one. */
 const needsTerritory = (role: UserRole) => !IsCompanyWide(role);
 
 /**
@@ -43,7 +43,7 @@ const MakePassword = (): string => {
 /**
  * Crew administration. Accounts are created here; there is no self-service signup, which keeps
  * a shared cart tablet from becoming a way in. Managers look after the crew of their own
- * territory; owners and administrators everyone, in the territory picked in the menu bar.
+ * territory; system admins and administrators everyone, in the territory picked in the menu bar.
  */
 const CrewPage = () => {
     const { user } = useAuth();
@@ -54,7 +54,7 @@ const CrewPage = () => {
     const [editing, setEditing] = useState<User | null>(null);
     const [deactivating, setDeactivating] = useState<User | null>(null);
     const [removing, setRemoving] = useState<User | null>(null);
-    const isOwner = user?.role === "Owner";
+    const isSystemAdmin = user?.role === "SystemAdmin";
     const companyWide = IsCompanyWide(user?.role);
     const [saving, setSaving] = useState<boolean>(false);
 
@@ -79,11 +79,11 @@ const CrewPage = () => {
 
     if (!user) return <Navigate to="/unauthorized" replace />;
 
-    // Matches the API: owners manage everyone, administrators everyone but owners, managers only
+    // Matches the API: system admins manage everyone, administrators everyone but system admins, managers only
     // the Sales and Checkout crew of their own territory (and themselves, for their details).
     const canManage = (crew: User): boolean => {
-        if (isOwner) return true;
-        if (user.role === "Admin") return crew.role !== "Owner";
+        if (isSystemAdmin) return true;
+        if (user.role === "Admin") return crew.role !== "SystemAdmin";
         if (crew.id === user.id) return true;
         return (
             crew.territoryId === user.territoryId &&
@@ -93,7 +93,7 @@ const CrewPage = () => {
 
     // The roles this user can give: never above their own, and a manager can't make managers.
     const assignable = roles.filter((r) => {
-        if (r === "Owner") return isOwner;
+        if (r === "SystemAdmin") return isSystemAdmin;
         if (r === "Admin") return companyWide;
         if (r === "Manager") return companyWide;
         return true;
@@ -169,7 +169,7 @@ const CrewPage = () => {
         }
     };
 
-    // Owner only: delete the account for good. Their sales stay; every place that named them is cleared.
+    // System admin only: delete the account for good. Their sales stay; every place that named them is cleared.
     const handleRemove = async () => {
         if (!removing?.id) return;
 
@@ -237,8 +237,8 @@ const CrewPage = () => {
                                       : ""}
                                 {crew.email ? ` · ${crew.email}` : ""}
                             </p>
-                            {/* Sign-in times are only sent to an owner. */}
-                            {isOwner && (
+                            {/* Sign-in times are only sent to a system admin. */}
+                            {isSystemAdmin && (
                                 <p className="mt-0.5 flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
                                     <Icon icon="fa-solid fa-clock-rotate-left" />
                                     {crew.lastLoginAt ? (
@@ -255,7 +255,7 @@ const CrewPage = () => {
                             )}
                         </div>
 
-                        {/* An administrator can see an owner's account but not change it. */}
+                        {/* An administrator can see a system admin's account but not change it. */}
                         {canManage(crew) && (
                             <Button
                                 text="Edit"
@@ -264,7 +264,7 @@ const CrewPage = () => {
                                 className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                             />
                         )}
-                        {isOwner && crew.id !== user.id && (
+                        {isSystemAdmin && crew.id !== user.id && (
                             <button
                                 type="button"
                                 onClick={() => setRemoving(crew)}

@@ -87,7 +87,7 @@ export const AuthProvider = ({ children }: Props) => {
     };
 
     // Each role can do everything a less senior one can: a manager also works the floor and
-    // checkout, an administrator everything a manager can, an owner everything. Sales & Checkout
+    // checkout, an administrator everything a manager can, a system admin everything. Sales & Checkout
     // covers both tables but never the management screens.
     const hasRole = (...roles: UserRole[]): boolean => {
         if (!user?.role) return false;

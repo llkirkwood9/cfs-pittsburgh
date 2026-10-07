@@ -59,7 +59,7 @@ export interface CatalogProduct {
     options?: CatalogOption[] | null;
 }
 
-/** The catalog as a file an owner downloads and restores. */
+/** The catalog as a file a system admin downloads and restores. */
 export interface CatalogFile {
     format?: string;
     version?: number;

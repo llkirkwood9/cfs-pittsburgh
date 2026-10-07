@@ -24,7 +24,7 @@ export const GetStatsForEvent = async (eventId: number): Promise<DashboardStats 
 
 /**
  * Stat sheet figures for a single calendar day across every event in the territory in view (or
- * every territory, for an owner or administrator viewing them all).
+ * every territory, for a system admin or administrator viewing them all).
  * @param date The day to report on, as an ISO date string. Defaults to today.
  * @returns The computed stat sheet, or null on failure.
  */
@@ -41,7 +41,7 @@ export const GetStatsForDay = async (date?: string): Promise<DashboardStats | nu
 };
 
 /**
- * Every territory's headline figures side by side. Owners and administrators only.
+ * Every territory's headline figures side by side. System Admins and administrators only.
  * @param from First day to include (YYYY-MM-DD); leave out for no lower limit.
  * @param to Last day to include (YYYY-MM-DD); leave out for no upper limit.
  * @returns One row per territory, biggest total first, or null on failure.

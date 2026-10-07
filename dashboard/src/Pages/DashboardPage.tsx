@@ -24,7 +24,7 @@ const POLL_MS = 15000;
 /**
  * The event's stat sheet, live. Only completed sales feed the money figures; work still on the
  * floor or at the checkout table is shown separately so nobody counts it twice. It covers the
- * territory picked in the menu bar; an owner or administrator viewing every territory also gets
+ * territory picked in the menu bar; a system admin or administrator viewing every territory also gets
  * them side by side.
  */
 const DashboardPage = () => {

@@ -238,7 +238,7 @@ namespace api.Controllers
 
         /// <summary>
         /// Lists every tracked size with its on-hand count in a territory: the event's, when an
-        /// event is given, otherwise the territory being worked. An owner or administrator looking at
+        /// event is given, otherwise the territory being worked. A system admin or administrator looking at
         /// every territory gets an empty list - stock only makes sense for one.
         /// </summary>
         /// <param name="eventId">Optional event, to include what its Take With sales used</param>

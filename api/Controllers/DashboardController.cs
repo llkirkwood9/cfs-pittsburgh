@@ -13,7 +13,7 @@ namespace api.Controllers
     /// <summary>
     /// The School Stat Sheet, computed live. Only completed orders feed the money figures;
     /// drafts and voided orders are reported separately so the floor can see work in progress
-    /// without it inflating the day's numbers. Figures cover the territory being viewed; owners
+    /// without it inflating the day's numbers. Figures cover the territory being viewed; system admins
     /// and administrators can also view every territory together, or compare them side by side.
     /// </summary>
     [ApiController]
@@ -58,7 +58,7 @@ namespace api.Controllers
 
         /// <summary>
         /// Stat sheet figures for a single calendar day across every event in the territory being
-        /// viewed, or across every territory for an owner or administrator viewing them all.
+        /// viewed, or across every territory for a system admin or administrator viewing them all.
         /// </summary>
         /// <param name="date">Day to report on; defaults to today</param>
         /// <returns>The computed stat sheet.</returns>
@@ -87,7 +87,7 @@ namespace api.Controllers
 
         /// <summary>
         /// Every territory side by side: the headline figures from each one's completed sales
-        /// between two dates. Owners and administrators only.
+        /// between two dates. System Admins and administrators only.
         /// </summary>
         /// <param name="from">First day to include; leave out for no lower limit</param>
         /// <param name="to">Last day to include; leave out for no upper limit</param>
@@ -99,7 +99,7 @@ namespace api.Controllers
             try
             {
                 if (!Scope.IsCompanyWide)
-                    return Forbidden("Only an owner or administrator may compare territories.");
+                    return Forbidden("Only a system admin or administrator may compare territories.");
 
                 var start = from?.Date;
                 var end = to?.Date.AddDays(1);

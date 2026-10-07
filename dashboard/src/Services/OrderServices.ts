@@ -161,9 +161,12 @@ export const GetOrdersForEvent = async (
  */
 export const GetDrafts = async (eventId: number, all = false): Promise<OrderSummary[]> => {
     try {
-        const response = await api.get<OrderSummary[]>(`/api/Order/orders/drafts/event/${eventId}`, {
-            params: { all },
-        });
+        const response = await api.get<OrderSummary[]>(
+            `/api/Order/orders/drafts/event/${eventId}`,
+            {
+                params: { all },
+            }
+        );
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
@@ -178,7 +181,9 @@ export const GetDrafts = async (eventId: number, all = false): Promise<OrderSumm
  */
 export const GetCheckoutQueue = async (eventId: number): Promise<OrderSummary[]> => {
     try {
-        const response = await api.get<OrderSummary[]>(`/api/Order/orders/checkout/event/${eventId}`);
+        const response = await api.get<OrderSummary[]>(
+            `/api/Order/orders/checkout/event/${eventId}`
+        );
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
@@ -303,12 +308,12 @@ export const UpdateOrderPayment = async (payment: OrderPayment): Promise<Order |
 /**
  * Deletes a draft order outright.
  * @param id The order id.
- * @param permanent Owner only: delete for good.
+ * @param permanent System admin only: delete for good.
  * @returns True if the operation was successful, false otherwise.
  */
 export const DeleteOrder = async (id: number, permanent = false): Promise<boolean> => {
     try {
-        // permanent is owner-only: it deletes for good instead of archiving or refusing.
+        // permanent is system-admin-only: it deletes for good instead of archiving or refusing.
         const response = await api.delete(`/api/Order/order/${id}`, {
             params: permanent ? { permanent: true } : undefined,
         });

@@ -52,15 +52,15 @@ namespace api.Data
         }
 
         /// <summary>
-        /// Makes sure someone can do owner-only work. When no active owner exists - an existing
+        /// Makes sure someone can do system-admin-only work. When no active system admin exists - an existing
         /// database from before the role, or a fresh one seeded with an administrator - the longest-
-        /// standing active administrator becomes the owner.
+        /// standing active administrator becomes the system admin.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <returns>The promoted user's username, or null when nothing changed.</returns>
-        public static async Task<string?> EnsureOwnerAsync(ApplicationDbContext db)
+        public static async Task<string?> EnsureSystemAdminAsync(ApplicationDbContext db)
         {
-            if (await db.Users.AnyAsync(u => u.Role == UserRole.Owner && u.IsActive))
+            if (await db.Users.AnyAsync(u => u.Role == UserRole.SystemAdmin && u.IsActive))
                 return null;
 
             var admin = await db.Users
@@ -71,7 +71,7 @@ namespace api.Data
             if (admin == null)
                 return null;
 
-            admin.Role = UserRole.Owner;
+            admin.Role = UserRole.SystemAdmin;
             await db.SaveChangesAsync();
             return admin.Username;
         }
@@ -93,7 +93,7 @@ namespace api.Data
         #region Private Methods
 
         /// <summary>
-        /// Creates the pre-provisioned accounts when none exist. They are company-wide (owner or
+        /// Creates the pre-provisioned accounts when none exist. They are company-wide (system admin or
         /// administrator), all share the one starting password, and each has to choose their own
         /// at first sign-in.
         /// </summary>
@@ -117,7 +117,7 @@ namespace api.Data
                     continue;
 
                 // Anyone below administrator would need a territory, which a new database doesn't have yet.
-                var role = Enum.TryParse<UserRole>(u.Role, true, out var parsed) && parsed is UserRole.Owner or UserRole.Admin
+                var role = Enum.TryParse<UserRole>(u.Role, true, out var parsed) && parsed is UserRole.SystemAdmin or UserRole.Admin
                     ? parsed
                     : UserRole.Admin;
 

@@ -4,7 +4,7 @@ namespace api.Models
 {
     /// <summary>
     /// A sales territory: its own crew, events, stock and settings. Catalog items and delivery
-    /// options are either global (every territory) or belong to one territory. Owners and
+    /// options are either global (every territory) or belong to one territory. System Admins and
     /// administrators work across every territory; everyone else belongs to exactly one.
     /// </summary>
     public class Territory

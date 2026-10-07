@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 namespace api.Controllers
 {
     /// <summary>
-    /// Sales territories. Owners and administrators create, rename and switch them off; everyone
+    /// Sales territories. System Admins and administrators create, rename and switch them off; everyone
     /// can list the ones they can see (company-wide users all, everyone else their own).
     /// </summary>
     [ApiController]
@@ -26,7 +26,7 @@ namespace api.Controllers
     {
         #region Private Fields
 
-        private const string AdminOnly = "Only an owner or administrator may manage territories.";
+        private const string AdminOnly = "Only a system admin or administrator may manage territories.";
 
         #endregion
 

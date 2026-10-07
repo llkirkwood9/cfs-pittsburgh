@@ -79,12 +79,12 @@ export const UpdateUser = async (userData: User): Promise<User | null> => {
 /**
  * Deactivates a crew account.
  * @param id The user id.
- * @param permanent Owner only: delete for good.
+ * @param permanent System admin only: delete for good.
  * @returns True if the operation was successful, false otherwise.
  */
 export const DeleteUser = async (id: number, permanent = false): Promise<boolean> => {
     try {
-        // permanent is owner-only: it deletes for good instead of archiving or refusing.
+        // permanent is system-admin-only: it deletes for good instead of archiving or refusing.
         const response = await api.delete(`/api/User/user/${id}`, {
             params: permanent ? { permanent: true } : undefined,
         });

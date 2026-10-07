@@ -131,7 +131,7 @@ address.
 
 ## Step 5 - First sign-in
 
-With an empty database the app creates one account, **admin**, as the owner:
+With an empty database the app creates one account, **admin**, as the system admin:
 
 - If `Seed__AdminPassword` was set, that's its starting password. Remove the variable once you're
   in.
@@ -168,7 +168,7 @@ unset until they all have.
 
 **From the old all-in-one SQL Server image**: the app no longer runs on SQL Server, and there is
 no direct copy between SQL Server and PostgreSQL. Start the cloud copy fresh - move the catalog
-across with **Export catalog** / **Restore catalog** (owners, on the Catalog screen) - and keep the
+across with **Export catalog** / **Restore catalog** (system admins, on the Catalog screen) - and keep the
 old box for looking back at past events.
 
 ---

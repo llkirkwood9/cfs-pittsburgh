@@ -1,7 +1,7 @@
 namespace api.Dtos
 {
     /// <summary>
-    /// The catalog as a file an owner can download and restore: every product - global and every
+    /// The catalog as a file a system admin can download and restore: every product - global and every
     /// territory's - with its sizes, prices, sales, selections, bundles and delivery choices, plus
     /// the delivery options list. Territories are named, not numbered.
     /// Nothing refers to a database id - products are matched by brand and name, sizes by size

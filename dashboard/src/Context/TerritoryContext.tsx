@@ -9,15 +9,15 @@ import { GetTerritories } from "../Services/TerritoryServices";
 const STORAGE_KEY = "cfs.territory";
 
 type TerritoryContextValue = {
-    /** Territories the user can pick from (owners and administrators), or just their own. */
+    /** Territories the user can pick from (system admins and administrators), or just their own. */
     territories: Territory[];
-    /** The territory being worked in; null when an owner or administrator is viewing them all. */
+    /** The territory being worked in; null when a system admin or administrator is viewing them all. */
     territoryId: number | null;
     /** Its name, or "All territories". */
     territoryName: string;
-    /** Owners and administrators can switch territory; everyone else is fixed to their own. */
+    /** System Admins and administrators can switch territory; everyone else is fixed to their own. */
     canSwitch: boolean;
-    /** Switch the territory in view (owners and administrators). */
+    /** Switch the territory in view (system admins and administrators). */
     setTerritoryId: (id: number | null) => void;
     /** Read the list again, after one is added or renamed. */
     reload: () => Promise<void>;
@@ -35,7 +35,7 @@ const readStored = (): number | null => {
 };
 
 /**
- * Which territory the dashboard is showing. Crew always see their own. Owners and administrators
+ * Which territory the dashboard is showing. Crew always see their own. System Admins and administrators
  * pick one from the menu bar - or All territories - and every request carries the choice, so
  * lists, the dashboard and the settings follow it. The choice is remembered on the device.
  */

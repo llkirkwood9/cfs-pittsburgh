@@ -27,14 +27,14 @@ namespace api.Controllers
     {
         #region Private Fields
 
-        private const string ManagersOnly = "Only a manager, administrator or owner may set up events.";
+        private const string ManagersOnly = "Only a manager, administrator or system admin may set up events.";
 
         #endregion
 
         #region POST Methods
 
         /// <summary>
-        /// Adds an event to a territory - a manager's own, or the one an owner or administrator
+        /// Adds an event to a territory - a manager's own, or the one a system admin or administrator
         /// picks - and, unless told otherwise, makes it that territory's active event.
         /// </summary>
         /// <param name="request">Event fields</param>
@@ -104,7 +104,7 @@ namespace api.Controllers
 
         /// <summary>
         /// Lists the events the signed-in user can see, most recent first: their territory's, or for
-        /// an owner or administrator every territory's (or the one they've picked).
+        /// a system admin or administrator every territory's (or the one they've picked).
         /// </summary>
         /// <returns>Events.</returns>
         [HttpGet("events")]
@@ -134,7 +134,7 @@ namespace api.Controllers
         /// Gets the event the floor sells under: the active event in the territory being worked.
         /// </summary>
         /// <returns>
-        /// The active event, or 204 No Content when none is active - or, for an owner or
+        /// The active event, or 204 No Content when none is active - or, for a system admin or
         /// administrator, when no territory is picked. There is deliberately no fallback to the
         /// most recent event: with no active event, no new orders can be taken.
         /// </returns>
@@ -232,7 +232,7 @@ namespace api.Controllers
                 if (request.TerritoryId != null && request.TerritoryId != found.TerritoryId)
                 {
                     if (!Scope.IsCompanyWide)
-                        return Forbidden("Only an owner or administrator can move an event to another territory.");
+                        return Forbidden("Only a system admin or administrator can move an event to another territory.");
                     if (await DB.Orders.AnyAsync(o => o.EventId == found.Id))
                         return BadRequest(new { error = "This event has orders, so it stays in its territory." });
                     if (!await DB.Territories.AnyAsync(t => t.Id == request.TerritoryId && t.IsActive))
@@ -290,11 +290,11 @@ namespace api.Controllers
         #region DELETE Methods
 
         /// <summary>
-        /// Deletes an event that has no orders against it. An owner can pass permanent=true to delete
+        /// Deletes an event that has no orders against it. A system admin can pass permanent=true to delete
         /// an event together with every order taken at it.
         /// </summary>
         /// <param name="id">Event id</param>
-        /// <param name="permanent">True to delete the event's orders too (owner only)</param>
+        /// <param name="permanent">True to delete the event's orders too (system admin only)</param>
         /// <returns>200 when the event was removed.</returns>
         [HttpDelete("event/{id}")]
         [Authorize(AuthenticationSchemes = "Bearer")]
@@ -303,10 +303,10 @@ namespace api.Controllers
             try
             {
                 if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or owner may delete an event.");
+                    return Forbidden("Only a manager, administrator or system admin may delete an event.");
 
-                if (permanent && !IsOwner())
-                    return Forbidden("Only an owner can delete an event with its orders.");
+                if (permanent && !IsSystemAdmin())
+                    return Forbidden("Only a system admin can delete an event with its orders.");
 
                 var found = await DB.Events.FindAsync(id);
                 if (found == null || !CanSee(found))

@@ -271,9 +271,9 @@ using (var scope = app.Services.CreateScope())
                     "Created the first account. Username: admin  Temporary password: {Password}  (it must be changed at first sign-in)",
                     generated);
 
-            var promoted = await api.Data.SeedData.EnsureOwnerAsync(db);
+            var promoted = await api.Data.SeedData.EnsureSystemAdminAsync(db);
             if (promoted != null)
-                logger.LogWarning("No owner account existed, so {Username} is now the owner.", promoted);
+                logger.LogWarning("No system admin account existed, so {Username} is now the system admin.", promoted);
             break;
         }
         catch (Exception e) when (attempt < attempts)

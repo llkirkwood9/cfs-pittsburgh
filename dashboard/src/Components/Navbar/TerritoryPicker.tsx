@@ -2,7 +2,7 @@ import Icon from "../Elements/Icon";
 import { useTerritory } from "../../Context/TerritoryContext";
 
 /**
- * The territory in view, in the menu bar. Owners and administrators switch between territories -
+ * The territory in view, in the menu bar. System Admins and administrators switch between territories -
  * or all of them - here; everyone else just sees which territory they're in.
  */
 const TerritoryPicker = () => {

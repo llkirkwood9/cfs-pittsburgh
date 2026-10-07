@@ -130,7 +130,7 @@ namespace api.Controllers
             try
             {
                 if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or owner may email an event report.");
+                    return Forbidden("Only a manager, administrator or system admin may email an event report.");
                 if (!email.IsConfigured)
                     return BadRequest(new { error = NotConfigured });
 

@@ -37,13 +37,13 @@ import {
 /**
  * Catalog administration. Everything the floor can sell is defined here: products, the sizes and
  * configurations they come in, their prices, and which delivery services each one offers. Global
- * items are sold in every territory and only owners and administrators change them; a manager
+ * items are sold in every territory and only system admins and administrators change them; a manager
  * adds and looks after items for their own territory.
  */
 const CatalogPage = () => {
     const { user } = useAuth();
     const { territories, territoryId: territoryInView, territoryName } = useTerritory();
-    const isOwner = user?.role === "Owner";
+    const isSystemAdmin = user?.role === "SystemAdmin";
     const companyWide = IsCompanyWide(user?.role);
 
     const [products, setProducts] = useState<Product[]>([]);
@@ -103,7 +103,7 @@ const CatalogPage = () => {
     const handleDeleteProduct = async () => {
         if (!deleting?.id) return;
 
-        const success = await DeleteProduct(deleting.id, isOwner);
+        const success = await DeleteProduct(deleting.id, isSystemAdmin);
         setDeleting(null);
 
         if (success) {
@@ -143,7 +143,7 @@ const CatalogPage = () => {
     };
 
     const handleDeleteDeliveryOption = async (id: number) => {
-        if (await DeleteDeliveryOption(id, isOwner)) {
+        if (await DeleteDeliveryOption(id, isSystemAdmin)) {
             Toast.Success("Delivery option removed.");
             await load();
         }
@@ -176,7 +176,7 @@ const CatalogPage = () => {
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h1 className="text-xl font-bold">Catalog</h1>
                 <div className="flex flex-wrap gap-2">
-                    {isOwner && (
+                    {isSystemAdmin && (
                         <>
                             <Button
                                 text="Export catalog"
@@ -244,7 +244,7 @@ const CatalogPage = () => {
                     options={deliveryOptions}
                     onSave={handleSaveDeliveryOption}
                     onDelete={handleDeleteDeliveryOption}
-                    permanentDelete={isOwner}
+                    permanentDelete={isSystemAdmin}
                     territories={territories}
                     canChooseTerritory={companyWide}
                     ownTerritoryName={territoryName}
@@ -352,7 +352,7 @@ const CatalogPage = () => {
                                 {product.canEdit === false ? (
                                     <span
                                         className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400"
-                                        title="Global items are set by an owner or administrator"
+                                        title="Global items are set by a system admin or administrator"
                                     >
                                         <Icon icon="fa-solid fa-lock" />
                                         Set company-wide
@@ -410,12 +410,12 @@ const CatalogPage = () => {
                 <ConfirmationModal
                     title="Delete product"
                     message={
-                        isOwner
+                        isSystemAdmin
                             ? `Permanently delete "${deleting.name}" and all its sizes? Past sales sheets keep the item exactly as it was printed, but it leaves the catalog, any bundle that included it, and the inventory. This cannot be undone. To keep it, untick "Offered on the floor" instead.`
                             : `Delete "${deleting.name}"? If it has already been sold it will be archived instead, so past receipts keep working.`
                     }
-                    confirmText={isOwner ? "Delete for good" : "Delete"}
-                    confirmWord={isOwner ? "DELETE" : undefined}
+                    confirmText={isSystemAdmin ? "Delete for good" : "Delete"}
+                    confirmWord={isSystemAdmin ? "DELETE" : undefined}
                     destructive
                     onConfirm={handleDeleteProduct}
                     onCancel={() => setDeleting(null)}

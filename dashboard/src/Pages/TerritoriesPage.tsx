@@ -16,7 +16,7 @@ import {
 } from "../Services/TerritoryServices";
 
 /**
- * Territories, for owners and administrators. Each one has its own crew, events, stock, catalog
+ * Territories, for system admins and administrators. Each one has its own crew, events, stock, catalog
  * items and settings; managers look after a single territory. A territory can be renamed or
  * switched off at any time, and deleted while nothing belongs to it yet.
  */
@@ -102,8 +102,8 @@ const TerritoriesPage = () => {
             </div>
             <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
                 Each territory has its own crew, events, stock and settings, and can add catalog
-                items of its own alongside the global ones. Owners and administrators work across
-                all of them; pick one from the menu bar to work in it.
+                items of its own alongside the global ones. System Admins and administrators work
+                across all of them; pick one from the menu bar to work in it.
             </p>
 
             {territories.length === 0 && (

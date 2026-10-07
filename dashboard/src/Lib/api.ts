@@ -10,7 +10,7 @@ const API_URL: string = import.meta.env.VITE_API_URL ?? "";
 /** Sent on session renewal and sign-out; a page on another site can't add it to a request. */
 const CLIENT_HEADER = { "X-CFS-Client": "dashboard" };
 
-/** Tells the API which territory an owner or administrator is looking at. */
+/** Tells the API which territory a system admin or administrator is looking at. */
 const TERRITORY_HEADER = "X-Territory-Id";
 
 const api = axios.create({
@@ -69,7 +69,7 @@ export const subscribePasswordRequired = (listener: () => void): (() => void) =>
 };
 
 /**
- * Sets the territory sent with every request; null means every territory (owners and
+ * Sets the territory sent with every request; null means every territory (system admins and
  * administrators only - the API ignores it for everyone else).
  * @param id The territory id, or null.
  */

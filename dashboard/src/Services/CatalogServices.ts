@@ -7,7 +7,7 @@ import type { CatalogFile, CatalogImportMode, CatalogImportResult } from "../Mod
 //************************************//
 
 /**
- * The whole catalog as a file (owners only).
+ * The whole catalog as a file (system admins only).
  * @returns The catalog file, or null on failure.
  */
 export const ExportCatalog = async (): Promise<CatalogFile | null> => {
@@ -25,7 +25,7 @@ export const ExportCatalog = async (): Promise<CatalogFile | null> => {
 //*************************************//
 
 /**
- * Restores a catalog file (owners only).
+ * Restores a catalog file (system admins only).
  * @param catalog The file's contents.
  * @param mode "update" to update matching items and add the rest, or "replace" to clear the
  * catalog first.

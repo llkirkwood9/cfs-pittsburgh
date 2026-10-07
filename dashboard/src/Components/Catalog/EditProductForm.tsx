@@ -27,7 +27,7 @@ type Props = {
     onSave: (product: Product) => Promise<void>;
     onClose: () => void;
     territories: Territory[];
-    /** Owners and administrators choose where an item is sold; managers' items stay in their territory. */
+    /** System Admins and administrators choose where an item is sold; managers' items stay in their territory. */
     canChooseTerritory: boolean;
     /** The manager's own territory, shown when they can't choose. */
     ownTerritoryName?: string | null;

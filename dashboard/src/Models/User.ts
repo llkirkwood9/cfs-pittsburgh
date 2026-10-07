@@ -1,4 +1,4 @@
-export type UserRole = "Sales" | "Checkout" | "SalesCheckout" | "Manager" | "Admin" | "Owner";
+export type UserRole = "Sales" | "Checkout" | "SalesCheckout" | "Manager" | "Admin" | "SystemAdmin";
 
 /** How each role is named on screen. */
 export const UserRoleLabels: Record<UserRole, string> = {
@@ -7,7 +7,7 @@ export const UserRoleLabels: Record<UserRole, string> = {
     SalesCheckout: "Sales & Checkout",
     Manager: "Manager",
     Admin: "Admin",
-    Owner: "Owner",
+    SystemAdmin: "System Admin",
 };
 
 /** Seniority, matching the API: a role can do everything a lower one can. */
@@ -17,12 +17,12 @@ export const RoleRank: Record<UserRole, number> = {
     SalesCheckout: 2,
     Manager: 3,
     Admin: 4,
-    Owner: 5,
+    SystemAdmin: 5,
 };
 
-/** Owners and administrators work across every territory; everyone else belongs to one. */
+/** System admins and administrators work across every territory; everyone else belongs to one. */
 export const IsCompanyWide = (role?: UserRole | null): boolean =>
-    role === "Owner" || role === "Admin";
+    role === "SystemAdmin" || role === "Admin";
 
 export type User = {
     id?: number;
@@ -30,7 +30,7 @@ export type User = {
     username?: string;
     email?: string;
     role?: UserRole;
-    /** The territory they work in; null for owners and administrators. */
+    /** The territory they work in; null for system admins and administrators. */
     territoryId?: number | null;
     territoryName?: string | null;
     isActive?: boolean;
@@ -40,6 +40,6 @@ export type User = {
     mustChangePassword?: boolean;
     /** Signed out by too many wrong passwords; send false to unlock. */
     isLockedOut?: boolean;
-    /** When they last signed in (UTC). Only sent to an owner. */
+    /** When they last signed in (UTC). Only sent to a system admin. */
     lastLoginAt?: string | null;
 };

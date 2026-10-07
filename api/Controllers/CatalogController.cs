@@ -9,7 +9,7 @@ using Microsoft.AspNetCore.Mvc;
 namespace api.Controllers
 {
     /// <summary>
-    /// Saving the whole catalog to a file and restoring it, for owners only. See CatalogTransfer
+    /// Saving the whole catalog to a file and restoring it, for system admins only. See CatalogTransfer
     /// for how a file is matched against the catalog.
     /// </summary>
     [ApiController]
@@ -24,7 +24,7 @@ namespace api.Controllers
     {
         #region Private Fields
 
-        private const string OwnerOnly = "Only an owner can export or restore the catalog.";
+        private const string SystemAdminOnly = "Only a system admin can export or restore the catalog.";
 
         #endregion
 
@@ -41,8 +41,8 @@ namespace api.Controllers
         {
             try
             {
-                if (!IsOwner())
-                    return StatusCode(403, new { error = OwnerOnly });
+                if (!IsSystemAdmin())
+                    return StatusCode(403, new { error = SystemAdminOnly });
 
                 return Ok(await CatalogTransfer.ExportAsync(DB));
             }
@@ -72,8 +72,8 @@ namespace api.Controllers
         {
             try
             {
-                if (!IsOwner())
-                    return StatusCode(403, new { error = OwnerOnly });
+                if (!IsSystemAdmin())
+                    return StatusCode(403, new { error = SystemAdminOnly });
 
                 if (request.Catalog == null || request.Mode is not ("update" or "replace"))
                     return BadRequest(new { error = "Missing parameter." });

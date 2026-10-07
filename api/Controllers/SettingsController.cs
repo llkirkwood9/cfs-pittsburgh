@@ -12,7 +12,7 @@ namespace api.Controllers
 {
     /// <summary>
     /// Settings: the business details printed on sheets and emails, the sales sheet terms, the
-    /// receipt email's wording, new-event rates and the dashboard's levels. Owners and
+    /// receipt email's wording, new-event rates and the dashboard's levels. System Admins and
     /// administrators set the company-wide values; each territory can override any of them (bar
     /// the app name) - its manager edits its own. A setting a territory hasn't changed follows the
     /// company-wide value, which in turn falls back to the built-in default.
@@ -86,7 +86,7 @@ namespace api.Controllers
             try
             {
                 if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or owner may see the email settings.");
+                    return Forbidden("Only a manager, administrator or system admin may see the email settings.");
 
                 var (scopeId, problem) = await ResolveAsync(territoryId, editing: false);
                 if (problem != null)
@@ -118,7 +118,7 @@ namespace api.Controllers
             try
             {
                 if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or owner may preview the email.");
+                    return Forbidden("Only a manager, administrator or system admin may preview the email.");
 
                 var (scopeId, problem) = await ResolveAsync(territoryId, editing: false);
                 if (problem != null)
@@ -310,7 +310,7 @@ namespace api.Controllers
         /// <summary>
         /// Works out which settings a request is about, and checks the user may see (or change) them:
         /// anyone signed in reads their own territory's; managers change their own territory's;
-        /// owners and administrators read and change any territory's and the company-wide ones.
+        /// system admins and administrators read and change any territory's and the company-wide ones.
         /// </summary>
         /// <param name="territoryId">The territory asked for, or null</param>
         /// <param name="editing">Whether the request changes them</param>
@@ -325,7 +325,7 @@ namespace api.Controllers
             if (resolved == null)
             {
                 if (editing && !scope.IsCompanyWide)
-                    return (null, Forbidden("Only an owner or administrator can change the company-wide settings."));
+                    return (null, Forbidden("Only a system admin or administrator can change the company-wide settings."));
                 return (null, null);
             }
 
@@ -336,7 +336,7 @@ namespace api.Controllers
                 return (null, NotFound(new { error = "Territory not found." }));
 
             if (editing && !IsAtLeast(UserRole.Manager))
-                return (null, Forbidden("Only a manager, administrator or owner may change settings."));
+                return (null, Forbidden("Only a manager, administrator or system admin may change settings."));
 
             return (resolved, null);
         }

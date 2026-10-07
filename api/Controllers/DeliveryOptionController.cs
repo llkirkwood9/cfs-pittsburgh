@@ -28,14 +28,14 @@ namespace api.Controllers
     {
         #region Private Fields
 
-        private const string GlobalReadOnly = "Global delivery options can only be changed by an owner or administrator.";
+        private const string GlobalReadOnly = "Global delivery options can only be changed by a system admin or administrator.";
 
         #endregion
 
         #region POST Methods
 
         /// <summary>
-        /// Adds a delivery option - to the manager's territory, or for an owner or administrator
+        /// Adds a delivery option - to the manager's territory, or for a system admin or administrator
         /// either globally or to a territory they pick.
         /// </summary>
         /// <param name="request">Delivery option fields</param>
@@ -47,7 +47,7 @@ namespace api.Controllers
             try
             {
                 if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or owner may change the catalog.");
+                    return Forbidden("Only a manager, administrator or system admin may change the catalog.");
 
                 if (string.IsNullOrWhiteSpace(request.Name))
                     return BadRequest(new { error = "Enter a name." });
@@ -101,7 +101,7 @@ namespace api.Controllers
 
         /// <summary>
         /// Lists the delivery options for the territory being worked - global ones and its own - or
-        /// every option for an owner or administrator viewing every territory.
+        /// every option for a system admin or administrator viewing every territory.
         /// </summary>
         /// <param name="includeInactive">Pass true from the admin screen</param>
         /// <returns>Delivery options in display order.</returns>
@@ -136,7 +136,7 @@ namespace api.Controllers
         #region PATCH Methods
 
         /// <summary>
-        /// Updates a delivery option. An owner or administrator may also move it between global and
+        /// Updates a delivery option. A system admin or administrator may also move it between global and
         /// a territory.
         /// </summary>
         /// <param name="request">Fields to change, including the id</param>
@@ -148,7 +148,7 @@ namespace api.Controllers
             try
             {
                 if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or owner may change the catalog.");
+                    return Forbidden("Only a manager, administrator or system admin may change the catalog.");
 
                 if (request.Id == null)
                     return BadRequest(new { error = "Missing parameter." });
@@ -229,11 +229,11 @@ namespace api.Controllers
         #region DELETE Methods
 
         /// <summary>
-        /// Removes a delivery option, or deactivates it when it already appears on an order. An owner
+        /// Removes a delivery option, or deactivates it when it already appears on an order. A system admin
         /// can delete one that has been used; past sales keep the shipping row as printed.
         /// </summary>
         /// <param name="id">Delivery option id</param>
-        /// <param name="permanent">True to delete even a used option (owner only)</param>
+        /// <param name="permanent">True to delete even a used option (system admin only)</param>
         /// <returns>200, with a flag saying whether the row was archived instead of deleted.</returns>
         [HttpDelete("deliveryoption/{id}")]
         [Authorize(AuthenticationSchemes = "Bearer")]
@@ -242,7 +242,7 @@ namespace api.Controllers
             try
             {
                 if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or owner may change the catalog.");
+                    return Forbidden("Only a manager, administrator or system admin may change the catalog.");
 
                 var option = await DB.DeliveryOptions.FindAsync(id);
                 if (option == null || !InCatalog(option.TerritoryId, Scope.IsCompanyWide ? null : Scope.HomeTerritoryId))
@@ -253,8 +253,8 @@ namespace api.Controllers
 
                 if (permanent)
                 {
-                    if (!IsOwner())
-                        return Forbidden("Only an owner can delete a delivery option permanently.");
+                    if (!IsSystemAdmin())
+                        return Forbidden("Only a system admin can delete a delivery option permanently.");
 
                     await PermanentDelete.DeliveryOptionAsync(DB, id);
                     return Ok(new { archived = false });

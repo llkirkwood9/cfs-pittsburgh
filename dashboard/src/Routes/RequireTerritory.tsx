@@ -10,7 +10,7 @@ type Props = {
 
 /**
  * For screens that work in one territory at a time - selling, checkout, stock counts. Crew are
- * always in their own; an owner or administrator viewing every territory is asked to pick one.
+ * always in their own; a system admin or administrator viewing every territory is asked to pick one.
  */
 const RequireTerritory = ({ children, purpose }: Props) => {
     const { territoryId, territories, canSwitch, setTerritoryId } = useTerritory();

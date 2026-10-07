@@ -113,9 +113,9 @@ namespace api.Models
 
         /// <summary>
         /// Everything an administrator can do, plus permanently deleting events, orders, crew
-        /// accounts and catalog items. Only an owner can create or change another owner.
+        /// accounts and catalog items. Only a system admin can create or change another system admin.
         /// </summary>
-        Owner = 4,
+        SystemAdmin = 4,
 
         /// <summary>
         /// Runs one territory: its events, its crew below manager, its own catalog items (not the

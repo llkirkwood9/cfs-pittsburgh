@@ -7,7 +7,7 @@ using Microsoft.EntityFrameworkCore;
 namespace api.Utils
 {
     /// <summary>
-    /// Thrown when a catalog file can't be restored; the message is meant for the owner.
+    /// Thrown when a catalog file can't be restored; the message is meant for the system admin.
     /// </summary>
     public class CatalogImportException(string message) : Exception(message);
 
@@ -254,7 +254,7 @@ namespace api.Utils
         /// <summary>
         /// Checks a whole file, so a restore never stops half way.
         /// </summary>
-        /// <returns>A message for the owner, or null when the file is fine.</returns>
+        /// <returns>A message for the system admin, or null when the file is fine.</returns>
         private static string? Validate(CatalogFileDto file)
         {
             if (file.Format != FileFormat)

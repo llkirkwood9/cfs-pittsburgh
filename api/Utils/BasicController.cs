@@ -114,14 +114,14 @@ namespace api.Utils
 
         /// <summary>
         /// Checks whether the signed-in user holds the supplied role. Administrator also holds for
-        /// an owner. For "this role or anything more senior", use IsAtLeast.
+        /// a system admin. For "this role or anything more senior", use IsAtLeast.
         /// </summary>
         /// <param name="role">Role to test</param>
         /// <returns>True when the user is in that role.</returns>
         protected bool IsInRole(UserRole role)
         {
-            // An owner can do everything an administrator can.
-            if (role == UserRole.Admin && User.IsInRole(nameof(UserRole.Owner)))
+            // A system admin can do everything an administrator can.
+            if (role == UserRole.Admin && User.IsInRole(nameof(UserRole.SystemAdmin)))
                 return true;
 
             return User.IsInRole(role.ToString());
@@ -135,17 +135,17 @@ namespace api.Utils
         protected bool IsAtLeast(UserRole minimum) => Scope.IsAtLeast(minimum);
 
         /// <summary>
-        /// Whether the signed-in user is an owner - the only role allowed to delete permanently.
+        /// Whether the signed-in user is a system admin - the only role allowed to delete permanently.
         /// </summary>
-        /// <returns>True for an owner.</returns>
-        protected bool IsOwner()
+        /// <returns>True for a system admin.</returns>
+        protected bool IsSystemAdmin()
         {
-            return User.IsInRole(nameof(UserRole.Owner));
+            return User.IsInRole(nameof(UserRole.SystemAdmin));
         }
 
         /// <summary>
         /// Whether the signed-in user may work with an event: it's in their territory, or they're
-        /// company-wide. A territory an owner or administrator has narrowed to doesn't hide other
+        /// company-wide. A territory a system admin or administrator has narrowed to doesn't hide other
         /// territories' events from a direct link - it only filters lists.
         /// </summary>
         /// <param name="saleEvent">The event</param>
@@ -153,7 +153,7 @@ namespace api.Utils
         protected bool CanSee(Event? saleEvent) => saleEvent != null && Scope.CanSee(saleEvent.TerritoryId);
 
         /// <summary>
-        /// Whether the signed-in user may change a catalog item or delivery option: owners and
+        /// Whether the signed-in user may change a catalog item or delivery option: system admins and
         /// administrators any; a manager only their own territory's, never a global one.
         /// </summary>
         /// <param name="itemTerritoryId">The item's territory, null for a global item</param>
@@ -167,7 +167,7 @@ namespace api.Utils
 
         /// <summary>
         /// Whether a territory sells a catalog item: it's global, or the territory's own. With no
-        /// territory (an owner or administrator viewing every territory) everything counts.
+        /// territory (a system admin or administrator viewing every territory) everything counts.
         /// </summary>
         /// <param name="itemTerritoryId">The item's territory, null for a global item</param>
         /// <param name="territoryId">The territory, or null for every territory</param>
@@ -177,7 +177,7 @@ namespace api.Utils
 
         /// <summary>
         /// Which territory a new catalog item or delivery option belongs to: a manager's always goes
-        /// in their own; an owner or administrator chooses one, or none for a global item.
+        /// in their own; a system admin or administrator chooses one, or none for a global item.
         /// </summary>
         /// <param name="requested">The territory asked for, or null for global</param>
         /// <returns>The territory (null for global), or the response to return instead.</returns>
@@ -187,7 +187,7 @@ namespace api.Utils
             if (!scope.IsCompanyWide)
                 return scope.Role == UserRole.Manager
                     ? (scope.HomeTerritoryId, null)
-                    : (null, Forbidden("Only a manager, administrator or owner may change the catalog."));
+                    : (null, Forbidden("Only a manager, administrator or system admin may change the catalog."));
 
             if (requested == null)
                 return (null, null);

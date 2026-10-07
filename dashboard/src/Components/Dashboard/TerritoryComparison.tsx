@@ -48,7 +48,7 @@ type Props = {
 };
 
 /**
- * Every territory side by side, for an owner or administrator viewing all of them: completed
+ * Every territory side by side, for a system admin or administrator viewing all of them: completed
  * sales and the headline figures over the chosen dates. Tapping a territory switches the whole
  * dashboard to it.
  */

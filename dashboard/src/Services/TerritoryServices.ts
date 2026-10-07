@@ -7,7 +7,7 @@ import type { Territory } from "../Models/Territory";
 //*************************************//
 
 /**
- * Creates a territory. Owners and administrators only.
+ * Creates a territory. System Admins and administrators only.
  * @param name Its name.
  * @returns The new territory, or null on failure.
  */
@@ -26,7 +26,7 @@ export const AddTerritory = async (name: string): Promise<Territory | null> => {
 //************************************//
 
 /**
- * Lists the territories the signed-in user can see: every one for an owner or administrator,
+ * Lists the territories the signed-in user can see: every one for a system admin or administrator,
  * just their own for everyone else.
  * @param includeInactive Pass true to include switched-off territories.
  * @returns The territories, or an empty list on failure.

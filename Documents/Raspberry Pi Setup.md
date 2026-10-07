@@ -201,7 +201,7 @@ docker compose -f docker-compose.pi.yml logs app | grep "Created the first accou
 ```
 
 Now open `http://cfs.local:8080` (or `http://<the Pi's IP>:8080`) from any device on the network and
-sign in as **admin** with that password. That first account is made the **Owner** automatically,
+sign in as **admin** with that password. That first account is made the **System Admin** automatically,
 the one role that can permanently delete events, orders and crew.
 
 > **You'll be asked to choose your own password straight away.** Then, under **Territories**,

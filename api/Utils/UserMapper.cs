@@ -12,7 +12,7 @@ namespace api.Utils
         /// Maps a user entity to its DTO.
         /// </summary>
         /// <param name="user">User entity, with Territory loaded when its name is wanted</param>
-        /// <param name="includeLastLogin">Whether to include the last sign-in time (owners only)</param>
+        /// <param name="includeLastLogin">Whether to include the last sign-in time (system admins only)</param>
         /// <returns>The mapped DTO.</returns>
         public static UserDto ToDto(User user, bool includeLastLogin = false)
         {

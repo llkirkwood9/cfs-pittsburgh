@@ -164,7 +164,7 @@ namespace api.Services
         }
 
         /// <summary>
-        /// A random password for a first sign-in, e.g. the seeded owner's when none is configured:
+        /// A random password for a first sign-in, e.g. the seeded system admin's when none is configured:
         /// 20 characters from an alphabet without look-alikes.
         /// </summary>
         /// <returns>The password.</returns>

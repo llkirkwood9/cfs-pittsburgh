@@ -7,7 +7,7 @@ namespace api.Utils
 {
     /// <summary>
     /// Who is asking and which territory they're working in, read fresh from the database for every
-    /// request. Owners and administrators work across every territory and may narrow to one with
+    /// request. System Admins and administrators work across every territory and may narrow to one with
     /// the X-Territory-Id header (the territory picker); everyone else is held to their own.
     /// </summary>
     public sealed class AccessScope
@@ -23,18 +23,18 @@ namespace api.Utils
         /// <summary>Their role.</summary>
         public UserRole Role { get; init; }
 
-        /// <summary>Their own territory; null for owners and administrators.</summary>
+        /// <summary>Their own territory; null for system admins and administrators.</summary>
         public int? HomeTerritoryId { get; init; }
 
-        /// <summary>The territory an owner or administrator has picked, or null for every territory.</summary>
+        /// <summary>The territory a system admin or administrator has picked, or null for every territory.</summary>
         public int? SelectedTerritoryId { get; init; }
 
-        /// <summary>Owners and administrators: not tied to one territory.</summary>
-        public bool IsCompanyWide => Role is UserRole.Owner or UserRole.Admin;
+        /// <summary>System Admins and administrators: not tied to one territory.</summary>
+        public bool IsCompanyWide => Role is UserRole.SystemAdmin or UserRole.Admin;
 
         /// <summary>
-        /// The territory this request is about: a crew member's own, or the one an owner or
-        /// administrator picked. Null means every territory (owners and administrators only).
+        /// The territory this request is about: a crew member's own, or the one a system admin or
+        /// administrator picked. Null means every territory (system admins and administrators only).
         /// </summary>
         public int? TerritoryId => IsCompanyWide ? SelectedTerritoryId : HomeTerritoryId;
 
@@ -55,7 +55,7 @@ namespace api.Utils
         /// <summary>
         /// Whether the user holds a role at least as senior as the one given. Sales and checkout
         /// rank equally; Sales & Checkout covers both; a manager covers everything in their
-        /// territory; an administrator everything but the owner's permanent deletes.
+        /// territory; an administrator everything but the system admin's permanent deletes.
         /// </summary>
         /// <param name="minimum">The least senior role allowed</param>
         /// <returns>True when allowed.</returns>
@@ -68,14 +68,14 @@ namespace api.Utils
         /// A role's seniority, for comparisons.
         /// </summary>
         /// <param name="role">The role</param>
-        /// <returns>1 (floor) to 5 (owner).</returns>
+        /// <returns>1 (floor) to 5 (system admin).</returns>
         public static int Rank(UserRole role) => role switch
         {
             UserRole.Sales or UserRole.Checkout => 1,
             UserRole.SalesCheckout => 2,
             UserRole.Manager => 3,
             UserRole.Admin => 4,
-            UserRole.Owner => 5,
+            UserRole.SystemAdmin => 5,
             _ => 0,
         };
 
@@ -84,7 +84,7 @@ namespace api.Utils
         /// </summary>
         /// <param name="role">The role</param>
         /// <returns>True for managers and crew.</returns>
-        public static bool NeedsTerritory(UserRole role) => role is not (UserRole.Owner or UserRole.Admin);
+        public static bool NeedsTerritory(UserRole role) => role is not (UserRole.SystemAdmin or UserRole.Admin);
 
         #endregion
     }
@@ -162,7 +162,7 @@ namespace api.Utils
             }
 
             int? selected = null;
-            if (user.Role is UserRole.Owner or UserRole.Admin
+            if (user.Role is UserRole.SystemAdmin or UserRole.Admin
                 && int.TryParse(context.Request.Headers[TerritoryHeader].FirstOrDefault(), out var picked)
                 && await db.Territories.AnyAsync(t => t.Id == picked))
             {

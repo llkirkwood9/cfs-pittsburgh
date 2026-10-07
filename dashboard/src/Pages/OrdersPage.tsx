@@ -47,7 +47,7 @@ const statusLabels: Record<OrderStatus, string> = {
 /**
  * Past orders. Everyone can look back over the event they are working and open any sales sheet
  * for reprinting; a manager or above can additionally search across every event in their territory
- * (an owner or administrator, every territory).
+ * (a system admin or administrator, every territory).
  */
 const OrdersPage = () => {
     const { user, hasRole } = useAuth();
@@ -55,7 +55,7 @@ const OrdersPage = () => {
     const navigate = useNavigate();
 
     const isManager = hasRole("Manager");
-    const isOwner = user?.role === "Owner";
+    const isSystemAdmin = user?.role === "SystemAdmin";
     const [removing, setRemoving] = useState<OrderSummary | null>(null);
 
     const [events, setEvents] = useState<Event[]>([]);
@@ -346,7 +346,7 @@ const OrdersPage = () => {
                                             className="min-h-[44px] bg-amber-600 px-3 text-sm hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700"
                                         />
                                     )}
-                                {isOwner && (
+                                {isSystemAdmin && (
                                     <button
                                         type="button"
                                         onClick={() => setRemoving(order)}

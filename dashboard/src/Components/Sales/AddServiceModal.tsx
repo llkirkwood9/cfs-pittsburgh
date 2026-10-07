@@ -1,7 +1,6 @@
 import { useState } from "react";
 import Button from "../Elements/Button";
 import Modal from "../Elements/Modal";
-import DiscountField, { DiscountFrom, DiscountProblem, type DiscountMode } from "./DiscountField";
 import { FormatCurrency, TakeWithBlocked } from "../../Lib/ModelHelpers";
 import { ApplyDiscount, DeliverySaleFor, DiscountText, HasDiscount } from "../../Lib/Pricing";
 import { Toast } from "../../Lib/Toast";
@@ -21,13 +20,11 @@ type Props = {
 /**
  * Attaches a second delivery or in-home service to a line that already has one, which is how the
  * Hampton sheets carry White Glove and Haul Away on the same mattress. Each option shows the price
- * and sale the item's product sets for it (or the option's own), and the rep can take a discount
- * off on top, as with an item.
+ * and catalog sale the item's product sets for it (or the option's own). A rep's discount on the
+ * service is given afterwards, with Edit on its row.
  */
 const AddServiceModal = ({ parentLine, options, products = [], onAdd, onClose }: Props) => {
     const [selectedId, setSelectedId] = useState<number | null>(null);
-    const [discount, setDiscount] = useState<string>("");
-    const [discountMode, setDiscountMode] = useState<DiscountMode>("percent");
     const [saving, setSaving] = useState<boolean>(false);
 
     // Take With is only on offer while the cart has enough of a tracked item.
@@ -47,21 +44,15 @@ const AddServiceModal = ({ parentLine, options, products = [], onAdd, onClose }:
 
     const selected = options.find((o) => o.id === selectedId);
     const chosen = selected ? pricing(selected) : null;
-    const repDiscount = DiscountFrom(discountMode, discount);
-    const finalPrice = chosen ? ApplyDiscount(chosen.salePrice, repDiscount) : 0;
 
     const handleAdd = async () => {
         if (!selectedId) return Toast.Warning("Pick a service first.");
-        const problem = DiscountProblem(discountMode, discount);
-        if (problem) return Toast.Warning(problem);
 
         setSaving(true);
         await onAdd({
             lineType: "Delivery",
             deliveryOptionId: selectedId,
             parentLineId: parentLine.id,
-            discountPercent: repDiscount.percent ?? undefined,
-            discountAmount: repDiscount.amount ?? undefined,
         });
         setSaving(false);
         onClose();
@@ -79,7 +70,11 @@ const AddServiceModal = ({ parentLine, options, products = [], onAdd, onClose }:
                         className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                     />
                     <Button
-                        text={chosen ? `Add service ${FormatCurrency(finalPrice)}` : "Add service"}
+                        text={
+                            chosen
+                                ? `Add service ${FormatCurrency(chosen.salePrice)}`
+                                : "Add service"
+                        }
                         icon="fa-solid fa-plus"
                         onClick={handleAdd}
                         loading={saving}
@@ -131,42 +126,9 @@ const AddServiceModal = ({ parentLine, options, products = [], onAdd, onClose }:
                     );
                 })}
             </div>
-
-            {chosen && chosen.price > 0 && (
-                <div className="mt-4 max-w-sm">
-                    <DiscountField
-                        label={HasDiscount(chosen.sale) ? "Extra discount" : "Discount"}
-                        name="Service discount"
-                        mode={discountMode}
-                        onMode={setDiscountMode}
-                        text={discount}
-                        onText={setDiscount}
-                    />
-                </div>
-            )}
-            {chosen &&
-                chosen.price > 0 &&
-                (HasDiscount(chosen.sale) || HasDiscount(repDiscount)) && (
-                    <p className="mt-3 rounded-lg bg-zinc-100 px-3 py-2 text-sm dark:bg-zinc-700">
-                        {selected?.name} {FormatCurrency(chosen.price)}
-                        {HasDiscount(chosen.sale) && (
-                            <>
-                                {" "}
-                                - sale {DiscountText(chosen.sale)} off ={" "}
-                                <span className="font-semibold">
-                                    {FormatCurrency(chosen.salePrice)}
-                                </span>
-                            </>
-                        )}
-                        {HasDiscount(repDiscount) && (
-                            <>
-                                {" "}
-                                - {DiscountText(repDiscount)} off ={" "}
-                                <span className="font-semibold">{FormatCurrency(finalPrice)}</span>
-                            </>
-                        )}
-                    </p>
-                )}
+            <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+                To take something off a service, add it, then use Edit on its row.
+            </p>
         </Modal>
     );
 };

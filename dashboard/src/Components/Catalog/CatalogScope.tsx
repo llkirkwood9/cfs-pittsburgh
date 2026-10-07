@@ -21,7 +21,7 @@ type FieldProps = {
     value: number | null;
     onChange: (territoryId: number | null) => void;
     territories: Territory[];
-    /** Owners and administrators choose; a manager's items always go in their own territory. */
+    /** System Admins and administrators choose; a manager's items always go in their own territory. */
     canChoose: boolean;
     /** Shown instead of the picker when it can't be chosen. */
     fixedName?: string | null;

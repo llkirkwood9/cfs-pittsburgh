@@ -4,7 +4,7 @@ namespace api.Models
 {
     /// <summary>
     /// A crew member who signs in with a username and password. Accounts are created by an
-    /// owner, administrator or territory manager; there is no self-service signup.
+    /// system admin, administrator or territory manager; there is no self-service signup.
     /// </summary>
     public class User
     {
@@ -78,7 +78,7 @@ namespace api.Models
         public UserRole Role { get; set; } = UserRole.Sales;
 
         /// <summary>
-        /// The territory a manager or crew member works in. Null for owners and administrators,
+        /// The territory a manager or crew member works in. Null for system admins and administrators,
         /// who work across every territory.
         /// </summary>
         public int? TerritoryId { get; set; }

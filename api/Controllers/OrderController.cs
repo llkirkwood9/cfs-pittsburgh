@@ -237,12 +237,6 @@ namespace api.Controllers
                 if (line.DiscountAmount is < 0)
                     return BadRequest(new { error = "A discount can't be negative." });
 
-                if (request.DeliveryDiscountPercent is < 0 or > 100)
-                    return BadRequest(new { error = "The shipping discount must be between 0 and 100 percent." });
-
-                if (request.DeliveryDiscountAmount is < 0)
-                    return BadRequest(new { error = "A shipping discount can't be negative." });
-
                 // One discount style per line: a percent wins over an amount.
                 if (line.DiscountPercent is > 0)
                     line.DiscountAmount = null;
@@ -279,8 +273,7 @@ namespace api.Controllers
                 // in one tap without a second round trip.
                 if (line.LineType == OrderLineType.Product && request.DeliveryOptionId != null)
                 {
-                    var added = await AddLinkedDeliveryLineAsync(
-                        order, line, request.DeliveryOptionId.Value, request.DeliveryDiscountPercent, request.DeliveryDiscountAmount);
+                    var added = await AddLinkedDeliveryLineAsync(order, line, request.DeliveryOptionId.Value);
                     if (!added)
                         return NotFound(new { error = "Delivery option not found." });
                 }
@@ -475,7 +468,7 @@ namespace api.Controllers
                     return BadRequest(new { error = "Invalid parameter." });
 
                 if (order.Status == OrderStatus.Completed && !IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or owner may reopen a completed sale.");
+                    return Forbidden("Only a manager, administrator or system admin may reopen a completed sale.");
 
                 if (order.Status == target)
                     return BadRequest(new { error = target == OrderStatus.Draft
@@ -654,7 +647,7 @@ namespace api.Controllers
 
         /// <summary>
         /// Every order across every event in the territory being viewed - or every territory for an
-        /// owner or administrator viewing them all - newest first. Managers and above only; this is
+        /// system admin or administrator viewing them all - newest first. Managers and above only; this is
         /// how they look back at a fundraiser that finished weeks ago.
         /// </summary>
         /// <param name="status">Optional status name</param>
@@ -671,7 +664,7 @@ namespace api.Controllers
             try
             {
                 if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or owner may browse every event.");
+                    return Forbidden("Only a manager, administrator or system admin may browse every event.");
 
                 var territoryId = Scope.TerritoryId;
                 var query = DB.Orders.Where(o => territoryId == null || o.Event!.TerritoryId == territoryId);
@@ -738,7 +731,7 @@ namespace api.Controllers
             try
             {
                 if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or owner may export an event's sales sheets.");
+                    return Forbidden("Only a manager, administrator or system admin may export an event's sales sheets.");
 
                 if (!await EventVisibleAsync(eventId))
                     return NotFound(new { error = "Event not found." });
@@ -1045,10 +1038,10 @@ namespace api.Controllers
 
         /// <summary>
         /// Deletes a draft order outright. Submitted and completed orders must be voided instead -
-        /// unless an owner passes permanent=true, which deletes an order in any state.
+        /// unless a system admin passes permanent=true, which deletes an order in any state.
         /// </summary>
         /// <param name="id">Order id</param>
-        /// <param name="permanent">True to delete an order that is not a draft (owner only)</param>
+        /// <param name="permanent">True to delete an order that is not a draft (system admin only)</param>
         /// <returns>200 when the order was removed.</returns>
         [HttpDelete("order/{id}")]
         [Authorize(AuthenticationSchemes = "Bearer")]
@@ -1056,8 +1049,8 @@ namespace api.Controllers
         {
             try
             {
-                if (permanent && !IsOwner())
-                    return StatusCode(403, new { error = "Only an owner can delete an order permanently." });
+                if (permanent && !IsSystemAdmin())
+                    return StatusCode(403, new { error = "Only a system admin can delete an order permanently." });
 
                 var order = await DB.Orders.Include(o => o.Event).FirstOrDefaultAsync(o => o.Id == id);
                 if (order == null || !CanSee(order.Event))
@@ -1220,8 +1213,7 @@ namespace api.Controllers
         /// <param name="parent">The product line the shipping row belongs to</param>
         /// <param name="deliveryOptionId">Chosen delivery option</param>
         /// <returns>False when the delivery option does not exist.</returns>
-        private async Task<bool> AddLinkedDeliveryLineAsync(
-            Order order, OrderLine parent, int deliveryOptionId, decimal? discountPercent = null, decimal? discountAmount = null)
+        private async Task<bool> AddLinkedDeliveryLineAsync(Order order, OrderLine parent, int deliveryOptionId)
         {
             var option = await DB.DeliveryOptions.FindAsync(deliveryOptionId);
             if (option == null || !InCatalog(option.TerritoryId, order.Event!.TerritoryId))
@@ -1252,9 +1244,6 @@ namespace api.Controllers
                 // The sale in force is copied onto the row, so ending it never changes this order.
                 SaleDiscountPercent = salePercent,
                 SaleDiscountAmount = saleAmount,
-                // The rep's own discount on the shipping: a percent wins over an amount.
-                DiscountPercent = discountPercent is > 0 ? discountPercent : null,
-                DiscountAmount = discountPercent is > 0 || discountAmount is not > 0 ? null : discountAmount,
                 IsTaxable = option.IsTaxable,
                 TakeWith = option.IsTakeWith,
                 ShowOnSalesSheet = option.ShowOnSalesSheet,

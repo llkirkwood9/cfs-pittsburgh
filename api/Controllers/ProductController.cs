@@ -14,7 +14,7 @@ namespace api.Controllers
     /// The product catalog. A product owns its priced size/configuration variants and the set of
     /// delivery options offered for it, so delivery types can differ from one mattress to the next.
     /// An item is either global - sold in every territory - or one territory's own. Managers look
-    /// after their territory's items; only owners and administrators change global ones.
+    /// after their territory's items; only system admins and administrators change global ones.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -28,8 +28,8 @@ namespace api.Controllers
     {
         #region Private Fields
 
-        private const string ManagersOnly = "Only a manager, administrator or owner may change the catalog.";
-        private const string GlobalReadOnly = "Global items can only be changed by an owner or administrator.";
+        private const string ManagersOnly = "Only a manager, administrator or system admin may change the catalog.";
+        private const string GlobalReadOnly = "Global items can only be changed by a system admin or administrator.";
 
         #endregion
 
@@ -109,7 +109,7 @@ namespace api.Controllers
 
         /// <summary>
         /// Lists the catalog of the territory being worked - global items and its own - or every
-        /// item for an owner or administrator viewing every territory. Defaults to active products
+        /// item for a system admin or administrator viewing every territory. Defaults to active products
         /// only, which is what the floor needs.
         /// </summary>
         /// <param name="includeInactive">Pass true from the catalog admin screen</param>
@@ -233,7 +233,7 @@ namespace api.Controllers
                     return Forbidden(GlobalReadOnly);
 
                 // The edit form always sends the name and the territory, null meaning global. Only an
-                // owner or administrator can move an item; a partial update leaves it where it is.
+                // system admin or administrator can move an item; a partial update leaves it where it is.
                 if (Scope.IsCompanyWide && request.Name != null && request.TerritoryId != product.TerritoryId)
                 {
                     var (territoryId, problem) = await CatalogTerritoryAsync(request.TerritoryId);
@@ -376,11 +376,11 @@ namespace api.Controllers
         #region DELETE Methods
 
         /// <summary>
-        /// Removes a product, or deactivates it when it already appears on an order. An owner can pass
+        /// Removes a product, or deactivates it when it already appears on an order. A system admin can pass
         /// permanent=true to delete it even then; past sales keep the item as printed.
         /// </summary>
         /// <param name="id">Product id</param>
-        /// <param name="permanent">True to delete even a product that has been sold (owner only)</param>
+        /// <param name="permanent">True to delete even a product that has been sold (system admin only)</param>
         /// <returns>200, with a flag saying whether the row was archived instead of deleted.</returns>
         [HttpDelete("product/{id}")]
         [Authorize(AuthenticationSchemes = "Bearer")]
@@ -403,8 +403,8 @@ namespace api.Controllers
 
                 if (permanent)
                 {
-                    if (!IsOwner())
-                        return Forbidden("Only an owner can delete a product permanently.");
+                    if (!IsSystemAdmin())
+                        return Forbidden("Only a system admin can delete a product permanently.");
 
                     await PermanentDelete.ProductAsync(DB, id);
                     return Ok(new { archived = false });
@@ -493,7 +493,7 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// Whether the signed-in user can see a catalog item at all: owners and administrators see
+        /// Whether the signed-in user can see a catalog item at all: system admins and administrators see
         /// everything; everyone else sees global items and their own territory's.
         /// </summary>
         /// <param name="itemTerritoryId">The item's territory, null for global</param>

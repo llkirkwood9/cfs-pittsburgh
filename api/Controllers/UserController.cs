@@ -11,7 +11,7 @@ using Microsoft.EntityFrameworkCore;
 namespace api.Controllers
 {
     /// <summary>
-    /// Crew accounts. Owners and administrators manage everyone (only an owner touches an owner);
+    /// Crew accounts. System Admins and administrators manage everyone (only a system admin touches a system admin);
     /// a territory manager manages the sales and checkout crew in their own territory. Every role
     /// below administrator belongs to exactly one territory.
     /// </summary>
@@ -27,7 +27,7 @@ namespace api.Controllers
     {
         #region Private Fields
 
-        private const string ManagersOnly = "Only a manager, administrator or owner may manage crew accounts.";
+        private const string ManagersOnly = "Only a manager, administrator or system admin may manage crew accounts.";
 
         #endregion
 
@@ -88,7 +88,7 @@ namespace api.Controllers
                 await DB.Entry(user).Reference(u => u.Territory).LoadAsync();
 
                 Trace(TraceEventType.Information, $"{GetCurrentUserName()} added {user.Username} ({user.Role}).");
-                return Ok(UserMapper.ToDto(user, IsOwner()));
+                return Ok(UserMapper.ToDto(user, IsSystemAdmin()));
             }
             catch (Exception e)
             {
@@ -102,7 +102,7 @@ namespace api.Controllers
 
         /// <summary>
         /// Lists the crew accounts the signed-in user manages or works alongside: everyone for an
-        /// owner or administrator (or one territory's when they've picked one), a manager's own
+        /// system admin or administrator (or one territory's when they've picked one), a manager's own
         /// territory for a manager.
         /// </summary>
         /// <returns>Users by name.</returns>
@@ -122,9 +122,9 @@ namespace api.Controllers
 
                 var users = await query.OrderBy(u => u.Name).ToListAsync();
 
-                // Sign-in times are for the owner's eyes only.
-                var owner = IsOwner();
-                return Ok(users.Select(u => UserMapper.ToDto(u, owner)).ToList());
+                // Sign-in times are for the system admin's eyes only.
+                var systemAdmin = IsSystemAdmin();
+                return Ok(users.Select(u => UserMapper.ToDto(u, systemAdmin)).ToList());
             }
             catch (Exception e)
             {
@@ -134,7 +134,7 @@ namespace api.Controllers
 
         /// <summary>
         /// Lists the names of the active reps, used to fill the CFS Rep Name picker on an order:
-        /// the crew of the territory being worked, plus the company-wide owners and administrators.
+        /// the crew of the territory being worked, plus the company-wide system admins and administrators.
         /// </summary>
         /// <param name="eventId">The event the order is for, to use its territory</param>
         /// <returns>Active user names.</returns>
@@ -271,7 +271,7 @@ namespace api.Controllers
                 await DB.Entry(user).Reference(u => u.Territory).LoadAsync();
 
                 Trace(TraceEventType.Information, $"{GetCurrentUserName()} updated {user.Username}.");
-                return Ok(UserMapper.ToDto(user, IsOwner()));
+                return Ok(UserMapper.ToDto(user, IsSystemAdmin()));
             }
             catch (Exception e)
             {
@@ -284,11 +284,11 @@ namespace api.Controllers
         #region DELETE Methods
 
         /// <summary>
-        /// Deactivates a crew account, keeping it on file. An owner can instead delete it for good
+        /// Deactivates a crew account, keeping it on file. A system admin can instead delete it for good
         /// with permanent=true: their sales stay, but every place that named them is cleared.
         /// </summary>
         /// <param name="id">User id</param>
-        /// <param name="permanent">True to delete the account rather than deactivate it (owner only)</param>
+        /// <param name="permanent">True to delete the account rather than deactivate it (system admin only)</param>
         /// <returns>200 when the account was deactivated or deleted.</returns>
         [HttpDelete("user/{id}")]
         [Authorize(AuthenticationSchemes = "Bearer")]
@@ -299,8 +299,8 @@ namespace api.Controllers
                 if (!IsAtLeast(UserRole.Manager))
                     return Forbidden(ManagersOnly);
 
-                if (permanent && !IsOwner())
-                    return Forbidden("Only an owner can delete an account permanently.");
+                if (permanent && !IsSystemAdmin())
+                    return Forbidden("Only a system admin can delete an account permanently.");
 
                 var user = await DB.Users.FindAsync(id);
                 if (user == null)
@@ -335,29 +335,29 @@ namespace api.Controllers
         #region Private Methods
 
         /// <summary>
-        /// Whether the signed-in user may change this account: an owner anyone; an administrator
-        /// anyone but an owner; a manager only crew below manager in their own territory.
+        /// Whether the signed-in user may change this account: a system admin anyone; an administrator
+        /// anyone but a system admin; a manager only crew below manager in their own territory.
         /// </summary>
         private bool CanManage(User user)
         {
             var scope = Scope;
-            if (scope.Role == UserRole.Owner)
+            if (scope.Role == UserRole.SystemAdmin)
                 return true;
             if (scope.Role == UserRole.Admin)
-                return user.Role != UserRole.Owner;
+                return user.Role != UserRole.SystemAdmin;
             return scope.Role == UserRole.Manager
                    && user.TerritoryId == scope.HomeTerritoryId
                    && AccessScope.Rank(user.Role) < AccessScope.Rank(UserRole.Manager);
         }
 
         private static string CannotManage(User user) =>
-            user.Role == UserRole.Owner
-                ? "Only an owner can change an owner's account."
+            user.Role == UserRole.SystemAdmin
+                ? "Only a system admin can change a system admin's account."
                 : "A manager can only change the sales and checkout crew in their own territory.";
 
         /// <summary>
         /// Checks the signed-in user may give this role, and works out the territory that goes with
-        /// it: none for owners and administrators, an active territory for everyone else - for a
+        /// it: none for system admins and administrators, an active territory for everyone else - for a
         /// manager's crew, always the manager's own.
         /// </summary>
         /// <returns>The territory to store, or the response to return instead.</returns>
@@ -365,8 +365,8 @@ namespace api.Controllers
         {
             var scope = Scope;
 
-            if (role == UserRole.Owner && scope.Role != UserRole.Owner)
-                return (null, Forbidden("Only an owner can make someone an owner."));
+            if (role == UserRole.SystemAdmin && scope.Role != UserRole.SystemAdmin)
+                return (null, Forbidden("Only a system admin can make someone a system admin."));
 
             if (scope.Role == UserRole.Manager)
             {

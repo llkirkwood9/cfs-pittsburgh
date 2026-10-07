@@ -16,10 +16,10 @@ type Props = {
     options: DeliveryOption[];
     onSave: (option: DeliveryOption) => Promise<void>;
     onDelete: (id: number) => Promise<void>;
-    /** Owner: deleting removes the option for good rather than archiving a used one. */
+    /** System Admin: deleting removes the option for good rather than archiving a used one. */
     permanentDelete?: boolean;
     territories: Territory[];
-    /** Owners and administrators choose where an option is offered; managers' stay in their territory. */
+    /** System Admins and administrators choose where an option is offered; managers' stay in their territory. */
     canChooseTerritory: boolean;
     /** The manager's own territory, shown when they can't choose. */
     ownTerritoryName?: string | null;
@@ -155,7 +155,7 @@ const DeliveryOptionList = ({
                         {option.canEdit === false ? (
                             <span
                                 className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400"
-                                title="Global options are set by an owner or administrator"
+                                title="Global options are set by a system admin or administrator"
                             >
                                 <Icon icon="fa-solid fa-lock" />
                                 Set company-wide

@@ -53,7 +53,7 @@ namespace api.Models
 
         /// <summary>
         /// The territory this delivery option belongs to, or null for a global delivery option offered in every
-        /// territory. Only owners and administrators change global ones.
+        /// territory. Only system admins and administrators change global ones.
         /// </summary>
         public int? TerritoryId { get; set; }
 

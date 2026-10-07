@@ -17,7 +17,7 @@ The catalog and the printed receipt are both built from the supplied source docu
 - The business is split into **territories** (Pittsburgh, Cleveland, ...). Every event belongs to
   one, and so do its crew, its stock and any catalog items of its own. Each territory has one
   active event at a time.
-- **Owners** and **administrators** work across every territory. A territory picker in the menu
+- **System Admins** and **administrators** work across every territory. A territory picker in the menu
   bar chooses which one the screens show - or **All territories**. Selling, checkout and stock
   counts need a single territory, so those screens ask for one when All is picked.
 - Everyone else belongs to one territory and only ever sees its events, orders, stock and
@@ -26,7 +26,7 @@ The catalog and the printed receipt are both built from the supplied source docu
   and **Sales & Checkout** work the floor and the checkout table as before.
 - The API enforces all of this on every request; the dashboard just hides what a role can't use.
 
-| | Sales / Checkout | Sales & Checkout | Manager | Admin | Owner |
+| | Sales / Checkout | Sales & Checkout | Manager | Admin | System Admin |
 |---|---|---|---|---|---|
 | Territories | own | own | own | all | all |
 | Sell / checkout | one each | both | both | both | both |
@@ -48,8 +48,8 @@ The catalog and the printed receipt are both built from the supplied source docu
   drawn to scale) with each size's width and length in inches.
 - A product on sale shows a Sale badge and its sale prices. The sale comes off first and the
   rep's own discount comes off the sale price, with the working shown before the item is added.
-  Shipping works the same way: a shipping choice on sale shows its sale price, and the rep can
-  give a percent or dollar **Shipping discount** on top, in Add item or in Add service.
+  A shipping choice on sale shows its sale price too. A rep's discount on shipping is given
+  afterwards, with **Edit** on the shipping row.
 - A bundle - such as a mattress sold as a set with an adjustable base - gets each included item
   as its own no-charge "included" row, so the sheet shows exactly what is being delivered. The
   size chips show what each bundle includes.
@@ -108,7 +108,7 @@ The catalog and the printed receipt are both built from the supplied source docu
 - Every order for the event being worked, filterable by status and searchable by customer, rep or
   order number, with the printable sales sheet one tap away.
 - A manager or above additionally gets an **All events** tab and a per-event picker for their
-  territory (owners and administrators: the territory in view, or every territory), so a past
+  territory (system admins and administrators: the territory in view, or every territory), so a past
   fundraiser can be looked back over weeks later.
 - A manager or above can **Reopen** a completed (or at-checkout) order and send it to the checkout
   table - to fix a payment, initials or signature - or back to the sales floor to change what was
@@ -134,7 +134,7 @@ The catalog and the printed receipt are both built from the supplied source docu
   bundle count in their own unit column but are not listed as best sellers - the bundle is.
 - Scoped to one event or to a whole day across the territory's events. Only completed sales feed
   the money figures; drafts and voided orders are reported separately so nothing is counted twice.
-- With **All territories** picked, owners and administrators also get **Territories side by
+- With **All territories** picked, system admins and administrators also get **Territories side by
   side**: each territory's completed sales, total and net, average sale, mattresses and bases, and
   what is still owed, for today, 7 days, 30 days, this year or all time. Tapping a territory
   switches the whole dashboard to it.
@@ -143,7 +143,7 @@ The catalog and the printed receipt are both built from the supplied source docu
 - `/catalog` — products (sorted with the same **Sort** buttons as Add item: name, price or brand,
   categories kept together), their sizes and prices, what each size includes as a bundle, which
   delivery services each offers, sales, and selections. An item or delivery option is either
-  **global** (sold in every territory) or one territory's own. Only owners and administrators
+  **global** (sold in every territory) or one territory's own. Only system admins and administrators
   change global ones; a manager adds and edits their territory's. A territory's item can include
   and offer global things and its own territory's; a global item only global ones.
   - **Sale on every size**: a percent or a fixed amount off each item, for the whole product.
@@ -155,7 +155,7 @@ The catalog and the printed receipt are both built from the supplied source docu
     with its own list of choices. A choice can add to or take off the price. A selection can be
     optional, and on a tracked product it can **count stock for each choice**, so each
     territory's Inventory screen keeps a count for every size and color combination.
-  - **Export catalog / Restore catalog** (owners only): the whole catalog as a JSON file -
+  - **Export catalog / Restore catalog** (system admins only): the whole catalog as a JSON file -
     every product (archived ones too, global and every territory's) with sizes, prices, sales,
     selections, bundles, delivery choices and Track inventory, plus the delivery options list; no
     stock counts. Restoring either updates matching products and adds new ones, leaving the rest
@@ -165,7 +165,7 @@ The catalog and the printed receipt are both built from the supplied source docu
   event. An event that has taken no orders can be moved to another territory.
 - `/crew` — accounts, roles, territories, starting passwords and unlocking. A manager sees and
   looks after their territory's Sales and Checkout crew.
-- `/territories` (owners and administrators) — add, rename, switch off (which signs the
+- `/territories` (system admins and administrators) — add, rename, switch off (which signs the
   territory's crew out and closes its active event) or delete an empty territory.
 - `/settings` — five cards, each saved on its own:
   - **Business details**: the company name and customer service number printed on every sales
@@ -185,7 +185,7 @@ The catalog and the printed receipt are both built from the supplied source docu
   - **Dashboard**: the net sales for the first star and between stars, and the running-low level
     used by Stock to watch and the Inventory screen.
 
-  Owners and administrators edit the **company-wide** settings, or pick a territory to set its
+  System Admins and administrators edit the **company-wide** settings, or pick a territory to set its
   own. A territory follows the company for anything it hasn't changed; **Follow company
   settings** on a card puts it back. Managers edit their own territory's. The app name is the same
   everywhere. Sales sheets, receipts and emails use the settings of the territory the sale was
@@ -255,7 +255,7 @@ set, email stays off and the dashboard says so when the buttons are pressed.
 To start without the sample catalog, delivery options and event, add `SKIP_SEED_DATA=true` to the
 same `.env` (locally, `Seed:Skip` in `appsettings.local.json`). Without it, the seed refills
 anything missing on every start, so sample items deleted on purpose come back. The first sign-in
-account (`admin`, an owner) is still created when the database has no accounts at all, so a new
+account (`admin`, a system admin) is still created when the database has no accounts at all, so a new
 database is never locked - see **First sign-in** below.
 
 ### Locally
@@ -290,7 +290,7 @@ local container; set `CFS_POSTGRES_CONNECTION` to use another server.
 
 ### First sign-in
 
-An empty database gets one account, `admin`, made an owner. Its starting password is
+An empty database gets one account, `admin`, made a system admin. Its starting password is
 `SEED_ADMIN_PASSWORD` from the `.env` (`Seed:AdminPassword` locally) or, when that is blank, a
 random one written once to the API's log:
 
@@ -386,8 +386,8 @@ dashboard/                  Vite + React 19 + TS SPA
 ## 4. How the domain is modelled
 
 **Territories partition the business.** `Territory` has a name and an on/off switch. `Event`
-always has a territory; `User` has one unless they're an owner or administrator; `Product` and
-`DeliveryOption` have one or none (none = global). The territory in view for an owner or
+always has a territory; `User` has one unless they're a system admin or administrator; `Product` and
+`DeliveryOption` have one or none (none = global). The territory in view for a system admin or
 administrator travels with each request as an `X-Territory-Id` header, and `AccessScope` turns the
 signed-in user plus that header into the one territory (or none = all) every query filters by.
 
@@ -434,7 +434,7 @@ mattress *and* one base. A product cannot include itself, and a bundle cannot in
 bundle. Anything sold on its own - including a standalone adjustable base - adds just its own
 line.
 
-**Catalog files.** `GET /api/catalog/export` and `POST /api/catalog/import` (owners only) save
+**Catalog files.** `GET /api/catalog/export` and `POST /api/catalog/import` (system admins only) save
 and restore the catalog as JSON (`"format": "cfs-catalog", "version": 1`). Nothing in the file is a
 database id: products are matched by brand and name, sizes by size and configuration, and delivery
 options, selections and choices by name, so a matched item keeps its id and with it its stock
@@ -465,9 +465,8 @@ Shipping rows work the same way. A `DeliveryOption` can carry a sale, and a prod
 `ProductDeliveryOption` can override it for that product (`HasOwnSale` plus its own pair).
 `Choices.DeliverySaleFor` picks the one in force, and it is copied onto the shipping row when it is
 added - with the product's own price for the option - whether the row comes with the item (Add
-item) or on its own (Add service). A keyed-in shipping price takes no sale. The rep's discount
-on the shipping is sent with the item as `DeliveryDiscountPercent` / `DeliveryDiscountAmount`,
-or as the row's own discount from Add service, and stacks on the sale.
+item) or on its own (Add service). A keyed-in shipping price takes no sale. A rep's discount on
+shipping is set afterwards with Edit on the row, and stacks on the sale as an item's does.
 
 **Selections.** `ProductOption` (e.g. Color) has `ProductOptionChoice` rows (Gray, White), each
 with an optional price change. The choices picked are stored on the line as JSON (`ChoicesJson`)
