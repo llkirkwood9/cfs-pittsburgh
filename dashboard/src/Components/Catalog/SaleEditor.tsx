@@ -59,6 +59,8 @@ type Props = {
     allowFollow?: boolean;
     /** What the size would follow, for its label, e.g. "20% off". */
     followLabel?: string;
+    /** The follow button's name, e.g. "Same as option" for a delivery choice. */
+    followName?: string;
     label?: string;
 };
 
@@ -78,6 +80,7 @@ const SaleEditor = ({
     onChange,
     allowFollow = false,
     followLabel,
+    followName = "Same as item",
     label = "Sale",
 }: Props) => {
     const shown = modes.filter((m) => allowFollow || m.mode !== "follow");
@@ -111,8 +114,10 @@ const SaleEditor = ({
                                     : "bg-white text-zinc-700 hover:bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                             }`}
                         >
-                            {m.mode === "follow" && followLabel
-                                ? `Same as item (${followLabel})`
+                            {m.mode === "follow"
+                                ? followLabel
+                                    ? `${followName} (${followLabel})`
+                                    : followName
                                 : m.label}
                         </button>
                     ))}

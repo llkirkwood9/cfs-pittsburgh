@@ -65,6 +65,10 @@ namespace api.Controllers
                 if (await NameClashesAsync(request.Name, territoryId, null))
                     return BadRequest(new { error = "A delivery option with that name already exists." });
 
+                var saleProblem = SaleProblem(request);
+                if (saleProblem != null)
+                    return BadRequest(new { error = saleProblem });
+
                 var option = new DeliveryOption
                 {
                     Name = request.Name.Trim(),
@@ -77,6 +81,8 @@ namespace api.Controllers
                     SortOrder = request.SortOrder ?? 0,
                     IsActive = request.IsActive ?? true,
                 };
+                (option.SaleDiscountPercent, option.SaleDiscountAmount) =
+                    ProductController.CleanSale(request.SaleDiscountPercent, request.SaleDiscountAmount);
 
                 DB.DeliveryOptions.Add(option);
                 await DB.SaveChangesAsync();
@@ -199,6 +205,15 @@ namespace api.Controllers
                 if (request.IsActive != null)
                     option.IsActive = request.IsActive.Value;
 
+                // The editor always sends the whole sale; 0 or nothing clears it.
+                var saleProblem = SaleProblem(request);
+                if (saleProblem != null)
+                    return BadRequest(new { error = saleProblem });
+
+                if (request.SaleDiscountPercent != null || request.SaleDiscountAmount != null)
+                    (option.SaleDiscountPercent, option.SaleDiscountAmount) =
+                        ProductController.CleanSale(request.SaleDiscountPercent, request.SaleDiscountAmount);
+
                 await DB.SaveChangesAsync();
 
                 return Ok(await LoadDtoAsync(option.Id));
@@ -306,7 +321,21 @@ namespace api.Controllers
                 ShowOnSalesSheet = option.ShowOnSalesSheet,
                 SortOrder = option.SortOrder,
                 IsActive = option.IsActive,
+                SaleDiscountPercent = option.SaleDiscountPercent,
+                SaleDiscountAmount = option.SaleDiscountAmount,
             };
+        }
+
+        /// <summary>
+        /// Why a delivery option's sale can't be saved, or null when it's fine.
+        /// </summary>
+        private static string? SaleProblem(DeliveryOptionDto request)
+        {
+            if (request.SaleDiscountPercent is < 0 or > 100)
+                return "A sale percent must be between 0 and 100.";
+            if (request.SaleDiscountAmount < 0)
+                return "A sale amount can't be negative.";
+            return null;
         }
 
         #endregion

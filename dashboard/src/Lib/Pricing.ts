@@ -1,6 +1,8 @@
 import { FormatCurrency } from "./ModelHelpers";
+import type { DeliveryOption } from "../Models/DeliveryOption";
 import type { OrderLine } from "../Models/OrderLine";
 import type { Product } from "../Models/Product";
+import type { ProductDeliveryOption } from "../Models/ProductDeliveryOption";
 import type { LineChoice, ProductOption } from "../Models/ProductOption";
 import type { ProductVariant } from "../Models/ProductVariant";
 
@@ -32,6 +34,24 @@ export const SaleFor = (product: Product, variant?: ProductVariant): Discount =>
     variant?.hasOwnSale
         ? CleanDiscount(variant.saleDiscountPercent, variant.saleDiscountAmount)
         : CleanDiscount(product.saleDiscountPercent, product.saleDiscountAmount);
+
+/**
+ * The sale on a product's delivery option: the product's own when it has one, otherwise the
+ * option's. Matches the server, which applies it when the shipping is added to an order.
+ * @param delivery The product's entry for the option, if it offers it.
+ * @param option The delivery option itself, when there is no product entry to read it from.
+ * @returns The sale, or no discount.
+ */
+export const DeliverySaleFor = (
+    delivery?: ProductDeliveryOption,
+    option?: DeliveryOption
+): Discount =>
+    delivery?.hasOwnSale
+        ? CleanDiscount(delivery.saleDiscountPercent, delivery.saleDiscountAmount)
+        : CleanDiscount(
+              delivery?.optionSaleDiscountPercent ?? option?.saleDiscountPercent,
+              delivery?.optionSaleDiscountAmount ?? option?.saleDiscountAmount
+          );
 
 /** Whether any size of a product is on sale. */
 export const OnSale = (product: Product): boolean =>

@@ -172,10 +172,17 @@ namespace api.Controllers
                     if (option == null || !InCatalog(option.TerritoryId, order.Event!.TerritoryId))
                         return NotFound(new { error = "Delivery option not found." });
 
+                    // Priced as the item it ships offers it: that product's own price and sale for
+                    // the option when it has them, otherwise the option's.
+                    var parentVariantId = order.Lines.FirstOrDefault(l => l.Id == request.ParentLineId)?.ProductVariantId;
+                    var forProduct = parentVariantId == null ? null : await ProductDeliveryAsync(option.Id, parentVariantId.Value);
+
                     line.DeliveryOptionId = option.Id;
                     line.Category = ProductCategory.Misc;
                     line.Description = request.Description ?? option.Name;
-                    line.UnitPrice = request.UnitPrice ?? option.Price;
+                    line.UnitPrice = request.UnitPrice ?? forProduct?.PriceOverride ?? option.Price;
+                    if (request.UnitPrice == null)
+                        (line.SaleDiscountPercent, line.SaleDiscountAmount) = Choices.DeliverySaleFor(option, forProduct);
                     line.IsTaxable = request.IsTaxable ?? option.IsTaxable;
                     line.TakeWith = option.IsTakeWith;
                     line.ShowOnSalesSheet = option.ShowOnSalesSheet;
@@ -230,6 +237,12 @@ namespace api.Controllers
                 if (line.DiscountAmount is < 0)
                     return BadRequest(new { error = "A discount can't be negative." });
 
+                if (request.DeliveryDiscountPercent is < 0 or > 100)
+                    return BadRequest(new { error = "The shipping discount must be between 0 and 100 percent." });
+
+                if (request.DeliveryDiscountAmount is < 0)
+                    return BadRequest(new { error = "A shipping discount can't be negative." });
+
                 // One discount style per line: a percent wins over an amount.
                 if (line.DiscountPercent is > 0)
                     line.DiscountAmount = null;
@@ -266,7 +279,8 @@ namespace api.Controllers
                 // in one tap without a second round trip.
                 if (line.LineType == OrderLineType.Product && request.DeliveryOptionId != null)
                 {
-                    var added = await AddLinkedDeliveryLineAsync(order, line, request.DeliveryOptionId.Value);
+                    var added = await AddLinkedDeliveryLineAsync(
+                        order, line, request.DeliveryOptionId.Value, request.DeliveryDiscountPercent, request.DeliveryDiscountAmount);
                     if (!added)
                         return NotFound(new { error = "Delivery option not found." });
                 }
@@ -1206,20 +1220,19 @@ namespace api.Controllers
         /// <param name="parent">The product line the shipping row belongs to</param>
         /// <param name="deliveryOptionId">Chosen delivery option</param>
         /// <returns>False when the delivery option does not exist.</returns>
-        private async Task<bool> AddLinkedDeliveryLineAsync(Order order, OrderLine parent, int deliveryOptionId)
+        private async Task<bool> AddLinkedDeliveryLineAsync(
+            Order order, OrderLine parent, int deliveryOptionId, decimal? discountPercent = null, decimal? discountAmount = null)
         {
             var option = await DB.DeliveryOptions.FindAsync(deliveryOptionId);
             if (option == null || !InCatalog(option.TerritoryId, order.Event!.TerritoryId))
                 return false;
 
-            var productDelivery = await DB.ProductDeliveryOptions
-                .FirstOrDefaultAsync(p => p.DeliveryOptionId == option.Id
-                                          && p.ProductId == DB.ProductVariants
-                                              .Where(v => v.Id == parent.ProductVariantId)
-                                              .Select(v => v.ProductId)
-                                              .FirstOrDefault());
+            var productDelivery = parent.ProductVariantId == null
+                ? null
+                : await ProductDeliveryAsync(option.Id, parent.ProductVariantId.Value);
 
             var price = productDelivery?.PriceOverride ?? option.Price;
+            var (salePercent, saleAmount) = Choices.DeliverySaleFor(option, productDelivery);
 
             parent.DeliveryOptionId = option.Id;
 
@@ -1236,6 +1249,12 @@ namespace api.Controllers
                 Description = option.Name,
                 Quantity = 1,
                 UnitPrice = price < 0 ? 0 : price,
+                // The sale in force is copied onto the row, so ending it never changes this order.
+                SaleDiscountPercent = salePercent,
+                SaleDiscountAmount = saleAmount,
+                // The rep's own discount on the shipping: a percent wins over an amount.
+                DiscountPercent = discountPercent is > 0 ? discountPercent : null,
+                DiscountAmount = discountPercent is > 0 || discountAmount is not > 0 ? null : discountAmount,
                 IsTaxable = option.IsTaxable,
                 TakeWith = option.IsTakeWith,
                 ShowOnSalesSheet = option.ShowOnSalesSheet,
@@ -1244,6 +1263,21 @@ namespace api.Controllers
 
             return true;
         }
+
+        /// <summary>
+        /// A product's own settings for a delivery option - its price and sale for it - found from
+        /// one of its sizes, or null when it doesn't list the option.
+        /// </summary>
+        /// <param name="deliveryOptionId">The delivery option</param>
+        /// <param name="variantId">A size of the product</param>
+        /// <returns>The product's entry for the option, or null.</returns>
+        private Task<ProductDeliveryOption?> ProductDeliveryAsync(int deliveryOptionId, int variantId) =>
+            DB.ProductDeliveryOptions
+                .FirstOrDefaultAsync(p => p.DeliveryOptionId == deliveryOptionId
+                                          && p.ProductId == DB.ProductVariants
+                                              .Where(v => v.Id == variantId)
+                                              .Select(v => v.ProductId)
+                                              .FirstOrDefault());
 
         /// <summary>
         /// Adds a no-charge Included row for every item in a bundle, directly under the bundle

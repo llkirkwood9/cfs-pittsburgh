@@ -29,7 +29,7 @@ const SizeGuideModal = ({ onClose }: Props) => (
                 target="_blank"
                 rel="noreferrer"
                 title="Open the chart full size"
-                className="block rounded-xl bg-white p-2 shadow-sm ring-1 ring-zinc-200 dark:ring-zinc-700"
+                className="block rounded-xl p-2 shadow-sm"
             >
                 <img
                     src={chart}
@@ -50,7 +50,7 @@ const SizeGuideModal = ({ onClose }: Props) => (
                         {sizes.map((size) => (
                             <tr
                                 key={size.name}
-                                className="border-b border-zinc-100 last:border-0 dark:border-zinc-700/60"
+                                className="border-b border-zinc-100 last:border-0 dark:border-zinc-700/60 text-zinc-900 dark:text-zinc-100"
                             >
                                 <td className="py-2 font-semibold">{size.name}</td>
                                 <td className="py-2 text-right tabular-nums">

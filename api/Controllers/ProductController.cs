@@ -593,6 +593,7 @@ namespace api.Controllers
         {
             var sales = new List<(decimal? Percent, decimal? Amount)> { (request.SaleDiscountPercent, request.SaleDiscountAmount) };
             sales.AddRange((request.Variants ?? []).Select(v => (v.SaleDiscountPercent, v.SaleDiscountAmount)));
+            sales.AddRange((request.DeliveryOptions ?? []).Select(d => (d.SaleDiscountPercent, d.SaleDiscountAmount)));
 
             if (sales.Any(s => s.Percent is < 0 or > 100))
                 return "A sale percent must be between 0 and 100.";
@@ -812,11 +813,19 @@ namespace api.Controllers
                 if (dto.DeliveryOptionId == null)
                     continue;
 
+                var hasOwnSale = dto.HasOwnSale ?? false;
+                var (salePercent, saleAmount) = hasOwnSale
+                    ? CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount)
+                    : (null, null);
+
                 product.DeliveryOptions.Add(new ProductDeliveryOption
                 {
                     DeliveryOptionId = dto.DeliveryOptionId.Value,
                     PriceOverride = dto.PriceOverride,
                     IsDefault = dto.IsDefault ?? false,
+                    HasOwnSale = hasOwnSale,
+                    SaleDiscountPercent = salePercent,
+                    SaleDiscountAmount = saleAmount,
                 });
             }
         }
@@ -952,6 +961,11 @@ namespace api.Controllers
                         IsTaxable = d.DeliveryOption.IsTaxable,
                         IsTakeWith = d.DeliveryOption.IsTakeWith,
                         IsDefault = d.IsDefault,
+                        HasOwnSale = d.HasOwnSale,
+                        SaleDiscountPercent = d.SaleDiscountPercent,
+                        SaleDiscountAmount = d.SaleDiscountAmount,
+                        OptionSaleDiscountPercent = d.DeliveryOption.SaleDiscountPercent,
+                        OptionSaleDiscountAmount = d.DeliveryOption.SaleDiscountAmount,
                     })
                     .ToList(),
             };

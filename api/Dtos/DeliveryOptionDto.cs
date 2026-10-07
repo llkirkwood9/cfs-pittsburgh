@@ -59,5 +59,15 @@ namespace api.Dtos
         /// Whether the option is offered on the floor
         /// </summary>
         public bool? IsActive { get; set; }
+
+        /// <summary>
+        /// A sale on this delivery option, as a percent off
+        /// </summary>
+        public decimal? SaleDiscountPercent { get; set; }
+
+        /// <summary>
+        /// A sale on this delivery option, as a fixed amount off, when there is no percent
+        /// </summary>
+        public decimal? SaleDiscountAmount { get; set; }
     }
 }
