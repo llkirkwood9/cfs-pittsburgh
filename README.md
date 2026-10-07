@@ -248,7 +248,16 @@ EMAIL_FROM=you@gmail.com
 ```
 
 Emails come from the app name set under **Settings**; add `EMAIL_FROM_NAME=...` only to override
-it.
+it. If the sending address isn't read (a "noreply" account), add `EMAIL_REPLY_TO=...` with an
+address someone does read, so customers' replies reach a person.
+
+If receipts land in customers' spam folders, the sender is usually the cause rather than the
+message: a new free Gmail account, especially one called "noreply" and showing a company name,
+sending PDFs to people who have never written to it, is what spam looks like. The lasting fix is to
+send from the company's own domain (Google Workspace, or a sending service such as Postmark,
+Amazon SES or SendGrid) with SPF, DKIM and DMARC set up for that domain; only the `EMAIL_*`
+settings change. See [Documents/Raspberry Pi Setup.md](Documents/Raspberry%20Pi%20Setup.md) for the
+details.
 
 Locally, the same settings go in the `Email` section of `api/appsettings.local.json`. With no host
 set, email stays off and the dashboard says so when the buttons are pressed.

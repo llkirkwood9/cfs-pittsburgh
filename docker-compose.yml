@@ -67,6 +67,7 @@ services:
       Email__Password: "${EMAIL_PASSWORD:-}"
       Email__From: "${EMAIL_FROM:-}"
       Email__FromName: "${EMAIL_FROM_NAME:-}"
+      Email__ReplyTo: "${EMAIL_REPLY_TO:-}"
     restart: unless-stopped
 
 volumes:

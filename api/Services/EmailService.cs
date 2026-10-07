@@ -1,6 +1,7 @@
 using MailKit.Net.Smtp;
 using MailKit.Security;
 using MimeKit;
+using MimeKit.Utils;
 
 namespace api.Services
 {
@@ -15,6 +16,7 @@ namespace api.Services
     ///   Email:Password   its password or app password
     ///   Email:From       the address mail comes from
     ///   Email:FromName   the name shown; when empty, the app name from Settings
+    ///   Email:ReplyTo    optional address customers' replies go to, when From isn't read
     ///
     /// Until Host and From are set, email is simply switched off and the app says so.
     /// </summary>
@@ -87,10 +89,19 @@ namespace api.Services
             message.To.AddRange(to);
             message.Subject = subject;
 
+            // The default Message-Id ends in this machine's name - a container id on the Pi - which
+            // spam filters read as a sign of a script rather than a real mail account.
+            var fromDomain = from[(from.LastIndexOf('@') + 1)..].Trim();
+            if (fromDomain.Contains('.'))
+                message.MessageId = MimeUtils.GenerateMessageId(fromDomain);
+
+            // A no-reply sender with nowhere for replies to go is another spam signal, so the
+            // configured reply address is used when the caller doesn't give one.
+            replyTo = string.IsNullOrWhiteSpace(replyTo) ? config["Email:ReplyTo"] : replyTo;
             if (!string.IsNullOrWhiteSpace(replyTo) && MailboxAddress.TryParse(replyTo, out var reply))
                 message.ReplyTo.Add(reply);
 
-            var body = new BodyBuilder { HtmlBody = html, TextBody = text };
+            var body = new BodyBuilder { HtmlBody = HtmlDocument(subject, html), TextBody = text };
             foreach (var (name, contentType, content) in attachments ?? [])
                 body.Attachments.Add(name, content, ContentType.Parse(contentType));
             message.Body = body.ToMessageBody();
@@ -114,6 +125,38 @@ namespace api.Services
             await client.DisconnectAsync(true);
 
             logger.LogInformation("Sent \"{Subject}\" to {Count} recipient(s).", subject, message.To.Count);
+        }
+
+        #endregion
+
+        #region Private Methods
+
+        /// <summary>
+        /// Wraps a body fragment in a complete HTML document. Filters mark down HTML mail with no
+        /// html, head or body tags, as it's typical of bulk mail tools.
+        /// </summary>
+        /// <param name="subject">Subject line, used as the title</param>
+        /// <param name="html">The body - a fragment, or already a whole document</param>
+        /// <returns>A complete document.</returns>
+        private static string HtmlDocument(string subject, string html)
+        {
+            if (html.TrimStart().StartsWith("<!DOCTYPE", StringComparison.OrdinalIgnoreCase) ||
+                html.TrimStart().StartsWith("<html", StringComparison.OrdinalIgnoreCase))
+                return html;
+
+            return $"""
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1">
+                <title>{System.Net.WebUtility.HtmlEncode(subject)}</title>
+                </head>
+                <body style="margin:0;padding:16px;background:#ffffff;">
+                {html}
+                </body>
+                </html>
+                """;
         }
 
         #endregion

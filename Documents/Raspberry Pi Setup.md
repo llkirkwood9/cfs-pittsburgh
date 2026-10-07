@@ -337,6 +337,8 @@ END
 
 Emails show the app name from the app's **Settings** screen as the sender ("CFS" unless
 you change it there). To use a different sender name, add an `EMAIL_FROM_NAME=...` line too.
+If nobody reads the sending account, add `EMAIL_REPLY_TO=...` with an address someone does read,
+so a customer who replies to their receipt reaches a person.
 
 Then restart so the app picks them up:
 
@@ -351,6 +353,30 @@ server on port 465, set `EMAIL_SECURITY=SslOnConnect`.
 Email needs an internet connection at the time you press Send. At a venue with no internet,
 print instead, or email the report afterwards from home - the report and receipts can be sent any
 time after the event.
+
+### If receipts go to spam
+
+Spam filters judge the sender more than the message. A brand-new free Gmail account - more so one
+named "noreply" that shows a company name - sending PDFs to people who have never written to it
+looks a lot like spam, however tidy the receipt is. In order of how much they help:
+
+1. **Send from the company's own domain.** Use an address such as `receipts@yourcompany.com` from
+   Google Workspace, Microsoft 365, or a sending service built for receipts (Postmark, Amazon SES,
+   SendGrid, Mailgun, Brevo). Set up SPF, DKIM and DMARC for the domain in its DNS, as the provider's
+   setup page describes. Only the `EMAIL_*` lines change; for example, with Google Workspace the
+   host and port stay the same, and the username, from address and app password become the
+   Workspace account's.
+2. **Give replies somewhere to go.** Set `EMAIL_REPLY_TO` (above) to a monitored address, and avoid
+   "noreply" in the sending address if you can.
+3. **Keep the sender name and the address matching.** "Custom Fundraising Solutions" from a
+   `@gmail.com` address is a common phishing pattern; it reads better from the company's domain.
+4. **Build up the account's reputation.** Mail from a new account is watched closely for its first
+   few weeks. Ask the first customers to mark the receipt **Not spam** (or add the address to
+   their contacts), and send a few test receipts to your own Gmail, Outlook and Yahoo addresses
+   and mark them **Not spam** too.
+
+Gmail shows why it filtered a message: open it in the spam folder and read the yellow banner. In
+Gmail, **More** (⋮) → **Show original** shows whether SPF, DKIM and DMARC passed.
 
 If a send fails, the app shows the mail server's reason. To see more:
 
