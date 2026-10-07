@@ -35,7 +35,24 @@ const billingFields: Field[] = [
         span: "col-span-2 sm:col-span-6",
         autoCapitalize: "words",
     },
-    { key: "billingUnit", label: "Apt / unit", hint: "Optional", span: "col-span-2 sm:col-span-2" },
+    {
+        key: "billingUnit",
+        label: "Unit #",
+        hint: "Optional",
+        span: "col-span-1 sm:col-span-2",
+    },
+    {
+        key: "billingFloor",
+        label: "Floor",
+        hint: "Optional",
+        span: "col-span-1 sm:col-span-2",
+    },
+    {
+        key: "billingSuite",
+        label: "Suite #",
+        hint: "Optional",
+        span: "col-span-2 sm:col-span-2",
+    },
     {
         key: "billingCity",
         label: "City",
@@ -52,7 +69,7 @@ const billingFields: Field[] = [
     {
         key: "billingCell",
         label: "Cell phone",
-        span: "col-span-2 sm:col-span-2",
+        span: "col-span-2 sm:col-span-4",
         type: "tel",
         inputMode: "tel",
     },
@@ -83,7 +100,19 @@ const deliveryFields: Field[] = [
     },
     {
         key: "deliveryUnit",
-        label: "Apt / unit",
+        label: "Unit #",
+        hint: "Optional",
+        span: "col-span-1 sm:col-span-2",
+    },
+    {
+        key: "deliveryFloor",
+        label: "Floor",
+        hint: "Optional",
+        span: "col-span-1 sm:col-span-2",
+    },
+    {
+        key: "deliverySuite",
+        label: "Suite #",
         hint: "Optional",
         span: "col-span-2 sm:col-span-2",
     },
@@ -104,7 +133,7 @@ const deliveryFields: Field[] = [
         key: "deliveryCell",
         label: "Phone at that address",
         hint: "Optional",
-        span: "col-span-2 sm:col-span-2",
+        span: "col-span-2 sm:col-span-4",
         type: "tel",
         inputMode: "tel",
     },
@@ -118,13 +147,7 @@ const referralField: Field = {
     autoCapitalize: "words",
 };
 
-const deliveryKeys = [
-    ...deliveryFields.map((f) => f.key),
-    "deliveryFloor",
-    "deliverySuite",
-    "deliveryAlt",
-    "deliveryEmail",
-] as const;
+const deliveryKeys = [...deliveryFields.map((f) => f.key), "deliveryAlt", "deliveryEmail"] as const;
 
 /**
  * The screen a rep hands the tablet across for. Plain language instead of sales-sheet labels,
@@ -162,6 +185,8 @@ const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
                 billingName: form.billingName ?? "",
                 billingAddress: form.billingAddress ?? "",
                 billingUnit: form.billingUnit ?? "",
+                billingFloor: form.billingFloor ?? "",
+                billingSuite: form.billingSuite ?? "",
                 billingCity: form.billingCity ?? "",
                 billingState: form.billingState ?? "",
                 billingZip: form.billingZip ?? "",
