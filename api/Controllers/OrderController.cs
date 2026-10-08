@@ -320,13 +320,19 @@ namespace api.Controllers
                 if (request.Amount.Value <= 0)
                     return BadRequest(new { error = "The payment amount must be greater than zero." });
 
+                var reference = Clean(request.Reference);
+                var financeType = method == PaymentMethod.Financing ? Clean(request.FinanceType) : null;
+                if (reference?.Length > 100 || financeType?.Length > 100)
+                    return BadRequest(new { error = "The financing number and type can be at most 100 characters." });
+
                 order.Payments.Add(new OrderPayment
                 {
                     OrderId = order.Id,
                     Method = method,
                     Amount = request.Amount.Value,
                     CheckNumber = request.CheckNumber,
-                    Reference = request.Reference,
+                    Reference = reference,
+                    FinanceType = financeType,
                 });
 
                 OrderCalculator.RecalculateOrder(order);
@@ -1014,8 +1020,18 @@ namespace api.Controllers
                 if (request.CheckNumber != null)
                     payment.CheckNumber = string.IsNullOrWhiteSpace(request.CheckNumber) ? null : request.CheckNumber;
 
+                if (request.Reference?.Trim().Length > 100 || request.FinanceType?.Trim().Length > 100)
+                    return BadRequest(new { error = "The financing number and type can be at most 100 characters." });
+
                 if (request.Reference != null)
-                    payment.Reference = string.IsNullOrWhiteSpace(request.Reference) ? null : request.Reference;
+                    payment.Reference = Clean(request.Reference);
+
+                if (request.FinanceType != null)
+                    payment.FinanceType = Clean(request.FinanceType);
+
+                // Only a financing payment carries a financing type.
+                if (payment.Method != PaymentMethod.Financing)
+                    payment.FinanceType = null;
 
                 OrderCalculator.RecalculateOrder(order);
                 order.UpdatedAt = DateTime.UtcNow;
@@ -1315,6 +1331,12 @@ namespace api.Controllers
                 .Select(c => (c.OptionId!.Value, c.ChoiceId!.Value));
 
         /// <summary>
+        /// Trimmed text, or null when blank.
+        /// </summary>
+        private static string? Clean(string? value) =>
+            string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+
+        /// <summary>
         /// Builds the Description cell for a catalog variant, e.g. "Agility 3000 - IMC61 Adjustable".
         /// </summary>
         /// <param name="variant">Catalog variant with its product loaded</param>
@@ -1581,7 +1603,7 @@ namespace api.Controllers
                         IsTaxable = l.IsTaxable,
                         SortOrder = l.SortOrder,
                         Notes = l.Notes,
-                        QuantityOnHand = l.ProductVariant?.Product?.TrackInventory == true
+                        QuantityOnHand = l.ProductVariant?.Product?.TrackInventory == true && !l.ProductVariant.ExcludeFromInventory
                             ? string.IsNullOrEmpty(l.StockKey)
                                 ? l.ProductVariant.QuantityOnHand
                                 : l.ProductVariant.ChoiceStocks.FirstOrDefault(c => c.StockKey == l.StockKey)?.QuantityOnHand ?? 0
@@ -1597,6 +1619,7 @@ namespace api.Controllers
                         Amount = p.Amount,
                         CheckNumber = p.CheckNumber,
                         Reference = p.Reference,
+                        FinanceType = p.FinanceType,
                     })
                     .ToList(),
             };

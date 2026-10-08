@@ -63,6 +63,17 @@ namespace api.Utils
         /// <summary>Longest term paragraph: each one has to fit on the one-page sales sheet.</summary>
         public const int MaxTermTextLength = 1200;
 
+        /// <summary>Most finance options.</summary>
+        public const int MaxFinanceOptions = 20;
+
+        /// <summary>Longest finance option name: it is printed in the sales sheet's comments.</summary>
+        public const int MaxFinanceOptionLength = 60;
+
+        /// <summary>
+        /// The kinds of financing offered when none are set: none, so checkout types the kind in.
+        /// </summary>
+        public static readonly IReadOnlyList<string> DefaultFinanceOptions = [];
+
         /// <summary>
         /// The four statements a customer initials, in the order they're signed. The keys match
         /// the order's initials fields, so there are always exactly these four.
@@ -102,7 +113,7 @@ namespace api.Utils
                 AppSettingKeys.AppName, AppSettingKeys.CompanyName, AppSettingKeys.CustomerServicePhone,
                 AppSettingKeys.StarsFirstAt, AppSettingKeys.StarsEvery, AppSettingKeys.LowStockAt,
                 AppSettingKeys.DefaultSalesTaxRate, AppSettingKeys.DefaultCcProcessingFeeRate,
-                AppSettingKeys.SalesSheetTerms,
+                AppSettingKeys.SalesSheetTerms, AppSettingKeys.FinanceOptions,
             };
             var rows = await db.AppSettings.AsNoTracking()
                 .Where(s => keys.Contains(s.Key))
@@ -125,7 +136,8 @@ namespace api.Utils
                 Count(AppSettingKeys.LowStockAt, DefaultLowStockAt),
                 Amount(AppSettingKeys.DefaultSalesTaxRate, DefaultSalesTaxRate, allowZero: true),
                 Amount(AppSettingKeys.DefaultCcProcessingFeeRate, DefaultCcProcessingFeeRate, allowZero: true),
-                ReadTerms(rows.GetValueOrDefault(AppSettingKeys.SalesSheetTerms)));
+                ReadTerms(rows.GetValueOrDefault(AppSettingKeys.SalesSheetTerms)),
+                ReadFinanceOptions(rows.GetValueOrDefault(AppSettingKeys.FinanceOptions)));
         }
 
         /// <summary>
@@ -134,7 +146,7 @@ namespace api.Utils
         public static GeneralSettings Defaults { get; } = new(
             DefaultAppName, DefaultCompanyName, DefaultCustomerServicePhone,
             DefaultStarsFirstAt, DefaultStarsEvery, DefaultLowStockAt,
-            DefaultSalesTaxRate, DefaultCcProcessingFeeRate, DefaultTerms);
+            DefaultSalesTaxRate, DefaultCcProcessingFeeRate, DefaultTerms, DefaultFinanceOptions);
 
         /// <summary>
         /// Saves one setting, or removes its row when the value is empty or the default. The
@@ -181,6 +193,36 @@ namespace api.Utils
         /// Terms written for storing (and for a completed order's copy).
         /// </summary>
         public static string Store(IEnumerable<SalesTerm> terms) => JsonSerializer.Serialize(terms.ToList(), JsonOptions);
+
+        /// <summary>
+        /// Finance options written for storing.
+        /// </summary>
+        public static string Store(IEnumerable<string> options) => JsonSerializer.Serialize(options.ToList(), JsonOptions);
+
+        /// <summary>
+        /// Reads stored finance options, skipping blanks and repeats. Unreadable or missing ones
+        /// fall back to the defaults.
+        /// </summary>
+        /// <param name="json">Stored options, or null</param>
+        /// <returns>The options, in the order set.</returns>
+        public static IReadOnlyList<string> ReadFinanceOptions(string? json)
+        {
+            if (string.IsNullOrWhiteSpace(json))
+                return DefaultFinanceOptions;
+
+            try
+            {
+                return (JsonSerializer.Deserialize<List<string>>(json, JsonOptions) ?? [])
+                    .Where(o => !string.IsNullOrWhiteSpace(o))
+                    .Select(o => o.Trim())
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToList();
+            }
+            catch (JsonException)
+            {
+                return DefaultFinanceOptions;
+            }
+        }
 
         /// <summary>
         /// Reads stored terms. Any of the four that is missing or blank falls back to its
@@ -233,6 +275,7 @@ namespace api.Utils
     /// <param name="DefaultSalesTaxRate">A new event's sales tax rate, e.g. 0.07</param>
     /// <param name="DefaultCcProcessingFeeRate">A new event's card processing fee, e.g. 0.02</param>
     /// <param name="Terms">The four statements a customer initials</param>
+    /// <param name="FinanceOptions">The kinds of financing offered at checkout</param>
     public record GeneralSettings(
         string AppName,
         string CompanyName,
@@ -242,7 +285,8 @@ namespace api.Utils
         int LowStockAt,
         decimal DefaultSalesTaxRate,
         decimal DefaultCcProcessingFeeRate,
-        IReadOnlyList<SalesTerm> Terms);
+        IReadOnlyList<SalesTerm> Terms,
+        IReadOnlyList<string> FinanceOptions);
 
     /// <summary>
     /// One statement the customer initials, on the sales sheet and on their initialling screen.

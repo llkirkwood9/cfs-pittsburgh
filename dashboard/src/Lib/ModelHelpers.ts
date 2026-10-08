@@ -2,7 +2,7 @@ import type { Event } from "../Models/Event";
 import type { InventoryItem } from "../Models/InventoryItem";
 import type { Order } from "../Models/Order";
 import type { OrderLine } from "../Models/OrderLine";
-import type { PaymentMethod } from "../Models/OrderPayment";
+import type { OrderPayment, PaymentMethod } from "../Models/OrderPayment";
 import type { ProductCategory } from "../Models/Product";
 import type { ProductVariant } from "../Models/ProductVariant";
 
@@ -17,6 +17,33 @@ export const PaymentMethodLabels: Record<PaymentMethod, string> = {
     Financing: "Financing",
     Layaway: "Layaway",
 };
+
+/**
+ * A financing payment's details as one line, e.g. "12 months no interest - Financing # 4471".
+ * @param payment The payment.
+ * @returns The line, or an empty string when it has no details.
+ */
+export const FinancingText = (payment: OrderPayment): string =>
+    [
+        payment.financeType?.trim(),
+        payment.reference?.trim() ? `Financing # ${payment.reference.trim()}` : "",
+    ]
+        .filter(Boolean)
+        .join(" - ");
+
+/**
+ * The financing lines printed in the sales sheet's comments, one per financing payment, e.g.
+ * "Financing: 12 months no interest - Financing # 4471 - $1,250.00".
+ * @param order The order.
+ * @returns The lines, in the order recorded.
+ */
+export const FinancingComments = (order: Order): string[] =>
+    (order.payments ?? [])
+        .filter((p) => p.method === "Financing")
+        .map(
+            (p) =>
+                `Financing: ${[FinancingText(p), FormatCurrency(p.amount)].filter(Boolean).join(" - ")}`
+        );
 
 const currency = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" });
 

@@ -192,6 +192,12 @@ namespace api.Dtos
         public List<SalesTermDto>? Terms { get; set; }
 
         /// <summary>
+        /// The kinds of financing offered, picked at checkout when a sale is financed. Null on
+        /// write leaves them unchanged.
+        /// </summary>
+        public List<string>? FinanceOptions { get; set; }
+
+        /// <summary>
         /// The values when nothing has been changed (returned, not saved)
         /// </summary>
         public GeneralSettingsDto? Defaults { get; set; }

@@ -118,6 +118,15 @@ export const ChoicesText = (choices?: LineChoice[] | null): string =>
         .join(", ");
 
 /**
+ * Whether a size's stock is counted: the product tracks inventory and the size isn't left out.
+ * @param product The product.
+ * @param variant The size.
+ * @returns True when counted.
+ */
+export const SizeTracked = (product: Product, variant?: ProductVariant | null): boolean =>
+    Boolean(product.trackInventory && variant && !variant.excludeFromInventory);
+
+/**
  * The selections whose stock is counted, in the order the server builds stock keys.
  * @param product The product.
  * @returns The counted selections.
@@ -147,7 +156,7 @@ export const StockKeyFor = (product: Product, picked: Record<number, number>): s
 };
 
 /**
- * Units on hand of a size for the choices picked, or null when the product isn't tracked or a
+ * Units on hand of a size for the choices picked, or null when the size isn't tracked or a
  * counted selection hasn't been picked yet.
  * @param product The product.
  * @param variant The size.
@@ -159,7 +168,7 @@ export const StockFor = (
     variant: ProductVariant | undefined,
     picked: Record<number, number>
 ): number | null => {
-    if (!product.trackInventory || !variant) return null;
+    if (!variant || !SizeTracked(product, variant)) return null;
     const key = StockKeyFor(product, picked);
     if (key === null) return null;
     if (key === "") return variant.quantityOnHand ?? 0;

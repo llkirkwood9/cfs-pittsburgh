@@ -566,6 +566,10 @@ namespace api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<string>("FinanceType")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<int>("Method")
                         .HasColumnType("integer");
 
@@ -747,6 +751,9 @@ namespace api.Migrations
                     b.Property<string>("Configuration")
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<bool>("ExcludeFromInventory")
+                        .HasColumnType("boolean");
 
                     b.Property<bool>("HasOwnSale")
                         .HasColumnType("boolean");

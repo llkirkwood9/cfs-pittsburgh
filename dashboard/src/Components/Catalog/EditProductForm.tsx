@@ -247,6 +247,7 @@ const EditProductForm = ({
                     quantity: c.quantity ?? 1,
                 })),
                 isActive: v.isActive ?? true,
+                excludeFromInventory: v.excludeFromInventory ?? false,
                 sortOrder: index + 1,
                 hasOwnSale: v.sale.mode !== "follow",
                 saleDiscountPercent: FromSaleDraft(v.sale).percent,
@@ -334,7 +335,7 @@ const EditProductForm = ({
                             <span className="block text-xs text-zinc-500 dark:text-zinc-400">
                                 For items kept at the cart, such as pillows and protectors. Take
                                 With is only allowed while a size is in stock. Set the counts on the
-                                Inventory screen.
+                                Inventory screen. A size can be left out below.
                             </span>
                         </span>
                     </label>
@@ -428,6 +429,29 @@ const EditProductForm = ({
                                         followLabel={itemSaleLabel}
                                     />
                                 </div>
+
+                                {trackInventory && (
+                                    <label className="col-span-full flex min-h-[40px] cursor-pointer items-center gap-3">
+                                        <input
+                                            type="checkbox"
+                                            checked={!variant.excludeFromInventory}
+                                            onChange={(e) =>
+                                                setVariant(index, {
+                                                    excludeFromInventory: !e.target.checked,
+                                                })
+                                            }
+                                            className="h-5 w-5 accent-sky-600"
+                                        />
+                                        <span className="text-sm">
+                                            <span className="font-medium">Count in inventory</span>
+                                            <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                                                Untick for a size that isn&apos;t kept at the cart.
+                                                It won&apos;t be counted or shown on the Inventory
+                                                screen, and Take With isn&apos;t limited by stock.
+                                            </span>
+                                        </span>
+                                    </label>
+                                )}
 
                                 <div className="col-span-full flex flex-wrap items-center gap-2">
                                     <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">

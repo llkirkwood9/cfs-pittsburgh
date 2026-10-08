@@ -46,7 +46,9 @@ The catalog and the printed receipt are both built from the supplied source docu
 - Takes payment split across cash, check, credit/debit card, financing and layaway, with cash
   selected by default. Choosing Credit/Debit Card puts the card processing fee on the total
   straight away; switching to another method takes it back off, so the figure quoted is the
-  figure charged.
+  figure charged. **Financing** also takes the type of financing (picked from the finance options
+  under Settings, or typed when none are set) and the financing number; both are printed in the
+  Comments box of the sales sheet, with the amount financed.
 - **Hand to customer** walks the customer through the three acknowledgements one at a time in
   plain language, taking initials for each, then a finger-drawn signature. The signature is
   stored with the order and printed on the sales sheet.
@@ -122,15 +124,18 @@ The catalog and the printed receipt are both built from the supplied source docu
     with its own list of choices. A choice can add to or take off the price. A selection can be
     optional, and on a tracked product it can **count stock for each choice**, so the Inventory
     screen keeps a count for every size and color combination.
+  - **Count in inventory**: on a tracked product, each size can be left out of inventory (for
+    example a size that isn't kept at the cart). It isn't counted, doesn't appear on the Inventory
+    screen or the inventory sheet, and Take With isn't limited by stock for it.
   - **Export catalog / Restore catalog** (system admins only): the whole catalog as a JSON file -
     every product (archived ones too) with sizes, prices, sales, selections, bundles, delivery
-    choices and Track inventory, plus the delivery options list; no stock counts. Restoring either
+    choices, Track inventory and sizes left out of it, plus the delivery options list; no stock counts. Restoring either
     updates matching products and adds new ones, leaving the rest alone, or clears the catalog
     (a permanent delete, sold items included) and rebuilds it from the file. See *Catalog files*
     below.
 - `/events` — sales tax rate, card processing fee, order number sequence, active event.
 - `/crew` — accounts and roles.
-- `/settings` — five cards, each saved on its own:
+- `/settings` — six cards, each saved on its own:
   - **Business details**: the company name and customer service number printed on every sales
     sheet and in emails, and the app name shown in the menu bar, sign-in screen, browser tab and as
     the email sender.
@@ -143,6 +148,9 @@ The catalog and the printed receipt are both built from the supplied source docu
   - **Receipt email**: the subject and wording, plain text with `{Placeholders}` (`{FirstName}`,
     `{OrderNumber}`, `{CompanyName}`, `{WhatHappensNext}` and so on), a blank line between
     paragraphs, `- ` for bullets, with a live preview for a sample order.
+  - **Financing**: the kinds of financing a customer can choose (none by default), in the order
+    checkout sees them. A financed payment stores its type in `OrderPayments.FinanceType` and the
+    financing number in `OrderPayments.Reference`.
   - **New events**: the sales tax and card processing fee a new event starts with (7% and 2%).
     The API uses them for an event created without rates.
   - **Dashboard**: the net sales for the first star and between stars, and the running-low level

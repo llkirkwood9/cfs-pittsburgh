@@ -57,6 +57,9 @@ namespace api.Controllers
                 if (!variant.Product.TrackInventory)
                     return BadRequest(new { error = "This product does not track inventory." });
 
+                if (variant.ExcludeFromInventory)
+                    return BadRequest(new { error = "This size is left out of inventory." });
+
                 var key = request.StockKey ?? "";
                 var onHand = await Choices.OnHandAsync(DB, variant, key);
                 var change = request.SetTo != null
@@ -134,7 +137,7 @@ namespace api.Controllers
                     .Where(v => ids.Contains(v.Id))
                     .ToListAsync();
 
-                if (variants.Count != ids.Count || variants.Any(v => v.Product is not { TrackInventory: true }))
+                if (variants.Count != ids.Count || variants.Any(v => v.Product is not { TrackInventory: true } || v.ExcludeFromInventory))
                     return BadRequest(new { error = "Only tracked products can be counted." });
 
                 var opening = string.Equals(request.Phase, "Start", StringComparison.OrdinalIgnoreCase);
@@ -308,7 +311,8 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// Builds the inventory rows for every active tracked size, or for a single size.
+        /// Builds the inventory rows for every active tracked size, or for a single size. Sizes left
+        /// out of their product's inventory are skipped.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <param name="eventId">Optional event for the sold-at-event totals</param>
@@ -323,7 +327,7 @@ namespace api.Controllers
                 .ThenInclude(o => o.Choices)
                 .Include(v => v.ChoiceStocks)
                 .AsSplitQuery()
-                .Where(v => v.Product!.TrackInventory);
+                .Where(v => v.Product!.TrackInventory && !v.ExcludeFromInventory);
 
             query = variantId != null
                 ? query.Where(v => v.Id == variantId.Value)

@@ -23,6 +23,7 @@ export interface CatalogVariant {
     configuration?: string | null;
     price?: number | null;
     isActive?: boolean;
+    excludeFromInventory?: boolean;
     hasOwnSale?: boolean;
     saleDiscountPercent?: number | null;
     saleDiscountAmount?: number | null;

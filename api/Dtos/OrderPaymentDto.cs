@@ -26,8 +26,13 @@ namespace api.Dtos
         public string? CheckNumber { get; set; }
 
         /// <summary>
-        /// Free-text reference such as a financing application id
+        /// Free-text reference. For a financing payment, the financing number.
         /// </summary>
         public string? Reference { get; set; }
+
+        /// <summary>
+        /// For a financing payment, which financing the customer chose
+        /// </summary>
+        public string? FinanceType { get; set; }
     }
 }

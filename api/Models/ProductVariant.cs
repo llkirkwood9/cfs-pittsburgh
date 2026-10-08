@@ -60,6 +60,13 @@ namespace api.Models
         public int QuantityOnHand { get; set; }
 
         /// <summary>
+        /// Leaves this size out of the product's inventory: it is not counted, does not appear on
+        /// the Inventory screen or sheets, and Take With is not limited by stock. Only meaningful
+        /// when the product tracks inventory.
+        /// </summary>
+        public bool ExcludeFromInventory { get; set; }
+
+        /// <summary>
         /// Whether this size has its own sale rather than the product's. With its own sale and no
         /// discount set, this size is left out of the product's sale.
         /// </summary>
