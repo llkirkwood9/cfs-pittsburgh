@@ -41,6 +41,11 @@ namespace api.Data
         public DbSet<ProductDeliveryOption> ProductDeliveryOptions => Set<ProductDeliveryOption>();
 
         /// <summary>
+        /// Kinds of financing offered at checkout
+        /// </summary>
+        public DbSet<FinanceOption> FinanceOptions => Set<FinanceOption>();
+
+        /// <summary>
         /// Customer orders
         /// </summary>
         public DbSet<Order> Orders => Set<Order>();

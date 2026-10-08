@@ -93,8 +93,14 @@ namespace api.Models
         public const string SalesSheetTerms = "SalesSheetTerms";
 
         /// <summary>
-        /// The kinds of financing offered at checkout, as a JSON list
+        /// The kinds of financing offered at checkout, as a JSON list. No longer used: the options
+        /// are kept in the FinanceOptions table, and the migration that made it moved them there.
         /// </summary>
         public const string FinanceOptions = "FinanceOptions";
+
+        /// <summary>
+        /// Whether checkout may type in a financing type that isn't one of the finance options
+        /// </summary>
+        public const string AllowOtherFinanceType = "AllowOtherFinanceType";
     }
 }

@@ -160,20 +160,6 @@ namespace api.Controllers
                 if (taxRate < 0 || taxRate > SettingsStore.MaxDefaultRate || feeRate < 0 || feeRate > SettingsStore.MaxDefaultRate)
                     return BadRequest(new { error = $"Rates must be between 0% and {SettingsStore.MaxDefaultRate:P0}." });
 
-                List<string>? financeOptions = null;
-                if (request.FinanceOptions != null)
-                {
-                    financeOptions = request.FinanceOptions
-                        .Where(o => !string.IsNullOrWhiteSpace(o))
-                        .Select(o => o.Trim())
-                        .Distinct(StringComparer.OrdinalIgnoreCase)
-                        .ToList();
-                    if (financeOptions.Count > SettingsStore.MaxFinanceOptions)
-                        return BadRequest(new { error = $"There can be at most {SettingsStore.MaxFinanceOptions} finance options." });
-                    if (financeOptions.Any(o => o.Length > SettingsStore.MaxFinanceOptionLength))
-                        return BadRequest(new { error = $"Each finance option can be at most {SettingsStore.MaxFinanceOptionLength} characters." });
-                }
-
                 List<SalesTerm>? terms = null;
                 if (request.Terms != null)
                 {
@@ -202,10 +188,9 @@ namespace api.Controllers
                     await SettingsStore.SetAsync(DB, AppSettingKeys.DefaultCcProcessingFeeRate, SettingsStore.Store(feeRate), SettingsStore.Store(defaults.DefaultCcProcessingFeeRate), by);
                 if (terms != null)
                     await SettingsStore.SetAsync(DB, AppSettingKeys.SalesSheetTerms, SettingsStore.Store(terms), SettingsStore.Store(defaults.Terms), by);
-                if (financeOptions != null)
-                    await SettingsStore.SetAsync(DB, AppSettingKeys.FinanceOptions,
-                        financeOptions.Count == 0 ? null : SettingsStore.Store(financeOptions),
-                        SettingsStore.Store(defaults.FinanceOptions), by);
+                if (request.AllowOtherFinanceType != null)
+                    await SettingsStore.SetAsync(DB, AppSettingKeys.AllowOtherFinanceType,
+                        SettingsStore.Store(request.AllowOtherFinanceType.Value), SettingsStore.Store(defaults.AllowOtherFinanceType), by);
 
                 await DB.SaveChangesAsync();
                 Trace(TraceEventType.Information, $"General settings changed by {by}.");
@@ -321,7 +306,7 @@ namespace api.Controllers
                 Terms = settings.Terms
                     .Select(t => new SalesTermDto { Key = t.Key, Title = t.Title, Heading = t.Heading, Text = t.Text })
                     .ToList(),
-                FinanceOptions = settings.FinanceOptions.ToList(),
+                AllowOtherFinanceType = settings.AllowOtherFinanceType,
                 Defaults = includeDefaults ? ToDto(SettingsStore.Defaults, includeDefaults: false) : null,
             };
         }

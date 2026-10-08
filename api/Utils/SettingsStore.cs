@@ -63,16 +63,11 @@ namespace api.Utils
         /// <summary>Longest term paragraph: each one has to fit on the one-page sales sheet.</summary>
         public const int MaxTermTextLength = 1200;
 
-        /// <summary>Most finance options.</summary>
-        public const int MaxFinanceOptions = 20;
-
-        /// <summary>Longest finance option name: it is printed in the sales sheet's comments.</summary>
-        public const int MaxFinanceOptionLength = 60;
-
         /// <summary>
-        /// The kinds of financing offered when none are set: none, so checkout types the kind in.
+        /// Whether checkout may type in a financing type that isn't one of the finance options,
+        /// when not set: yes.
         /// </summary>
-        public static readonly IReadOnlyList<string> DefaultFinanceOptions = [];
+        public const bool DefaultAllowOtherFinanceType = true;
 
         /// <summary>
         /// The four statements a customer initials, in the order they're signed. The keys match
@@ -113,7 +108,7 @@ namespace api.Utils
                 AppSettingKeys.AppName, AppSettingKeys.CompanyName, AppSettingKeys.CustomerServicePhone,
                 AppSettingKeys.StarsFirstAt, AppSettingKeys.StarsEvery, AppSettingKeys.LowStockAt,
                 AppSettingKeys.DefaultSalesTaxRate, AppSettingKeys.DefaultCcProcessingFeeRate,
-                AppSettingKeys.SalesSheetTerms, AppSettingKeys.FinanceOptions,
+                AppSettingKeys.SalesSheetTerms, AppSettingKeys.AllowOtherFinanceType,
             };
             var rows = await db.AppSettings.AsNoTracking()
                 .Where(s => keys.Contains(s.Key))
@@ -124,6 +119,8 @@ namespace api.Utils
             decimal Amount(string key, decimal fallback, bool allowZero = false) =>
                 rows.TryGetValue(key, out var v) && decimal.TryParse(v, NumberStyles.Number, CultureInfo.InvariantCulture, out var d)
                     && (d > 0 || (allowZero && d == 0)) ? d : fallback;
+            bool Flag(string key, bool fallback) =>
+                rows.TryGetValue(key, out var v) && bool.TryParse(v, out var f) ? f : fallback;
             int Count(string key, int fallback) =>
                 rows.TryGetValue(key, out var v) && int.TryParse(v, NumberStyles.Integer, CultureInfo.InvariantCulture, out var n) && n >= 0 ? n : fallback;
 
@@ -137,7 +134,7 @@ namespace api.Utils
                 Amount(AppSettingKeys.DefaultSalesTaxRate, DefaultSalesTaxRate, allowZero: true),
                 Amount(AppSettingKeys.DefaultCcProcessingFeeRate, DefaultCcProcessingFeeRate, allowZero: true),
                 ReadTerms(rows.GetValueOrDefault(AppSettingKeys.SalesSheetTerms)),
-                ReadFinanceOptions(rows.GetValueOrDefault(AppSettingKeys.FinanceOptions)));
+                Flag(AppSettingKeys.AllowOtherFinanceType, DefaultAllowOtherFinanceType));
         }
 
         /// <summary>
@@ -146,7 +143,7 @@ namespace api.Utils
         public static GeneralSettings Defaults { get; } = new(
             DefaultAppName, DefaultCompanyName, DefaultCustomerServicePhone,
             DefaultStarsFirstAt, DefaultStarsEvery, DefaultLowStockAt,
-            DefaultSalesTaxRate, DefaultCcProcessingFeeRate, DefaultTerms, DefaultFinanceOptions);
+            DefaultSalesTaxRate, DefaultCcProcessingFeeRate, DefaultTerms, DefaultAllowOtherFinanceType);
 
         /// <summary>
         /// Saves one setting, or removes its row when the value is empty or the default. The
@@ -195,34 +192,9 @@ namespace api.Utils
         public static string Store(IEnumerable<SalesTerm> terms) => JsonSerializer.Serialize(terms.ToList(), JsonOptions);
 
         /// <summary>
-        /// Finance options written for storing.
+        /// A yes/no setting written for storing.
         /// </summary>
-        public static string Store(IEnumerable<string> options) => JsonSerializer.Serialize(options.ToList(), JsonOptions);
-
-        /// <summary>
-        /// Reads stored finance options, skipping blanks and repeats. Unreadable or missing ones
-        /// fall back to the defaults.
-        /// </summary>
-        /// <param name="json">Stored options, or null</param>
-        /// <returns>The options, in the order set.</returns>
-        public static IReadOnlyList<string> ReadFinanceOptions(string? json)
-        {
-            if (string.IsNullOrWhiteSpace(json))
-                return DefaultFinanceOptions;
-
-            try
-            {
-                return (JsonSerializer.Deserialize<List<string>>(json, JsonOptions) ?? [])
-                    .Where(o => !string.IsNullOrWhiteSpace(o))
-                    .Select(o => o.Trim())
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .ToList();
-            }
-            catch (JsonException)
-            {
-                return DefaultFinanceOptions;
-            }
-        }
+        public static string Store(bool value) => value ? "true" : "false";
 
         /// <summary>
         /// Reads stored terms. Any of the four that is missing or blank falls back to its
@@ -275,7 +247,7 @@ namespace api.Utils
     /// <param name="DefaultSalesTaxRate">A new event's sales tax rate, e.g. 0.07</param>
     /// <param name="DefaultCcProcessingFeeRate">A new event's card processing fee, e.g. 0.02</param>
     /// <param name="Terms">The four statements a customer initials</param>
-    /// <param name="FinanceOptions">The kinds of financing offered at checkout</param>
+    /// <param name="AllowOtherFinanceType">Whether checkout may type in a financing type that isn't a finance option</param>
     public record GeneralSettings(
         string AppName,
         string CompanyName,
@@ -286,7 +258,7 @@ namespace api.Utils
         decimal DefaultSalesTaxRate,
         decimal DefaultCcProcessingFeeRate,
         IReadOnlyList<SalesTerm> Terms,
-        IReadOnlyList<string> FinanceOptions);
+        bool AllowOtherFinanceType);
 
     /// <summary>
     /// One statement the customer initials, on the sales sheet and on their initialling screen.

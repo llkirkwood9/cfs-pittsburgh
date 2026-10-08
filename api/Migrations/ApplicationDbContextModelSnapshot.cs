@@ -159,6 +159,30 @@ namespace api.Migrations
                     b.ToTable("Events");
                 });
 
+            modelBuilder.Entity("api.Models.FinanceOption", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<bool>("IsActive")
+                        .HasColumnType("boolean");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("FinanceOptions");
+                });
+
             modelBuilder.Entity("api.Models.InventoryAdjustment", b =>
                 {
                     b.Property<int>("Id")

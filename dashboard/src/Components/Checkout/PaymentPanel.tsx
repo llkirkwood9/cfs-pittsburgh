@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import TextField from "../Elements/TextField";
@@ -10,8 +10,10 @@ import {
     PaymentMethodLabels,
 } from "../../Lib/ModelHelpers";
 import { Toast } from "../../Lib/Toast";
+import type { FinanceOption } from "../../Models/FinanceOption";
 import type { Order } from "../../Models/Order";
 import type { OrderPayment, PaymentMethod } from "../../Models/OrderPayment";
+import { GetFinanceOptions } from "../../Services/FinanceOptionServices";
 
 type Props = {
     order: Order;
@@ -19,6 +21,9 @@ type Props = {
     onRemove: (paymentId: number) => Promise<void>;
     onMethodChange: (method: PaymentMethod) => Promise<void>;
 };
+
+/** The financing type picker's value for Other. */
+const OTHER = "__other__";
 
 // Cash and check first: they are the common case at a school fundraiser and carry no card fee.
 const methods: { key: PaymentMethod; label: string; icon: string }[] = [
@@ -32,12 +37,18 @@ const methods: { key: PaymentMethod; label: string; icon: string }[] = [
 /**
  * The Payment Options box at the checkout table. An order can be split across several methods,
  * and the amount field pre-fills with whatever is still owed so the common case is two taps.
- * Financing also takes the financing number and the kind of financing chosen, from the finance
- * options set under Settings; both print in the sales sheet's comments.
+ * Financing also takes the financing number and the type of financing, picked from the
+ * catalog's financing options - or typed in under Other, when Settings allows it; both print in
+ * the sales sheet's comments.
  */
 const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
     const { settings } = useSettings();
-    const financeOptions = settings.financeOptions ?? [];
+    const allowOther = settings.allowOtherFinanceType;
+    const [financeOptions, setFinanceOptions] = useState<FinanceOption[]>([]);
+
+    useEffect(() => {
+        GetFinanceOptions().then(setFinanceOptions);
+    }, []);
     // Cash is the default. It carries no card fee, so the selection shown always matches the
     // total shown; an order already switched to card reopens on card.
     const [method, setMethod] = useState<PaymentMethod>(
@@ -45,7 +56,9 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
     );
     const [amount, setAmount] = useState<string>("");
     const [checkNumber, setCheckNumber] = useState<string>("");
-    const [financeType, setFinanceType] = useState<string>("");
+    // An option's name, OTHER, or "" before anything is picked.
+    const [financeChoice, setFinanceChoice] = useState<string>("");
+    const [otherType, setOtherType] = useState<string>("");
     const [financeNumber, setFinanceNumber] = useState<string>("");
     const [saving, setSaving] = useState<boolean>(false);
 
@@ -70,6 +83,9 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
             return Toast.Warning("Enter the check number.");
 
         const financing = method === "Financing";
+        const financeType = financeChoice === OTHER ? otherType : financeChoice;
+        if (financing && financeChoice === OTHER && !otherType.trim())
+            return Toast.Warning("Type in the kind of financing.");
         if (financing && !financeType.trim()) return Toast.Warning("Choose the type of financing.");
         if (financing && !financeNumber.trim()) return Toast.Warning("Enter the financing number.");
 
@@ -85,7 +101,8 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
 
         setAmount("");
         setCheckNumber("");
-        setFinanceType("");
+        setFinanceChoice("");
+        setOtherType("");
         setFinanceNumber("");
     };
 
@@ -136,35 +153,43 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
                     />
                 )}
                 {method === "Financing" &&
-                    (financeOptions.length > 0 ? (
+                    (financeOptions.length > 0 || allowOther ? (
                         <label className="flex flex-col gap-1">
                             <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                                 Financing type
                             </span>
                             <select
-                                value={financeType}
-                                onChange={(e) => setFinanceType(e.target.value)}
+                                value={financeChoice}
+                                onChange={(e) => setFinanceChoice(e.target.value)}
                                 className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base
                                     text-zinc-900 outline-none focus:border-sky-600
                                     dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                             >
                                 <option value="">Choose...</option>
                                 {financeOptions.map((option) => (
-                                    <option key={option} value={option}>
-                                        {option}
+                                    <option key={option.id} value={option.name}>
+                                        {option.name}
                                     </option>
                                 ))}
+                                {allowOther && <option value={OTHER}>Other</option>}
                             </select>
                         </label>
                     ) : (
-                        <TextField
-                            label="Financing type"
-                            value={financeType}
-                            onChange={setFinanceType}
-                            maxLength={100}
-                            placeholder="e.g. 12 months no interest"
-                        />
+                        <p className="self-end rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                            <Icon icon="fa-solid fa-circle-info" /> No financing options are set up.
+                            An administrator adds them in Catalog, under Financing Options.
+                        </p>
                     ))}
+                {method === "Financing" && financeChoice === OTHER && (
+                    <TextField
+                        label="Other financing type"
+                        value={otherType}
+                        onChange={setOtherType}
+                        maxLength={100}
+                        placeholder="e.g. 36 months, 9.99% APR"
+                        className="sm:col-span-2"
+                    />
+                )}
                 {method === "Financing" && (
                     <TextField
                         label="Financing #"

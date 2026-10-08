@@ -8,6 +8,7 @@ import TabButton from "../Components/Elements/TabButton";
 import TextField from "../Components/Elements/TextField";
 import DeliveryOptionList from "../Components/Catalog/DeliveryOptionList";
 import EditProductForm from "../Components/Catalog/EditProductForm";
+import FinanceOptionList from "../Components/Catalog/FinanceOptionList";
 import ImportCatalogModal from "../Components/Catalog/ImportCatalogModal";
 import { useAuth } from "../Context/AuthContext";
 import { FormatCurrency } from "../Lib/ModelHelpers";
@@ -15,6 +16,7 @@ import { DiscountText, HasDiscount, OnSale, SaleFor } from "../Lib/Pricing";
 import { ProductSortOptions, SortProducts, type ProductSortKey } from "../Lib/ProductSort";
 import { Toast } from "../Lib/Toast";
 import type { DeliveryOption } from "../Models/DeliveryOption";
+import type { FinanceOption } from "../Models/FinanceOption";
 import { ExportCatalog } from "../Services/CatalogServices";
 import type { Product, ProductCategory } from "../Models/Product";
 import {
@@ -23,6 +25,13 @@ import {
     GetDeliveryOptions,
     UpdateDeliveryOption,
 } from "../Services/DeliveryOptionServices";
+import {
+    AddFinanceOption,
+    DeleteFinanceOption,
+    GetFinanceOptions,
+    ReorderFinanceOptions,
+    UpdateFinanceOption,
+} from "../Services/FinanceOptionServices";
 import {
     AddProduct,
     DeleteProduct,
@@ -33,7 +42,8 @@ import {
 
 /**
  * Catalog administration. Everything the floor can sell is defined here: products, the sizes and
- * configurations they come in, their prices, and which delivery services each one offers.
+ * configurations they come in, their prices, which delivery services each one offers, and the
+ * kinds of financing offered at checkout.
  */
 const CatalogPage = () => {
     const { user } = useAuth();
@@ -41,10 +51,11 @@ const CatalogPage = () => {
 
     const [products, setProducts] = useState<Product[]>([]);
     const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOption[]>([]);
+    const [financeOptions, setFinanceOptions] = useState<FinanceOption[]>([]);
     const [categories, setCategories] = useState<ProductCategory[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
 
-    const [tab, setTab] = useState<ProductCategory | "All" | "Delivery">("Mattress");
+    const [tab, setTab] = useState<ProductCategory | "All" | "Delivery" | "Financing">("Mattress");
     const [search, setSearch] = useState<string>("");
     const [sortKey, setSortKey] = useState<ProductSortKey>("name-asc");
     const [editing, setEditing] = useState<Product | null>(null);
@@ -54,13 +65,15 @@ const CatalogPage = () => {
 
     const load = async () => {
         setLoading(true);
-        const [catalog, options, cats] = await Promise.all([
+        const [catalog, options, financing, cats] = await Promise.all([
             GetProducts(true),
             GetDeliveryOptions(true),
+            GetFinanceOptions(true),
             GetCategories(),
         ]);
         setProducts(catalog);
         setDeliveryOptions(options);
+        setFinanceOptions(financing);
         setCategories(cats);
         setLoading(false);
     };
@@ -72,7 +85,13 @@ const CatalogPage = () => {
     const filtered = useMemo(() => {
         const term = search.trim().toLowerCase();
         const matches = products.filter((product) => {
-            if (tab !== "All" && tab !== "Delivery" && product.category !== tab) return false;
+            if (
+                tab !== "All" &&
+                tab !== "Delivery" &&
+                tab !== "Financing" &&
+                product.category !== tab
+            )
+                return false;
             if (!term) return true;
             return (
                 (product.name ?? "").toLowerCase().includes(term) ||
@@ -142,6 +161,29 @@ const CatalogPage = () => {
         }
     };
 
+    const handleSaveFinanceOption = async (option: FinanceOption) => {
+        const saved = option.id
+            ? await UpdateFinanceOption(option)
+            : await AddFinanceOption(option);
+
+        if (!saved) return;
+
+        Toast.Success(`${saved.name} saved.`);
+        setFinanceOptions(await GetFinanceOptions(true));
+    };
+
+    const handleDeleteFinanceOption = async (id: number) => {
+        if (await DeleteFinanceOption(id)) {
+            Toast.Success("Financing option removed.");
+            setFinanceOptions(await GetFinanceOptions(true));
+        }
+    };
+
+    const handleReorderFinanceOptions = async (ids: number[]) => {
+        const reordered = await ReorderFinanceOptions(ids);
+        if (reordered) setFinanceOptions(reordered);
+    };
+
     const priceRange = (product: Product): string => {
         const prices = (product.variants ?? [])
             .map((v) => v.price)
@@ -186,7 +228,7 @@ const CatalogPage = () => {
                             />
                         </>
                     )}
-                    {tab !== "Delivery" && (
+                    {tab !== "Delivery" && tab !== "Financing" && (
                         <Button
                             text="New product"
                             icon="fa-solid fa-plus"
@@ -221,9 +263,22 @@ const CatalogPage = () => {
                     onClick={() => setTab("Delivery")}
                     badge={deliveryOptions.length}
                 />
+                <TabButton
+                    text="Financing Options"
+                    active={tab === "Financing"}
+                    onClick={() => setTab("Financing")}
+                    badge={financeOptions.length}
+                />
             </div>
 
-            {tab === "Delivery" ? (
+            {tab === "Financing" ? (
+                <FinanceOptionList
+                    options={financeOptions}
+                    onSave={handleSaveFinanceOption}
+                    onDelete={handleDeleteFinanceOption}
+                    onReorder={handleReorderFinanceOptions}
+                />
+            ) : tab === "Delivery" ? (
                 <DeliveryOptionList
                     options={deliveryOptions}
                     onSave={handleSaveDeliveryOption}
