@@ -56,9 +56,9 @@ The catalog and the printed receipt are both built from the supplied source docu
 - A second in-home service (White Glove *and* Haul Away, as on the paper sheets) is attached to a
   line with **Add service**.
 - **Hand tablet to customer** opens a plain-language, oversized form for the customer to type
-  their own address (with the same optional Unit #, Floor and Suite # as the sales sheet), a
-  separate delivery address if the bed is going somewhere else, and the name of whoever referred
-  them. No prices, no line items and no
+  their own address (with the same optional Unit #, Floor, Suite # and alternate phone as the sales
+  sheet), a separate delivery address if the bed is going somewhere else, and the name of whoever
+  referred them. No prices, no line items and no
   navigation are on screen while they have it.
 - Pressing **Complete** hands the order to the checkout table.
 

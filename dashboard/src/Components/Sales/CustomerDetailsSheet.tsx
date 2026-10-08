@@ -56,20 +56,28 @@ const billingFields: Field[] = [
     {
         key: "billingCity",
         label: "City",
-        span: "col-span-2 sm:col-span-4",
+        span: "col-span-2 sm:col-span-3",
         autoCapitalize: "words",
     },
     {
         key: "billingState",
         label: "State",
-        span: "col-span-1 sm:col-span-2",
+        span: "col-span-1 sm:col-span-1",
         autoCapitalize: "characters",
     },
     { key: "billingZip", label: "ZIP code", span: "col-span-1 sm:col-span-2", inputMode: "tel" },
     {
         key: "billingCell",
         label: "Cell phone",
-        span: "col-span-2 sm:col-span-4",
+        span: "col-span-2 sm:col-span-3",
+        type: "tel",
+        inputMode: "tel",
+    },
+    {
+        key: "billingAlt",
+        label: "Alternate phone",
+        hint: "Optional",
+        span: "col-span-2 sm:col-span-3",
         type: "tel",
         inputMode: "tel",
     },
@@ -119,13 +127,13 @@ const deliveryFields: Field[] = [
     {
         key: "deliveryCity",
         label: "City",
-        span: "col-span-2 sm:col-span-4",
+        span: "col-span-2 sm:col-span-3",
         autoCapitalize: "words",
     },
     {
         key: "deliveryState",
         label: "State",
-        span: "col-span-1 sm:col-span-2",
+        span: "col-span-1 sm:col-span-1",
         autoCapitalize: "characters",
     },
     { key: "deliveryZip", label: "ZIP code", span: "col-span-1 sm:col-span-2", inputMode: "tel" },
@@ -133,7 +141,15 @@ const deliveryFields: Field[] = [
         key: "deliveryCell",
         label: "Phone at that address",
         hint: "Optional",
-        span: "col-span-2 sm:col-span-4",
+        span: "col-span-2 sm:col-span-3",
+        type: "tel",
+        inputMode: "tel",
+    },
+    {
+        key: "deliveryAlt",
+        label: "Alternate phone",
+        hint: "Optional",
+        span: "col-span-2 sm:col-span-3",
         type: "tel",
         inputMode: "tel",
     },
@@ -147,7 +163,7 @@ const referralField: Field = {
     autoCapitalize: "words",
 };
 
-const deliveryKeys = [...deliveryFields.map((f) => f.key), "deliveryAlt", "deliveryEmail"] as const;
+const deliveryKeys = [...deliveryFields.map((f) => f.key), "deliveryEmail"] as const;
 
 /**
  * The screen a rep hands the tablet across for. Plain language instead of sales-sheet labels,
@@ -191,6 +207,7 @@ const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
                 billingState: form.billingState ?? "",
                 billingZip: form.billingZip ?? "",
                 billingCell: form.billingCell ?? "",
+                billingAlt: form.billingAlt ?? "",
                 billingEmail: form.billingEmail ?? "",
                 referralName: form.referralName ?? "",
             })
