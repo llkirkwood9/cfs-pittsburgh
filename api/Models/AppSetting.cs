@@ -91,5 +91,10 @@ namespace api.Models
         /// The four statements a customer initials, as JSON
         /// </summary>
         public const string SalesSheetTerms = "SalesSheetTerms";
+
+        /// <summary>
+        /// The kinds of financing offered at checkout, as a JSON list
+        /// </summary>
+        public const string FinanceOptions = "FinanceOptions";
     }
 }

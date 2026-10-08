@@ -219,6 +219,12 @@ namespace api.Dtos
         public List<SalesTermDto>? Terms { get; set; }
 
         /// <summary>
+        /// The kinds of financing offered, picked at checkout when a sale is financed. Null on
+        /// write leaves them unchanged.
+        /// </summary>
+        public List<string>? FinanceOptions { get; set; }
+
+        /// <summary>
         /// What each setting would be without this scope's own values (returned, not saved): the
         /// built-in defaults company-wide, the company-wide values for a territory
         /// </summary>

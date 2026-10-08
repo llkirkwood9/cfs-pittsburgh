@@ -3,6 +3,7 @@ import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import BusinessDetailsSettings from "../Components/Settings/BusinessDetailsSettings";
 import DashboardSettings from "../Components/Settings/DashboardSettings";
+import FinanceSettings from "../Components/Settings/FinanceSettings";
 import NewEventSettings from "../Components/Settings/NewEventSettings";
 import ReceiptEmailSettings from "../Components/Settings/ReceiptEmailSettings";
 import { SettingsScopeContext } from "../Components/Settings/SettingsScope";
@@ -16,16 +17,17 @@ const sections = [
     { id: "business", label: "Business details", icon: "fa-solid fa-building" },
     { id: "terms", label: "Sales sheet terms", icon: "fa-solid fa-file-signature" },
     { id: "receipt-email", label: "Receipt email", icon: "fa-solid fa-envelope" },
+    { id: "financing", label: "Financing", icon: "fa-solid fa-file-invoice-dollar" },
     { id: "events", label: "New events", icon: "fa-solid fa-calendar-plus" },
     { id: "dashboard", label: "Dashboard", icon: "fa-solid fa-chart-column" },
 ];
 
 /**
  * Settings: the business details printed on sheets and emails, the terms customers initial, the
- * receipt email's wording, new events' rates and the dashboard's levels. System Admins and
- * administrators set the company-wide values; each territory can change any of them for itself
- * (its manager can too), and anything it leaves alone follows the company. Each card saves on
- * its own.
+ * receipt email's wording, the finance options, new events' rates and the dashboard's levels.
+ * System Admins and administrators set the company-wide values; each territory can change any of
+ * them for itself (its manager can too), and anything it leaves alone follows the company. Each
+ * card saves on its own.
  */
 const SettingsPage = () => {
     const { refresh: refreshInView } = useSettings();
@@ -109,7 +111,7 @@ const SettingsPage = () => {
             </nav>
 
             {settings == null ? (
-                <ListSkeleton rows={5} />
+                <ListSkeleton rows={6} />
             ) : (
                 // Keyed so switching scope starts every card afresh with that scope's values.
                 <SettingsScopeContext.Provider
@@ -120,6 +122,7 @@ const SettingsPage = () => {
                         <BusinessDetailsSettings />
                         <TermsSettings />
                         <ReceiptEmailSettings />
+                        <FinanceSettings />
                         <NewEventSettings />
                         <DashboardSettings />
                     </div>

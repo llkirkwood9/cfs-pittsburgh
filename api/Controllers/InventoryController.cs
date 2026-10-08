@@ -71,6 +71,9 @@ namespace api.Controllers
                 if (!variant.Product.TrackInventory)
                     return BadRequest(new { error = "This product does not track inventory." });
 
+                if (variant.ExcludeFromInventory)
+                    return BadRequest(new { error = "This size is left out of inventory." });
+
                 var key = request.StockKey ?? "";
                 var stock = await InventoryRules.StockRowAsync(DB, territoryId.Value, variant.Id, key);
                 var change = request.SetTo != null
@@ -152,7 +155,7 @@ namespace api.Controllers
                     .ToListAsync();
 
                 if (variants.Count != ids.Count
-                    || variants.Any(v => v.Product is not { TrackInventory: true } || !InTerritoryCatalog(v.Product, territoryId)))
+                    || variants.Any(v => v.Product is not { TrackInventory: true } || v.ExcludeFromInventory || !InTerritoryCatalog(v.Product, territoryId)))
                     return BadRequest(new { error = "Only this territory's tracked products can be counted." });
 
                 var opening = string.Equals(request.Phase, "Start", StringComparison.OrdinalIgnoreCase);
@@ -348,7 +351,7 @@ namespace api.Controllers
 
         /// <summary>
         /// Builds a territory's inventory rows for every active tracked size it sells (global and
-        /// its own), or for a single size.
+        /// its own), or for a single size. Sizes left out of their product's inventory are skipped.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <param name="territoryId">The territory whose stock to show</param>
@@ -364,6 +367,7 @@ namespace api.Controllers
                 .ThenInclude(o => o.Choices)
                 .AsSplitQuery()
                 .Where(v => v.Product!.TrackInventory
+                            && !v.ExcludeFromInventory
                             && (v.Product.TerritoryId == null || v.Product.TerritoryId == territoryId));
 
             query = variantId != null

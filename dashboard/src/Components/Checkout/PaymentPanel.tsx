@@ -2,7 +2,13 @@ import { useState } from "react";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import TextField from "../Elements/TextField";
-import { FormatCurrency, ParseMoney, PaymentMethodLabels } from "../../Lib/ModelHelpers";
+import { useSettingsFor } from "../../Context/SettingsContext";
+import {
+    FinancingText,
+    FormatCurrency,
+    ParseMoney,
+    PaymentMethodLabels,
+} from "../../Lib/ModelHelpers";
 import { Toast } from "../../Lib/Toast";
 import type { Order } from "../../Models/Order";
 import type { OrderPayment, PaymentMethod } from "../../Models/OrderPayment";
@@ -26,8 +32,12 @@ const methods: { key: PaymentMethod; label: string; icon: string }[] = [
 /**
  * The Payment Options box at the checkout table. An order can be split across several methods,
  * and the amount field pre-fills with whatever is still owed so the common case is two taps.
+ * Financing also takes the financing number and the kind of financing chosen, from the finance
+ * options set under Settings; both print in the sales sheet's comments.
  */
 const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
+    // The finance options of the territory the order was taken in.
+    const financeOptions = useSettingsFor(order.territoryId).financeOptions ?? [];
     // Cash is the default. It carries no card fee, so the selection shown always matches the
     // total shown; an order already switched to card reopens on card.
     const [method, setMethod] = useState<PaymentMethod>(
@@ -35,6 +45,8 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
     );
     const [amount, setAmount] = useState<string>("");
     const [checkNumber, setCheckNumber] = useState<string>("");
+    const [financeType, setFinanceType] = useState<string>("");
+    const [financeNumber, setFinanceNumber] = useState<string>("");
     const [saving, setSaving] = useState<boolean>(false);
 
     const balance = order.balanceDue ?? 0;
@@ -57,16 +69,24 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
         if (method === "Check" && !checkNumber.trim())
             return Toast.Warning("Enter the check number.");
 
+        const financing = method === "Financing";
+        if (financing && !financeType.trim()) return Toast.Warning("Choose the type of financing.");
+        if (financing && !financeNumber.trim()) return Toast.Warning("Enter the financing number.");
+
         setSaving(true);
         await onAdd({
             method,
             amount: parsed,
             checkNumber: method === "Check" ? checkNumber.trim() : undefined,
+            financeType: financing ? financeType.trim() : undefined,
+            reference: financing ? financeNumber.trim() : undefined,
         });
         setSaving(false);
 
         setAmount("");
         setCheckNumber("");
+        setFinanceType("");
+        setFinanceNumber("");
     };
 
     return (
@@ -92,9 +112,10 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
 
             {feeRate > 0 && method === "VisaMc" && (
                 <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                    <Icon icon="fa-solid fa-circle-info" /> A {(feeRate * 100).toFixed(2).replace(/\.?0+$/, "")}%
-                    card processing fee of {FormatCurrency(order.ccProcessingFee)} is included in the
-                    total below. Switch to another method to remove it.
+                    <Icon icon="fa-solid fa-circle-info" /> A{" "}
+                    {(feeRate * 100).toFixed(2).replace(/\.?0+$/, "")}% card processing fee of{" "}
+                    {FormatCurrency(order.ccProcessingFee)} is included in the total below. Switch
+                    to another method to remove it.
                 </p>
             )}
 
@@ -112,6 +133,45 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
                         value={checkNumber}
                         onChange={setCheckNumber}
                         inputMode="numeric"
+                    />
+                )}
+                {method === "Financing" &&
+                    (financeOptions.length > 0 ? (
+                        <label className="flex flex-col gap-1">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                Financing type
+                            </span>
+                            <select
+                                value={financeType}
+                                onChange={(e) => setFinanceType(e.target.value)}
+                                className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base
+                                    text-zinc-900 outline-none focus:border-sky-600
+                                    dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                            >
+                                <option value="">Choose...</option>
+                                {financeOptions.map((option) => (
+                                    <option key={option} value={option}>
+                                        {option}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+                    ) : (
+                        <TextField
+                            label="Financing type"
+                            value={financeType}
+                            onChange={setFinanceType}
+                            maxLength={100}
+                            placeholder="e.g. 12 months no interest"
+                        />
+                    ))}
+                {method === "Financing" && (
+                    <TextField
+                        label="Financing #"
+                        value={financeNumber}
+                        onChange={setFinanceNumber}
+                        maxLength={100}
+                        className="sm:col-span-2"
                     />
                 )}
             </div>
@@ -149,6 +209,11 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
                                 {payment.checkNumber && (
                                     <p className="text-xs text-zinc-500 dark:text-zinc-400">
                                         Check #{payment.checkNumber}
+                                    </p>
+                                )}
+                                {payment.method === "Financing" && FinancingText(payment) && (
+                                    <p className="text-xs text-zinc-500 dark:text-zinc-400">
+                                        {FinancingText(payment)}
                                     </p>
                                 )}
                             </div>

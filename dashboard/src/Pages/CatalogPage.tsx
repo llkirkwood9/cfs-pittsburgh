@@ -319,20 +319,30 @@ const CatalogPage = () => {
                                                         {(product.variants ?? []).reduce(
                                                             (sum, v) =>
                                                                 sum +
-                                                                (v.stocks
-                                                                    ? v.stocks.reduce(
-                                                                          (n, st) =>
-                                                                              n +
-                                                                              (st.quantityOnHand ??
-                                                                                  0),
-                                                                          0
-                                                                      )
-                                                                    : (v.quantityOnHand ?? 0)),
+                                                                (v.excludeFromInventory
+                                                                    ? 0
+                                                                    : v.stocks
+                                                                      ? v.stocks.reduce(
+                                                                            (n, st) =>
+                                                                                n +
+                                                                                (st.quantityOnHand ??
+                                                                                    0),
+                                                                            0
+                                                                        )
+                                                                      : (v.quantityOnHand ?? 0)),
                                                             0
                                                         )}{" "}
                                                         on hand
                                                     </>
                                                 )}
+                                                {(product.variants ?? []).some(
+                                                    (v) => v.excludeFromInventory
+                                                ) &&
+                                                    ` (${
+                                                        (product.variants ?? []).filter(
+                                                            (v) => v.excludeFromInventory
+                                                        ).length
+                                                    } not counted)`}
                                             </span>
                                         )}
                                         <span>

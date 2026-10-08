@@ -47,6 +47,11 @@ namespace api.Dtos
         public int? QuantityOnHand { get; set; }
 
         /// <summary>
+        /// Whether this size is left out of the product's inventory
+        /// </summary>
+        public bool? ExcludeFromInventory { get; set; }
+
+        /// <summary>
         /// Whether this size has its own sale rather than the product's
         /// </summary>
         public bool? HasOwnSale { get; set; }

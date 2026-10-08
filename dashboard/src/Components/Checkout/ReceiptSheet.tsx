@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import type { CSSProperties } from "react";
 import {
+    FinancingComments,
     FormatCurrency,
     FormatShortDate,
     FormatStampDate,
@@ -116,6 +117,9 @@ const ReceiptSheet = ({ order }: Props) => {
         .filter((p) => p.method === "Check" && p.checkNumber)
         .map((p) => p.checkNumber)
         .join(", ");
+
+    // Each financing payment's type, number and amount, printed under the comments.
+    const financing = FinancingComments(order);
 
     const addressBlock = (side: "billing" | "delivery") => {
         const get = (key: string): string => {
@@ -436,6 +440,11 @@ const ReceiptSheet = ({ order }: Props) => {
                             rowSpan={hasLayaway ? 5 : 4}
                         >
                             {order.comments}
+                            {financing.map((line, index) => (
+                                <div key={index} className="font-semibold">
+                                    {line}
+                                </div>
+                            ))}
                         </td>
                         <td className={`${cell} text-center font-semibold`}>
                             {PaymentMethodLabels.VisaMc}

@@ -184,6 +184,11 @@ namespace api.Dtos
         public bool? IsActive { get; set; }
 
         /// <summary>
+        /// Whether the size is left out of a tracked product's inventory
+        /// </summary>
+        public bool? ExcludeFromInventory { get; set; }
+
+        /// <summary>
         /// Whether the size has its own sale instead of the product's
         /// </summary>
         public bool? HasOwnSale { get; set; }

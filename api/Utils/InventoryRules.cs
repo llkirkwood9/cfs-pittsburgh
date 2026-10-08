@@ -147,7 +147,7 @@ namespace api.Utils
 
             var ids = demand.Keys.Select(k => k.VariantId).Distinct().ToList();
             var tracked = await db.ProductVariants
-                .Where(v => ids.Contains(v.Id) && v.Product!.TrackInventory)
+                .Where(v => ids.Contains(v.Id) && v.Product!.TrackInventory && !v.ExcludeFromInventory)
                 .Select(v => v.Id)
                 .ToListAsync();
 
@@ -227,14 +227,15 @@ namespace api.Utils
         #region Private Methods
 
         /// <summary>
-        /// The tracked sizes among some variant ids, with their product's selections loaded.
+        /// The tracked sizes among some variant ids, with their product's selections loaded. A size
+        /// left out of its product's inventory is not tracked.
         /// </summary>
         private static Task<List<ProductVariant>> LoadTrackedAsync(ApplicationDbContext db, List<int> ids) =>
             db.ProductVariants
                 .Include(v => v.Product)
                 .ThenInclude(p => p!.Options)
                 .ThenInclude(o => o.Choices)
-                .Where(v => ids.Contains(v.Id) && v.Product!.TrackInventory)
+                .Where(v => ids.Contains(v.Id) && v.Product!.TrackInventory && !v.ExcludeFromInventory)
                 .ToListAsync();
 
         /// <summary>

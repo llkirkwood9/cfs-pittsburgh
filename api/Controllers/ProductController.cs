@@ -337,6 +337,7 @@ namespace api.Controllers
                         variant.Price = dto.Price;
                         variant.SortOrder = dto.SortOrder ?? 0;
                         variant.IsActive = dto.IsActive ?? true;
+                        variant.ExcludeFromInventory = dto.ExcludeFromInventory ?? false;
                         variant.HasOwnSale = dto.HasOwnSale ?? false;
                         (variant.SaleDiscountPercent, variant.SaleDiscountAmount) = variant.HasOwnSale
                             ? CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount)
@@ -460,6 +461,7 @@ namespace api.Controllers
                     Price = dto.Price,
                     SortOrder = dto.SortOrder ?? 0,
                     IsActive = dto.IsActive ?? true,
+                    ExcludeFromInventory = dto.ExcludeFromInventory ?? false,
                     HasOwnSale = dto.HasOwnSale ?? false,
                 };
                 if (variant.HasOwnSale)
@@ -919,6 +921,7 @@ namespace api.Controllers
                         SortOrder = v.SortOrder,
                         IsActive = v.IsActive,
                         QuantityOnHand = product.TrackInventory && onHand != null ? onHand.GetValueOrDefault((v.Id, "")) : null,
+                        ExcludeFromInventory = v.ExcludeFromInventory,
                         HasOwnSale = v.HasOwnSale,
                         SaleDiscountPercent = v.SaleDiscountPercent,
                         SaleDiscountAmount = v.SaleDiscountAmount,

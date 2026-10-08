@@ -40,10 +40,17 @@ namespace api.Models
         public string? CheckNumber { get; set; }
 
         /// <summary>
-        /// Free-text reference, e.g. financing application id or card last four
+        /// Free-text reference. For a financing payment, the financing (account or approval) number.
         /// </summary>
         [MaxLength(100)]
         public string? Reference { get; set; }
+
+        /// <summary>
+        /// For a financing payment, which financing the customer chose, e.g. "12 months no
+        /// interest". One of the finance options set under Settings when it was recorded.
+        /// </summary>
+        [MaxLength(100)]
+        public string? FinanceType { get; set; }
 
         /// <summary>
         /// When the payment row was recorded

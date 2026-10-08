@@ -1,4 +1,9 @@
-import { PaymentMethodLabels, PrintsOnSalesSheet, SortLinesForPrint } from "./ModelHelpers";
+import {
+    FinancingComments,
+    PaymentMethodLabels,
+    PrintsOnSalesSheet,
+    SortLinesForPrint,
+} from "./ModelHelpers";
 import type { Order } from "../Models/Order";
 import type { PaymentMethod } from "../Models/OrderPayment";
 
@@ -97,7 +102,8 @@ export const BuildSalesCsv = (orders: Order[]): string => {
             order.referralName,
             order.cfsRepName,
             items,
-            order.comments,
+            // The comments as printed on the sales sheet, financing details included.
+            [order.comments, ...FinancingComments(order)].filter(Boolean).join(" | "),
             (order.subtotal ?? 0).toFixed(2),
             (order.taxAmount ?? 0).toFixed(2),
             (order.ccProcessingFee ?? 0).toFixed(2),

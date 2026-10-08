@@ -23,6 +23,7 @@ import {
     HasDiscount,
     OnSale,
     SaleFor,
+    SizeTracked,
     StockFor,
 } from "../../Lib/Pricing";
 import {
@@ -47,14 +48,15 @@ type Props = {
 type CategoryTab = ProductCategory | "All";
 
 /**
- * Units on hand for a size across all its choices, or null when the product does not track
- * inventory. Used for the "in stock" labels; Take With checks the exact choices.
+ * Units on hand for a size across all its choices, or null when the size isn't tracked (the
+ * product does not track inventory, or the size is left out). Used for the "in stock" labels;
+ * Take With checks the exact choices.
  * @param product The product.
  * @param variant The size.
  * @returns The count, or null.
  */
 const sizeStock = (product: Product, variant?: ProductVariant): number | null => {
-    if (!product.trackInventory) return null;
+    if (!SizeTracked(product, variant)) return null;
     if (variant?.stocks)
         return variant.stocks.reduce((sum, s) => sum + Math.max(0, s.quantityOnHand ?? 0), 0);
     return variant?.quantityOnHand ?? 0;
@@ -195,7 +197,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
         product: Product,
         size: ProductVariant | undefined,
         picked: Record<number, number>
-    ) => (product.trackInventory ? StockFor(product, size, picked) : null);
+    ) => StockFor(product, size, picked);
 
     const chooseProduct = (product: Product) => {
         setSelected(product);
@@ -258,7 +260,9 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
 
     const onHand = selected ? stockNow(selected, variant, picks) : null;
     const countedUnpicked =
-        selected && CountedOptions(selected).some((o) => picks[o.id ?? 0] === undefined);
+        selected &&
+        SizeTracked(selected, variant) &&
+        CountedOptions(selected).some((o) => picks[o.id ?? 0] === undefined);
     const takeWithBlock = countedUnpicked
         ? `Pick the ${CountedOptions(selected!)
               .filter((o) => picks[o.id ?? 0] === undefined)
@@ -458,7 +462,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                         ` - from ${FormatCurrency(LowestPrice(product))}`}
                                     {product.notes ? ` - ${product.notes}` : ""}
                                 </span>
-                                {product.trackInventory && (
+                                {(product.variants ?? []).some((v) => SizeTracked(product, v)) && (
                                     <span className="mt-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
                                         {(product.variants ?? []).reduce(
                                             (sum, v) =>
@@ -598,7 +602,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                             FormatCurrency(v.price)
                                         )}
                                     </span>
-                                    {selected.trackInventory && (
+                                    {SizeTracked(selected, v) && (
                                         <span className="text-[11px] font-semibold opacity-90">
                                             {(sizeStock(selected, v) ?? 0) > 0
                                                 ? `${sizeStock(selected, v)} in stock${v.stocks ? " in all" : ""}`
@@ -631,7 +635,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                 picked={picks[option.id ?? 0]}
                                 onPick={(choiceId) => choose(option.id ?? 0, choiceId)}
                                 stockFor={(choiceId) =>
-                                    option.tracksStock && selected.trackInventory
+                                    option.tracksStock && SizeTracked(selected, variant)
                                         ? stockNow(selected, variant, {
                                               ...picks,
                                               [option.id ?? 0]: choiceId,
@@ -673,7 +677,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                                 }))
                                             }
                                             stockFor={(choiceId) =>
-                                                option.tracksStock && product.trackInventory
+                                                option.tracksStock && SizeTracked(product, size)
                                                     ? StockFor(product, size, {
                                                           ...current,
                                                           [option.id ?? 0]: choiceId,
