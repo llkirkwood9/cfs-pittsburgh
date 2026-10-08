@@ -294,9 +294,13 @@ email an event's sheets as a single PDF (the **Email report** button on an event
 The PDF is made on the tablet, so this adds no work for the Pi. It sends through an ordinary email
 account over SMTP. Until it's set up, those buttons just say email isn't set up.
 
-A Gmail account works well. Gmail won't accept your normal password here, so turn on 2-Step
-Verification for the account, then create an **app password** at
-https://myaccount.google.com/apppasswords and use that 16-letter code below.
+A Gmail account is the quickest way to start, but receipts from a free Gmail address often land
+in customers' spam folders. For receipts, [SMTP2GO with your own domain](#sending-through-smtp2go-recommended)
+is the better choice; Gmail is fine for trying email out and for sending event reports to yourself.
+
+For Gmail: it won't accept your normal password here, so turn on 2-Step Verification for the
+account, then create an **app password** at https://myaccount.google.com/apppasswords and use that
+16-letter code below.
 
 Add these lines to `/opt/cfs/.env` (with your own address and app password):
 
@@ -326,6 +330,64 @@ Other providers use the same settings with their own server: Outlook.com is `smt
 on port 587, and most web hosts give you a server name and port in their email setup page. For a
 server on port 465, set `EMAIL_SECURITY=SslOnConnect`.
 
+### Sending through SMTP2GO (recommended)
+
+[SMTP2GO](https://www.smtp2go.com) is a sending service built for app email like receipts. Its free
+plan covers 1,000 emails a month, up to 200 a day, with no card needed and no expiry - plenty for
+event receipts (check its pricing page, as limits can change). Mail goes out from your own domain,
+signed for that domain, which is what keeps it out of spam.
+
+You need a domain you own, such as `cfsbeds.com` (about $10-15 a year from any domain registrar,
+if you don't have one already), and access to its DNS settings.
+
+1. **Sign up** at https://www.smtp2go.com and pick the free plan.
+2. **Add your domain.** In the dashboard, go to **Sending** → **Verified Senders** →
+   **Add a Sender Domain**, enter your domain (for example `cfsbeds.com`) and choose **Continue
+   with this domain**.
+3. **Add the three DNS records it shows.** SMTP2GO gives you three CNAME records (they cover SPF,
+   DKIM and link tracking). Add each one at your domain's DNS provider, copying the name and value
+   exactly. Some providers add your domain to the name for you, so you may only need the first part
+   of it. On Cloudflare, set each record to **DNS only** (grey cloud), not proxied. You don't need
+   to change any SPF record you already have.
+4. **Add a DMARC record** if your domain doesn't have one yet. It's a TXT record named `_dmarc`
+   with the value `v=DMARC1; p=none; rua=mailto:you@yourdomain.com` (use an address you read).
+   Gmail and Yahoo expect one, and `p=none` only asks for reports; it never blocks mail.
+5. **Verify.** Back in SMTP2GO, press **Verify**. DNS changes can take anywhere from minutes to a
+   few hours; if it flips between verified and unverified, it's still spreading, so wait and try
+   again. Until the domain is verified, SMTP2GO only sends 25 emails an hour.
+6. **Create an SMTP user.** Go to **Sending** → **SMTP Users** (on some dashboards it's under
+   **Settings**) → **Add SMTP User**. This username and password are separate from your SMTP2GO
+   sign-in; copy both.
+7. **Put them in `/opt/cfs/.env`**, replacing any Gmail `EMAIL_*` lines. The from address must be
+   on the domain you verified:
+
+   ```
+   EMAIL_HOST=mail.smtp2go.com
+   EMAIL_PORT=587
+   EMAIL_SECURITY=StartTls
+   EMAIL_USERNAME=the-smtp-username
+   EMAIL_PASSWORD=the-smtp-password
+   EMAIL_FROM=receipts@cfsbeds.com
+   EMAIL_FROM_NAME=Custom Fundraising Solutions
+   EMAIL_REPLY_TO=office@cfsbeds.com
+   ```
+
+   `EMAIL_REPLY_TO` is where a customer's reply goes, so use an address someone reads. If your
+   domain has no mailboxes, most registrars (and Cloudflare's free Email Routing) can forward an
+   address like `office@cfsbeds.com` to an existing inbox, such as the old Gmail.
+8. **Restart and test:** `sudo systemctl restart cfs.service`, then email a receipt to yourself
+   from a completed sale. The SMTP2GO dashboard's reports list every message it sent and whether
+   it was delivered. In Gmail, **More** (⋮) → **Show original** should show SPF, DKIM and DMARC as
+   **PASS**.
+
+If sending fails:
+
+- **"535 authentication failed"** almost always means the SMTP2GO sign-in password was used
+  instead of the SMTP user's password, or the username was cut short when pasting.
+- **A timeout or "can't connect"** usually means the network blocks port 587. Try
+  `EMAIL_PORT=2525` (keep `StartTls`), or `EMAIL_PORT=465` with `EMAIL_SECURITY=SslOnConnect`.
+- **A rejected sender** means the `EMAIL_FROM` address isn't on the verified domain.
+
 Email needs an internet connection at the time you press Send. At a venue with no internet,
 print instead, or email the report afterwards from home - the report and receipts can be sent any
 time after the event.
@@ -336,12 +398,10 @@ Spam filters judge the sender more than the message. A brand-new free Gmail acco
 named "noreply" that shows a company name - sending PDFs to people who have never written to it
 looks a lot like spam, however tidy the receipt is. In order of how much they help:
 
-1. **Send from the company's own domain.** Use an address such as `receipts@yourcompany.com` from
-   Google Workspace, Microsoft 365, or a sending service built for receipts (Postmark, Amazon SES,
-   SendGrid, Mailgun, Brevo). Set up SPF, DKIM and DMARC for the domain in its DNS, as the provider's
-   setup page describes. Only the `EMAIL_*` lines change; for example, with Google Workspace the
-   host and port stay the same, and the username, from address and app password become the
-   Workspace account's.
+1. **Send from the company's own domain.** [SMTP2GO](#sending-through-smtp2go-recommended) does
+   this for free. Google Workspace, Microsoft 365, or another sending service built for receipts
+   (Postmark, Amazon SES, Mailgun, Brevo) works too: set up SPF, DKIM and DMARC for the domain in
+   its DNS, as the provider's setup page describes. Only the `EMAIL_*` lines change.
 2. **Give replies somewhere to go.** Set `EMAIL_REPLY_TO` (above) to a monitored address, and avoid
    "noreply" in the sending address if you can.
 3. **Keep the sender name and the address matching.** "Custom Fundraising Solutions" from a
