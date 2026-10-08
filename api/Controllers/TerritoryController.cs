@@ -215,6 +215,8 @@ namespace api.Controllers
                     return BadRequest(new { error = "This territory has crew, events or catalog items. Switch it off instead - its history stays on file." });
 
                 await DB.InventoryAdjustments.Where(a => a.TerritoryId == id).ExecuteDeleteAsync();
+                // A territory's own finance options are only names; they go with it.
+                await DB.FinanceOptions.Where(f => f.TerritoryId == id).ExecuteDeleteAsync();
                 DB.Territories.Remove(territory);
                 await DB.SaveChangesAsync();
 

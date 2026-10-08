@@ -71,9 +71,10 @@ The catalog and the printed receipt are both built from the supplied source docu
 - Takes payment split across cash, check, credit/debit card, financing and layaway, with cash
   selected by default. Choosing Credit/Debit Card puts the card processing fee on the total
   straight away; switching to another method takes it back off, so the figure quoted is the
-  figure charged. **Financing** also takes the type of financing (picked from the finance options
-  under Settings, or typed when none are set) and the financing number; both are printed in the
-  Comments box of the sales sheet, with the amount financed.
+  figure charged. **Financing** also takes the type of financing - picked from a dropdown of the
+  catalog's financing options, or **Other** with the type typed in when Settings allows it - and
+  the financing number; both are printed in the Comments box of the sales sheet, with the amount
+  financed.
 - **Hand to customer** walks the customer through the three acknowledgements one at a time in
   plain language, taking initials for each, then a finger-drawn signature. The signature is
   stored with the order and printed on the sales sheet.
@@ -161,6 +162,12 @@ The catalog and the printed receipt are both built from the supplied source docu
   - **Count in inventory**: on a tracked product, each size can be left out of inventory (for
     example a size that isn't kept at the cart). It isn't counted, doesn't appear on the Inventory
     screen or the inventory sheet, and Take With isn't limited by stock for it.
+  - **Financing Options** (a tab beside Delivery): the kinds of financing checkout can pick, in
+    the order it lists them. Like delivery options, each is global or one territory's own:
+    checkout lists the global ones first, then the territory's, each in its own order. An option
+    can be switched off without deleting it. A financed
+    payment stores the type as text, so renaming or deleting an option never changes a past sale.
+    Not part of catalog files.
   - **Export catalog / Restore catalog** (system admins only): the whole catalog as a JSON file -
     every product (archived ones too, global and every territory's) with sizes, prices, sales,
     selections, bundles, delivery choices, Track inventory and sizes left out of it, plus the
@@ -186,9 +193,10 @@ The catalog and the printed receipt are both built from the supplied source docu
   - **Receipt email**: the subject and wording, plain text with `{Placeholders}` (`{FirstName}`,
     `{OrderNumber}`, `{CompanyName}`, `{WhatHappensNext}` and so on), a blank line between
     paragraphs, `- ` for bullets, with a live preview for a sample order.
-  - **Financing**: the kinds of financing a customer can choose (none by default), in the order
-    checkout sees them. A financed payment stores its type in `OrderPayments.FinanceType` and the
-    financing number in `OrderPayments.Reference`.
+  - **Financing**: whether checkout's financing type dropdown ends with **Other**, for typing in
+    a type that isn't a financing option (on by default; a territory can set its own). With it off, the API only accepts a
+    financing option that is offered. A financed payment stores its type in
+    `OrderPayments.FinanceType` and the financing number in `OrderPayments.Reference`.
   - **New events**: the sales tax and card processing fee a new event starts with (7% and 2%).
     The API uses them for an event created without rates.
   - **Dashboard**: the net sales for the first star and between stars, and the running-low level

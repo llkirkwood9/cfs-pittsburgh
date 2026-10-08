@@ -38,8 +38,8 @@ export type GeneralSettings = {
     defaultCcProcessingFeeRate: number;
     /** The four statements a customer initials, in signing order. */
     terms: SalesTerm[];
-    /** The kinds of financing offered, picked at checkout when a sale is financed. */
-    financeOptions: string[];
+    /** Whether checkout may pick Other and type in a financing type not in the catalog. */
+    allowOtherFinanceType: boolean;
     /**
      * What each setting falls back to: the built-in values for the company-wide settings, the
      * company's for a territory.
@@ -96,7 +96,7 @@ export const DefaultGeneralSettings: GeneralSettings = {
     defaultSalesTaxRate: 0.07,
     defaultCcProcessingFeeRate: 0.02,
     terms: DefaultSalesTerms,
-    financeOptions: [],
+    allowOtherFinanceType: true,
 };
 
 /**

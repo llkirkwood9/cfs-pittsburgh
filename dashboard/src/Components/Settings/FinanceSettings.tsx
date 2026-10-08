@@ -1,85 +1,36 @@
 import { useEffect, useState } from "react";
-import Button from "../Elements/Button";
-import Icon from "../Elements/Icon";
 import SettingsCard from "./SettingsCard";
 import { useSettingsScope } from "./SettingsScope";
 import { Toast } from "../../Lib/Toast";
 import { DefaultGeneralSettings } from "../../Models/GeneralSettings";
 import { SaveGeneralSettings } from "../../Services/SettingsServices";
 
-/** Matches the server's limits. */
-const MAX_OPTIONS = 20;
-const MAX_LENGTH = 60;
-
-const hint = "text-xs text-zinc-500 dark:text-zinc-400";
-
-/** The list as it would be saved: trimmed, no blanks, no repeats. */
-const Tidy = (options: string[]): string[] =>
-    options
-        .map((o) => o.trim())
-        .filter(
-            (o, i, all) =>
-                o !== "" && all.findIndex((x) => x.toLowerCase() === o.toLowerCase()) === i
-        );
-
 /**
- * The kinds of financing offered, such as "12 months no interest". Checkout picks one when a sale
- * is financed, along with the financing number, and both print in the sales sheet's comments.
- * With none set, checkout types the kind in. A territory follows the company's list until it
- * saves its own.
+ * Whether checkout's financing type list ends with Other, for typing in a kind of financing that
+ * isn't one of the financing options. The options themselves are kept in the Catalog. A
+ * territory follows the company's choice until it saves its own.
  */
 const FinanceSettings = () => {
     const { settings, apply, territoryId } = useSettingsScope();
-    const saved = settings.financeOptions ?? [];
-    const fallback = (settings.defaults ?? DefaultGeneralSettings).financeOptions ?? [];
-    const isDefault = JSON.stringify(saved) === JSON.stringify(fallback);
+    const defaults = settings.defaults ?? DefaultGeneralSettings;
 
-    const [options, setOptions] = useState<string[]>(saved);
+    const [allowOther, setAllowOther] = useState<boolean>(settings.allowOtherFinanceType);
     const [saving, setSaving] = useState<boolean>(false);
 
     useEffect(() => {
-        setOptions(settings.financeOptions ?? []);
-    }, [settings.financeOptions]);
+        setAllowOther(settings.allowOtherFinanceType);
+    }, [settings.allowOtherFinanceType]);
 
-    const dirty = JSON.stringify(Tidy(options)) !== JSON.stringify(saved);
+    const dirty = allowOther !== settings.allowOtherFinanceType;
+    const isDefault = settings.allowOtherFinanceType === defaults.allowOtherFinanceType;
 
-    const setOption = (index: number, value: string) =>
-        setOptions((rows) => rows.map((row, i) => (i === index ? value : row)));
-
-    const move = (index: number, by: number) =>
-        setOptions((rows) => {
-            const next = [...rows];
-            const [row] = next.splice(index, 1);
-            next.splice(index + by, 0, row);
-            return next;
-        });
-
-    const save = async (financeOptions: string[]) => {
+    const save = async (value: boolean) => {
         setSaving(true);
-        const result = await SaveGeneralSettings({ financeOptions }, territoryId);
+        const result = await SaveGeneralSettings({ allowOtherFinanceType: value }, territoryId);
         setSaving(false);
         if (!result) return false;
         apply(result);
         return true;
-    };
-
-    const handleSave = async () => {
-        const tidy = Tidy(options);
-        if (tidy.length > MAX_OPTIONS)
-            return Toast.Warning(`There can be at most ${MAX_OPTIONS} finance options.`);
-        if (tidy.some((o) => o.length > MAX_LENGTH))
-            return Toast.Warning(`Each finance option can be at most ${MAX_LENGTH} characters.`);
-
-        if (await save(tidy)) Toast.Success("Finance options saved.");
-    };
-
-    const handleReset = async () => {
-        if (await save(fallback))
-            Toast.Success(
-                territoryId == null
-                    ? "Finance options are back to the defaults."
-                    : "Finance options now follow the company's."
-            );
     };
 
     return (
@@ -87,74 +38,47 @@ const FinanceSettings = () => {
             id="financing"
             title="Financing"
             icon="fa-solid fa-file-invoice-dollar"
-            description="The kinds of financing a customer can choose. Checkout picks one, and enters the financing number, when a sale is financed; both print in the sales sheet's comments."
+            description="How checkout records the type of financing. The financing options themselves are kept in Catalog, under Financing Options."
             status={
-                saved.length === 0
-                    ? "No finance options yet - checkout types the kind of financing in."
-                    : `${saved.length} finance option${saved.length === 1 ? "" : "s"}.`
+                settings.allowOtherFinanceType
+                    ? "Checkout can pick Other and type a financing type in."
+                    : "Checkout can only pick one of the financing options."
             }
             dirty={dirty}
             saving={saving}
-            onSave={handleSave}
-            onDiscard={() => setOptions(saved)}
-            onReset={isDefault ? undefined : handleReset}
+            onSave={async () => {
+                if (await save(allowOther)) Toast.Success("Financing settings saved.");
+            }}
+            onDiscard={() => setAllowOther(settings.allowOtherFinanceType)}
+            onReset={
+                isDefault
+                    ? undefined
+                    : async () => {
+                          if (await save(defaults.allowOtherFinanceType))
+                              Toast.Success(
+                                  territoryId == null
+                                      ? "Financing settings are back to the default."
+                                      : "Financing settings now follow the company's."
+                              );
+                      }
+            }
         >
-            <ul className="space-y-2">
-                {options.map((option, index) => (
-                    <li key={index} className="flex items-center gap-2">
-                        <input
-                            value={option}
-                            onChange={(e) => setOption(index, e.target.value)}
-                            maxLength={MAX_LENGTH}
-                            placeholder="e.g. 12 months no interest"
-                            aria-label={`Finance option ${index + 1}`}
-                            className="min-h-[48px] min-w-0 flex-1 rounded-xl border border-zinc-300 bg-white px-3 text-base
-                                text-zinc-900 outline-none focus:border-sky-600
-                                dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => move(index, -1)}
-                            disabled={index === 0}
-                            aria-label="Move up"
-                            className="flex h-12 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100
-                                disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                        >
-                            <Icon icon="fa-solid fa-arrow-up" />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => move(index, 1)}
-                            disabled={index === options.length - 1}
-                            aria-label="Move down"
-                            className="flex h-12 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100
-                                disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                        >
-                            <Icon icon="fa-solid fa-arrow-down" />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => setOptions((rows) => rows.filter((_, i) => i !== index))}
-                            aria-label="Remove finance option"
-                            className="flex h-12 w-10 items-center justify-center rounded-lg text-red-700
-                                hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
-                        >
-                            <Icon icon="fa-solid fa-trash" />
-                        </button>
-                    </li>
-                ))}
-            </ul>
-
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-                <Button
-                    text="Add finance option"
-                    icon="fa-solid fa-plus"
-                    onClick={() => setOptions((rows) => [...rows, ""])}
-                    disabled={options.length >= MAX_OPTIONS}
-                    className="min-h-[40px] px-3 text-sm"
+            <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-zinc-100 px-3 py-2 dark:bg-zinc-700">
+                <input
+                    type="checkbox"
+                    checked={allowOther}
+                    onChange={(e) => setAllowOther(e.target.checked)}
+                    className="h-5 w-5 accent-sky-600"
                 />
-                <p className={hint}>Listed for checkout in this order.</p>
-            </div>
+                <span className="text-sm">
+                    <span className="font-medium">Offer &ldquo;Other&rdquo; at checkout</span>
+                    <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                        Adds Other to the end of the financing type list, so checkout can type in a
+                        kind of financing that isn&apos;t one of the financing options. Untick it to
+                        allow only the financing options.
+                    </span>
+                </span>
+            </label>
         </SettingsCard>
     );
 };

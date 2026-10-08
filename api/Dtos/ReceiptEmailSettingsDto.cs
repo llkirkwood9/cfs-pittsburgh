@@ -219,10 +219,10 @@ namespace api.Dtos
         public List<SalesTermDto>? Terms { get; set; }
 
         /// <summary>
-        /// The kinds of financing offered, picked at checkout when a sale is financed. Null on
-        /// write leaves them unchanged.
+        /// Whether checkout may pick Other and type in a financing type that isn't one of the
+        /// finance options. Null on write leaves it unchanged.
         /// </summary>
-        public List<string>? FinanceOptions { get; set; }
+        public bool? AllowOtherFinanceType { get; set; }
 
         /// <summary>
         /// What each setting would be without this scope's own values (returned, not saved): the

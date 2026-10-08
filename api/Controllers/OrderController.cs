@@ -324,6 +324,14 @@ namespace api.Controllers
                 if (reference?.Length > 100 || financeType?.Length > 100)
                     return BadRequest(new { error = "The financing number and type can be at most 100 characters." });
 
+                if (financeType != null)
+                {
+                    var typeProblem = await FinanceTypeProblemAsync(financeType, order.Event!.TerritoryId);
+                    if (typeProblem != null)
+                        return BadRequest(new { error = typeProblem });
+                    financeType = await CanonicalFinanceTypeAsync(financeType, order.Event!.TerritoryId);
+                }
+
                 order.Payments.Add(new OrderPayment
                 {
                     OrderId = order.Id,
@@ -1030,7 +1038,17 @@ namespace api.Controllers
                     payment.Reference = Clean(request.Reference);
 
                 if (request.FinanceType != null)
-                    payment.FinanceType = Clean(request.FinanceType);
+                {
+                    var financeType = Clean(request.FinanceType);
+                    if (financeType != null)
+                    {
+                        var typeProblem = await FinanceTypeProblemAsync(financeType, order.Event!.TerritoryId);
+                        if (typeProblem != null)
+                            return BadRequest(new { error = typeProblem });
+                        financeType = await CanonicalFinanceTypeAsync(financeType, order.Event!.TerritoryId);
+                    }
+                    payment.FinanceType = financeType;
+                }
 
                 // Only a financing payment carries a financing type.
                 if (payment.Method != PaymentMethod.Financing)
@@ -1343,6 +1361,43 @@ namespace api.Controllers
             (choices ?? [])
                 .Where(c => c.OptionId != null && c.ChoiceId != null)
                 .Select(c => (c.OptionId!.Value, c.ChoiceId!.Value));
+
+        /// <summary>
+        /// Why a financing type can't be recorded, or null when it can: it must be one of the
+        /// finance options offered in the order's territory, unless that territory's settings let
+        /// checkout type in another.
+        /// </summary>
+        /// <param name="financeType">Trimmed financing type</param>
+        /// <param name="territoryId">The order's territory</param>
+        /// <returns>A message for checkout, or null.</returns>
+        private async Task<string?> FinanceTypeProblemAsync(string financeType, int territoryId)
+        {
+            var lower = financeType.ToLower();
+            if (await DB.FinanceOptions.AnyAsync(f => f.IsActive && f.Name.ToLower() == lower
+                                                      && (f.TerritoryId == null || f.TerritoryId == territoryId)))
+                return null;
+
+            return (await SettingsStore.LoadAsync(DB, territoryId)).AllowOtherFinanceType
+                ? null
+                : "Choose one of the financing options.";
+        }
+
+        /// <summary>
+        /// A financing type spelt as its finance option is, when it is one, so the same kind
+        /// always reads the same on sales sheets.
+        /// </summary>
+        /// <param name="financeType">Trimmed financing type</param>
+        /// <param name="territoryId">The order's territory</param>
+        /// <returns>The option's name, or the type as given.</returns>
+        private async Task<string> CanonicalFinanceTypeAsync(string financeType, int territoryId)
+        {
+            var lower = financeType.ToLower();
+            return await DB.FinanceOptions
+                .Where(f => f.IsActive && f.Name.ToLower() == lower
+                            && (f.TerritoryId == null || f.TerritoryId == territoryId))
+                .Select(f => f.Name)
+                .FirstOrDefaultAsync() ?? financeType;
+        }
 
         /// <summary>
         /// Trimmed text, or null when blank.

@@ -41,6 +41,11 @@ namespace api.Data
         public DbSet<ProductDeliveryOption> ProductDeliveryOptions => Set<ProductDeliveryOption>();
 
         /// <summary>
+        /// Kinds of financing offered at checkout
+        /// </summary>
+        public DbSet<FinanceOption> FinanceOptions => Set<FinanceOption>();
+
+        /// <summary>
         /// Customer orders
         /// </summary>
         public DbSet<Order> Orders => Set<Order>();
@@ -196,6 +201,14 @@ namespace api.Data
                 entity.HasOne(d => d.Territory)
                     .WithMany()
                     .HasForeignKey(d => d.TerritoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<FinanceOption>(entity =>
+            {
+                entity.HasOne(f => f.Territory)
+                    .WithMany()
+                    .HasForeignKey(f => f.TerritoryId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 
