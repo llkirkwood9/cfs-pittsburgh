@@ -93,15 +93,17 @@ const toLineChoices = (picked: Record<number, number>): LineChoice[] =>
  * @param onHand Units on hand for the chosen size and choices, or null when not tracked.
  * @param quantity Units being added.
  * @param currentId The option picked so far, if any.
+ * @param notKept True when the size, or an item it includes, isn't kept at the cart.
  * @returns The delivery option id, or null.
  */
 const pickDelivery = (
     product: Product,
     onHand: number | null,
     quantity: number,
-    currentId: number | null
+    currentId: number | null,
+    notKept = false
 ): number | null => {
-    const blocked = TakeWithBlocked(onHand, quantity);
+    const blocked = TakeWithBlocked(onHand, quantity, notKept);
     const usable = (product.deliveryOptions ?? []).filter((d) => !(d.isTakeWith && blocked));
 
     if (currentId !== null && usable.some((d) => d.deliveryOptionId === currentId))
@@ -199,6 +201,17 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
         picked: Record<number, number>
     ) => StockFor(product, size, picked);
 
+    // A size left out of inventory - or a bundle including one - isn't kept at the cart.
+    const notKeptAt = (product: Product, size: ProductVariant | undefined) =>
+        Boolean(
+            (product.trackInventory && size?.excludeFromInventory) ||
+            (size?.components ?? []).some((c) => {
+                const included = products.find((p) => p.id === c.productId);
+                const includedSize = included?.variants?.find((v) => v.id === c.componentVariantId);
+                return Boolean(included?.trackInventory && includedSize?.excludeFromInventory);
+            })
+        );
+
     const chooseProduct = (product: Product) => {
         setSelected(product);
 
@@ -214,7 +227,15 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                 ])
             )
         );
-        setDeliveryId(pickDelivery(product, stockNow(product, firstPriced, preset), 1, null));
+        setDeliveryId(
+            pickDelivery(
+                product,
+                stockNow(product, firstPriced, preset),
+                1,
+                null,
+                notKeptAt(product, firstPriced)
+            )
+        );
 
         setQuantity(1);
         setDiscount("");
@@ -237,7 +258,13 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
         );
         if (selected)
             setDeliveryId((current) =>
-                pickDelivery(selected, stockNow(selected, next, picks), quantity, current)
+                pickDelivery(
+                    selected,
+                    stockNow(selected, next, picks),
+                    quantity,
+                    current,
+                    notKeptAt(selected, next)
+                )
             );
     };
 
@@ -246,7 +273,13 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
         setPicks(next);
         if (selected)
             setDeliveryId((current) =>
-                pickDelivery(selected, stockNow(selected, variant, next), quantity, current)
+                pickDelivery(
+                    selected,
+                    stockNow(selected, variant, next),
+                    quantity,
+                    current,
+                    notKeptAt(selected, variant)
+                )
             );
     };
 
@@ -254,7 +287,13 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
         setQuantity(next);
         if (selected)
             setDeliveryId((current) =>
-                pickDelivery(selected, stockNow(selected, variant, picks), next, current)
+                pickDelivery(
+                    selected,
+                    stockNow(selected, variant, picks),
+                    next,
+                    current,
+                    notKeptAt(selected, variant)
+                )
             );
     };
 
@@ -263,12 +302,16 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
         selected &&
         SizeTracked(selected, variant) &&
         CountedOptions(selected).some((o) => picks[o.id ?? 0] === undefined);
-    const takeWithBlock = countedUnpicked
-        ? `Pick the ${CountedOptions(selected!)
-              .filter((o) => picks[o.id ?? 0] === undefined)
-              .map((o) => (o.name ?? "").toLowerCase())
-              .join(" and ")} first`
-        : TakeWithBlocked(onHand, quantity);
+    // Not kept at the cart comes first: picking a color wouldn't make it a Take With.
+    const takeWithBlock =
+        selected && notKeptAt(selected, variant)
+            ? TakeWithBlocked(onHand, quantity, true)
+            : countedUnpicked
+              ? `Pick the ${CountedOptions(selected!)
+                    .filter((o) => picks[o.id ?? 0] === undefined)
+                    .map((o) => (o.name ?? "").toLowerCase())
+                    .join(" and ")} first`
+              : TakeWithBlocked(onHand, quantity);
 
     // Included items with selections of their own, such as sheets in a color.
     const includedWithChoices = (variant?.components ?? [])

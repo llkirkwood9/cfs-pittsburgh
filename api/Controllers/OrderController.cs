@@ -1765,6 +1765,10 @@ namespace api.Controllers
                                 ? l.ProductVariant.QuantityOnHand
                                 : l.ProductVariant.ChoiceStocks.FirstOrDefault(c => c.StockKey == l.StockKey)?.QuantityOnHand ?? 0
                             : null,
+                        NotKeptAtCart = InventoryRules.NotKept(l.ProductVariant)
+                                        || order.Lines.Any(c => c.ParentLineId == l.Id
+                                                                && c.LineType == OrderLineType.Included
+                                                                && InventoryRules.NotKept(c.ProductVariant)),
                     })
                     .ToList(),
                 Payments = order.Payments

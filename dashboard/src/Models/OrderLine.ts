@@ -37,4 +37,6 @@ export type OrderLine = {
     notes?: string | null;
     /** On-hand count of the sold size; null when the product does not track inventory. */
     quantityOnHand?: number | null;
+    /** The size, or an item its bundle includes, is left out of inventory: no Take With. */
+    notKeptAtCart?: boolean;
 };

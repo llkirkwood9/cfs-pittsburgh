@@ -133,7 +133,9 @@ The catalog and the printed receipt are both built from the supplied source docu
     screen keeps a count for every size and color combination.
   - **Count in inventory**: on a tracked product, each size can be left out of inventory (for
     example a size that isn't kept at the cart). It isn't counted, doesn't appear on the Inventory
-    screen or the inventory sheet, and Take With isn't limited by stock for it.
+    screen or the inventory sheet, and it can't be a Take With, since the cart doesn't keep it -
+    nor can a bundle that includes it. The API refuses it and the floor shows **Not kept at the
+    cart**.
   - **Financing Options** (a tab beside Delivery): the kinds of financing checkout can pick, in
     the order it lists them. An option can be switched off without deleting it. A financed
     payment stores the type as text, so renaming or deleting an option never changes a past sale.

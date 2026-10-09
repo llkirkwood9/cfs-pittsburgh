@@ -459,16 +459,20 @@ export const InventoryRowKey = (item: InventoryItem): string =>
     `${item.productVariantId ?? 0}|${item.stockKey ?? ""}`;
 
 /**
- * Why a tracked item cannot go home as a Take With, or null when it can. Untracked items (a null
- * count) are always allowed.
+ * Why a tracked item cannot go home as a Take With, or null when it can. A size left out of
+ * inventory isn't kept at the cart, so it never can; other untracked items (a null count) always
+ * can.
  * @param onHand Units on hand, or null/undefined when the product is not tracked.
  * @param quantity Units the customer wants to take.
+ * @param notKept True when the size (or an item its bundle includes) is left out of inventory.
  * @returns A short reason such as "Out of stock" or "Only 2 in stock", or null.
  */
 export const TakeWithBlocked = (
     onHand: number | null | undefined,
-    quantity: number
+    quantity: number,
+    notKept = false
 ): string | null => {
+    if (notKept) return "Not kept at the cart";
     if (onHand === null || onHand === undefined) return null;
     if (onHand <= 0) return "Out of stock";
     return onHand < quantity ? `Only ${onHand} in stock` : null;
