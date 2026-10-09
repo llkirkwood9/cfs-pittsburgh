@@ -20,6 +20,8 @@ type Props = {
     onAdd: (payment: OrderPayment) => Promise<void>;
     onRemove: (paymentId: number) => Promise<void>;
     onMethodChange: (method: PaymentMethod) => Promise<void>;
+    /** Takes the card fee off the order, or puts it back. */
+    onWaiveFee: (waive: boolean) => Promise<void>;
 };
 
 /** The financing type picker's value for Other. */
@@ -41,7 +43,7 @@ const methods: { key: PaymentMethod; label: string; icon: string }[] = [
  * catalog's financing options - or typed in under Other, when Settings allows it; both print in
  * the sales sheet's comments.
  */
-const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
+const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Props) => {
     // The finance options and Other setting of the territory the order was taken in.
     const allowOther = useSettingsFor(order.territoryId).allowOtherFinanceType;
     const [financeOptions, setFinanceOptions] = useState<FinanceOption[]>([]);
@@ -64,6 +66,19 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
 
     const balance = order.balanceDue ?? 0;
     const feeRate = order.ccProcessingFeeRate ?? 0;
+    // Shows the tick straight away while the order saves, then follows the saved order.
+    const [pendingWaive, setPendingWaive] = useState<boolean | null>(null);
+    const waiving = pendingWaive !== null;
+    const waived = pendingWaive ?? order.waiveCcProcessingFee ?? false;
+    // The No card fee box shows whenever a card is in play: picked now, or already paid with.
+    const cardInPlay =
+        method === "VisaMc" || (order.payments ?? []).some((p) => p.method === "VisaMc");
+
+    const toggleWaive = async (waive: boolean) => {
+        setPendingWaive(waive);
+        await onWaiveFee(waive);
+        setPendingWaive(null);
+    };
 
     // Picking a method is what turns the card fee on and off, so the customer sees the real
     // total before anything is keyed in rather than after.
@@ -127,13 +142,39 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange }: Props) => {
                 ))}
             </div>
 
-            {feeRate > 0 && method === "VisaMc" && (
-                <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
-                    <Icon icon="fa-solid fa-circle-info" /> A{" "}
-                    {(feeRate * 100).toFixed(2).replace(/\.?0+$/, "")}% card processing fee of{" "}
-                    {FormatCurrency(order.ccProcessingFee)} is included in the total below. Switch
-                    to another method to remove it.
-                </p>
+            {feeRate > 0 && (cardInPlay || waived) && (
+                <div className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                    {waived ? (
+                        <p>
+                            <Icon icon="fa-solid fa-circle-info" /> The card processing fee is
+                            waived on this order.
+                        </p>
+                    ) : (
+                        method === "VisaMc" && (
+                            <p>
+                                <Icon icon="fa-solid fa-circle-info" /> A{" "}
+                                {(feeRate * 100).toFixed(2).replace(/\.?0+$/, "")}% card processing
+                                fee of {FormatCurrency(order.ccProcessingFee)} is included in the
+                                total below. Switch to another method, or tick No card fee, to
+                                remove it.
+                            </p>
+                        )
+                    )}
+                    <label
+                        className={`mt-1 inline-flex items-center gap-2 font-medium ${
+                            waiving ? "cursor-wait opacity-60" : "cursor-pointer"
+                        }`}
+                    >
+                        <input
+                            type="checkbox"
+                            checked={waived}
+                            disabled={waiving}
+                            onChange={(e) => toggleWaive(e.target.checked)}
+                            className="h-4 w-4 accent-amber-600"
+                        />
+                        No card fee on this order
+                    </label>
+                </div>
             )}
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

@@ -12,6 +12,7 @@ import AddItemModal from "../Components/Sales/AddItemModal";
 import AddServiceModal from "../Components/Sales/AddServiceModal";
 import CustomerDetailsSheet from "../Components/Sales/CustomerDetailsSheet";
 import EditLineModal from "../Components/Sales/EditLineModal";
+import UpchargeModal from "../Components/Sales/UpchargeModal";
 import OrderLineList from "../Components/Sales/OrderLineList";
 import OrderTotals from "../Components/Sales/OrderTotals";
 import { useAuth } from "../Context/AuthContext";
@@ -67,6 +68,7 @@ const CheckoutPage = () => {
     const [showAddItem, setShowAddItem] = useState<boolean>(false);
     const [editingLine, setEditingLine] = useState<OrderLine | null>(null);
     const [servicingLine, setServicingLine] = useState<OrderLine | null>(null);
+    const [upchargingLine, setUpchargingLine] = useState<OrderLine | null>(null);
     const [removingLine, setRemovingLine] = useState<OrderLine | null>(null);
     const [showCustomerSheet, setShowCustomerSheet] = useState<boolean>(false);
     const [showAcknowledgements, setShowAcknowledgements] = useState<boolean>(false);
@@ -168,6 +170,12 @@ const CheckoutPage = () => {
     const handleMethodChange = async (method: PaymentMethod) => {
         if (!order?.id) return;
         await saveOrder({ applyCcProcessingFee: method === "VisaMc" });
+    };
+
+    /** No card fee on this order, even when it is paid by card - or the fee back on. */
+    const handleWaiveFee = async (waive: boolean) => {
+        if (!order?.id) return;
+        await saveOrder({ waiveCcProcessingFee: waive });
     };
 
     const handleComplete = async () => {
@@ -312,6 +320,7 @@ const CheckoutPage = () => {
                                     readOnly={closed}
                                     onEdit={setEditingLine}
                                     onAddService={setServicingLine}
+                                    onAddUpcharge={setUpchargingLine}
                                     onRemove={setRemovingLine}
                                     onQuantity={(line, quantity) =>
                                         handleUpdateLine({ id: line.id, quantity })
@@ -380,6 +389,7 @@ const CheckoutPage = () => {
                                     onAdd={handleAddPayment}
                                     onRemove={handleRemovePayment}
                                     onMethodChange={handleMethodChange}
+                                    onWaiveFee={handleWaiveFee}
                                 />
                             </div>
 
@@ -551,11 +561,30 @@ const CheckoutPage = () => {
                 />
             )}
 
-            {editingLine && (
+            {editingLine?.lineType === "Upcharge" && (
+                <UpchargeModal
+                    line={editingLine}
+                    parentLine={
+                        order?.lines?.find((l) => l.id === editingLine.parentLineId) ?? editingLine
+                    }
+                    onSave={handleUpdateLine}
+                    onClose={() => setEditingLine(null)}
+                />
+            )}
+
+            {editingLine && editingLine.lineType !== "Upcharge" && (
                 <EditLineModal
                     line={editingLine}
                     onSave={handleUpdateLine}
                     onClose={() => setEditingLine(null)}
+                />
+            )}
+
+            {upchargingLine && (
+                <UpchargeModal
+                    parentLine={upchargingLine}
+                    onSave={handleAddLine}
+                    onClose={() => setUpchargingLine(null)}
                 />
             )}
 

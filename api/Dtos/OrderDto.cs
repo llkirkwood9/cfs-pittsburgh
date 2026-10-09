@@ -219,6 +219,11 @@ namespace api.Dtos
         public bool? ApplyCcProcessingFee { get; set; }
 
         /// <summary>
+        /// Whether the checkout table has waived the card processing fee on this order
+        /// </summary>
+        public bool? WaiveCcProcessingFee { get; set; }
+
+        /// <summary>
         /// Subtotal cell, computed by the server
         /// </summary>
         public decimal? Subtotal { get; set; }

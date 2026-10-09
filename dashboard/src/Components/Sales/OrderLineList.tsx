@@ -9,20 +9,22 @@ type Props = {
     readOnly?: boolean;
     onEdit?: (line: OrderLine) => void;
     onAddService?: (line: OrderLine) => void;
+    onAddUpcharge?: (line: OrderLine) => void;
     onRemove?: (line: OrderLine) => void;
     /** Changes a line's quantity in place, without opening the editor. */
     onQuantity?: (line: OrderLine, quantity: number) => void;
 };
 
 /**
- * The product grid as the rep sees it on the floor: one card per line, delivery charges indented
- * under the item they belong to, exactly the way they read on the paper sheet.
+ * The product grid as the rep sees it on the floor: one card per line, delivery charges and
+ * upcharges indented under the item they belong to, exactly the way they read on the paper sheet.
  */
 const OrderLineList = ({
     lines,
     readOnly = false,
     onEdit,
     onAddService,
+    onAddUpcharge,
     onRemove,
     onQuantity,
 }: Props) => {
@@ -49,7 +51,8 @@ const OrderLineList = ({
             {ordered.map((line) => {
                 const isService = line.lineType === "Delivery";
                 const isIncluded = line.lineType === "Included";
-                const isChild = isService || isIncluded;
+                const isUpcharge = line.lineType === "Upcharge";
+                const isChild = isService || isIncluded || isUpcharge;
 
                 return (
                     <li
@@ -59,7 +62,9 @@ const OrderLineList = ({
                                 ? "ml-4 border-l-4 border-sky-500/50"
                                 : isIncluded
                                   ? "ml-4 border-l-4 border-violet-500/50"
-                                  : ""
+                                  : isUpcharge
+                                    ? "ml-4 border-l-4 border-orange-500/50"
+                                    : ""
                         }`}
                     >
                         <div className="flex items-start gap-3">
@@ -68,6 +73,11 @@ const OrderLineList = ({
                                     {isService && (
                                         <span className="mr-1 text-xs font-bold uppercase text-sky-700 dark:text-sky-400">
                                             Ship
+                                        </span>
+                                    )}
+                                    {isUpcharge && (
+                                        <span className="mr-1 text-xs font-bold uppercase text-orange-700 dark:text-orange-400">
+                                            Upcharge
                                         </span>
                                     )}
                                     {line.description}
@@ -204,6 +214,14 @@ const OrderLineList = ({
                                         icon="fa-solid fa-truck"
                                         onClick={() => onAddService(line)}
                                         className="min-h-[40px] px-3 text-sm"
+                                    />
+                                )}
+                                {onAddUpcharge && !isChild && (
+                                    <Button
+                                        text="Add upcharge"
+                                        icon="fa-solid fa-circle-plus"
+                                        onClick={() => onAddUpcharge(line)}
+                                        className="min-h-[40px] bg-orange-700 px-3 text-sm hover:bg-orange-800 dark:bg-orange-600 dark:hover:bg-orange-700"
                                     />
                                 )}
                                 {onRemove && (

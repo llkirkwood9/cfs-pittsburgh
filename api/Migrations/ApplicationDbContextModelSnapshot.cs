@@ -478,6 +478,9 @@ namespace api.Migrations
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<bool>("WaiveCcProcessingFee")
+                        .HasColumnType("boolean");
+
                     b.Property<string>("WarrantyInitials")
                         .HasMaxLength(10)
                         .HasColumnType("character varying(10)");

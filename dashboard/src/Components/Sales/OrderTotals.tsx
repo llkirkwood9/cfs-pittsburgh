@@ -23,6 +23,11 @@ const OrderTotals = ({ order, className = "", compact = false }: Props) => {
 
     if ((order.ccProcessingFee ?? 0) > 0)
         rows.push({ label: "CC processing fee", value: FormatCurrency(order.ccProcessingFee) });
+    else if (
+        order.waiveCcProcessingFee &&
+        (order.applyCcProcessingFee || (order.payments ?? []).some((p) => p.method === "VisaMc"))
+    )
+        rows.push({ label: "CC processing fee", value: "Waived" });
 
     const paid = (order.amountPaid ?? 0) > 0;
 

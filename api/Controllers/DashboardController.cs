@@ -192,7 +192,8 @@ namespace api.Controllers
             var lines = completed.SelectMany(o => o.Lines).ToList();
             var payments = completed.SelectMany(o => o.Payments).ToList();
 
-            var productLines = lines.Where(l => l.LineType != OrderLineType.Delivery).ToList();
+            // Shipping rows and upcharges are charges on an item, not items, so they never count.
+            var productLines = lines.Where(l => l.LineType is not (OrderLineType.Delivery or OrderLineType.Upcharge)).ToList();
 
             int UnitsIn(ProductCategory category) =>
                 productLines.Where(l => l.Category == category).Sum(l => l.Quantity);

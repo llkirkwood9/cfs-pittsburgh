@@ -34,6 +34,18 @@ namespace api.Utils
         /// <param name="order">Order to recalculate in place, with lines and payments loaded</param>
         public static void RecalculateOrder(Order order)
         {
+            // An upcharge is charged per item and taxed like its item, so it follows the item's
+            // quantity and tax setting whenever either changes.
+            foreach (var upcharge in order.Lines.Where(l => l.LineType == OrderLineType.Upcharge))
+            {
+                var parent = order.Lines.FirstOrDefault(l => l.Id == upcharge.ParentLineId);
+                if (parent == null)
+                    continue;
+
+                upcharge.Quantity = parent.Quantity;
+                upcharge.IsTaxable = parent.IsTaxable;
+            }
+
             foreach (var line in order.Lines)
                 RecalculateLine(line);
 
@@ -43,7 +55,8 @@ namespace api.Utils
             order.TaxAmount = Round(taxableBase * order.SalesTaxRate);
 
             var preFeeTotal = Round(order.Subtotal + order.TaxAmount);
-            var rate = order.CcProcessingFeeRate;
+            // Waived at the checkout table, the order carries no card fee however it is paid.
+            var rate = order.WaiveCcProcessingFee ? 0m : order.CcProcessingFeeRate;
 
             // The card fee is charged only on the part of the sale paid by card, matching the
             // paper sheet where the fee box stays blank unless the customer pays by card. A $2,000
