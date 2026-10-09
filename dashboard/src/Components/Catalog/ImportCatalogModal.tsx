@@ -67,6 +67,8 @@ const ImportCatalogModal = ({ onClose, onRestored }: Props) => {
 
     const products = file?.products?.length ?? 0;
     const deliveryOptions = file?.deliveryOptions?.length ?? 0;
+    // Null for a file made before financing options were exported.
+    const financeOptions = file?.financeOptions ? file.financeOptions.length : null;
     const exported = file?.exportedAt ? new Date(file.exportedAt).toLocaleString("en-US") : null;
 
     if (result) {
@@ -77,10 +79,14 @@ const ImportCatalogModal = ({ onClose, onRestored }: Props) => {
                 footer={<Button text="Done" icon="fa-solid fa-check" onClick={finish} />}
             >
                 <ul className="space-y-1 text-base">
-                    {result.productsRemoved + result.deliveryOptionsRemoved > 0 && (
+                    {result.productsRemoved +
+                        result.deliveryOptionsRemoved +
+                        result.financeOptionsRemoved >
+                        0 && (
                         <li>
-                            Cleared {result.productsRemoved} products and{" "}
-                            {result.deliveryOptionsRemoved} delivery options.
+                            Cleared {result.productsRemoved} products,{" "}
+                            {result.deliveryOptionsRemoved} delivery options and{" "}
+                            {result.financeOptionsRemoved} financing options.
                         </li>
                     )}
                     <li>
@@ -93,6 +99,14 @@ const ImportCatalogModal = ({ onClose, onRestored }: Props) => {
                             `, ${result.deliveryOptionsUpdated} updated`}
                         .
                     </li>
+                    {result.financeOptionsAdded + result.financeOptionsUpdated > 0 && (
+                        <li>
+                            Financing options: {result.financeOptionsAdded} added
+                            {result.financeOptionsUpdated > 0 &&
+                                `, ${result.financeOptionsUpdated} updated`}
+                            .
+                        </li>
+                    )}
                 </ul>
                 {result.warnings.length > 0 && (
                     <div className="mt-4 rounded-xl bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
@@ -184,8 +198,11 @@ const ImportCatalogModal = ({ onClose, onRestored }: Props) => {
             )}
             {file && (
                 <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
-                    {fileName}: {products} {products === 1 ? "product" : "products"} and{" "}
+                    {fileName}: {products} {products === 1 ? "product" : "products"},{" "}
                     {deliveryOptions} delivery {deliveryOptions === 1 ? "option" : "options"}
+                    {financeOptions === null
+                        ? " and no financing options (an older file - the current ones are kept)"
+                        : ` and ${financeOptions} financing ${financeOptions === 1 ? "option" : "options"}`}
                     {exported ? `, exported ${exported}` : ""}.
                 </p>
             )}
@@ -194,12 +211,12 @@ const ImportCatalogModal = ({ onClose, onRestored }: Props) => {
                 {choice(
                     "update",
                     "Update the catalog from this file",
-                    "Products in the file that are already in the catalog (same territory, brand and name) are changed to match it - sizes, prices, sales, selections, bundles and delivery. Anything new is added, each in the territory with the same name. Products and delivery options that aren't in the file are left as they are, and stock counts are kept."
+                    "Products in the file that are already in the catalog (same territory, brand and name) are changed to match it - sizes, prices, sales, selections, bundles and delivery. Anything new is added, each in the territory with the same name, and financing options are matched by territory and name. Products, delivery options and financing options that aren't in the file are left as they are, and stock counts are kept."
                 )}
                 {choice(
                     "replace",
                     "Clear the catalog and replace it",
-                    "Every product and delivery option, global and in every territory, is deleted for good - including ones that have been sold - with their stock counts and inventory history. Then the catalog is rebuilt from the file. Past sales sheets still print exactly as they were sold."
+                    "Every product and delivery option, global and in every territory, is deleted for good - including ones that have been sold - with their stock counts and inventory history, and so are the financing options when the file has them. Then the catalog is rebuilt from the file. Past sales sheets still print exactly as they were sold."
                 )}
             </div>
 

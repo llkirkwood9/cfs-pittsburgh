@@ -304,6 +304,7 @@ namespace api.Controllers
                 }
 
                 InventoryRules.SyncIncludedTakeWith(order);
+                LineOrder.Normalize(order);
                 OrderCalculator.RecalculateOrder(order);
                 order.UpdatedAt = DateTime.UtcNow;
                 await DB.SaveChangesAsync();
@@ -824,6 +825,48 @@ namespace api.Controllers
 
         #endregion
 
+        #region PUT Methods
+
+        /// <summary>
+        /// Puts an order's items in a new order. Each item's own rows - included items, upcharges,
+        /// shipping - move with it and stay in that order underneath.
+        /// </summary>
+        /// <param name="id">Order id</param>
+        /// <param name="itemIds">Every item line's id, in the order the sales sheet should list them</param>
+        /// <returns>The order with its lines in the new order.</returns>
+        [HttpPut("order/{id}/lines/order")]
+        [Authorize(AuthenticationSchemes = "Bearer")]
+        public async Task<IActionResult> ReorderOrderLines(int id, [FromBody] List<int> itemIds)
+        {
+            try
+            {
+                var order = await LoadOrderAsync(id);
+                if (order == null)
+                    return NotFound(new { error = "Order not found." });
+
+                if (order.Status is OrderStatus.Completed or OrderStatus.Voided)
+                    return BadRequest(new { error = "This order is closed and can no longer be changed." });
+
+                var items = LineOrder.Items(order);
+                if (itemIds.Count != items.Count || itemIds.Distinct().Count() != itemIds.Count
+                    || items.Any(l => !itemIds.Contains(l.Id)))
+                    return BadRequest(new { error = "The order has changed. Refresh and try again." });
+
+                LineOrder.Normalize(order, itemIds);
+                order.UpdatedAt = DateTime.UtcNow;
+                await DB.SaveChangesAsync();
+
+                return Ok(await LoadDtoAsync(order.Id));
+            }
+            catch (Exception e)
+            {
+                Trace(TraceEventType.Critical, e.Message);
+                return StatusCode(500, new { error = "Internal error occurred while reordering the items.", exception = e.Message });
+            }
+        }
+
+        #endregion
+
         #region PATCH Methods
 
         /// <summary>
@@ -1202,6 +1245,7 @@ namespace api.Controllers
                 }
 
                 InventoryRules.SyncIncludedTakeWith(order);
+                LineOrder.Normalize(order);
                 OrderCalculator.RecalculateOrder(order);
                 order.UpdatedAt = DateTime.UtcNow;
                 await DB.SaveChangesAsync();

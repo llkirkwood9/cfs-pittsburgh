@@ -952,7 +952,8 @@ namespace api.Controllers
                     .ToList(),
                 DeliveryOptions = product.DeliveryOptions
                     .Where(d => d.DeliveryOption != null && (includeInactive || d.DeliveryOption.IsActive))
-                    .OrderBy(d => d.DeliveryOption!.SortOrder)
+                    .OrderBy(d => d.DeliveryOption!.TerritoryId != null)
+                    .ThenBy(d => d.DeliveryOption!.SortOrder)
                     .Select(d => new ProductDeliveryOptionDto
                     {
                         Id = d.Id,

@@ -55,6 +55,9 @@ The catalog and the printed receipt are both built from the supplied source docu
   size chips show what each bundle includes.
 - A second in-home service (White Glove *and* Haul Away, as on the paper sheets) is attached to a
   line with **Add service**.
+- The arrows on an item move it up or down the order, and so the sales sheet. Its own rows move
+  with it and always sit under it in the same order: what a bundle includes, then upcharges, then
+  shipping and services.
 - **Add upcharge** puts an extra charge on an item with its reason (a special order, a custom
   size). It prints as its own row under the item, is charged per item so it follows the item's
   quantity, and is taxed when the item is.
@@ -170,13 +173,16 @@ The catalog and the printed receipt are both built from the supplied source docu
     checkout lists the global ones first, then the territory's, each in its own order. An option
     can be switched off without deleting it. A financed
     payment stores the type as text, so renaming or deleting an option never changes a past sale.
-    Not part of catalog files.
+    They are part of catalog files.
+  - **Delivery order**: the arrows on Catalog -> Delivery set the order the sales floor offers the
+    delivery options in, as they do for financing options.
   - **Export catalog / Restore catalog** (system admins only): the whole catalog as a JSON file -
     every product (archived ones too, global and every territory's) with sizes, prices, sales,
     selections, bundles, delivery choices, Track inventory and sizes left out of it, plus the
-    delivery options list; no stock counts. Restoring either updates matching products and adds
-    new ones, leaving the rest alone, or clears the whole catalog, every territory (a permanent
-    delete, sold items included), and rebuilds it from the file. See *Catalog files* below.
+    delivery options and financing options lists; no stock counts. Restoring either updates
+    matching products and adds new ones, leaving the rest alone, or clears the whole catalog, every
+    territory (a permanent delete, sold items included), and rebuilds it from the file. See
+    *Catalog files* below.
 - `/events` — the territory, sales tax rate, card processing fee, order number sequence, active
   event. An event that has taken no orders can be moved to another territory.
 - `/crew` — accounts, roles, territories, starting passwords and unlocking. A manager sees and
@@ -476,6 +482,16 @@ is left out and listed in the result. Each item and delivery option also names i
 (blank when global): on restore it goes to the territory with that name, or comes in as global
 with a warning when there isn't one, and products are matched within their territory. Clearing
 clears every territory's items. `Utils/CatalogTransfer.cs` does the work.
+Financing options are in the file too, each naming its territory the same way, in their order
+within it, and matched by territory and name. A file made before they were exported has no
+`financeOptions` key, and a restore from it - even a replace - leaves the financing options as
+they are; a file that has the key replaces them, in every territory, on a replace.
+
+**Line order.** `Utils/LineOrder.cs` renumbers an order's `SortOrder`s whenever a line is added or
+removed, and `PUT /api/order/order/{id}/lines/order` takes the items in a new order. Each item is
+followed by its own rows - `Included`, then `Upcharge`, then `Delivery`, oldest first within each -
+so a row added later still lands in its place. `SortLinesForPrint` applies the same pattern on
+screen and on the sales sheet, which also puts older orders right.
 
 **Lines are snapshots.** Brand, size, description, price and category are copied onto the order
 line when it is added. Editing or retiring a catalog product never rewrites a printed receipt. A

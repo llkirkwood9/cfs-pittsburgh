@@ -78,7 +78,10 @@ namespace api.Controllers
                     IsTakeWith = request.IsTakeWith ?? false,
                     // Take With defaults to hidden: the item's own Take With column already says it.
                     ShowOnSalesSheet = request.ShowOnSalesSheet ?? !(request.IsTakeWith ?? false),
-                    SortOrder = request.SortOrder ?? 0,
+                    // A new option goes to the end of its list - global, or its territory's own -
+                    // unless a place is given.
+                    SortOrder = request.SortOrder
+                                ?? (await DB.DeliveryOptions.Where(d => d.TerritoryId == territoryId).MaxAsync(d => (int?)d.SortOrder) ?? 0) + 1,
                     IsActive = request.IsActive ?? true,
                 };
                 (option.SaleDiscountPercent, option.SaleDiscountAmount) =
@@ -111,23 +114,57 @@ namespace api.Controllers
         {
             try
             {
-                var territoryId = Scope.TerritoryId;
-                var query = DB.DeliveryOptions.Include(d => d.Territory).AsNoTracking()
-                    .Where(d => territoryId == null || d.TerritoryId == null || d.TerritoryId == territoryId);
-
-                if (!includeInactive)
-                    query = query.Where(d => d.IsActive);
-
-                var options = await query
-                    .OrderBy(d => d.SortOrder)
-                    .ThenBy(d => d.Name)
-                    .ToListAsync();
-
-                return Ok(options.Select(ToDto).ToList());
+                return Ok(await ListAsync(Scope.TerritoryId, includeInactive));
             }
             catch (Exception e)
             {
                 return ServerError("Internal error occurred while getting delivery options.", e);
+            }
+        }
+
+        #endregion
+
+        #region PUT Methods
+
+        /// <summary>
+        /// Puts one list of delivery options - the global ones, or a territory's own - in a new
+        /// order, the order the sales floor offers them in.
+        /// </summary>
+        /// <param name="ids">Every option id in that list, archived ones included, in the new order</param>
+        /// <returns>The options in view, in their new order.</returns>
+        [HttpPut("deliveryoptions/order")]
+        [Authorize(AuthenticationSchemes = "Bearer")]
+        public async Task<IActionResult> ReorderDeliveryOptions([FromBody] List<int> ids)
+        {
+            try
+            {
+                if (!IsAtLeast(UserRole.Manager))
+                    return Forbidden("Only a manager, administrator or system admin may change the catalog.");
+
+                if (ids.Count == 0 || ids.Distinct().Count() != ids.Count)
+                    return BadRequest(new { error = "Invalid parameter." });
+
+                var first = await DB.DeliveryOptions.FindAsync(ids[0]);
+                if (first == null)
+                    return BadRequest(new { error = "The list has changed. Refresh and try again." });
+
+                var group = await DB.DeliveryOptions.Where(d => d.TerritoryId == first.TerritoryId).ToListAsync();
+                if (group.Count != ids.Count || group.Any(o => !ids.Contains(o.Id)))
+                    return BadRequest(new { error = "The list has changed. Refresh and try again." });
+
+                if (!CanEditCatalog(first.TerritoryId))
+                    return Forbidden(GlobalReadOnly);
+
+                foreach (var option in group)
+                    option.SortOrder = ids.IndexOf(option.Id) + 1;
+
+                await DB.SaveChangesAsync();
+
+                return Ok(await ListAsync(Scope.TerritoryId, includeInactive: true));
+            }
+            catch (Exception e)
+            {
+                return ServerError("Internal error occurred while reordering the delivery options.", e);
             }
         }
 
@@ -281,6 +318,31 @@ namespace api.Controllers
         #endregion
 
         #region Private Methods
+
+        /// <summary>
+        /// The delivery options in view: global ones first, then each territory's own, each list
+        /// in its order.
+        /// </summary>
+        /// <param name="territoryId">The territory being worked, or null for every territory</param>
+        /// <param name="includeInactive">Whether archived options are included</param>
+        /// <returns>The options as DTOs.</returns>
+        private async Task<List<DeliveryOptionDto>> ListAsync(int? territoryId, bool includeInactive)
+        {
+            var query = DB.DeliveryOptions.Include(d => d.Territory).AsNoTracking()
+                .Where(d => territoryId == null || d.TerritoryId == null || d.TerritoryId == territoryId);
+
+            if (!includeInactive)
+                query = query.Where(d => d.IsActive);
+
+            var options = await query
+                .OrderBy(d => d.TerritoryId != null)
+                .ThenBy(d => d.Territory!.Name)
+                .ThenBy(d => d.SortOrder)
+                .ThenBy(d => d.Name)
+                .ToListAsync();
+
+            return options.Select(ToDto).ToList();
+        }
 
         /// <summary>
         /// Whether a name is already used by an option the same territory would see: a global

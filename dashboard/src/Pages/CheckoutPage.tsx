@@ -37,6 +37,7 @@ import {
     GetCheckoutQueue,
     GetOrder,
     ReopenOrder,
+    ReorderOrderLines,
     UpdateOrder,
     UpdateOrderLine,
     VoidOrder,
@@ -144,6 +145,11 @@ const CheckoutPage = () => {
     const handleAddLine = async (line: OrderLine) => {
         if (!order?.id) return;
         await applyResult(await AddOrderLine(order.id, line));
+    };
+
+    const handleReorderLines = async (itemIds: number[]) => {
+        if (!order?.id) return;
+        await applyResult(await ReorderOrderLines(order.id, itemIds));
     };
 
     const handleUpdateLine = async (line: OrderLine) => {
@@ -321,6 +327,7 @@ const CheckoutPage = () => {
                                     onEdit={setEditingLine}
                                     onAddService={setServicingLine}
                                     onAddUpcharge={setUpchargingLine}
+                                    onReorder={handleReorderLines}
                                     onRemove={setRemovingLine}
                                     onQuantity={(line, quantity) =>
                                         handleUpdateLine({ id: line.id, quantity })

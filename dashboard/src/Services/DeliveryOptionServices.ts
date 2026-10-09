@@ -47,6 +47,28 @@ export const GetDeliveryOptions = async (includeInactive = false): Promise<Deliv
     }
 };
 
+//************************************//
+//*********** PUT METHODS ************//
+//************************************//
+
+/**
+ * Puts the delivery options in a new order - the order the sales floor offers them in.
+ * @param ids Every option id, archived ones included, in the new order.
+ * @returns The options in their new order, or null on failure.
+ */
+export const ReorderDeliveryOptions = async (ids: number[]): Promise<DeliveryOption[] | null> => {
+    try {
+        const response = await api.put<DeliveryOption[]>(
+            "/api/DeliveryOption/deliveryoptions/order",
+            ids
+        );
+        return response.data;
+    } catch (error) {
+        HandleAxiosError(error);
+        return null;
+    }
+};
+
 //**************************************//
 //*********** PATCH METHODS ************//
 //**************************************//

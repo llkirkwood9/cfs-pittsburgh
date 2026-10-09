@@ -272,6 +272,25 @@ export const UpdateOrder = async (orderData: Order): Promise<Order | null> => {
 };
 
 /**
+ * Puts an order's items in a new order; each item's own rows move with it.
+ * @param orderId The order id.
+ * @param itemIds Every item line's id, in the new order.
+ * @returns The order with its lines in the new order, or null on failure.
+ */
+export const ReorderOrderLines = async (
+    orderId: number,
+    itemIds: number[]
+): Promise<Order | null> => {
+    try {
+        const response = await api.put<Order>(`/api/Order/order/${orderId}/lines/order`, itemIds);
+        return response.data;
+    } catch (error) {
+        HandleAxiosError(error);
+        return null;
+    }
+};
+
+/**
  * Updates one line of an order.
  * @param line The fields to change, including the line id.
  * @returns The recalculated order, or null on failure.

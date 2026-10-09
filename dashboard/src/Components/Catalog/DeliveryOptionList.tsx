@@ -16,6 +16,8 @@ type Props = {
     options: DeliveryOption[];
     onSave: (option: DeliveryOption) => Promise<void>;
     onDelete: (id: number) => Promise<void>;
+    /** Every option id in the new order. */
+    onReorder: (ids: number[]) => Promise<void>;
     /** System Admin: deleting removes the option for good rather than archiving a used one. */
     permanentDelete?: boolean;
     territories: Territory[];
@@ -30,12 +32,14 @@ type Props = {
 /**
  * The catalog of delivery methods and in-home services. Products pick from this list, so adding
  * White Glove here makes it available to attach anywhere it's offered. Global options are offered
- * in every territory; a territory can add its own, which only its items can offer.
+ * in every territory; a territory can add its own, which only its items can offer. The arrows set
+ * the order the sales floor offers them in, within the global list and each territory's own.
  */
 const DeliveryOptionList = ({
     options,
     onSave,
     onDelete,
+    onReorder,
     permanentDelete = false,
     territories,
     canChooseTerritory,
@@ -87,12 +91,26 @@ const DeliveryOptionList = ({
             isTakeWith,
             showOnSalesSheet,
             isActive,
-            sortOrder: editing?.sortOrder ?? options.length * 10,
+            // A new option goes to the end of the list.
+            sortOrder: editing?.sortOrder,
             saleDiscountPercent: saleOff.percent,
             saleDiscountAmount: saleOff.amount,
         });
         setSaving(false);
         setEditing(null);
+    };
+
+    // Options of the same list (global, or one territory's own), which reorder among themselves.
+    const sameList = (a?: DeliveryOption, b?: DeliveryOption) =>
+        Boolean(a && b) && (a!.territoryId ?? null) === (b!.territoryId ?? null);
+
+    const move = (index: number, by: number) => {
+        const group = options.filter((o) => sameList(o, options[index]));
+        const ids = group.map((o) => o.id ?? 0);
+        const at = ids.indexOf(options[index].id ?? 0);
+        const [id] = ids.splice(at, 1);
+        ids.splice(at + by, 0, id);
+        onReorder(ids);
     };
 
     return (
@@ -110,7 +128,7 @@ const DeliveryOptionList = ({
             </div>
 
             <ul className="space-y-2">
-                {options.map((option) => (
+                {options.map((option, index) => (
                     <li
                         key={option.id}
                         className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800"
@@ -162,6 +180,26 @@ const DeliveryOptionList = ({
                             </span>
                         ) : (
                             <>
+                                <button
+                                    type="button"
+                                    onClick={() => move(index, -1)}
+                                    disabled={!sameList(options[index - 1], option)}
+                                    aria-label="Move up"
+                                    className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100
+                                        disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                                >
+                                    <Icon icon="fa-solid fa-arrow-up" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => move(index, 1)}
+                                    disabled={!sameList(options[index + 1], option)}
+                                    aria-label="Move down"
+                                    className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100
+                                        disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                                >
+                                    <Icon icon="fa-solid fa-arrow-down" />
+                                </button>
                                 <Button
                                     text="Edit"
                                     icon="fa-solid fa-pen"

@@ -26,6 +26,7 @@ import {
     AddDeliveryOption,
     DeleteDeliveryOption,
     GetDeliveryOptions,
+    ReorderDeliveryOptions,
     UpdateDeliveryOption,
 } from "../Services/DeliveryOptionServices";
 import {
@@ -168,6 +169,11 @@ const CatalogPage = () => {
         }
     };
 
+    const handleReorderDeliveryOptions = async (ids: number[]) => {
+        const reordered = await ReorderDeliveryOptions(ids);
+        if (reordered) setDeliveryOptions(reordered);
+    };
+
     const handleSaveFinanceOption = async (option: FinanceOption) => {
         const saved = option.id
             ? await UpdateFinanceOption(option)
@@ -303,6 +309,7 @@ const CatalogPage = () => {
                     options={deliveryOptions}
                     onSave={handleSaveDeliveryOption}
                     onDelete={handleDeleteDeliveryOption}
+                    onReorder={handleReorderDeliveryOptions}
                     permanentDelete={isSystemAdmin}
                     territories={territories}
                     canChooseTerritory={companyWide}

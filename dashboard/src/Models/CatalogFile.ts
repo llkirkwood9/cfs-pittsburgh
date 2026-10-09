@@ -67,6 +67,8 @@ export interface CatalogFile {
     exportedAt?: string;
     deliveryOptions?: CatalogDeliveryOption[];
     products?: CatalogProduct[];
+    /** Missing from files made before financing options were exported. */
+    financeOptions?: { name?: string; isActive?: boolean; territory?: string | null }[];
 }
 
 /** How a catalog file is restored. */
@@ -80,5 +82,8 @@ export interface CatalogImportResult {
     deliveryOptionsAdded: number;
     deliveryOptionsUpdated: number;
     deliveryOptionsRemoved: number;
+    financeOptionsAdded: number;
+    financeOptionsUpdated: number;
+    financeOptionsRemoved: number;
     warnings: string[];
 }

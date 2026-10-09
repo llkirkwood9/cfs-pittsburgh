@@ -46,8 +46,8 @@ namespace api.Utils
         #region Public Methods
 
         /// <summary>
-        /// The whole catalog as a file: every product, archived ones included, and the delivery
-        /// options list.
+        /// The whole catalog as a file: every product, archived ones included, the delivery options
+        /// list and the financing options.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <returns>The file's contents.</returns>
@@ -59,6 +59,15 @@ namespace api.Utils
                 .OrderBy(d => d.SortOrder)
                 .ThenBy(d => d.Name)
                 .ThenBy(d => d.Id)
+                .ToListAsync();
+
+            var financeOptions = await db.FinanceOptions
+                .AsNoTracking()
+                .Include(f => f.Territory)
+                .OrderBy(f => f.TerritoryId != null)
+                .ThenBy(f => f.Territory!.Name)
+                .ThenBy(f => f.SortOrder)
+                .ThenBy(f => f.Name)
                 .ToListAsync();
 
             var products = await db.Products
@@ -85,6 +94,12 @@ namespace api.Utils
                 Format = FileFormat,
                 Version = FileVersion,
                 ExportedAt = DateTime.UtcNow,
+                FinanceOptions = financeOptions.Select(f => new CatalogFinanceOptionDto
+                {
+                    Name = f.Name,
+                    IsActive = f.IsActive,
+                    Territory = f.Territory?.Name,
+                }).ToList(),
                 DeliveryOptions = deliveryOptions.Select(d => new CatalogDeliveryOptionDto
                 {
                     Name = d.Name,
@@ -198,6 +213,10 @@ namespace api.Utils
             var territories = await db.Territories.AsNoTracking().ToListAsync();
             var deliveryOptions = await ImportDeliveryOptionsAsync(db, file.DeliveryOptions ?? [], territories, result);
 
+            // A file from before financing options were exported has none, and leaves them alone.
+            if (file.FinanceOptions != null)
+                await ImportFinanceOptionsAsync(db, file.FinanceOptions, replace, territories, result);
+
             var existing = await db.Products
                 .Include(p => p.Variants)
                 .ThenInclude(v => v.Components)
@@ -267,8 +286,15 @@ namespace api.Utils
 
             var deliveryOptions = file.DeliveryOptions ?? [];
             var products = file.Products ?? [];
-            if (deliveryOptions.Count > 500 || products.Count > 5000)
+            var financeOptions = file.FinanceOptions ?? [];
+            if (deliveryOptions.Count > 500 || products.Count > 5000 || financeOptions.Count > 500)
                 return "This catalog file is too large.";
+
+            if (financeOptions.Any(f => (f.Name?.Trim().Length ?? 0) is 0 or > 100))
+                return "Every financing option needs a name of up to 100 characters.";
+            var repeated = financeOptions.GroupBy(f => (Key(f.Territory), Key(f.Name))).FirstOrDefault(g => g.Count() > 1);
+            if (repeated != null)
+                return $"The financing option \"{repeated.First().Name!.Trim()}\" is in the file more than once.";
 
             foreach (var d in deliveryOptions)
             {
@@ -371,6 +397,65 @@ namespace api.Utils
 
             await db.SaveChangesAsync();
             return all;
+        }
+
+        /// <summary>
+        /// Brings the financing options in line with the file, in the file's order within each list
+        /// (global, or a territory's own): a match by territory and name is updated and anything new
+        /// is added. A clear and replace deletes every territory's first; otherwise options not in
+        /// the file are kept, after the file's ones in their list. Sales record the option by name,
+        /// so deleting one never changes a past sale.
+        /// </summary>
+        private static async Task ImportFinanceOptionsAsync(
+            ApplicationDbContext db, List<CatalogFinanceOptionDto> options, bool replace,
+            List<Territory> territories, CatalogImportResultDto result)
+        {
+            if (replace)
+                result.FinanceOptionsRemoved = await db.FinanceOptions.ExecuteDeleteAsync();
+
+            var all = await db.FinanceOptions.OrderBy(f => f.SortOrder).ThenBy(f => f.Name).ToListAsync();
+            var unmatched = all.ToList();
+            var next = new Dictionary<int, int>();
+            int NextIn(int? territoryId)
+            {
+                var key = territoryId ?? 0;
+                next[key] = next.GetValueOrDefault(key) + 1;
+                return next[key];
+            }
+
+            foreach (var dto in options)
+            {
+                var territoryId = TerritoryFor(territories, dto.Territory, result);
+                var option = unmatched.FirstOrDefault(f => f.TerritoryId == territoryId && Same(f.Name, dto.Name));
+                if (option == null)
+                {
+                    // A name can't repeat among the options any one territory sees.
+                    if (all.Any(f => Same(f.Name, dto.Name) && (territoryId == null || f.TerritoryId == null || f.TerritoryId == territoryId)))
+                    {
+                        result.Warnings.Add($"The financing option \"{dto.Name!.Trim()}\" has the same name as one already offered alongside it, so it was left out.");
+                        continue;
+                    }
+
+                    option = new FinanceOption { TerritoryId = territoryId };
+                    db.FinanceOptions.Add(option);
+                    all.Add(option);
+                    result.FinanceOptionsAdded++;
+                }
+                else
+                {
+                    unmatched.Remove(option);
+                    result.FinanceOptionsUpdated++;
+                }
+
+                option.Name = dto.Name!.Trim();
+                option.IsActive = dto.IsActive ?? true;
+                option.SortOrder = NextIn(territoryId);
+            }
+
+            foreach (var kept in unmatched)
+                kept.SortOrder = NextIn(kept.TerritoryId);
+
+            await db.SaveChangesAsync();
         }
 
         /// <summary>

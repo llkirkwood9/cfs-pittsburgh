@@ -34,6 +34,33 @@ namespace api.Dtos
         /// The products
         /// </summary>
         public List<CatalogProductDto>? Products { get; set; }
+
+        /// <summary>
+        /// The financing options checkout picks from, in their order. Left out of files made before
+        /// they were exported, and a restore then leaves the current list alone.
+        /// </summary>
+        public List<CatalogFinanceOptionDto>? FinanceOptions { get; set; }
+    }
+
+    /// <summary>
+    /// A financing option in a catalog file
+    /// </summary>
+    public class CatalogFinanceOptionDto
+    {
+        /// <summary>
+        /// Name, e.g. "12 months no interest" - how the option is matched on restore
+        /// </summary>
+        public string? Name { get; set; }
+
+        /// <summary>
+        /// Whether checkout offers it
+        /// </summary>
+        public bool? IsActive { get; set; }
+
+        /// <summary>
+        /// The territory it belongs to, by name; blank for a global one
+        /// </summary>
+        public string? Territory { get; set; }
     }
 
     /// <summary>
@@ -374,6 +401,21 @@ namespace api.Dtos
         /// Delivery options deleted when the catalog was cleared
         /// </summary>
         public int DeliveryOptionsRemoved { get; set; }
+
+        /// <summary>
+        /// Financing options added
+        /// </summary>
+        public int FinanceOptionsAdded { get; set; }
+
+        /// <summary>
+        /// Financing options matched and updated
+        /// </summary>
+        public int FinanceOptionsUpdated { get; set; }
+
+        /// <summary>
+        /// Financing options deleted by a clear and replace
+        /// </summary>
+        public int FinanceOptionsRemoved { get; set; }
 
         /// <summary>
         /// Anything in the file that could not be brought in, e.g. a bundle naming an item that
