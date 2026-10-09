@@ -11,6 +11,7 @@ import CustomerDetailsSheet from "../Components/Sales/CustomerDetailsSheet";
 import CustomerForm from "../Components/Sales/CustomerForm";
 import DraftTabs from "../Components/Sales/DraftTabs";
 import EditLineModal from "../Components/Sales/EditLineModal";
+import UpchargeModal from "../Components/Sales/UpchargeModal";
 import OrderLineList from "../Components/Sales/OrderLineList";
 import OrderTotals from "../Components/Sales/OrderTotals";
 import { useAuth } from "../Context/AuthContext";
@@ -61,6 +62,7 @@ const SalesPage = () => {
     const [showAddItem, setShowAddItem] = useState<boolean>(false);
     const [editingLine, setEditingLine] = useState<OrderLine | null>(null);
     const [servicingLine, setServicingLine] = useState<OrderLine | null>(null);
+    const [upchargingLine, setUpchargingLine] = useState<OrderLine | null>(null);
     const [removingLine, setRemovingLine] = useState<OrderLine | null>(null);
     const [discardingDraft, setDiscardingDraft] = useState<boolean>(false);
     const [showCustomerSheet, setShowCustomerSheet] = useState<boolean>(false);
@@ -283,6 +285,7 @@ const SalesPage = () => {
                                 lines={order.lines ?? []}
                                 onEdit={setEditingLine}
                                 onAddService={setServicingLine}
+                                onAddUpcharge={setUpchargingLine}
                                 onRemove={setRemovingLine}
                                 onQuantity={(line, quantity) =>
                                     handleUpdateLine({ id: line.id, quantity })
@@ -367,11 +370,30 @@ const SalesPage = () => {
                 />
             )}
 
-            {editingLine && (
+            {editingLine?.lineType === "Upcharge" && (
+                <UpchargeModal
+                    line={editingLine}
+                    parentLine={
+                        order?.lines?.find((l) => l.id === editingLine.parentLineId) ?? editingLine
+                    }
+                    onSave={handleUpdateLine}
+                    onClose={() => setEditingLine(null)}
+                />
+            )}
+
+            {editingLine && editingLine.lineType !== "Upcharge" && (
                 <EditLineModal
                     line={editingLine}
                     onSave={handleUpdateLine}
                     onClose={() => setEditingLine(null)}
+                />
+            )}
+
+            {upchargingLine && (
+                <UpchargeModal
+                    parentLine={upchargingLine}
+                    onSave={handleAddLine}
+                    onClose={() => setUpchargingLine(null)}
                 />
             )}
 

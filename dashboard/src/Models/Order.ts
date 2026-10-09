@@ -46,6 +46,8 @@ export type Order = {
     salesTaxRate?: number;
     ccProcessingFeeRate?: number;
     applyCcProcessingFee?: boolean;
+    /** Ticked at checkout to take the card fee off this order. */
+    waiveCcProcessingFee?: boolean;
     subtotal?: number;
     taxAmount?: number;
     ccProcessingFee?: number;

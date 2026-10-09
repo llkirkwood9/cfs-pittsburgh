@@ -1,7 +1,7 @@
 import type { ProductCategory } from "./Product";
 import type { IncludedChoices, LineChoice } from "./ProductOption";
 
-export type OrderLineType = "Product" | "Delivery" | "Custom" | "Included";
+export type OrderLineType = "Product" | "Delivery" | "Custom" | "Included" | "Upcharge";
 
 export type OrderLine = {
     id?: number;

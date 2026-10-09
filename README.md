@@ -30,6 +30,9 @@ The catalog and the printed receipt are both built from the supplied source docu
   size chips show what each bundle includes.
 - A second in-home service (White Glove *and* Haul Away, as on the paper sheets) is attached to a
   line with **Add service**.
+- **Add upcharge** puts an extra charge on an item with its reason (a special order, a custom
+  size). It prints as its own row under the item, is charged per item so it follows the item's
+  quantity, and is taxed when the item is.
 - **Hand tablet to customer** opens a plain-language, oversized form for the customer to type
   their own address (with the same optional Unit #, Floor, Suite # and alternate phone as the sales
   sheet), a separate delivery address if the bed is going somewhere else, and the name of whoever
@@ -407,6 +410,15 @@ under, so changing the rate on an event only affects orders taken from that poin
 clears when anything else is. (The stored method is still `VisaMc`, so older orders read
 correctly; only the label changed.) Once a card payment is actually keyed in, that amount takes over and caps the
 fee at the pre-fee total, so a payment that already includes the fee never compounds it.
+Ticking **No card fee on this order** at checkout sets `WaiveCcProcessingFee`, which treats the
+order's fee rate as zero however it is paid. Any checkout role can set it, a Sales-only account
+can't, and it is fixed once the sale is complete.
+
+**Upcharges are lines.** An upcharge is an `OrderLineType.Upcharge` row with the reason as its
+description, the amount per item as its unit price and the item as its `ParentLineId`, like a
+shipping row. `OrderCalculator` keeps its quantity and taxability in step with the item on every
+recalculation, it carries no discount, note or Take With of its own, and the dashboard tallies
+leave it out, since it isn't an item.
 
 **Money is computed in one place.** `Utils/OrderCalculator.cs` recalculates lines and totals on
 every mutation, and the API returns the recalculated order. The screen and the receipt read the

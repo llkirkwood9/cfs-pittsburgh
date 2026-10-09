@@ -348,6 +348,11 @@ const ReceiptSheet = ({ order }: Props) => {
                                             Ship:{" "}
                                         </span>
                                     )}
+                                    {line.lineType === "Upcharge" && (
+                                        <span className="text-[8px] font-bold uppercase">
+                                            Upcharge:{" "}
+                                        </span>
+                                    )}
                                     {line.description}
                                     {ChoicesText(line.choices) && (
                                         <span className="font-semibold">
@@ -469,7 +474,10 @@ const ReceiptSheet = ({ order }: Props) => {
                         <td className={`${cell} text-right`}>
                             {(order.ccProcessingFee ?? 0) > 0
                                 ? FormatCurrency(order.ccProcessingFee)
-                                : "—"}
+                                : order.waiveCcProcessingFee &&
+                                    (order.payments ?? []).some((p) => p.method === "VisaMc")
+                                  ? "Waived"
+                                  : "—"}
                         </td>
                     </tr>
                     <tr>

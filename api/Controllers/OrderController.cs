@@ -192,6 +192,28 @@ namespace api.Controllers
                     if (parentLine != null && option.IsTakeWith)
                         parentLine.TakeWith = true;
                 }
+                else if (lineType == OrderLineType.Upcharge)
+                {
+                    // An upcharge hangs off an item the customer is buying, never off a shipping
+                    // row, an included item or another upcharge.
+                    var parentLine = order.Lines.FirstOrDefault(l => l.Id == request.ParentLineId);
+                    if (parentLine == null || parentLine.LineType is not (OrderLineType.Product or OrderLineType.Custom))
+                        return BadRequest(new { error = "Pick the item the upcharge is for." });
+
+                    if (string.IsNullOrWhiteSpace(request.Description))
+                        return BadRequest(new { error = "Enter the reason for the upcharge." });
+
+                    if (request.Description.Trim().Length > 300)
+                        return BadRequest(new { error = "The reason can be at most 300 characters." });
+
+                    if (request.UnitPrice is not > 0)
+                        return BadRequest(new { error = "Enter the upcharge amount." });
+
+                    line.Category = ProductCategory.Misc;
+                    line.Description = request.Description.Trim();
+                    line.UnitPrice = request.UnitPrice.Value;
+                    line.ParentLineId = parentLine.Id;
+                }
                 else
                 {
                     if (string.IsNullOrWhiteSpace(request.Description))
@@ -242,6 +264,9 @@ namespace api.Controllers
                     line.DiscountAmount = null;
                 else
                     line.DiscountPercent = null;
+
+                if (line.LineType == OrderLineType.Upcharge)
+                    KeepUpchargePlain(line);
 
                 // A tracked item can only be a Take With while the cart has enough of it on hand;
                 // otherwise it has to ship. The shipping choice that rides along with a product
@@ -847,6 +872,18 @@ namespace api.Controllers
                 if (request.ApplyCcProcessingFee != null)
                     order.ApplyCcProcessingFee = request.ApplyCcProcessingFee.Value;
 
+                // Waiving the card fee is a checkout decision, and changes the total of a sale
+                // that is still open only.
+                if (request.WaiveCcProcessingFee != null && request.WaiveCcProcessingFee.Value != order.WaiveCcProcessingFee)
+                {
+                    if (order.Status == OrderStatus.Completed)
+                        return BadRequest(new { error = "This sale is complete, so its card fee can no longer be changed." });
+                    if (!IsInRole(UserRole.Checkout) && !IsInRole(UserRole.SalesCheckout) && !IsInRole(UserRole.Admin))
+                        return StatusCode(403, new { error = "Only the checkout table can waive the card fee." });
+
+                    order.WaiveCcProcessingFee = request.WaiveCcProcessingFee.Value;
+                }
+
                 OrderCalculator.RecalculateOrder(order);
                 order.UpdatedAt = DateTime.UtcNow;
                 await DB.SaveChangesAsync();
@@ -965,6 +1002,15 @@ namespace api.Controllers
 
                 if (request.Category != null && Enum.TryParse<ProductCategory>(request.Category, true, out var category))
                     line.Category = category;
+
+                if (line.LineType == OrderLineType.Upcharge)
+                {
+                    if (line.UnitPrice <= 0)
+                        return BadRequest(new { error = "Enter the upcharge amount." });
+
+                    line.Description = line.Description.Trim();
+                    KeepUpchargePlain(line);
+                }
 
                 InventoryRules.SyncIncludedTakeWith(order);
                 var stockError = await InventoryRules.CheckStockAsync(DB, order.Lines);
@@ -1210,6 +1256,22 @@ namespace api.Controllers
         #endregion
 
         #region Private Methods
+
+        /// <summary>
+        /// An upcharge is only a reason and an amount per item: it carries no discount, note or
+        /// Take With of its own. Its quantity and tax follow its item when the order is totalled.
+        /// </summary>
+        /// <param name="line">The upcharge line</param>
+        private static void KeepUpchargePlain(OrderLine line)
+        {
+            line.DiscountPercent = null;
+            line.DiscountAmount = null;
+            line.SaleDiscountPercent = null;
+            line.SaleDiscountAmount = null;
+            line.TakeWith = false;
+            line.Notes = null;
+            line.Category = ProductCategory.Misc;
+        }
 
         /// <summary>
         /// Loads an order with its lines and payments tracked, ready to recalculate and save.
@@ -1588,6 +1650,7 @@ namespace api.Controllers
                 SalesTaxRate = order.SalesTaxRate,
                 CcProcessingFeeRate = order.CcProcessingFeeRate,
                 ApplyCcProcessingFee = order.ApplyCcProcessingFee,
+                WaiveCcProcessingFee = order.WaiveCcProcessingFee,
                 Subtotal = order.Subtotal,
                 TaxAmount = order.TaxAmount,
                 CcProcessingFee = order.CcProcessingFee,

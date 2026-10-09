@@ -89,6 +89,13 @@ namespace api.Models
         /// what is being delivered.
         /// </summary>
         Included = 3,
+
+        /// <summary>
+        /// An extra charge on its parent line, with the reason as its description - a special
+        /// order, a custom size. Charged per item, so it follows the parent's quantity, and taxed
+        /// when the parent is.
+        /// </summary>
+        Upcharge = 4,
     }
 
     /// <summary>

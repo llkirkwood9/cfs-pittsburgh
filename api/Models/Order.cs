@@ -248,6 +248,12 @@ namespace api.Models
         public bool ApplyCcProcessingFee { get; set; }
 
         /// <summary>
+        /// Set at the checkout table to take the card fee off this order, even when it is paid by
+        /// card.
+        /// </summary>
+        public bool WaiveCcProcessingFee { get; set; }
+
+        /// <summary>
         /// Subtotal cell - sum of all line totals
         /// </summary>
         public decimal Subtotal { get; set; }
