@@ -117,6 +117,12 @@ namespace api.Dtos
         public int? QuantityOnHand { get; set; }
 
         /// <summary>
+        /// True when the size - or an item its bundle includes - is left out of inventory, so it
+        /// isn't kept at the cart and can't be a Take With. Read-only.
+        /// </summary>
+        public bool? NotKeptAtCart { get; set; }
+
+        /// <summary>
         /// The catalog sale when the item went on the order, as a percent off (set by the API)
         /// </summary>
         public decimal? SaleDiscountPercent { get; set; }

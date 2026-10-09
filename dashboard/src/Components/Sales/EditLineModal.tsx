@@ -44,7 +44,7 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
     const [saving, setSaving] = useState<boolean>(false);
 
     // A tracked accessory can only go home today while the cart has enough of it.
-    const stockBlock = TakeWithBlocked(line.quantityOnHand, quantity);
+    const stockBlock = TakeWithBlocked(line.quantityOnHand, quantity, line.notKeptAtCart);
 
     const handleSave = async () => {
         if (!description.trim()) return Toast.Warning("The description cannot be blank.");
@@ -214,7 +214,9 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
                         />
                         <span className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
                             Take with
-                            {line.quantityOnHand !== null && line.quantityOnHand !== undefined && (
+                            {(stockBlock ||
+                                (line.quantityOnHand !== null &&
+                                    line.quantityOnHand !== undefined)) && (
                                 <span
                                     className={`block text-xs font-normal ${
                                         stockBlock

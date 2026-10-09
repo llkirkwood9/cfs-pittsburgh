@@ -6,11 +6,12 @@ namespace api.Utils
 {
     /// <summary>
     /// Stock rules for Take With sales. A tracked item can only go home with the customer when the
-    /// cart has enough of it; otherwise it has to be shipped. Stock is kept per territory - each
-    /// territory's cart carries its own, even of global catalog items - and is drawn down when the
-    /// sale is completed and put back if a completed sale is reopened or voided. Within a
-    /// territory it is kept per size, or per size and combination of choices for selections that
-    /// count stock (such as sheet colors), so each demand is keyed by both.
+    /// cart has enough of it, and a size left out of inventory - not kept at the cart - never can;
+    /// otherwise it has to be shipped. Stock is kept per territory - each territory's cart carries
+    /// its own, even of global catalog items - and is drawn down when the sale is completed and
+    /// put back if a completed sale is reopened or voided. Within a territory it is kept per size,
+    /// or per size and combination of choices for selections that count stock (such as sheet
+    /// colors), so each demand is keyed by both.
     /// </summary>
     public static class InventoryRules
     {
@@ -108,6 +109,17 @@ namespace api.Utils
                 return null;
 
             var ids = demand.Keys.Select(k => k.VariantId).Distinct().ToList();
+
+            // A size left out of inventory isn't kept at the cart, so it can't go home today.
+            var notKept = await db.ProductVariants
+                .Include(v => v.Product)
+                .ThenInclude(p => p!.Options)
+                .ThenInclude(o => o.Choices)
+                .Where(v => ids.Contains(v.Id) && v.Product!.TrackInventory && v.ExcludeFromInventory)
+                .FirstOrDefaultAsync();
+            if (notKept != null)
+                return $"{Describe(notKept, "")} isn't kept at the cart, so it cannot be a Take With. Choose a shipping method instead.";
+
             var tracked = await LoadTrackedAsync(db, ids);
             var onHand = await OnHandAsync(db, territoryId, ids);
 
@@ -129,6 +141,15 @@ namespace api.Utils
 
             return null;
         }
+
+        /// <summary>
+        /// Whether a size is left out of its tracked product's inventory - not kept at the cart, so
+        /// it can't be a Take With.
+        /// </summary>
+        /// <param name="variant">The size, with its product loaded; null for anything else</param>
+        /// <returns>True when it isn't kept at the cart.</returns>
+        public static bool NotKept(ProductVariant? variant) =>
+            variant is { ExcludeFromInventory: true, Product.TrackInventory: true };
 
         /// <summary>
         /// Draws the order's tracked Take With items out of its territory's stock and records each

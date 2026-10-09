@@ -28,7 +28,11 @@ const AddServiceModal = ({ parentLine, options, products = [], onAdd, onClose }:
     const [saving, setSaving] = useState<boolean>(false);
 
     // Take With is only on offer while the cart has enough of a tracked item.
-    const stockBlock = TakeWithBlocked(parentLine.quantityOnHand, parentLine.quantity ?? 1);
+    const stockBlock = TakeWithBlocked(
+        parentLine.quantityOnHand,
+        parentLine.quantity ?? 1,
+        parentLine.notKeptAtCart
+    );
 
     const parentProduct = products.find((p) =>
         (p.variants ?? []).some((v) => v.id === parentLine.productVariantId)
