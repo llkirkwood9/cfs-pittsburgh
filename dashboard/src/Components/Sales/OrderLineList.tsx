@@ -13,6 +13,8 @@ type Props = {
     onRemove?: (line: OrderLine) => void;
     /** Changes a line's quantity in place, without opening the editor. */
     onQuantity?: (line: OrderLine, quantity: number) => void;
+    /** Puts the items in a new order: every item line's id, in that order. */
+    onReorder?: (itemIds: number[]) => void;
 };
 
 /**
@@ -27,8 +29,21 @@ const OrderLineList = ({
     onAddUpcharge,
     onRemove,
     onQuantity,
+    onReorder,
 }: Props) => {
     const ordered = SortLinesForPrint(lines);
+
+    // The items in sales sheet order; each one's own rows move with it.
+    const itemIds = ordered
+        .filter((l) => !l.parentLineId || !lines.some((p) => p.id === l.parentLineId))
+        .map((l) => l.id ?? 0);
+    const move = (line: OrderLine, by: number) => {
+        const ids = [...itemIds];
+        const index = ids.indexOf(line.id ?? 0);
+        ids.splice(index, 1);
+        ids.splice(index + by, 0, line.id ?? 0);
+        onReorder?.(ids);
+    };
 
     // Sets sold since the base got its own row do not need the badge as well; older orders still do.
     const hasBaseRow = new Set(
@@ -231,6 +246,32 @@ const OrderLineList = ({
                                         onClick={() => onRemove(line)}
                                         className="min-h-[40px] bg-red-700 px-3 text-sm hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
                                     />
+                                )}
+                                {onReorder && !isChild && itemIds.length > 1 && (
+                                    <div className="ml-auto flex items-center">
+                                        <button
+                                            type="button"
+                                            aria-label="Move up"
+                                            disabled={itemIds.indexOf(line.id ?? 0) === 0}
+                                            onClick={() => move(line, -1)}
+                                            className="flex h-10 w-10 items-center justify-center rounded-xl text-zinc-600
+                                                hover:bg-zinc-100 disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                                        >
+                                            <Icon icon="fa-solid fa-arrow-up" />
+                                        </button>
+                                        <button
+                                            type="button"
+                                            aria-label="Move down"
+                                            disabled={
+                                                itemIds.indexOf(line.id ?? 0) === itemIds.length - 1
+                                            }
+                                            onClick={() => move(line, 1)}
+                                            className="flex h-10 w-10 items-center justify-center rounded-xl text-zinc-600
+                                                hover:bg-zinc-100 disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                                        >
+                                            <Icon icon="fa-solid fa-arrow-down" />
+                                        </button>
+                                    </div>
                                 )}
                             </div>
                         )}

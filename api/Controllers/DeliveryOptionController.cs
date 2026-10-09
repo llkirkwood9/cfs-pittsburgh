@@ -62,7 +62,8 @@ namespace api.Controllers
                     IsTakeWith = request.IsTakeWith ?? false,
                     // Take With defaults to hidden: the item's own Take With column already says it.
                     ShowOnSalesSheet = request.ShowOnSalesSheet ?? !(request.IsTakeWith ?? false),
-                    SortOrder = request.SortOrder ?? 0,
+                    // A new option goes to the end of the list unless a place is given.
+                    SortOrder = request.SortOrder ?? (await DB.DeliveryOptions.MaxAsync(d => (int?)d.SortOrder) ?? 0) + 1,
                     IsActive = request.IsActive ?? true,
                 };
                 (option.SaleDiscountPercent, option.SaleDiscountAmount) =
@@ -111,6 +112,42 @@ namespace api.Controllers
             {
                 Trace(TraceEventType.Critical, e.Message);
                 return StatusCode(500, new { error = "Internal error occurred while getting delivery options.", exception = e.Message });
+            }
+        }
+
+        #endregion
+
+        #region PUT Methods
+
+        /// <summary>
+        /// Puts the delivery options in a new order - the order the sales floor offers them in.
+        /// </summary>
+        /// <param name="ids">Every option id, archived ones included, in the new order</param>
+        /// <returns>Every option in its new order.</returns>
+        [HttpPut("deliveryoptions/order")]
+        [Authorize(AuthenticationSchemes = "Bearer")]
+        public async Task<IActionResult> ReorderDeliveryOptions([FromBody] List<int> ids)
+        {
+            try
+            {
+                if (!IsInRole(UserRole.Admin))
+                    return StatusCode(403, new { error = "Only an administrator may change the delivery options." });
+
+                var options = await DB.DeliveryOptions.ToListAsync();
+                if (ids.Count != options.Count || ids.Distinct().Count() != ids.Count || options.Any(o => !ids.Contains(o.Id)))
+                    return BadRequest(new { error = "The list has changed. Refresh and try again." });
+
+                foreach (var option in options)
+                    option.SortOrder = ids.IndexOf(option.Id) + 1;
+
+                await DB.SaveChangesAsync();
+
+                return Ok(options.OrderBy(o => o.SortOrder).Select(ToDto).ToList());
+            }
+            catch (Exception e)
+            {
+                Trace(TraceEventType.Critical, e.Message);
+                return StatusCode(500, new { error = "Internal error occurred while reordering the delivery options.", exception = e.Message });
             }
         }
 

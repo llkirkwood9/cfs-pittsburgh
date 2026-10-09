@@ -44,8 +44,8 @@ namespace api.Utils
         #region Public Methods
 
         /// <summary>
-        /// The whole catalog as a file: every product, archived ones included, and the delivery
-        /// options list.
+        /// The whole catalog as a file: every product, archived ones included, the delivery options
+        /// list and the financing options.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <returns>The file's contents.</returns>
@@ -56,6 +56,12 @@ namespace api.Utils
                 .OrderBy(d => d.SortOrder)
                 .ThenBy(d => d.Name)
                 .ThenBy(d => d.Id)
+                .ToListAsync();
+
+            var financeOptions = await db.FinanceOptions
+                .AsNoTracking()
+                .OrderBy(f => f.SortOrder)
+                .ThenBy(f => f.Name)
                 .ToListAsync();
 
             var products = await db.Products
@@ -80,6 +86,11 @@ namespace api.Utils
                 Format = FileFormat,
                 Version = FileVersion,
                 ExportedAt = DateTime.UtcNow,
+                FinanceOptions = financeOptions.Select(f => new CatalogFinanceOptionDto
+                {
+                    Name = f.Name,
+                    IsActive = f.IsActive,
+                }).ToList(),
                 DeliveryOptions = deliveryOptions.Select(d => new CatalogDeliveryOptionDto
                 {
                     Name = d.Name,
@@ -189,6 +200,10 @@ namespace api.Utils
 
             var deliveryOptions = await ImportDeliveryOptionsAsync(db, file.DeliveryOptions ?? [], result);
 
+            // A file from before financing options were exported has none, and leaves them alone.
+            if (file.FinanceOptions != null)
+                await ImportFinanceOptionsAsync(db, file.FinanceOptions, replace, result);
+
             var existing = await db.Products
                 .Include(p => p.Variants)
                 .ThenInclude(v => v.Components)
@@ -256,8 +271,15 @@ namespace api.Utils
 
             var deliveryOptions = file.DeliveryOptions ?? [];
             var products = file.Products ?? [];
-            if (deliveryOptions.Count > 500 || products.Count > 5000)
+            var financeOptions = file.FinanceOptions ?? [];
+            if (deliveryOptions.Count > 500 || products.Count > 5000 || financeOptions.Count > 500)
                 return "This catalog file is too large.";
+
+            if (financeOptions.Any(f => (f.Name?.Trim().Length ?? 0) is 0 or > 100))
+                return "Every financing option needs a name of up to 100 characters.";
+            var repeated = financeOptions.GroupBy(f => Key(f.Name)).FirstOrDefault(g => g.Count() > 1);
+            if (repeated != null)
+                return $"The financing option \"{repeated.First().Name!.Trim()}\" is in the file more than once.";
 
             foreach (var d in deliveryOptions)
             {
@@ -354,6 +376,46 @@ namespace api.Utils
             foreach (var option in all.OrderByDescending(d => d.IsActive))
                 byName.TryAdd(Key(option.Name), option);
             return byName;
+        }
+
+        /// <summary>
+        /// Brings the financing options in line with the file, in the file's order: a match by name
+        /// is updated and anything new is added. A clear and replace deletes the rest first;
+        /// otherwise options not in the file are kept, after the file's ones. Sales record the
+        /// option by name, so deleting one never changes a past sale.
+        /// </summary>
+        private static async Task ImportFinanceOptionsAsync(
+            ApplicationDbContext db, List<CatalogFinanceOptionDto> options, bool replace, CatalogImportResultDto result)
+        {
+            if (replace)
+                result.FinanceOptionsRemoved = await db.FinanceOptions.ExecuteDeleteAsync();
+
+            var unmatched = await db.FinanceOptions.OrderBy(f => f.SortOrder).ThenBy(f => f.Name).ToListAsync();
+            var next = 1;
+            foreach (var dto in options)
+            {
+                var option = unmatched.FirstOrDefault(f => Same(f.Name, dto.Name));
+                if (option == null)
+                {
+                    option = new FinanceOption();
+                    db.FinanceOptions.Add(option);
+                    result.FinanceOptionsAdded++;
+                }
+                else
+                {
+                    unmatched.Remove(option);
+                    result.FinanceOptionsUpdated++;
+                }
+
+                option.Name = dto.Name!.Trim();
+                option.IsActive = dto.IsActive ?? true;
+                option.SortOrder = next++;
+            }
+
+            foreach (var kept in unmatched)
+                kept.SortOrder = next++;
+
+            await db.SaveChangesAsync();
         }
 
         /// <summary>

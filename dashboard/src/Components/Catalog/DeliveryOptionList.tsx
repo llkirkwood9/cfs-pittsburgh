@@ -14,15 +14,24 @@ type Props = {
     options: DeliveryOption[];
     onSave: (option: DeliveryOption) => Promise<void>;
     onDelete: (id: number) => Promise<void>;
+    /** Every option id in the new order. */
+    onReorder: (ids: number[]) => Promise<void>;
     /** System Admin: deleting removes the option for good rather than archiving a used one. */
     permanentDelete?: boolean;
 };
 
 /**
  * The shared catalog of delivery methods and in-home services. Products pick from this list, so
- * adding White Glove here makes it available to attach anywhere.
+ * adding White Glove here makes it available to attach anywhere. The arrows set the order the
+ * sales floor offers them in.
  */
-const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false }: Props) => {
+const DeliveryOptionList = ({
+    options,
+    onSave,
+    onDelete,
+    onReorder,
+    permanentDelete = false,
+}: Props) => {
     const [editing, setEditing] = useState<DeliveryOption | null>(null);
     const [deleting, setDeleting] = useState<DeliveryOption | null>(null);
     const [saving, setSaving] = useState<boolean>(false);
@@ -65,12 +74,20 @@ const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false
             isTakeWith,
             showOnSalesSheet,
             isActive,
-            sortOrder: editing?.sortOrder ?? options.length * 10,
+            // A new option goes to the end of the list.
+            sortOrder: editing?.sortOrder,
             saleDiscountPercent: saleOff.percent,
             saleDiscountAmount: saleOff.amount,
         });
         setSaving(false);
         setEditing(null);
+    };
+
+    const move = (index: number, by: number) => {
+        const ids = options.map((o) => o.id ?? 0);
+        const [id] = ids.splice(index, 1);
+        ids.splice(index + by, 0, id);
+        onReorder(ids);
     };
 
     return (
@@ -88,7 +105,7 @@ const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false
             </div>
 
             <ul className="space-y-2">
-                {options.map((option) => (
+                {options.map((option, index) => (
                     <li
                         key={option.id}
                         className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800"
@@ -127,6 +144,26 @@ const DeliveryOptionList = ({ options, onSave, onDelete, permanentDelete = false
                             </p>
                         </div>
 
+                        <button
+                            type="button"
+                            onClick={() => move(index, -1)}
+                            disabled={index === 0}
+                            aria-label="Move up"
+                            className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100
+                                disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                        >
+                            <Icon icon="fa-solid fa-arrow-up" />
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => move(index, 1)}
+                            disabled={index === options.length - 1}
+                            aria-label="Move down"
+                            className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100
+                                disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                        >
+                            <Icon icon="fa-solid fa-arrow-down" />
+                        </button>
                         <Button
                             text="Edit"
                             icon="fa-solid fa-pen"

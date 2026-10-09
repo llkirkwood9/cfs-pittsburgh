@@ -161,9 +161,12 @@ export const GetOrdersForEvent = async (
  */
 export const GetDrafts = async (eventId: number, all = false): Promise<OrderSummary[]> => {
     try {
-        const response = await api.get<OrderSummary[]>(`/api/Order/orders/drafts/event/${eventId}`, {
-            params: { all },
-        });
+        const response = await api.get<OrderSummary[]>(
+            `/api/Order/orders/drafts/event/${eventId}`,
+            {
+                params: { all },
+            }
+        );
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
@@ -178,7 +181,9 @@ export const GetDrafts = async (eventId: number, all = false): Promise<OrderSumm
  */
 export const GetCheckoutQueue = async (eventId: number): Promise<OrderSummary[]> => {
     try {
-        const response = await api.get<OrderSummary[]>(`/api/Order/orders/checkout/event/${eventId}`);
+        const response = await api.get<OrderSummary[]>(
+            `/api/Order/orders/checkout/event/${eventId}`
+        );
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
@@ -259,6 +264,25 @@ export const GetOrder = async (id: number): Promise<Order | null> => {
 export const UpdateOrder = async (orderData: Order): Promise<Order | null> => {
     try {
         const response = await api.patch<Order>("/api/Order/order", orderData);
+        return response.data;
+    } catch (error) {
+        HandleAxiosError(error);
+        return null;
+    }
+};
+
+/**
+ * Puts an order's items in a new order; each item's own rows move with it.
+ * @param orderId The order id.
+ * @param itemIds Every item line's id, in the new order.
+ * @returns The order with its lines in the new order, or null on failure.
+ */
+export const ReorderOrderLines = async (
+    orderId: number,
+    itemIds: number[]
+): Promise<Order | null> => {
+    try {
+        const response = await api.put<Order>(`/api/Order/order/${orderId}/lines/order`, itemIds);
         return response.data;
     } catch (error) {
         HandleAxiosError(error);

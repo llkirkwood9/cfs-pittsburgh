@@ -198,10 +198,22 @@ export const SortLinesForPrint = (lines: OrderLine[]): OrderLine[] => {
         }
     });
 
+    // Under each item: what a bundle includes, then upcharges, then shipping and services.
+    const rank = (line: OrderLine) =>
+        line.lineType === "Included"
+            ? 0
+            : line.lineType === "Upcharge"
+              ? 1
+              : line.lineType === "Delivery"
+                ? 2
+                : 3;
+
     const result: OrderLine[] = [];
     roots.forEach((root) => {
         result.push(root);
-        (children.get(root.id ?? -1) ?? []).forEach((child) => result.push(child));
+        [...(children.get(root.id ?? -1) ?? [])]
+            .sort((a, b) => rank(a) - rank(b))
+            .forEach((child) => result.push(child));
     });
 
     // Any orphan whose parent was removed still has to print rather than silently vanish.
