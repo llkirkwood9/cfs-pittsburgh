@@ -1,7 +1,8 @@
 # CFS Mattress Fundraiser
 
 Order-taking, checkout and reporting for CFS mattress fundraisers. An ASP.NET Core 10 Web API
-backs a single React 19 + Vite + TypeScript SPA that runs on the cart's tablets.
+backs a single React 19 + Vite + TypeScript SPA that runs on the cart's tablets, and a React
+Native + Expo app with the same screens for iOS and Android phones and tablets.
 
 The catalog and the printed receipt are both built from the supplied source documents: the
 9/12/26 price cards and the Hampton 9/12 sales sheets.
@@ -271,6 +272,15 @@ cd dashboard && npm install && npm run dev
 
 The SPA listens on `http://localhost:3000` and reads the API URL from `dashboard/.env.local`.
 
+```bash
+cd app && npm install && npx expo start
+```
+
+The mobile app opens in Expo Go and asks for the server address on its sign-in screen. A phone
+can't reach `localhost`, so run the API with `--urls http://0.0.0.0:5046` and enter your PC's IP.
+[`Documents/Mobile App Guide.md`](Documents/Mobile%20App%20Guide.md) covers running, testing on
+devices and building the app for release.
+
 New migrations: `cd api && dotnet ef migrations add Name`. The design-time context points at the
 local container; set `CFS_POSTGRES_CONNECTION` to use another server.
 
@@ -319,6 +329,14 @@ dashboard/                  Vite + React 19 + TS SPA
     ├── Pages/                  One per route
     ├── Routes/                 Routes.tsx, ProtectedRoute.tsx, HomeRedirect.tsx
     └── Services/               One file per backend controller
+
+app/                        React Native + Expo (SDK 57) app: the dashboard's screens, natively
+├── src/app/                Expo Router routes - a native tab bar, each route wrapping a Page
+├── src/                    Components, Context, Hooks, Lib, Models, Pages, Routes, Services,
+│                           laid out as in dashboard/src; Models and Services are copies
+└── eas.json                EAS build profiles (development, preview, production)
+
+Documents/                  The user guide, the Raspberry Pi setup, and the mobile app guide
 ```
 
 ---
@@ -475,6 +493,10 @@ cd api && dotnet build
 
 ```bash
 cd dashboard && npm run lint && npm run build
+```
+
+```bash
+cd app && npx tsc --noEmit && npx expo lint
 ```
 
 ---
