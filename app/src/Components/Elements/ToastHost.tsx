@@ -47,7 +47,7 @@ const ToastHost = () => {
                     <Pressable
                         onPress={() => DismissToast(toast.id)}
                         accessibilityRole="alert"
-                        className="flex-row items-center gap-3 rounded-xl bg-white px-4 py-3 shadow-lg dark:bg-zinc-800"
+                        className="flex-row items-center gap-3 rounded-xl bg-white px-4 py-3 raised-lg dark:bg-zinc-800"
                     >
                         <Icon icon={looks[toast.kind].icon} className={`text-lg ${looks[toast.kind].color}`} />
                         <Text className="flex-1 text-sm text-zinc-800 dark:text-zinc-100">

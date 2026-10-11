@@ -167,7 +167,7 @@ const EventsPage = () => {
     const renderEvent = (event: Event) => (
         <View
             key={event.id}
-            className="flex-row flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800"
+            className="flex-row flex-wrap items-center gap-3 rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800"
         >
             <View className="min-w-[240px] flex-1">
                 <View className="flex-row flex-wrap items-center gap-2">

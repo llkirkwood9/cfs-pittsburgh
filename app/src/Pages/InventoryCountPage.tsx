@@ -193,7 +193,7 @@ const InventoryCountPage = () => {
             className="pb-6"
             overlay={
                 <View className="px-3 pb-2 pt-1">
-                    <GlassPanel className="mx-auto w-full max-w-4xl rounded-2xl p-3 shadow-lg">
+                    <GlassPanel className="mx-auto w-full max-w-4xl rounded-2xl p-3 raised-lg">
                         <View className="flex-row flex-wrap items-center gap-3">
                             <Text className="flex-1 text-sm">
                                 <Text className="text-sm font-bold">
@@ -246,7 +246,7 @@ const InventoryCountPage = () => {
                                 {group.products.map((product) => (
                                     <View
                                         key={product.productId}
-                                        className="rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800"
+                                        className="rounded-xl bg-white p-3 raised-sm dark:bg-zinc-800"
                                     >
                                         <Text className="mb-1 font-semibold">
                                             {product.name}

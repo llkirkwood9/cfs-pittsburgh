@@ -339,7 +339,7 @@ const InventoryPage = () => {
                                         {group.products.map((product) => (
                                             <View
                                                 key={product.productId}
-                                                className="rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800"
+                                                className="rounded-xl bg-white p-3 raised-sm dark:bg-zinc-800"
                                             >
                                                 <Text className="mb-2 font-semibold">
                                                     {product.name}

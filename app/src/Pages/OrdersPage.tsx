@@ -272,7 +272,7 @@ const OrdersPage = () => {
         return (
             <View
                 className={cx(
-                    "mb-2 gap-2 rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800",
+                    "mb-2 gap-2 rounded-xl bg-white p-3 raised-sm dark:bg-zinc-800",
                     sm && "flex-row items-center gap-3"
                 )}
             >

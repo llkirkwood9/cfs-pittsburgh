@@ -41,7 +41,7 @@ const InventoryNotesEditor = ({ eventId, notes, onSaved, className = "" }: Props
     };
 
     return (
-        <View className={cx("rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800", className)}>
+        <View className={cx("rounded-xl bg-white p-3 raised-sm dark:bg-zinc-800", className)}>
             <TextArea
                 label="Notes for the inventory sheet"
                 value={value}

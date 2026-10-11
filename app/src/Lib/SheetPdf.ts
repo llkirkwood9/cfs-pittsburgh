@@ -3,7 +3,6 @@ import * as Print from "expo-print";
 import type { RefObject } from "react";
 import type { View } from "react-native";
 import { captureRef } from "react-native-view-shot";
-import { ShareFile } from "./Files";
 import { Toast } from "./Toast";
 import type { PdfFile } from "../Services/EmailServices";
 
@@ -111,7 +110,7 @@ export const TryBuildSheetsPdf = async (
             if (new File(pdf.uri).size <= MAX_BYTES) return pdf;
         }
         Toast.Error(
-            "These sheets make a PDF too large to email. Use Print / Share PDF and send the file another way."
+            "These sheets make a PDF too large to email. Use Print instead - the print screen can also save the PDF."
         );
         return null;
     } catch (error) {
@@ -153,32 +152,4 @@ export const PrintSheetsPdf = async (
         // Closing the print dialog without printing rejects on iOS; nothing to report.
     }
     return true;
-};
-
-/**
- * Makes the PDF and opens the share sheet for it - save to Files, AirDrop, Mail, another app.
- * @param sheets The sheets, in page order.
- * @param title The file's name, without .pdf.
- * @param onProgress Called before each page with its number and the total.
- */
-export const ShareSheetsPdf = async (
-    sheets: SheetRef[],
-    title: string,
-    onProgress?: (page: number, total: number) => void
-): Promise<void> => {
-    if (sheets.length === 0) {
-        Toast.Warning("There are no sheets to share.");
-        return;
-    }
-    try {
-        const pdf = await BuildSheetsPdf(sheets, onProgress);
-        // Give the file a readable name before handing it over.
-        const named = new File(new File(pdf.uri).parentDirectory, `${title.replace(/[\\/:*?"<>|]/g, "-")}.pdf`);
-        if (named.exists) named.delete();
-        new File(pdf.uri).move(named);
-        await ShareFile(named.uri, "application/pdf", "com.adobe.pdf", title);
-    } catch (error) {
-        console.error("Sharing the PDF failed", error);
-        Toast.Error("The PDF couldn't be made. Try again.");
-    }
 };

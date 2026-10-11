@@ -74,7 +74,7 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
             </Text>
 
             {options.length === 0 && (
-                <View className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+                <View className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
                     <Text className="text-sm text-zinc-500 dark:text-zinc-400">
                         No financing options yet. Tap Add to create the first one.
                     </Text>
@@ -85,7 +85,7 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                 {options.map((option, index) => (
                     <View
                         key={option.id}
-                        className="flex-row flex-wrap items-center gap-2 rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800"
+                        className="flex-row flex-wrap items-center gap-2 rounded-xl bg-white p-3 raised-sm dark:bg-zinc-800"
                     >
                         <View className="min-w-0 flex-1">
                             <Text className="font-semibold">{option.name}</Text>

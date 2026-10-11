@@ -37,7 +37,7 @@ const StatCard = ({
     className = "",
 }: Props) => {
     return (
-        <View className={cx("rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800", className)}>
+        <View className={cx("rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800", className)}>
             <View className="flex-row items-center gap-2">
                 {icon && <Icon icon={icon} className={`text-sm ${accents[accent]}`} />}
                 <Text

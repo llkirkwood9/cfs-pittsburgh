@@ -9,7 +9,7 @@ import LoadingPage from "../Components/Elements/LoadingPage";
 import Text from "../Components/Elements/Text";
 import { useAuth } from "../Context/AuthContext";
 import { HomePathForRole } from "../Lib/RoleRoutes";
-import { PrintSheetsPdf, ShareSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
+import { PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
 import { Toast } from "../Lib/Toast";
 import type { Order } from "../Models/Order";
 import { EmailReceipt, GetEmailStatus } from "../Services/EmailServices";
@@ -19,8 +19,8 @@ import { GetOrder } from "../Services/OrderServices";
 /**
  * The printable copy of a sale. Unfinished orders are stamped as such by the sheet itself. Print
  * makes a PDF of the sheet - the same one email sends - and prints that through the system print
- * dialog, so the paper looks the same from any device. Share hands the PDF to Files, Mail or
- * AirDrop, and a completed sale can be emailed to the customer.
+ * dialog, so the paper looks the same from any device. A completed sale can also be emailed to the
+ * customer.
  */
 const ReceiptPage = () => {
     const { user } = useAuth();
@@ -34,7 +34,6 @@ const ReceiptPage = () => {
     const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
     const [emailing, setEmailing] = useState<boolean>(false);
     const [printing, setPrinting] = useState<boolean>(false);
-    const [sharing, setSharing] = useState<boolean>(false);
     const sheetRef = useRef<View>(null);
 
     useEffect(() => {
@@ -80,12 +79,6 @@ const ReceiptPage = () => {
         setPrinting(false);
     };
 
-    const handleShare = async () => {
-        setSharing(true);
-        await ShareSheetsPdf([sheetRef], `sales-sheet-${order.orderNumber}`);
-        setSharing(false);
-    };
-
     return (
         <View className="flex-1 bg-zinc-200 dark:bg-zinc-900">
             <Stack.Screen options={{ title: `Sales sheet #${order.orderNumber}` }} />
@@ -100,19 +93,10 @@ const ReceiptPage = () => {
                     />
                 )}
                 <Button
-                    text={sharing ? "Making the PDF..." : "Share PDF"}
-                    icon="fa-solid fa-share-from-square"
-                    onClick={handleShare}
-                    loading={sharing}
-                    disabled={printing}
-                    className="bg-zinc-600 dark:bg-zinc-600"
-                />
-                <Button
                     text={printing ? "Making the PDF..." : "Print"}
                     icon="fa-solid fa-print"
                     onClick={handlePrint}
                     loading={printing}
-                    disabled={sharing}
                 />
             </View>
 

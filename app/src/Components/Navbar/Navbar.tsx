@@ -17,7 +17,7 @@ const Navbar = () => {
     const insets = useSafeAreaInsets();
 
     return (
-        <View className="bg-zinc-900 shadow-lg dark:bg-black" style={{ paddingTop: insets.top }}>
+        <View className="bg-zinc-900 raised-lg dark:bg-black" style={{ paddingTop: insets.top }}>
             <View className="mx-auto h-14 w-full max-w-screen-2xl flex-row items-center gap-2 px-3">
                 <Icon icon="fa-solid fa-bed" className="text-xl text-sky-400" />
                 <Text className="flex-1 text-base font-bold tracking-tight text-white" numberOfLines={1}>

@@ -93,7 +93,7 @@ const Group = ({ title, children }: { title?: string; children: React.ReactNode 
                 {title}
             </Text>
         )}
-        <View className="overflow-hidden rounded-xl bg-white shadow-sm dark:bg-zinc-800">
+        <View className="overflow-hidden rounded-xl bg-white raised-sm dark:bg-zinc-800">
             {children}
         </View>
     </View>

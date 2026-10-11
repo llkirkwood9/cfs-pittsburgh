@@ -160,8 +160,9 @@ Once a development build is installed, `npx expo start` serves it in place of Ex
 - **Sell:** start an order, add items, and send it to checkout.
 - **Checkout:** take a payment, hand the device to the customer for initials and a signature,
   and complete the order.
-- **Sales sheet:** print it to an AirPrint or Android print-service printer, or save it as a
-  PDF. **Share PDF** and **Email** should send the same sheet.
+- **Sales sheet:** print it to an AirPrint or Android print-service printer, and **Email** a
+  completed one. The emailed PDF should match the printed sheet. **Email report** on an event's
+  sheets should do the same for the whole stack.
 - **Orders**, **Dashboard** and **More** (Inventory, Catalog, Events, Crew, Settings), in light
   and dark mode, on a phone and on a tablet, in both orientations.
 - Turn Wi-Fi off for a moment. The "can't reach the server" banner should show, then clear when

@@ -30,7 +30,7 @@ const CommentsCard = ({ order, readOnly = false, onSave }: Props) => {
     };
 
     return (
-        <View className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+        <View className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
             <View className="mb-3 min-h-[40px] flex-row flex-wrap items-center justify-between gap-2">
                 <Text className="text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                     Comments

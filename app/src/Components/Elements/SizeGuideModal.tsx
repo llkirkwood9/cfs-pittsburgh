@@ -55,7 +55,7 @@ const SizeGuideModal = ({ onClose }: Props) => {
                     accessibilityLabel="Mattress sizes drawn to scale. Tap to open the chart full size."
                     className={sideBySide ? "flex-[3]" : ""}
                 >
-                    <View className="rounded-xl bg-white p-2 shadow-sm">
+                    <View className="rounded-xl bg-white p-2 raised-sm">
                         <Image
                             source={chart}
                             contentFit="contain"

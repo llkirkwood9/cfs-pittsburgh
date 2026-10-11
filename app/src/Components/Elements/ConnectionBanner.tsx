@@ -50,7 +50,7 @@ const ConnectionBanner = () => {
             accessibilityRole="alert"
             // Lets taps through, so the crew can still move between screens while it waits.
             pointerEvents="none"
-            className="absolute inset-x-0 top-0 z-40 flex-row items-center justify-center gap-2 bg-amber-500 px-3 pb-2 shadow-lg"
+            className="absolute inset-x-0 top-0 z-40 flex-row items-center justify-center gap-2 bg-amber-500 px-3 pb-2 raised-lg"
             style={{ paddingTop: insets.top + 4 }}
         >
             <Icon icon="fa-solid fa-wifi" className="text-sm text-amber-950" />

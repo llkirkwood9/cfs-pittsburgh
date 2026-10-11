@@ -90,7 +90,7 @@ const LoginPage = () => {
                     contentContainerClassName="grow items-center justify-center p-4"
                     keyboardShouldPersistTaps="handled"
                 >
-                    <View className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-zinc-800">
+                    <View className="w-full max-w-sm rounded-2xl bg-white p-6 raised-2xl dark:bg-zinc-800">
                         <View className="mb-6 items-center gap-2">
                             <Icon icon="fa-solid fa-bed" className="text-3xl text-sky-600 dark:text-sky-400" />
                             <Text className="text-xl font-bold">{settings.appName}</Text>

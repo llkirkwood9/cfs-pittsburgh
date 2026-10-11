@@ -48,7 +48,7 @@ const SettingsCard = ({
     return (
         <View
             onLayout={(e: LayoutChangeEvent) => onLayout?.(id, e.nativeEvent.layout.y)}
-            className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800"
+            className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800"
         >
             <View className="mb-3 flex-row flex-wrap items-start justify-between gap-2">
                 <View className="min-w-0 flex-1">

@@ -25,7 +25,7 @@ const POLL_MS = 15000;
 
 /** A section card with an uppercase heading. */
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
-    <View className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+    <View className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
         <Text className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
             {title}
         </Text>

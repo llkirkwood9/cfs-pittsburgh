@@ -65,7 +65,7 @@ const Card = ({
     action?: ReactNode;
     children: ReactNode;
 }) => (
-    <View className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+    <View className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
         <View className="mb-3 min-h-[40px] flex-row flex-wrap items-center justify-between gap-2">
             <Text className="text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 {title}
@@ -334,7 +334,7 @@ const CheckoutPage = () => {
         </View>
     ) : (
         <View className="gap-4">
-            <View className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+            <View className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
                 <View className="mb-3 flex-row flex-wrap items-center justify-between gap-2">
                     <Text className="shrink text-lg font-bold">
                         #{order.orderNumber} · {order.billingName || "No name"}
@@ -512,7 +512,7 @@ const CheckoutPage = () => {
 
             {order && (
                 <View className="px-3 pb-2 sm:px-4">
-                    <GlassPanel className="rounded-2xl p-3 shadow-lg">
+                    <GlassPanel className="rounded-2xl p-3 raised-lg">
                         <View className="flex-row flex-wrap items-center gap-2">
                             <Text className="flex-1 text-sm text-zinc-500 dark:text-zinc-400">
                                 Balance due{" "}

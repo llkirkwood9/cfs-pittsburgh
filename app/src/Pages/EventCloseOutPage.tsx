@@ -240,7 +240,7 @@ const EventCloseOutPage = () => {
 
                 <View className="gap-3">
                     {steps.map((step) => (
-                        <View key={step.key} className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+                        <View key={step.key} className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
                             <View className="flex-row flex-wrap items-start gap-3">
                                 {/* Status is an icon plus the wording, never color alone. */}
                                 <Icon
@@ -278,7 +278,7 @@ const EventCloseOutPage = () => {
                         </View>
                     ))}
 
-                    <View className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+                    <View className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
                         <View className="flex-row flex-wrap items-center gap-3">
                             <Icon icon="fa-solid fa-print" className="text-lg text-zinc-500" />
                             <View className="min-w-[200px] flex-1">

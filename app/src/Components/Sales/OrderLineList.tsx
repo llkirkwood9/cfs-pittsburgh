@@ -115,7 +115,7 @@ const OrderLineList = ({
                     <View
                         key={line.id}
                         className={cx(
-                            "rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800",
+                            "rounded-xl bg-white p-3 raised-sm dark:bg-zinc-800",
                             isService && "ml-4 border-l-4 border-sky-500/50",
                             isIncluded && "ml-4 border-l-4 border-violet-500/50",
                             isUpcharge && "ml-4 border-l-4 border-orange-500/50"

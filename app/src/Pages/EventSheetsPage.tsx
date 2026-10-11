@@ -14,7 +14,7 @@ import InventorySheet from "../Components/Inventory/InventorySheet";
 import { useAuth } from "../Context/AuthContext";
 import { FormatCurrency, FormatShortDate } from "../Lib/ModelHelpers";
 import { BuildSalesCsv, DownloadCsv } from "../Lib/SalesExport";
-import { PrintSheetsPdf, ShareSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
+import { PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
 import type { SheetRef } from "../Lib/SheetPdf";
 import { Toast } from "../Lib/Toast";
 import type { DashboardStats } from "../Models/DashboardStats";
@@ -31,9 +31,9 @@ import { GetSalesSheetsForEvent } from "../Services/OrderServices";
 /**
  * Every completed sales sheet for one event, stacked one per printed page, between the stat sheet
  * and the accessory inventory sheet. Print makes a PDF of the whole stack - the same one email
- * sends - and prints it through the system print dialog; Share PDF hands the same file to Files,
- * Mail or AirDrop; Share CSV exports the same sales as a spreadsheet; Email report sends the stack
- * as a single PDF. Admin only - this is the event's paperwork.
+ * sends - and prints it through the system print dialog; Share CSV exports the same sales as a
+ * spreadsheet; Email report sends the stack as a single PDF. Admin only - this is the event's
+ * paperwork.
  */
 const EventSheetsPage = () => {
     const { user } = useAuth();
@@ -46,9 +46,7 @@ const EventSheetsPage = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
     const [emailing, setEmailing] = useState<boolean>(false);
-    const [progress, setProgress] = useState<{ action: "print" | "share"; text: string } | null>(
-        null
-    );
+    const [printProgress, setPrintProgress] = useState<string | null>(null);
 
     // One ref per page, in print order: the stat sheet, each sales sheet, the inventory sheet.
     const statRef = useMemo<SheetRef>(() => createRef<View>(), []);
@@ -103,21 +101,11 @@ const EventSheetsPage = () => {
     const handlePrint = async () => {
         if (pages.length === 0) return Toast.Warning("There are no completed sales to print.");
 
-        setProgress({ action: "print", text: "Making the PDF..." });
+        setPrintProgress("Making the PDF...");
         await PrintSheetsPdf(pages, (page, total) =>
-            setProgress({ action: "print", text: `Making the PDF: ${page} of ${total}...` })
+            setPrintProgress(`Making the PDF: ${page} of ${total}...`)
         );
-        setProgress(null);
-    };
-
-    const handleShare = async () => {
-        if (pages.length === 0) return Toast.Warning("There are no completed sales to share.");
-
-        setProgress({ action: "share", text: "Making the PDF..." });
-        await ShareSheetsPdf(pages, `${slug}-${date}-sales-sheets`, (page, total) =>
-            setProgress({ action: "share", text: `Making the PDF: ${page} of ${total}...` })
-        );
-        setProgress(null);
+        setPrintProgress(null);
     };
 
     const handleEmail = () => {
@@ -130,7 +118,6 @@ const EventSheetsPage = () => {
     };
 
     const total = orders.reduce((sum, o) => sum + (o.total ?? 0), 0);
-    const busy = progress !== null;
 
     return (
         <View className="flex-1 bg-zinc-200 dark:bg-zinc-900">
@@ -154,27 +141,18 @@ const EventSheetsPage = () => {
                             text="Email report"
                             icon="fa-solid fa-envelope"
                             onClick={handleEmail}
-                            disabled={busy}
                             className="bg-zinc-600 dark:bg-zinc-600"
                         />
                         <Button
-                            text={progress?.action === "share" ? progress.text : "Share PDF"}
-                            icon="fa-solid fa-share-from-square"
-                            onClick={handleShare}
-                            loading={progress?.action === "share"}
-                            disabled={busy}
-                            className="bg-zinc-600 dark:bg-zinc-600"
-                        />
-                        <Button
-                            text={progress?.action === "print" ? progress.text : "Print"}
+                            text={printProgress ?? "Print"}
                             icon="fa-solid fa-print"
                             onClick={handlePrint}
-                            loading={progress?.action === "print"}
-                            disabled={busy}
+                            loading={printProgress !== null}
+                            disabled={printProgress !== null}
                         />
                     </View>
 
-                    <View className="mt-3 rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+                    <View className="mt-3 rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
                         <Text className="text-lg font-bold">{saleEvent?.organization}</Text>
                         <Text className="text-sm text-zinc-600 dark:text-zinc-400">
                             {FormatShortDate(saleEvent?.eventDate)} · {orders.length} completed sale
@@ -182,8 +160,8 @@ const EventSheetsPage = () => {
                         </Text>
                         <Text className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
                             The stat sheet prints first, then each sales sheet on its own page, then
-                            the accessory inventory sheet. Share PDF saves the same file to Files or
-                            sends it to another app.
+                            the accessory inventory sheet. Email report sends the same pages as one
+                            PDF.
                         </Text>
                     </View>
                 </View>

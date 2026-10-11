@@ -243,8 +243,9 @@ const SalesPage = () => {
 
     const refresh = <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />;
 
+    // Keyed, so switching panes on a phone mounts the other one rather than restyling this one.
     const itemsPane = order && (
-        <View>
+        <View key="items">
             <View className="mb-3 flex-row items-center justify-between gap-2">
                 <Text className="shrink font-bold">
                     Items
@@ -273,7 +274,7 @@ const SalesPage = () => {
     );
 
     const customerPane = order && (
-        <View className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+        <View key="customer" className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
             <Button
                 text="Hand tablet to customer"
                 icon="fa-solid fa-hand-holding-heart"
@@ -371,7 +372,7 @@ const SalesPage = () => {
             {/* The action bar: the total and the hand-off button never scroll away. */}
             {order && (
                 <View className="px-3 pb-2 sm:px-4">
-                    <GlassPanel className="rounded-2xl p-3 shadow-lg" fallbackClassName="bg-white dark:bg-zinc-800">
+                    <GlassPanel className="rounded-2xl p-3 raised-lg" fallbackClassName="bg-white dark:bg-zinc-800">
                         <View className="flex-row flex-wrap items-center gap-3">
                             <View className="min-w-[160px] flex-1">
                                 <OrderTotals order={order} compact />

@@ -7,8 +7,8 @@ the device.
 
 Every dashboard screen is here, on a native tab bar (Liquid Glass on iOS 26) - Sell, Checkout,
 Orders, Dashboard, and More for Inventory, Catalog, Events, Crew and Settings. Sheets print and
-share as the same picture-per-page PDF the dashboard makes, through the system print dialog and
-share sheet.
+email as the same picture-per-page PDF the dashboard makes, printing through the system print
+dialog.
 
 ```bash
 npm install

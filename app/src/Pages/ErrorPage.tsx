@@ -20,7 +20,7 @@ const ErrorPage = () => {
 
     return (
         <Page edges={["left", "right", "bottom"]} className="items-center justify-center p-6">
-            <View className="w-full max-w-lg items-center rounded-xl bg-white p-6 shadow dark:bg-zinc-800">
+            <View className="w-full max-w-lg items-center rounded-xl bg-white p-6 raised dark:bg-zinc-800">
                 <Icon
                     icon="fa-solid fa-triangle-exclamation"
                     className="text-4xl text-red-600 dark:text-red-400"

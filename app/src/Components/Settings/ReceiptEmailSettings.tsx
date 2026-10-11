@@ -85,7 +85,7 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
 
     if (loading) {
         return (
-            <View className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+            <View className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
                 <ListSkeleton rows={3} />
             </View>
         );
@@ -93,7 +93,7 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
 
     if (!saved) {
         return (
-            <View className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+            <View className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
                 <Text className="text-sm">The receipt email settings couldn&apos;t be loaded.</Text>
             </View>
         );

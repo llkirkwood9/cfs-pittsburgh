@@ -92,7 +92,7 @@ const SalesByHourChart = ({ sales }: Props) => {
     const focusedBucket = focused !== null ? buckets[focused] : null;
 
     return (
-        <View className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+        <View className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
             <View className="mb-3 flex-row flex-wrap items-baseline justify-between gap-2">
                 <Text className="text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                     Sales by {byDay ? "day" : "hour"}
@@ -159,7 +159,7 @@ const SalesByHourChart = ({ sales }: Props) => {
                     {focusedBucket && plotWidth > 0 && (
                         <View
                             pointerEvents="none"
-                            className="absolute top-0 z-10 rounded-lg bg-zinc-900 px-2.5 py-1.5 shadow-lg dark:bg-zinc-100"
+                            className="absolute top-0 z-10 rounded-lg bg-zinc-900 px-2.5 py-1.5 raised-lg dark:bg-zinc-100"
                             style={{
                                 left: Math.min(
                                     Math.max(0, ((focused! + 0.5) / buckets.length) * plotWidth - 70),
