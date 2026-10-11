@@ -103,7 +103,8 @@ const EventSheetsPage = () => {
 
         setPrintProgress("Making the PDF...");
         await PrintSheetsPdf(pages, (page, total) =>
-            setPrintProgress(`Making the PDF: ${page} of ${total}...`)
+            setPrintProgress(`Making the PDF: ${page} of ${total}...`),
+            `${slug}-${date}-sales-sheets`
         );
         setPrintProgress(null);
     };

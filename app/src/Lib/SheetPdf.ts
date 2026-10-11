@@ -1,15 +1,11 @@
-import { File } from "expo-file-system";
+import { Directory, File, Paths } from "expo-file-system";
 import * as Print from "expo-print";
 import type { RefObject } from "react";
 import type { View } from "react-native";
 import { captureRef } from "react-native-view-shot";
+import { BuildImagePdf } from "./ImagePdf";
 import { Toast } from "./Toast";
 import type { PdfFile } from "../Services/EmailServices";
-
-/** US Letter, in points, with the same margin the printed sheets use (0.35in). */
-const PAGE_W = 612;
-const PAGE_H = 792;
-const MARGIN = 25;
 
 /**
  * The width every sheet is laid out at on screen, whatever the device: 8 inches, as on the
@@ -41,17 +37,20 @@ export type SheetRef = RefObject<View | null>;
 /**
  * Turns the sheets on screen into a PDF, one sheet per Letter page, so an emailed or printed copy
  * looks exactly like the sheet on screen - the same picture-per-page PDF the dashboard makes.
- * Each sheet is captured as a picture, then the pictures are laid out on Letter pages. A sheet
- * taller than a page is scaled down to fit, as it is when printed.
+ * Each sheet is captured as a picture and placed on its page as the dashboard places it, inside a
+ * 0.35in margin and shrunk to fit when it is taller than the page. The PDF is written directly, so
+ * a phone and a tablet make the same one.
  * @param sheets The sheets, in page order.
  * @param onProgress Called before each page with its number and the total.
  * @param quality JPEG quality; by default, as sharp as this many pages allow.
+ * @param title The PDF's title, which the print dialog shows.
  * @returns The PDF file on the device.
  */
 export const BuildSheetsPdf = async (
     sheets: SheetRef[],
     onProgress?: (page: number, total: number) => void,
-    quality: number = QUALITY[QualityIndexFor(sheets.length)].quality
+    quality: number = QUALITY[QualityIndexFor(sheets.length)].quality,
+    title?: string
 ): Promise<PdfFile> => {
     const pages: string[] = [];
     for (let i = 0; i < sheets.length; i++) {
@@ -64,29 +63,16 @@ export const BuildSheetsPdf = async (
         await new Promise((resolve) => setTimeout(resolve, 0));
     }
 
-    const boxW = PAGE_W - MARGIN * 2;
-    const boxH = PAGE_H - MARGIN * 2;
-    const html = `<!DOCTYPE html>
-<html><head><meta charset="utf-8" />
-<style>
-  @page { size: ${PAGE_W}px ${PAGE_H}px; margin: 0; }
-  html, body { margin: 0; padding: 0; background: #fff; }
-  .page { width: ${PAGE_W}px; height: ${PAGE_H}px; box-sizing: border-box; padding: ${MARGIN}px;
-          display: flex; justify-content: center; align-items: flex-start; page-break-after: always;
-          overflow: hidden; }
-  .page:last-child { page-break-after: auto; }
-  img { max-width: ${boxW}px; max-height: ${boxH}px; width: auto; height: auto; }
-</style></head><body>
-${pages.map((p) => `<div class="page"><img src="data:image/jpeg;base64,${p}" /></div>`).join("\n")}
-</body></html>`;
+    // One folder of PDFs in the cache, emptied each time so old ones don't pile up.
+    const folder = new Directory(Paths.cache, "Sheets");
+    if (folder.exists) folder.delete();
+    folder.create({ intermediates: true });
 
-    const result = await Print.printToFileAsync({
-        html,
-        width: PAGE_W,
-        height: PAGE_H,
-        margins: { top: 0, right: 0, bottom: 0, left: 0 },
-    });
-    return { uri: result.uri };
+    const name = (title ?? "sheets").replace(/[^a-z0-9-]+/gi, "-").replace(/^-|-$/g, "") || "sheets";
+    const file = new File(folder, `${name}.pdf`);
+    file.create();
+    file.write(BuildImagePdf(pages, title));
+    return { uri: file.uri };
 };
 
 /**
@@ -126,11 +112,13 @@ export const TryBuildSheetsPdf = async (
  * service on Android).
  * @param sheets The sheets, in page order.
  * @param onProgress Called before each page with its number and the total.
+ * @param title The PDF's title, which the print dialog shows.
  * @returns Whether the PDF was made.
  */
 export const PrintSheetsPdf = async (
     sheets: SheetRef[],
-    onProgress?: (page: number, total: number) => void
+    onProgress?: (page: number, total: number) => void,
+    title?: string
 ): Promise<boolean> => {
     if (sheets.length === 0) {
         Toast.Warning("There are no sheets to print.");
@@ -139,7 +127,7 @@ export const PrintSheetsPdf = async (
 
     let pdf: PdfFile;
     try {
-        pdf = await BuildSheetsPdf(sheets, onProgress);
+        pdf = await BuildSheetsPdf(sheets, onProgress, undefined, title);
     } catch (error) {
         console.error("Building the PDF failed", error);
         Toast.Error("The PDF couldn't be made. Try again.");

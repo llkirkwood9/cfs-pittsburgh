@@ -75,7 +75,7 @@ const ReceiptPage = () => {
     // Printed from the same PDF that email sends, so the sheet comes out the same from any device.
     const handlePrint = async () => {
         setPrinting(true);
-        await PrintSheetsPdf([sheetRef]);
+        await PrintSheetsPdf([sheetRef], undefined, `Sales sheet ${order.orderNumber}`);
         setPrinting(false);
     };
 
