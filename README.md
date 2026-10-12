@@ -321,7 +321,7 @@ api/                        ASP.NET Core 10 Web API (net10.0)
 ├── Migrations/             PostgreSQL migrations
 └── docker-compose.yml      PostgreSQL for local development
 
-dashboard/                  Vite + React 19 + TS SPA
+dashboard/                  Vite + React 19 + TS SPA, styled with Tailwind CSS 4
 └── src/
     ├── Components/Elements/    Button, Icon, Modal, TextField, StatCard, ...
     ├── Components/Navbar/      Navbar, ThemeToggle, UserProfileDropdown
@@ -555,6 +555,11 @@ component library; icons only through the local `Icon` wrapper; feedback only th
 Tablet-first specifics: controls are at least 48px tall, inputs are 16px so iPad Safari does not
 zoom on focus, modals are full-width sheets on a phone and centred cards on a tablet, and the
 navbar is a top bar on a tablet and a bottom tab bar on a phone.
+
+Styling is Tailwind CSS 4, so the dashboard needs **Safari / iPadOS 16.4 or later, or Chrome 111 or
+later**. The 5th-generation iPad (2017) and later, iPad Air 3, iPad mini 5 and every iPad Pro run
+it; an iPad Air 2, iPad mini 4 or older iPad stops at iPadOS 15 and won't style the dashboard
+properly.
 
 ---
 

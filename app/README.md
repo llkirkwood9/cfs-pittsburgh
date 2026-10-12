@@ -55,3 +55,24 @@ npx expo lint
 ```bash
 npx expo-doctor
 ```
+
+## Dependencies
+
+Install packages with `npx expo install`, which picks the versions Expo SDK 57 and Expo Go
+support; `npx expo install --check` lists any that are off. React Native and the native modules
+stay on those versions until the app moves to a newer SDK.
+
+`package.json` overrides three packages for security fixes:
+
+- `uuid` 11.1.1+ for `xcode`, in Expo's build tooling.
+- `postcss-selector-parser` 7.1.6+ for Tailwind CSS 3, which NativeWind 4 needs; Tailwind's
+  output is unchanged.
+- `decode-uri-component`, which Expo Router reaches through `query-string` 7, points at
+  `vendor/decode-uri-component`: version 0.5.0, which fixes a denial of service, with only its
+  export changed to CommonJS because `query-string` 7 loads it with `require()`. Delete the
+  folder and the override once Expo Router no longer depends on `query-string` 7.
+
+`npm audit` still reports two advisories that have no fixed version yet: `braces`, in Tailwind
+CSS 3's file matching, and `node-forge`, in the Expo CLI's code signing. Both are build-time
+tools, not part of the app. They go away when NativeWind supports Tailwind CSS 4 (NativeWind 5)
+and when Expo updates its CLI.
