@@ -73,7 +73,7 @@ const SettingsPage = () => {
                         onChange={(e) => setScopeId(e.target.value ? Number(e.target.value) : null)}
                         aria-label="Which settings to edit"
                         className="min-h-[44px] rounded-xl border border-zinc-300 bg-white px-3 text-base font-semibold
-                            dark:border-zinc-600 dark:bg-zinc-800 dark:[color-scheme:dark]"
+                            dark:border-zinc-600 dark:bg-zinc-800 dark:scheme-dark"
                     >
                         <option value="">Company-wide settings</option>
                         {active.map((t) => (

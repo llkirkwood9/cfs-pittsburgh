@@ -83,7 +83,7 @@ const TerritoryComparison = ({ pollMs }: Props) => {
     );
 
     return (
-        <section className="mb-4 rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+        <section className="mb-4 rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h2 className="text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                     Territories side by side
@@ -109,7 +109,7 @@ const TerritoryComparison = ({ pollMs }: Props) => {
                 </p>
             ) : (
                 <div className="-mx-4 overflow-x-auto px-4">
-                    <table className="w-full min-w-[40rem] text-sm">
+                    <table className="w-full min-w-160 text-sm">
                         <thead>
                             <tr className="border-b border-zinc-200 text-left text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:border-zinc-700 dark:text-zinc-400">
                                 <th className="py-2 pr-3">Territory</th>

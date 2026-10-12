@@ -49,10 +49,10 @@ const TextField = ({
                 autoFocus={autoFocus}
                 autoComplete={autoComplete}
                 className="min-h-[48px] w-full rounded-xl border border-zinc-300 bg-white px-3 text-base
-                    text-zinc-900 outline-none transition-colors
+                    text-zinc-900 outline-hidden transition-colors
                     focus:border-sky-600 focus:ring-2 focus:ring-sky-600/30
                     disabled:opacity-60
-                    dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-sky-500 dark:[color-scheme:dark]"
+                    dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-sky-500 dark:scheme-dark"
             />
         </label>
     );

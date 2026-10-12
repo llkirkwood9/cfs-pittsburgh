@@ -12,7 +12,7 @@ const TerritoryPicker = () => {
         if (!territoryName) return null;
         return (
             <span
-                className="hidden max-w-[10rem] items-center gap-1.5 truncate rounded-lg px-2 text-sm
+                className="hidden max-w-40 items-center gap-1.5 truncate rounded-lg px-2 text-sm
                     font-medium text-zinc-300 sm:flex"
                 title="Your territory"
             >
@@ -34,9 +34,9 @@ const TerritoryPicker = () => {
             <select
                 value={territoryId ?? ""}
                 onChange={(e) => setTerritoryId(e.target.value ? Number(e.target.value) : null)}
-                className="h-11 max-w-[9.5rem] appearance-none truncate rounded-xl bg-white/10 pl-7 pr-7 text-sm
-                    font-medium text-white outline-none hover:bg-white/15 focus:ring-2 focus:ring-sky-500
-                    sm:max-w-[13rem] [&>option]:text-zinc-900"
+                className="h-11 max-w-38 appearance-none truncate rounded-xl bg-white/10 pl-7 pr-7 text-sm
+                    font-medium text-white outline-hidden hover:bg-white/15 focus:ring-2 focus:ring-sky-500
+                    sm:max-w-52 [&>option]:text-zinc-900"
             >
                 <option value="">All territories</option>
                 {active.map((t) => (

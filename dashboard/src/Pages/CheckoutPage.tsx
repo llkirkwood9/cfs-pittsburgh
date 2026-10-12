@@ -239,7 +239,7 @@ const CheckoutPage = () => {
 
     if (loading) {
         return (
-            <div className="mx-auto max-w-screen-2xl p-4">
+            <div className="mx-auto max-w-(--breakpoint-2xl) p-4">
                 <ListSkeleton rows={5} />
             </div>
         );
@@ -266,7 +266,7 @@ const CheckoutPage = () => {
     const acknowledged = order ? IsAcknowledged(order) : false;
 
     return (
-        <div className="mx-auto max-w-screen-2xl p-3 sm:p-4">
+        <div className="mx-auto max-w-(--breakpoint-2xl) p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                 <h1 className="text-xl font-bold">Checkout</h1>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -297,7 +297,7 @@ const CheckoutPage = () => {
                         </div>
                     ) : (
                         <div className="space-y-4">
-                            <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+                            <div className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
                                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                                     <h2 className="text-lg font-bold">
                                         #{order.orderNumber} &middot;{" "}
@@ -339,7 +339,7 @@ const CheckoutPage = () => {
                                 </div>
                             </div>
 
-                            <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+                            <div className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
                                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                                     <h3 className="text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                                         Customer details
@@ -386,7 +386,7 @@ const CheckoutPage = () => {
                                 onSave={saveOrder}
                             />
 
-                            <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+                            <div className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
                                 <h3 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                                     Payment
                                 </h3>
@@ -400,7 +400,7 @@ const CheckoutPage = () => {
                                 />
                             </div>
 
-                            <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+                            <div className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
                                 <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                                     <h3 className="text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                                         Acknowledgements
@@ -511,13 +511,13 @@ const CheckoutPage = () => {
                                                 text="Send back"
                                                 icon="fa-solid fa-arrow-rotate-left"
                                                 onClick={handleSendBack}
-                                                className="!min-h-[52px] flex-col !gap-0.5 !px-1 !text-xs sm:flex-row sm:!gap-2 sm:!px-5 sm:!text-base bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                                                className="min-h-[52px]! flex-col gap-0.5! px-1! text-xs! sm:flex-row sm:gap-2! sm:px-5! sm:text-base! bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                                             />
                                             <Button
                                                 text="Void"
                                                 icon="fa-solid fa-ban"
                                                 onClick={() => setVoiding(true)}
-                                                className="!min-h-[52px] flex-col !gap-0.5 !px-1 !text-xs sm:flex-row sm:!gap-2 sm:!px-5 sm:!text-base bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
+                                                className="min-h-[52px]! flex-col gap-0.5! px-1! text-xs! sm:flex-row sm:gap-2! sm:px-5! sm:text-base! bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
                                             />
                                             <Button
                                                 text="Complete sale"
@@ -530,7 +530,7 @@ const CheckoutPage = () => {
                                                         ? undefined
                                                         : "The customer needs to confirm their details, initial and sign first"
                                                 }
-                                                className="!min-h-[52px] flex-col !gap-0.5 !px-1 !text-xs sm:flex-row sm:!gap-2 sm:!px-5 sm:!text-base bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
+                                                className="min-h-[52px]! flex-col gap-0.5! px-1! text-xs! sm:flex-row sm:gap-2! sm:px-5! sm:text-base! bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                                             />
                                         </div>
                                     )}

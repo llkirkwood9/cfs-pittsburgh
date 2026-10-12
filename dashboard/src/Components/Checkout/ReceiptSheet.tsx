@@ -196,7 +196,7 @@ const ReceiptSheet = ({ order }: Props) => {
                     aria-hidden
                     className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
                 >
-                    <span className="-rotate-[30deg] select-none whitespace-nowrap text-[88px] font-black tracking-widest text-red-600/20">
+                    <span className="rotate-[-30deg] select-none whitespace-nowrap text-[88px] font-black tracking-widest text-red-600/20">
                         {notice.stamp}
                     </span>
                 </div>
@@ -502,7 +502,7 @@ const ReceiptSheet = ({ order }: Props) => {
             </table>
 
             {/* Acknowledgements: the wording set under Settings, or the copy kept with a completed sale */}
-            <div className="mt-2 space-y-1 font-serif text-[9px] leading-[1.25]">
+            <div className="mt-2 space-y-1 font-serif text-[9px] leading-tight">
                 {(
                     [
                         ["warranty", order.warrantyInitials],

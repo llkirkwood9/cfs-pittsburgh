@@ -72,7 +72,7 @@ const ConfirmationModal = ({
                         autoCapitalize="characters"
                         autoCorrect="off"
                         autoFocus
-                        className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900 outline-none
+                        className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900 outline-hidden
                             focus:border-red-600 focus:ring-2 focus:ring-red-600/30 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                     />
                 </label>

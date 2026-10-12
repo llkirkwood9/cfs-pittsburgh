@@ -153,7 +153,7 @@ const TermsSettings = () => {
                                     maxLength={MAX_TEXT}
                                     rows={t.text.length > 300 ? 6 : 3}
                                     className="w-full rounded-xl border border-zinc-300 bg-white px-3 py-2 text-base leading-relaxed
-                                        text-zinc-900 outline-none transition-colors
+                                        text-zinc-900 outline-hidden transition-colors
                                         focus:border-sky-600 focus:ring-2 focus:ring-sky-600/30
                                         dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-sky-500"
                                 />

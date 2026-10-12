@@ -29,7 +29,7 @@ const SizeGuideModal = ({ onClose }: Props) => (
                 target="_blank"
                 rel="noreferrer"
                 title="Open the chart full size"
-                className="block rounded-xl p-2 shadow-sm"
+                className="block rounded-xl p-2 shadow-xs"
             >
                 <img
                     src={chart}

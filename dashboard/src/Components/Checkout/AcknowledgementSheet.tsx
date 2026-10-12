@@ -254,7 +254,7 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
                                     autoCorrect="off"
                                     placeholder="AB"
                                     className="mt-2 min-h-[72px] w-40 rounded-2xl border-2 border-zinc-300 bg-white
-                                        text-center text-3xl font-bold tracking-widest text-zinc-900 outline-none
+                                        text-center text-3xl font-bold tracking-widest text-zinc-900 outline-hidden
                                         focus:border-sky-600 focus:ring-4 focus:ring-sky-600/20
                                         dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                                 />
@@ -280,7 +280,7 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
                                     maxLength={150}
                                     autoCapitalize="words"
                                     className="mt-2 min-h-[60px] w-full rounded-2xl border-2 border-zinc-300 bg-white px-4
-                                        text-lg text-zinc-900 outline-none focus:border-sky-600
+                                        text-lg text-zinc-900 outline-hidden focus:border-sky-600
                                         focus:ring-4 focus:ring-sky-600/20
                                         dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                                 />

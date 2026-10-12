@@ -206,23 +206,23 @@ const CrewPage = () => {
                 {users.map((crew) => (
                     <li
                         key={crew.id}
-                        className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800"
+                        className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800"
                     >
                         <div className="min-w-0 flex-1">
                             <p className="font-semibold">
                                 {crew.name}
                                 {!crew.isActive && (
-                                    <span className="ml-2 rounded bg-zinc-200 px-1.5 py-0.5 text-xs font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
+                                    <span className="ml-2 rounded-sm bg-zinc-200 px-1.5 py-0.5 text-xs font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
                                         Inactive
                                     </span>
                                 )}
                                 {crew.isLockedOut && (
-                                    <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-950/50 dark:text-red-300">
+                                    <span className="ml-2 rounded-sm bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-950/50 dark:text-red-300">
                                         Locked out
                                     </span>
                                 )}
                                 {crew.isActive && crew.mustChangePassword && (
-                                    <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+                                    <span className="ml-2 rounded-sm bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
                                         New password pending
                                     </span>
                                 )}
@@ -373,7 +373,7 @@ const CrewPage = () => {
                                         )
                                     }
                                     className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base
-                                        dark:border-zinc-600 dark:bg-zinc-800 dark:[color-scheme:dark]"
+                                        dark:border-zinc-600 dark:bg-zinc-800 dark:scheme-dark"
                                 >
                                     <option value="">Pick a territory...</option>
                                     {activeTerritories.map((t) => (

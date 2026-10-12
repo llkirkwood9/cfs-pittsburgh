@@ -332,7 +332,7 @@ const InventoryPage = () => {
                                     {group.products.map((product) => (
                                         <div
                                             key={product.productId}
-                                            className="rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800"
+                                            className="rounded-xl bg-white p-3 shadow-xs dark:bg-zinc-800"
                                         >
                                             <p className="mb-2 font-semibold">
                                                 {product.name}
@@ -351,7 +351,7 @@ const InventoryPage = () => {
                                                             key={InventoryRowKey(item)}
                                                             className="flex flex-wrap items-center gap-2 py-2"
                                                         >
-                                                            <div className="min-w-[7rem] flex-1">
+                                                            <div className="min-w-28 flex-1">
                                                                 <p className="font-medium">
                                                                     {InventorySizeLabel(item)}
                                                                 </p>
@@ -378,7 +378,7 @@ const InventoryPage = () => {
                                                                     type="button"
                                                                     onClick={() => openCount(item)}
                                                                     title="Enter a count"
-                                                                    className={`min-h-[48px] min-w-[4.5rem] rounded-xl px-3 text-xl font-bold tabular-nums
+                                                                    className={`min-h-[48px] min-w-18 rounded-xl px-3 text-xl font-bold tabular-nums
                                                                         transition-colors hover:bg-zinc-100 dark:hover:bg-zinc-700 ${
                                                                             onHand <= 0
                                                                                 ? "text-red-700 dark:text-red-400"

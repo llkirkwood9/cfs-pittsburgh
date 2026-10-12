@@ -19,7 +19,7 @@ const ErrorPage = () => {
 
     return (
         <div className="flex min-h-[70vh] items-center justify-center p-6">
-            <div className="w-full max-w-lg rounded-xl bg-white p-6 text-center shadow dark:bg-zinc-800">
+            <div className="w-full max-w-lg rounded-xl bg-white p-6 text-center shadow-sm dark:bg-zinc-800">
                 <Icon
                     icon="fa-solid fa-triangle-exclamation"
                     className="text-4xl text-red-600 dark:text-red-400"

@@ -21,7 +21,7 @@ const RequireTerritory = ({ children, purpose }: Props) => {
 
     return (
         <div className="mx-auto max-w-lg p-4">
-            <div className="rounded-2xl bg-white p-6 text-center shadow-sm dark:bg-zinc-800">
+            <div className="rounded-2xl bg-white p-6 text-center shadow-xs dark:bg-zinc-800">
                 <Icon
                     icon="fa-solid fa-map-location-dot"
                     className="mb-3 text-3xl text-sky-600 dark:text-sky-400"

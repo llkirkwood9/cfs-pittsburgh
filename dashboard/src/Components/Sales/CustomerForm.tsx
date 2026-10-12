@@ -81,7 +81,7 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
                             onBlur={commit("cfsRepName")}
                             disabled={disabled}
                             className="min-h-[48px] w-full rounded-xl border border-zinc-300 bg-white px-3 text-base
-                                text-zinc-900 outline-none focus:border-sky-600 focus:ring-2 focus:ring-sky-600/30
+                                text-zinc-900 outline-hidden focus:border-sky-600 focus:ring-2 focus:ring-sky-600/30
                                 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                         />
                         <datalist id="cfs-reps">
@@ -183,7 +183,7 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
                     maxLength={1000}
                     placeholder="Anything the delivery crew or checkout table needs to know"
                     className="w-full rounded-xl border border-zinc-300 bg-white p-3 text-base text-zinc-900
-                        outline-none focus:border-sky-600 focus:ring-2 focus:ring-sky-600/30 disabled:opacity-60
+                        outline-hidden focus:border-sky-600 focus:ring-2 focus:ring-sky-600/30 disabled:opacity-60
                         dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                 />
             </section>

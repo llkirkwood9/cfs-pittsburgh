@@ -166,7 +166,7 @@ const OptionsEditor = ({ options, onChange, trackInventory }: Props) => {
                                 onChange={(value) => setOption(option.key, { name: value })}
                                 placeholder="Color"
                                 maxLength={50}
-                                className="min-w-[10rem] flex-1"
+                                className="min-w-40 flex-1"
                             />
                             <div className="flex gap-1">
                                 <button

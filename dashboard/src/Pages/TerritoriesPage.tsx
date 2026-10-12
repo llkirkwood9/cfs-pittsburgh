@@ -107,7 +107,7 @@ const TerritoriesPage = () => {
             </p>
 
             {territories.length === 0 && (
-                <p className="rounded-xl bg-white p-6 text-center text-sm text-zinc-500 shadow-sm dark:bg-zinc-800 dark:text-zinc-400">
+                <p className="rounded-xl bg-white p-6 text-center text-sm text-zinc-500 shadow-xs dark:bg-zinc-800 dark:text-zinc-400">
                     No territories yet. Add one to start taking events.
                 </p>
             )}
@@ -119,13 +119,13 @@ const TerritoriesPage = () => {
                     return (
                         <li
                             key={territory.id}
-                            className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800"
+                            className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800"
                         >
                             <div className="min-w-0 flex-1">
                                 <p className="font-semibold">
                                     {territory.name}
                                     {territory.isActive === false && (
-                                        <span className="ml-2 rounded bg-zinc-200 px-1.5 py-0.5 text-xs font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
+                                        <span className="ml-2 rounded-sm bg-zinc-200 px-1.5 py-0.5 text-xs font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
                                             Off
                                         </span>
                                     )}

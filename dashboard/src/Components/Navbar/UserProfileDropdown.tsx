@@ -51,7 +51,7 @@ const UserProfileDropdown = () => {
                 <span className="flex h-8 w-8 items-center justify-center rounded-full bg-sky-600 text-sm font-bold text-white">
                     {initials}
                 </span>
-                <span className="hidden max-w-[10rem] truncate text-sm font-medium xl:block">
+                <span className="hidden max-w-40 truncate text-sm font-medium xl:block">
                     {user?.name}
                 </span>
                 <Icon icon="fa-solid fa-chevron-down" className="text-xs" />

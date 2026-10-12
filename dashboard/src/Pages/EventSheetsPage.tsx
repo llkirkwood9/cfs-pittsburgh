@@ -147,7 +147,7 @@ const EventSheetsPage = () => {
                     </div>
                 </div>
 
-                <div className="mt-3 rounded-xl bg-white p-4 text-zinc-900 shadow-sm dark:bg-zinc-800 dark:text-zinc-100">
+                <div className="mt-3 rounded-xl bg-white p-4 text-zinc-900 shadow-xs dark:bg-zinc-800 dark:text-zinc-100">
                     <h1 className="text-lg font-bold">{saleEvent?.organization}</h1>
                     <p className="text-sm text-zinc-600 dark:text-zinc-400">
                         {FormatShortDate(saleEvent?.eventDate)} &middot; {orders.length} completed

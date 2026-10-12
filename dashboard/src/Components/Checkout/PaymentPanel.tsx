@@ -203,7 +203,7 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                                 value={financeChoice}
                                 onChange={(e) => setFinanceChoice(e.target.value)}
                                 className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base
-                                    text-zinc-900 outline-none focus:border-sky-600
+                                    text-zinc-900 outline-hidden focus:border-sky-600
                                     dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                             >
                                 <option value="">Choose...</option>

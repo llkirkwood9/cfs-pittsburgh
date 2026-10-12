@@ -38,7 +38,7 @@ const InventoryNotesEditor = ({ eventId, notes, onSaved, className = "" }: Props
     };
 
     return (
-        <div className={`rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800 ${className}`}>
+        <div className={`rounded-xl bg-white p-3 shadow-xs dark:bg-zinc-800 ${className}`}>
             <TextArea
                 label="Notes for the inventory sheet"
                 value={value}

@@ -6,12 +6,12 @@ import type { Territory } from "../../Models/Territory";
  */
 export const ScopeBadge = ({ territoryName }: { territoryName?: string | null }) =>
     territoryName ? (
-        <span className="ml-2 inline-flex items-center gap-1 rounded bg-sky-100 px-1.5 py-0.5 text-xs font-semibold text-sky-800 dark:bg-sky-900/50 dark:text-sky-300">
+        <span className="ml-2 inline-flex items-center gap-1 rounded-sm bg-sky-100 px-1.5 py-0.5 text-xs font-semibold text-sky-800 dark:bg-sky-900/50 dark:text-sky-300">
             <Icon icon="fa-solid fa-location-dot" />
             {territoryName}
         </span>
     ) : (
-        <span className="ml-2 inline-flex items-center gap-1 rounded bg-zinc-200 px-1.5 py-0.5 text-xs font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
+        <span className="ml-2 inline-flex items-center gap-1 rounded-sm bg-zinc-200 px-1.5 py-0.5 text-xs font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
             <Icon icon="fa-solid fa-globe" />
             Global
         </span>
@@ -48,7 +48,7 @@ export const ScopeField = ({
                 value={value ?? ""}
                 onChange={(e) => onChange(e.target.value ? Number(e.target.value) : null)}
                 className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900
-                    outline-none focus:border-sky-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                    outline-hidden focus:border-sky-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
             >
                 <option value="">Every territory (global)</option>
                 {territories

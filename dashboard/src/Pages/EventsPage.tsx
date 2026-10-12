@@ -171,7 +171,7 @@ const EventsPage = () => {
     const renderEvent = (event: Event) => (
         <li
             key={event.id}
-            className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800"
+            className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800"
         >
             <div className="w-full min-w-0 sm:w-auto sm:flex-1">
                 <p className="font-semibold">
@@ -316,7 +316,7 @@ const EventsPage = () => {
                                         )
                                     }
                                     className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base
-                                        dark:border-zinc-600 dark:bg-zinc-800 dark:[color-scheme:dark]"
+                                        dark:border-zinc-600 dark:bg-zinc-800 dark:scheme-dark"
                                 >
                                     <option value="">Pick a territory...</option>
                                     {territories
