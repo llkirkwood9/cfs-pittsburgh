@@ -1,6 +1,7 @@
 import { Redirect } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
 import { ScrollView, View } from "react-native";
+import EventBreakdown from "../Components/Dashboard/EventBreakdown";
 import SalesByHourChart from "../Components/Dashboard/SalesByHourChart";
 import SalesStars from "../Components/Dashboard/SalesStars";
 import StockWatch from "../Components/Dashboard/StockWatch";
@@ -17,7 +18,7 @@ import { IsOnline } from "../Lib/Connection";
 import { EventsForFilter, FormatCurrency, IsPastEvent } from "../Lib/ModelHelpers";
 import type { DashboardStats } from "../Models/DashboardStats";
 import type { Event } from "../Models/Event";
-import { GetStatsForDay, GetStatsForEvent } from "../Services/DashboardServices";
+import { GetStatsForAllEvents, GetStatsForEvent } from "../Services/DashboardServices";
 import { GetActiveEvent, GetEvents } from "../Services/EventServices";
 
 /** How often the figures refresh while the page is open. */
@@ -34,24 +35,29 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
 );
 
 /**
- * The event's stat sheet, live. Only completed sales feed the money figures; work still on the
- * floor or at the checkout table is shown separately so nobody counts it twice. Pull down to
- * refresh; it also refreshes itself every few seconds.
+ * The event's stat sheet, live, or an overview of every event with each one's figures side by
+ * side. Only completed sales feed the money figures; work still on the floor or at the checkout
+ * table is shown separately so nobody counts it twice. Pull down to refresh; it also refreshes
+ * itself every few seconds.
  */
 const DashboardPage = () => {
     const { user } = useAuth();
 
     const [events, setEvents] = useState<Event[]>([]);
-    const [scope, setScope] = useState<"event" | "day">("event");
+    const [scope, setScope] = useState<"event" | "all">("event");
     const [eventId, setEventId] = useState<number | null>(null);
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [refreshing, setRefreshing] = useState<boolean>(false);
     const [refreshKey, setRefreshKey] = useState<number>(0);
 
-    const loadStats = useCallback(async (currentScope: "event" | "day", id: number | null) => {
+    const loadStats = useCallback(async (currentScope: "event" | "all", id: number | null) => {
         const result =
-            currentScope === "day" ? await GetStatsForDay() : id ? await GetStatsForEvent(id) : null;
+            currentScope === "all"
+                ? await GetStatsForAllEvents()
+                : id
+                  ? await GetStatsForEvent(id)
+                  : null;
         // Keep the last figures up while the server cannot be reached, rather than showing zeros.
         if (result || IsOnline()) setStats(result);
     }, []);
@@ -81,7 +87,7 @@ const DashboardPage = () => {
 
     if (!user) return <Redirect href="/unauthorized" />;
 
-    const switchScope = async (next: "event" | "day") => {
+    const switchScope = async (next: "event" | "all") => {
         setScope(next);
         await loadStats(next, eventId);
     };
@@ -131,7 +137,7 @@ const DashboardPage = () => {
     return (
         <Page navbar onRefresh={handleRefresh} refreshing={refreshing} className="p-3 sm:p-4">
             <Text className="mb-3 text-xl font-bold">
-                {scope === "day" ? "Today across all events" : stats?.organization}
+                {scope === "all" ? "All events" : stats?.organization}
             </Text>
 
             <ScrollView
@@ -140,7 +146,11 @@ const DashboardPage = () => {
                 className="mb-4"
                 contentContainerClassName="gap-2 pb-1"
             >
-                <TabButton text="Today" active={scope === "day"} onClick={() => switchScope("day")} />
+                <TabButton
+                    text="All events"
+                    active={scope === "all"}
+                    onClick={() => switchScope("all")}
+                />
                 {events.map((event) => (
                     <TabButton
                         key={event.id}
@@ -243,6 +253,12 @@ const DashboardPage = () => {
                     </View>
                 </Section>
             </Grid>
+
+            {scope === "all" && (
+                <View className="mb-4">
+                    <EventBreakdown events={stats?.events ?? []} onSelect={switchEvent} />
+                </View>
+            )}
 
             <Grid columns={{ base: 1, lg: 3 }} gap={16} className="mb-4">
                 <Cell span={{ base: 1, lg: 2 }}>
