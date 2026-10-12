@@ -57,25 +57,58 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// Stat sheet figures for a single calendar day across every event in the territory being
-        /// viewed, or across every territory for a system admin or administrator viewing them all.
+        /// Stat sheet figures across every event in the territory being viewed, or across every
+        /// territory for a system admin or administrator viewing them all, with each event's
+        /// headline figures alongside.
         /// </summary>
-        /// <param name="date">Day to report on; defaults to today</param>
         /// <returns>The computed stat sheet.</returns>
-        [HttpGet("stats/day")]
+        [HttpGet("stats/all")]
         [Authorize(AuthenticationSchemes = "Bearer")]
-        public async Task<IActionResult> GetStatsForDay([FromQuery] DateTime? date = null)
+        public async Task<IActionResult> GetStatsForAllEvents()
         {
             try
             {
-                var day = (date ?? DateTime.Today).Date;
-                var next = day.AddDays(1);
-
                 var territoryId = Scope.TerritoryId;
 
-                var stats = await BuildStatsAsync(DB, o => o.SaleDate >= day && o.SaleDate < next
-                                                           && (territoryId == null || o.Event!.TerritoryId == territoryId));
-                stats.EventDate = day;
+                var orders = await DB.Orders
+                    .Where(o => territoryId == null || o.Event!.TerritoryId == territoryId)
+                    .Include(o => o.Lines)
+                    .Include(o => o.Payments)
+                    .AsNoTracking()
+                    .ToListAsync();
+                var events = await DB.Events
+                    .Where(e => territoryId == null || e.TerritoryId == territoryId)
+                    .Include(e => e.Territory)
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                static List<Order> Completed(IEnumerable<Order> list) =>
+                    list.Where(o => o.Status == OrderStatus.Completed).ToList();
+
+                var stats = Build(Completed(orders), orders);
+                stats.Events = events
+                    .OrderByDescending(e => e.EventDate)
+                    .ThenByDescending(e => e.Id)
+                    .Select(e =>
+                    {
+                        var mine = orders.Where(o => o.EventId == e.Id).ToList();
+                        var figures = Build(Completed(mine), mine);
+                        return new EventTallyDto
+                        {
+                            EventId = e.Id,
+                            Organization = e.Organization,
+                            // Only needed to tell events apart when every territory is in view.
+                            TerritoryName = territoryId == null ? e.Territory?.Name : null,
+                            EventDate = e.EventDate,
+                            IsActive = e.IsActive,
+                            CompletedOrderCount = figures.CompletedOrderCount ?? 0,
+                            MattressAndBaseCount = figures.MattressAndBaseCount ?? 0,
+                            NetSales = figures.NetSales ?? 0,
+                            TotalSales = figures.TotalSales ?? 0,
+                            AverageSale = figures.AverageSale ?? 0,
+                        };
+                    })
+                    .ToList();
 
                 return Ok(stats);
             }

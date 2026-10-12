@@ -9,7 +9,7 @@ namespace api.Dtos
         #region Context
 
         /// <summary>
-        /// FK to the event these figures cover, null when the figures span all events for a date
+        /// FK to the event these figures cover, null when the figures span several events
         /// </summary>
         public int? EventId { get; set; }
 
@@ -188,6 +188,12 @@ namespace api.Dtos
         /// Completed sales per rep
         /// </summary>
         public List<RepTallyDto>? RepTotals { get; set; }
+
+        /// <summary>
+        /// Each event's headline figures, newest first. Only filled in for the overview of every
+        /// event.
+        /// </summary>
+        public List<EventTallyDto>? Events { get; set; }
 
         #endregion
     }

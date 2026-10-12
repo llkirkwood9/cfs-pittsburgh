@@ -13,6 +13,21 @@ export type RepTally = {
     averageSale?: number;
 };
 
+/** One event's headline figures, for the overview of every event. */
+export type EventTally = {
+    eventId?: number;
+    organization?: string | null;
+    /** The event's territory, when the overview covers every territory. */
+    territoryName?: string | null;
+    eventDate?: string | null;
+    isActive?: boolean;
+    completedOrderCount?: number;
+    mattressAndBaseCount?: number;
+    netSales?: number;
+    totalSales?: number;
+    averageSale?: number;
+};
+
 export type DashboardStats = {
     eventId?: number | null;
     organization?: string | null;
@@ -52,6 +67,8 @@ export type DashboardStats = {
     sales?: SaleMoment[];
     topProducts?: ProductTally[];
     repTotals?: RepTally[];
+    /** Each event's headline figures, newest first; only in the overview of every event. */
+    events?: EventTally[];
 };
 
 export type SaleMoment = {
