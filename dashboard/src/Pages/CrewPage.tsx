@@ -147,13 +147,13 @@ const CrewPage = () => {
                 {users.map((crew) => (
                     <li
                         key={crew.id}
-                        className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800"
+                        className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800"
                     >
                         <div className="min-w-0 flex-1">
                             <p className="font-semibold">
                                 {crew.name}
                                 {!crew.isActive && (
-                                    <span className="ml-2 rounded bg-zinc-200 px-1.5 py-0.5 text-xs font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
+                                    <span className="ml-2 rounded-sm bg-zinc-200 px-1.5 py-0.5 text-xs font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
                                         Inactive
                                     </span>
                                 )}

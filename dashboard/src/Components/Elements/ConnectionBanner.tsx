@@ -44,7 +44,7 @@ const ConnectionBanner = () => {
             role="status"
             // Sits just under the menu bar and lets taps through, so the crew can still move
             // between screens while it waits for the server.
-            className="no-print pointer-events-none fixed inset-x-0 top-16 z-[60] flex items-center justify-center
+            className="no-print pointer-events-none fixed inset-x-0 top-16 z-60 flex items-center justify-center
                 gap-2 bg-amber-500 px-3 py-2 text-center text-sm font-semibold text-amber-950 shadow-lg"
         >
             <Icon icon="fa-solid fa-wifi" className="shrink-0" />

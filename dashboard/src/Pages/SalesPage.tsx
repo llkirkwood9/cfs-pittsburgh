@@ -206,7 +206,7 @@ const SalesPage = () => {
 
     if (loading) {
         return (
-            <div className="mx-auto max-w-screen-2xl p-4">
+            <div className="mx-auto max-w-(--breakpoint-2xl) p-4">
                 <ListSkeleton rows={6} />
             </div>
         );
@@ -226,7 +226,7 @@ const SalesPage = () => {
     }
 
     return (
-        <div className="mx-auto max-w-screen-2xl p-3 sm:p-4">
+        <div className="mx-auto max-w-(--breakpoint-2xl) p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                 <h1 className="text-xl font-bold">{saleEvent.organization}</h1>
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -303,7 +303,7 @@ const SalesPage = () => {
                         <section
                             className={`lg:col-span-2 ${pane === "customer" ? "" : "hidden lg:block"}`}
                         >
-                            <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+                            <div className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
                                 <Button
                                     text="Hand tablet to customer"
                                     icon="fa-solid fa-hand-holding-heart"
@@ -323,7 +323,7 @@ const SalesPage = () => {
                     {/* Sticky action bar: the total and the hand-off button never scroll away. */}
                     <div className="sticky bottom-20 z-30 mt-4 rounded-2xl bg-white p-3 shadow-lg md:bottom-4 dark:bg-zinc-800">
                         <div className="flex flex-wrap items-center gap-3">
-                            <div className="min-w-[10rem] flex-1">
+                            <div className="min-w-40 flex-1">
                                 <OrderTotals order={order} compact />
                             </div>
                             <div className="flex w-full gap-2 sm:w-auto">
@@ -331,7 +331,7 @@ const SalesPage = () => {
                                     text="Discard"
                                     icon="fa-solid fa-trash"
                                     onClick={() => setDiscardingDraft(true)}
-                                    className="!min-h-[52px] flex-col !gap-0.5 !px-1 !text-xs sm:flex-row sm:!gap-2 sm:!px-5 sm:!text-base bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
+                                    className="min-h-[52px]! flex-col gap-0.5! px-1! text-xs! sm:flex-row sm:gap-2! sm:px-5! sm:text-base! bg-red-700 hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
                                 />
                                 <Button
                                     text={`Complete ${FormatCurrency(order.total)}`}

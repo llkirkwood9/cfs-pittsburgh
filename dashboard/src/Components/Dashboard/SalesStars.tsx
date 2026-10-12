@@ -41,7 +41,7 @@ const SalesStars = ({ net }: Props) => {
             role="img"
         >
             {Array.from({ length: Math.min(stars, MAX_DRAWN) }).map((_, i) => (
-                <Icon key={i} icon="fa-solid fa-star" className="text-sm drop-shadow-sm" />
+                <Icon key={i} icon="fa-solid fa-star" className="text-sm drop-shadow-xs" />
             ))}
             {stars > MAX_DRAWN && (
                 <span className="ml-0.5 text-xs font-bold tabular-nums text-amber-600 dark:text-amber-400">

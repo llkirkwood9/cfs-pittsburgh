@@ -220,7 +220,7 @@ const EventCloseOutPage = () => {
 
             <ol className="space-y-3">
                 {steps.map((step) => (
-                    <li key={step.key} className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+                    <li key={step.key} className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
                         <div className="flex flex-wrap items-start gap-3">
                             {/* Status is an icon plus the wording, never color alone. */}
                             <Icon
@@ -254,7 +254,7 @@ const EventCloseOutPage = () => {
                     </li>
                 ))}
 
-                <li className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+                <li className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
                     <div className="flex flex-wrap items-center gap-3">
                         <Icon icon="fa-solid fa-print" className="text-lg text-zinc-500" />
                         <div className="min-w-0 flex-1">

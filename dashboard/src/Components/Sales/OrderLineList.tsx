@@ -72,7 +72,7 @@ const OrderLineList = ({
                 return (
                     <li
                         key={line.id}
-                        className={`rounded-xl bg-white p-3 shadow-sm transition-colors dark:bg-zinc-800 ${
+                        className={`rounded-xl bg-white p-3 shadow-xs transition-colors dark:bg-zinc-800 ${
                             isService
                                 ? "ml-4 border-l-4 border-sky-500/50"
                                 : isIncluded
@@ -84,7 +84,7 @@ const OrderLineList = ({
                     >
                         <div className="flex items-start gap-3">
                             <div className="min-w-0 flex-1">
-                                <p className="break-words font-semibold text-zinc-900 dark:text-zinc-100">
+                                <p className="wrap-break-word font-semibold text-zinc-900 dark:text-zinc-100">
                                     {isService && (
                                         <span className="mr-1 text-xs font-bold uppercase text-sky-700 dark:text-sky-400">
                                             Ship
@@ -107,7 +107,7 @@ const OrderLineList = ({
                                     )}
                                     {!isService && <span>Qty {line.quantity}</span>}
                                     {isIncluded ? (
-                                        <span className="rounded bg-violet-100 px-1.5 py-0.5 font-semibold text-violet-800 dark:bg-violet-900/50 dark:text-violet-300">
+                                        <span className="rounded-sm bg-violet-100 px-1.5 py-0.5 font-semibold text-violet-800 dark:bg-violet-900/50 dark:text-violet-300">
                                             Included
                                         </span>
                                     ) : (
@@ -119,7 +119,7 @@ const OrderLineList = ({
                                             line.saleDiscountAmount
                                         )
                                     ) && (
-                                        <span className="rounded bg-rose-100 px-1.5 py-0.5 font-semibold text-rose-800 dark:bg-rose-900/50 dark:text-rose-300">
+                                        <span className="rounded-sm bg-rose-100 px-1.5 py-0.5 font-semibold text-rose-800 dark:bg-rose-900/50 dark:text-rose-300">
                                             Sale -
                                             {DiscountText(
                                                 CleanDiscount(
@@ -132,7 +132,7 @@ const OrderLineList = ({
                                     {HasDiscount(
                                         CleanDiscount(line.discountPercent, line.discountAmount)
                                     ) && (
-                                        <span className="rounded bg-green-100 px-1.5 py-0.5 font-semibold text-green-800 dark:bg-green-900/50 dark:text-green-300">
+                                        <span className="rounded-sm bg-green-100 px-1.5 py-0.5 font-semibold text-green-800 dark:bg-green-900/50 dark:text-green-300">
                                             -
                                             {DiscountText(
                                                 CleanDiscount(
@@ -147,24 +147,24 @@ const OrderLineList = ({
                                         </span>
                                     )}
                                     {!PrintsOnSalesSheet(line) && (
-                                        <span className="rounded bg-zinc-200 px-1.5 py-0.5 font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
+                                        <span className="rounded-sm bg-zinc-200 px-1.5 py-0.5 font-semibold text-zinc-700 dark:bg-zinc-700 dark:text-zinc-300">
                                             Not on sales sheet
                                         </span>
                                     )}
                                     {line.takeWith && (
-                                        <span className="rounded bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
+                                        <span className="rounded-sm bg-amber-100 px-1.5 py-0.5 font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
                                             Take with
                                         </span>
                                     )}
                                     {line.includesAdjustableBase && !hasBaseRow.has(line.id) && (
-                                        <span className="rounded bg-violet-100 px-1.5 py-0.5 font-semibold text-violet-800 dark:bg-violet-900/50 dark:text-violet-300">
+                                        <span className="rounded-sm bg-violet-100 px-1.5 py-0.5 font-semibold text-violet-800 dark:bg-violet-900/50 dark:text-violet-300">
                                             Incl. base
                                         </span>
                                     )}
                                 </p>
                                 {line.notes && (
                                     <p
-                                        className="mt-1 flex gap-1.5 whitespace-pre-line break-words rounded-lg bg-amber-50 px-2 py-1 text-sm
+                                        className="mt-1 flex gap-1.5 whitespace-pre-line wrap-break-word rounded-lg bg-amber-50 px-2 py-1 text-sm
                                         text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
                                     >
                                         <Icon

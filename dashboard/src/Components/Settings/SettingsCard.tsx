@@ -43,7 +43,7 @@ const SettingsCard = ({
         <section
             id={id}
             aria-labelledby={`${id}-title`}
-            className="scroll-mt-20 rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800"
+            className="scroll-mt-20 rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800"
         >
             <div className="mb-3 flex flex-wrap items-start justify-between gap-2">
                 <div className="min-w-0">

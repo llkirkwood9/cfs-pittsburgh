@@ -108,7 +108,7 @@ const DeliveryOptionList = ({
                 {options.map((option, index) => (
                     <li
                         key={option.id}
-                        className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800"
+                        className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 shadow-xs dark:bg-zinc-800"
                     >
                         <div className="min-w-0 flex-1">
                             <p className="font-semibold">{option.name}</p>
@@ -120,7 +120,7 @@ const DeliveryOptionList = ({
                                         option.saleDiscountAmount
                                     )
                                 ) && (
-                                    <span className="rounded bg-rose-100 px-1.5 font-semibold text-rose-800 dark:bg-rose-900/50 dark:text-rose-300">
+                                    <span className="rounded-sm bg-rose-100 px-1.5 font-semibold text-rose-800 dark:bg-rose-900/50 dark:text-rose-300">
                                         Sale{" "}
                                         {DiscountText(
                                             CleanDiscount(

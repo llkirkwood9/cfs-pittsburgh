@@ -156,7 +156,7 @@ const OrdersPage = () => {
     };
 
     return (
-        <div className="mx-auto max-w-screen-2xl p-3 sm:p-4">
+        <div className="mx-auto max-w-(--breakpoint-2xl) p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h1 className="text-xl font-bold">Orders</h1>
                 <div className="flex flex-wrap gap-2">
@@ -258,7 +258,7 @@ const OrdersPage = () => {
                     {orders.map((order) => (
                         <li
                             key={order.id}
-                            className="flex flex-col gap-2 rounded-xl bg-white p-3 shadow-sm sm:flex-row sm:items-center sm:gap-3 dark:bg-zinc-800"
+                            className="flex flex-col gap-2 rounded-xl bg-white p-3 shadow-xs sm:flex-row sm:items-center sm:gap-3 dark:bg-zinc-800"
                         >
                             <div className="flex min-w-0 flex-1 items-center gap-3">
                                 <span
@@ -269,7 +269,7 @@ const OrdersPage = () => {
                                 </span>
 
                                 <div className="min-w-0 flex-1">
-                                    <p className="break-words font-semibold">
+                                    <p className="wrap-break-word font-semibold">
                                         {order.billingName || "No name"}
                                     </p>
                                     <p className="flex flex-wrap gap-x-2 text-xs text-zinc-500 dark:text-zinc-400">

@@ -212,7 +212,7 @@ const InventoryCountPage = () => {
                             {group.products.map((product) => (
                                 <div
                                     key={product.productId}
-                                    className="rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800"
+                                    className="rounded-xl bg-white p-3 shadow-xs dark:bg-zinc-800"
                                 >
                                     <p className="mb-1 font-semibold">
                                         {product.name}
@@ -233,7 +233,7 @@ const InventoryCountPage = () => {
                                                     key={id}
                                                     className="flex flex-wrap items-center gap-2 py-2"
                                                 >
-                                                    <div className="min-w-[7rem] flex-1">
+                                                    <div className="min-w-28 flex-1">
                                                         <p className="font-medium">
                                                             {InventorySizeLabel(item)}
                                                         </p>
@@ -271,7 +271,7 @@ const InventoryCountPage = () => {
                                                         aria-label={`Counted ${product.name} ${InventorySizeLabel(item)}`}
                                                         placeholder="-"
                                                         className="min-h-[48px] w-20 rounded-xl border border-zinc-300 bg-white text-center text-xl
-                                                            font-bold tabular-nums text-zinc-900 outline-none focus:border-sky-600
+                                                            font-bold tabular-nums text-zinc-900 outline-hidden focus:border-sky-600
                                                             focus:ring-2 focus:ring-sky-600/20 dark:border-zinc-600 dark:bg-zinc-900 dark:text-zinc-100"
                                                     />
                                                 </li>

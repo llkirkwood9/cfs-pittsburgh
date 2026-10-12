@@ -83,7 +83,7 @@ const DashboardPage = () => {
 
     if (loading) {
         return (
-            <div className="mx-auto max-w-screen-2xl p-4">
+            <div className="mx-auto max-w-(--breakpoint-2xl) p-4">
                 <ListSkeleton rows={6} />
             </div>
         );
@@ -119,7 +119,7 @@ const DashboardPage = () => {
     ];
 
     return (
-        <div className="mx-auto max-w-screen-2xl p-3 sm:p-4">
+        <div className="mx-auto max-w-(--breakpoint-2xl) p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h1 className="text-xl font-bold">
                     {scope === "all" ? "All events" : stats?.organization}
@@ -185,7 +185,7 @@ const DashboardPage = () => {
             </div>
 
             <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <section className="rounded-xl bg-white p-4 shadow-sm lg:col-span-2 dark:bg-zinc-800">
+                <section className="rounded-xl bg-white p-4 shadow-xs lg:col-span-2 dark:bg-zinc-800">
                     <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                         Units sold
                     </h2>
@@ -208,7 +208,7 @@ const DashboardPage = () => {
                     </div>
                 </section>
 
-                <section className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+                <section className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
                     <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                         Taken by
                     </h2>
@@ -272,7 +272,7 @@ const DashboardPage = () => {
             )}
 
             <div className="grid grid-cols-1 gap-4">
-                <section className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+                <section className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
                     <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                         Best sellers
                     </h2>

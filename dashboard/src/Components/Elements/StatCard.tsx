@@ -25,7 +25,7 @@ const accents: Record<string, string> = {
  */
 const StatCard = ({ label, value, sublabel, icon, accent = "zinc", badge }: Props) => {
     return (
-        <div className="rounded-xl bg-white p-4 shadow-sm transition-colors dark:bg-zinc-800">
+        <div className="rounded-xl bg-white p-4 shadow-xs transition-colors dark:bg-zinc-800">
             <div className="flex items-center gap-2">
                 {icon && <Icon icon={icon} className={`text-sm ${accents[accent]}`} />}
                 <p className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">

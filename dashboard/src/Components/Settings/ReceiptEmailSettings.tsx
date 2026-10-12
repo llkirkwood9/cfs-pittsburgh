@@ -22,7 +22,7 @@ const PREVIEW_DELAY_MS = 400;
 const label =
     "flex items-baseline justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400";
 const field =
-    "w-full rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900 outline-none transition-colors focus:border-sky-600 focus:ring-2 focus:ring-sky-600/30 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-sky-500";
+    "w-full rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900 outline-hidden transition-colors focus:border-sky-600 focus:ring-2 focus:ring-sky-600/30 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:focus:border-sky-500";
 
 /**
  * The subject and wording of the email that goes with a customer's emailed receipt, with a live
@@ -70,7 +70,7 @@ const ReceiptEmailSettings = () => {
 
     if (loading) {
         return (
-            <section className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+            <section className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
                 <ListSkeleton rows={3} />
             </section>
         );
@@ -78,7 +78,7 @@ const ReceiptEmailSettings = () => {
 
     if (!saved) {
         return (
-            <section className="rounded-xl bg-white p-4 text-sm shadow-sm dark:bg-zinc-800">
+            <section className="rounded-xl bg-white p-4 text-sm shadow-xs dark:bg-zinc-800">
                 The receipt email settings couldn&apos;t be loaded.
             </section>
         );

@@ -30,7 +30,7 @@ const EventBreakdown = ({ events, onSelect }: Props) => {
     const best = Math.max(0, ...shown.map((e) => e.totalSales ?? 0));
 
     return (
-        <section className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+        <section className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
             <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 Events
             </h2>
@@ -48,7 +48,7 @@ const EventBreakdown = ({ events, onSelect }: Props) => {
                                     onClick={() => event.eventId && onSelect(event.eventId)}
                                     className="flex w-full flex-wrap items-center gap-x-4 gap-y-2 rounded-lg px-2 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-700/40"
                                 >
-                                    <span className="min-w-[12rem] flex-1">
+                                    <span className="min-w-48 flex-1">
                                         <span className="flex flex-wrap items-center gap-2">
                                             <span className="font-semibold">
                                                 {event.organization}

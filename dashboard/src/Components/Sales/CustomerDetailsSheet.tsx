@@ -234,7 +234,7 @@ const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
                 autoCapitalize={field.autoCapitalize}
                 autoCorrect="off"
                 className="min-h-[60px] w-full rounded-2xl border-2 border-zinc-300 bg-white px-4
-                    text-lg text-zinc-900 outline-none transition-colors
+                    text-lg text-zinc-900 outline-hidden transition-colors
                     focus:border-sky-600 focus:ring-4 focus:ring-sky-600/20
                     dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
             />

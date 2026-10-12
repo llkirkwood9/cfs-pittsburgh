@@ -28,7 +28,7 @@ const CommentsCard = ({ order, readOnly = false, onSave }: Props) => {
     };
 
     return (
-        <div className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+        <div className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h3 className="text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                     Comments
@@ -57,7 +57,7 @@ const CommentsCard = ({ order, readOnly = false, onSave }: Props) => {
                     maxLength={1000}
                     placeholder="Anything the delivery crew needs to know - printed in the Comments box"
                     className="w-full rounded-xl border border-zinc-300 bg-white p-3 text-base text-zinc-900
-                        outline-none focus:border-sky-600 focus:ring-2 focus:ring-sky-600/30
+                        outline-hidden focus:border-sky-600 focus:ring-2 focus:ring-sky-600/30
                         dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                 />
             )}

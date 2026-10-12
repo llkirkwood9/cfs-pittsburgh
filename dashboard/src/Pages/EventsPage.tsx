@@ -148,7 +148,7 @@ const EventsPage = () => {
     const renderEvent = (event: Event) => (
         <li
             key={event.id}
-            className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800"
+            className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800"
         >
             <div className="w-full min-w-0 sm:w-auto sm:flex-1">
                 <p className="font-semibold">

@@ -47,7 +47,7 @@ const StockWatch = () => {
     const lowCount = watch.length - outCount;
 
     return (
-        <section className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">
+        <section className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
             <div className="mb-3 flex items-center justify-between gap-2">
                 <h2 className="text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                     Stock to watch

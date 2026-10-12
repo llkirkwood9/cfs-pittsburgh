@@ -206,14 +206,14 @@ const CatalogPage = () => {
 
     if (loading) {
         return (
-            <div className="mx-auto max-w-screen-2xl p-4">
+            <div className="mx-auto max-w-(--breakpoint-2xl) p-4">
                 <ListSkeleton rows={6} />
             </div>
         );
     }
 
     return (
-        <div className="mx-auto max-w-screen-2xl p-3 sm:p-4">
+        <div className="mx-auto max-w-(--breakpoint-2xl) p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h1 className="text-xl font-bold">Catalog</h1>
                 <div className="flex flex-wrap gap-2">
@@ -320,18 +320,18 @@ const CatalogPage = () => {
                         {filtered.map((product) => (
                             <li
                                 key={product.id}
-                                className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 shadow-sm dark:bg-zinc-800"
+                                className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 shadow-xs dark:bg-zinc-800"
                             >
                                 <div className="min-w-0 flex-1">
                                     <p className="font-semibold">
                                         {product.name}
                                         {!product.isActive && (
-                                            <span className="ml-2 rounded bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
+                                            <span className="ml-2 rounded-sm bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-900/50 dark:text-amber-300">
                                                 Archived
                                             </span>
                                         )}
                                         {OnSale(product) && (
-                                            <span className="ml-2 rounded bg-rose-100 px-1.5 py-0.5 text-xs font-semibold text-rose-800 dark:bg-rose-900/50 dark:text-rose-300">
+                                            <span className="ml-2 rounded-sm bg-rose-100 px-1.5 py-0.5 text-xs font-semibold text-rose-800 dark:bg-rose-900/50 dark:text-rose-300">
                                                 {HasDiscount(SaleFor(product))
                                                     ? `Sale ${DiscountText(SaleFor(product))} off`
                                                     : "Sale on some sizes"}

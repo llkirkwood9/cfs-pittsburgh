@@ -302,7 +302,7 @@ const EditProductForm = ({
                             value={category}
                             onChange={(e) => setCategory(e.target.value as ProductCategory)}
                             className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base
-                                text-zinc-900 outline-none focus:border-sky-600
+                                text-zinc-900 outline-hidden focus:border-sky-600
                                 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                         >
                             {categories.map((c) => (
@@ -520,7 +520,7 @@ const EditProductForm = ({
                                     key={option.id}
                                     className="flex flex-wrap items-center gap-3 rounded-xl bg-zinc-100 p-3 dark:bg-zinc-700"
                                 >
-                                    <label className="flex min-w-[10rem] flex-1 cursor-pointer items-center gap-3">
+                                    <label className="flex min-w-40 flex-1 cursor-pointer items-center gap-3">
                                         <input
                                             type="checkbox"
                                             checked={Boolean(selected)}
