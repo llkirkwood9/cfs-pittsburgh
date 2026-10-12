@@ -200,7 +200,10 @@ docker compose up -d --build
 ```
 
 or pull the published image instead (built for amd64 and arm64 by
-`.github/workflows/app-image.yml`; set `CFS_IMAGE` in `.env` to use another one):
+`.github/workflows/app-image.yml`; set `CFS_IMAGE` in `.env` to use another one). Each published
+build is versioned YYYY.MM.<build> - the first in October 2026 is `2026.10.1` - shown in the
+dashboard's profile menu and tagged `dashboard-v<version>` in git and `:<version>` on the image. A
+build made here from source shows this month's build 0, e.g. `2026.10.0`:
 
 ```bash
 docker compose pull && docker compose up -d

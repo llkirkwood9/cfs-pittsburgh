@@ -139,7 +139,9 @@ both ARM (the Pi) and x86:
 
 1. Push this branch to `main`. The **App image** workflow starts automatically.
 2. Watch it on GitHub under **Actions** → **App image**. The first run takes roughly 10-15 minutes.
-3. When it finishes, the image exists at `ghcr.io/llkirkwood9/cfs-fundraiser:latest`.
+3. When it finishes, the image exists at `ghcr.io/llkirkwood9/cfs-fundraiser:latest`, and also
+   under its version, e.g. `:2026.10.1` (the year, the month, and which build of the month it is).
+   The dashboard's profile menu shows the version a Pi is running.
 
 **Let the Pi read it.** Packages start out private, so do one of these:
 

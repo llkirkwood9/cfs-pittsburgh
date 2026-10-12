@@ -190,8 +190,13 @@ npx eas-cli build --profile production --platform all
 ```
 
 The first build asks to create the EAS project and the signing credentials. Let EAS manage them.
-Preview and store builds number themselves (`autoIncrement`). To change the version people see, edit
-`version` in `app/app.json`.
+
+The version people see is **YYYY.MM.<build>**: the year and month it was built, then which release
+of that month it is, counting from 1 - the first release in October 2026 is `2026.10.1`. Releases
+from the workflow in section 6 are numbered that way automatically; a build run by hand, and the
+app in Expo Go, show this month's build 0 (e.g. `2026.10.0`). `app/app.config.js` sets it, and
+nothing needs editing by hand. The stores' own internal build numbers count up on their own too
+(`autoIncrement`).
 
 To send a production build to the stores:
 
@@ -290,7 +295,7 @@ declares that, and App Store Connect won't ask about export compliance on every 
 pushed. Both builds run on EAS's servers, so no Mac is needed:
 
 - **Android:** an APK is built and attached to a new **GitHub release**, named after the version
-  and build number (e.g. `app-v1.0.0-12`).
+  (e.g. `app-v2026.10.1`).
 - **iOS:** a build is made and sent to **TestFlight**, with the commit message as its "What to
   Test" note.
 
@@ -329,8 +334,13 @@ git push origin main:app-release
 
 Then watch it under **Actions**. A release takes about 15-30 minutes; builds can wait longer in
 EAS's queue on the free plan, which also caps the number of builds a month (see
-<https://expo.dev/pricing>). The build numbers go up on their own. To change the version people
-see, edit `version` in `app/app.json` before releasing.
+<https://expo.dev/pricing>).
+
+Each release gets the next version for the month, YYYY.MM.<build>, so October's releases are
+`2026.10.1`, `2026.10.2` and so on, and November starts again at `2026.11.1`. The workflow finds
+the next number from the month's `app-v` tags and tags the release before building, so iOS and
+Android always share a version. A release that fails still uses up its number; the next one takes
+the number after it.
 
 ### Installing the Android release
 

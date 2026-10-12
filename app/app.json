@@ -2,7 +2,6 @@
   "expo": {
     "name": "CFS Sales",
     "slug": "cfs-sales",
-    "version": "1.0.0",
     "orientation": "default",
     "icon": "./assets/images/icon.png",
     "scheme": "cfssales",
@@ -61,6 +60,13 @@
     "experiments": {
       "typedRoutes": true,
       "reactCompiler": true
-    }
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b7f54244-fc7c-493f-b1bf-e99950358890"
+      }
+    },
+    "owner": "llkirkwood9"
   }
 }
