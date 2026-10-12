@@ -1,0 +1,95 @@
+# Builds the mobile app on EAS (Expo's build service) whenever the app-release branch is pushed:
+# an Android APK attached to a new GitHub release, and an iOS build sent on to TestFlight. Can also
+# be started by hand from the Actions tab. Needs the EXPO_TOKEN secret and the one-time setup in
+# Documents/Mobile App Guide.md (section 5).
+name: App release
+
+on:
+  push:
+    branches: [app-release]
+  workflow_dispatch:
+
+# One release at a time; a newer push waits for the one running.
+concurrency:
+  group: app-release
+  cancel-in-progress: false
+
+defaults:
+  run:
+    working-directory: app
+
+jobs:
+  android:
+    name: Android release
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - run: npm ci
+
+      # The build runs on EAS; this waits for it and keeps the details of the finished build.
+      - name: Build the APK
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message || 'Manual release' }}
+        run: |
+          message=$(printf '%s' "$COMMIT_MESSAGE" | head -n 1)
+          eas build --platform android --profile preview --json --wait --message "$message" > ../build.json
+
+      - name: Create the release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          url=$(jq -r '.[0].artifacts.buildUrl' ../build.json)
+          version=$(jq -r '.[0].appVersion' ../build.json)
+          build=$(jq -r '.[0].appBuildVersion' ../build.json)
+          tag="app-v${version}-${build}"
+          curl -sSL "$url" -o "../cfs-sales-${version}-${build}.apk"
+          gh release create "$tag" "../cfs-sales-${version}-${build}.apk" \
+            --target "${{ github.sha }}" \
+            --title "CFS Sales ${version} (build ${build})" \
+            --notes "Android app for phones and tablets. Download the APK on the device and open it to install or update - see Documents/Mobile App Guide.md. iOS build ${build} goes to TestFlight."
+
+  ios:
+    name: iOS to TestFlight
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: app/package-lock.json
+
+      - uses: expo/expo-github-action@v8
+        with:
+          eas-version: latest
+          token: ${{ secrets.EXPO_TOKEN }}
+
+      - run: npm ci
+
+      # Built on EAS's Macs and submitted to App Store Connect when it finishes; TestFlight
+      # testers get it once Apple has processed it.
+      - name: Build and submit to TestFlight
+        env:
+          COMMIT_MESSAGE: ${{ github.event.head_commit.message || 'Manual release' }}
+        run: |
+          message=$(printf '%s' "$COMMIT_MESSAGE" | head -n 1)
+          eas build --platform ios --profile production --non-interactive --wait --auto-submit --message "$message" --what-to-test "$message"

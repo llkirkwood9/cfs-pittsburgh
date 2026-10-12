@@ -305,7 +305,8 @@ Dockerfile                  The app image: API + dashboard (amd64 and arm64)
 docker-compose.yml          The app image plus a PostgreSQL container, on port 8080
 docker-compose.pi.yml       Includes docker-compose.yml, for Pis set up with this name
 docker/pi/                  Raspberry Pi boot, update, backup and reset scripts
-.github/workflows/          app-image.yml publishes the image to ghcr.io
+.github/workflows/          app-image.yml publishes the image to ghcr.io; app-release.yml builds
+                            the mobile app on a push to app-release (APK release + TestFlight)
 
 api/                        ASP.NET Core 10 Web API (net10.0)
 ├── Controllers/            One controller per resource, all inheriting BasicController

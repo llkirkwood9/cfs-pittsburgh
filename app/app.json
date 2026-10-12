@@ -16,6 +16,9 @@
           "NSAllowsLocalNetworking": true
         },
         "NSLocalNetworkUsageDescription": "The app connects to the CFS server on this network."
+      },
+      "config": {
+        "usesNonExemptEncryption": false
       }
     },
     "android": {

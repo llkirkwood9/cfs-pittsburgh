@@ -190,7 +190,7 @@ npx eas-cli build --profile production --platform all
 ```
 
 The first build asks to create the EAS project and the signing credentials. Let EAS manage them.
-Store builds number themselves (`autoIncrement`). To change the version people see, edit
+Preview and store builds number themselves (`autoIncrement`). To change the version people see, edit
 `version` in `app/app.json`.
 
 To send a production build to the stores:
@@ -213,3 +213,129 @@ The app's identity is set in `app/app.json`:
 | Name | CFS Sales |
 | iOS bundle ID / Android package | `com.customfundraisingsolutions.cfssales` |
 | Icon and splash | `app/assets/images/` |
+
+---
+
+## 5. Setting up TestFlight
+
+TestFlight is Apple's way to hand out an app before, or instead of, the App Store. It needs an
+**Apple Developer Program** membership ($99 a year). This is done once.
+
+1. **Join the Apple Developer Program** at <https://developer.apple.com/programs/> with the Apple
+   Account that will own the app. Enrolling as an organization needs a D-U-N-S number and takes a
+   few days; as an individual it is usually same-day.
+2. **Create the app in App Store Connect** (<https://appstoreconnect.apple.com>): **Apps → + → New
+   App**. Choose iOS, name it **CFS Sales**, and pick the bundle ID
+   `com.customfundraisingsolutions.cfssales`. If that bundle ID isn't in the list, register it
+   first under **Certificates, Identifiers & Profiles → Identifiers** on developer.apple.com, or
+   run the first build in step 5, which registers it for you. The SKU can be anything, e.g.
+   `cfs-sales`. Open the new app's **App Information** page and note its **Apple ID**, a number
+   such as `6740000000`.
+3. **Make an App Store Connect API key**, so builds can be uploaded without your password and
+   two-factor codes: **Users and Access → Integrations → App Store Connect API → Team Keys → +**,
+   with the **App Manager** role. Download the `.p8` file - Apple only lets you download it once -
+   and note the **Key ID** and the **Issuer ID** shown above the list.
+4. **Link the app to EAS**, from `app/`:
+
+   ```bash
+   npx eas-cli login
+   ```
+
+   ```bash
+   npx eas-cli init
+   ```
+
+   `init` adds the EAS project's ID to `app/app.json`; commit that change. Then add the app's
+   Apple ID from step 2 to the `production` submit profile in `app/eas.json`:
+
+   ```json
+   "submit": {
+     "production": {
+       "ios": { "ascAppId": "6740000000" }
+     }
+   }
+   ```
+
+   Then give EAS the API key: run `npx eas-cli credentials --platform ios`, choose the
+   `production` profile, then **App Store Connect: Manage your API Key**, and set up a new key
+   with the `.p8` file, Key ID and Issuer ID from step 3. Let EAS use it for submissions.
+5. **Run the first build by hand**, so EAS can create the signing certificate and provisioning
+   profile (sign in with the Apple Account when asked):
+
+   ```bash
+   npx eas-cli build --platform ios --profile production --auto-submit
+   ```
+
+   When it finishes, EAS uploads it to App Store Connect. Apple takes 10-30 minutes to process a
+   build before it appears under **TestFlight**.
+6. **Add testers** in App Store Connect under **TestFlight**:
+   - **Internal testing:** up to 100 people who are users on your App Store Connect team. Add
+     them under **Users and Access** first (the **Developer** or **Marketing** role is enough),
+     then add them to an internal group. Builds reach them right away, with no review.
+   - **External testing:** up to 10,000 people, by email or a public link. The first build in a
+     group needs a short Beta App Review from Apple, usually within a day.
+
+   Testers install the **TestFlight** app from the App Store and accept the invitation; TestFlight
+   then installs CFS Sales and updates it when new builds arrive.
+
+Each TestFlight build works for 90 days, so put out a new one at least that often (section 6
+does it on every push). The app doesn't use any encryption beyond HTTPS, so `app/app.json`
+declares that, and App Store Connect won't ask about export compliance on every build.
+
+---
+
+## 6. Automatic releases with GitHub Actions
+
+`.github/workflows/app-release.yml` releases the app whenever the **`app-release`** branch is
+pushed. Both builds run on EAS's servers, so no Mac is needed:
+
+- **Android:** an APK is built and attached to a new **GitHub release**, named after the version
+  and build number (e.g. `app-v1.0.0-12`).
+- **iOS:** a build is made and sent to **TestFlight**, with the commit message as its "What to
+  Test" note.
+
+It can also be started by hand: **Actions → App release → Run workflow**.
+
+### One-time setup
+
+1. Do steps 1-5 of section 5, and commit the `app/app.json` and `app/eas.json` changes. The
+   workflow can't answer questions, so the signing credentials and the API key must already be
+   stored on EAS.
+2. Run one Android build by hand too, so EAS creates the Android signing key:
+
+   ```bash
+   npx eas-cli build --platform android --profile preview
+   ```
+
+   Every later APK is signed with the same key, which is what lets a new version install over the
+   old one. EAS keeps the key; **Credentials** on expo.dev can download a backup.
+3. Make an Expo access token: on <https://expo.dev>, **Account settings → Access tokens → Create
+   token**.
+4. Add it to the GitHub repository as a secret: **Settings → Secrets and variables → Actions → New
+   repository secret**, named `EXPO_TOKEN`.
+5. Create the branch and push it:
+
+   ```bash
+   git push origin main:app-release
+   ```
+
+### Releasing
+
+Merge or push whatever should ship to `app-release`, e.g. straight from `main`:
+
+```bash
+git push origin main:app-release
+```
+
+Then watch it under **Actions**. A release takes about 15-30 minutes; builds can wait longer in
+EAS's queue on the free plan, which also caps the number of builds a month (see
+<https://expo.dev/pricing>). The build numbers go up on their own. To change the version people
+see, edit `version` in `app/app.json` before releasing.
+
+### Installing the Android release
+
+On each Android phone or tablet, open the repository's **Releases** page, download the newest
+`.apk` and open it. The first time, Android asks to allow installs from the browser or Files app.
+A new release installs over the old one and keeps the saved server address. If the repository is
+private, people need access to it on GitHub to download from Releases; otherwise share the APK
+another way, such as the link on the build's page on expo.dev.
