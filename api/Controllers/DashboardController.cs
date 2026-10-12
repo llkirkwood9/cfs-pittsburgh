@@ -69,7 +69,8 @@ namespace api.Controllers
                 var orders = await LoadOrdersAsync(DB, o => true);
                 var events = await DB.Events.AsNoTracking().ToListAsync();
 
-                var stats = ComputeStats(orders);
+                // Every item sold, ranked, rather than an event's top 15.
+                var stats = ComputeStats(orders, topProducts: null);
                 stats.Events = events
                     .OrderByDescending(e => e.EventDate)
                     .ThenByDescending(e => e.Id)
@@ -136,8 +137,9 @@ namespace api.Controllers
         /// payments.
         /// </summary>
         /// <param name="orders">The orders to report on</param>
+        /// <param name="topProducts">How many best sellers to list; null lists every item sold</param>
         /// <returns>The computed stat sheet.</returns>
-        private static DashboardStatsDto ComputeStats(List<Order> orders)
+        private static DashboardStatsDto ComputeStats(List<Order> orders, int? topProducts = 15)
         {
             var completed = orders.Where(o => o.Status == OrderStatus.Completed).ToList();
             var lines = completed.SelectMany(o => o.Lines).ToList();
@@ -232,7 +234,7 @@ namespace api.Controllers
                     })
                     .OrderByDescending(p => p.Quantity)
                     .ThenByDescending(p => p.Revenue)
-                    .Take(15)
+                    .Take(topProducts ?? int.MaxValue)
                     .ToList(),
 
                 RepTotals = completed
