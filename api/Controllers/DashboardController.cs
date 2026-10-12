@@ -57,21 +57,39 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// Stat sheet figures for a single calendar day across every event.
+        /// Stat sheet figures across every event, with each event's headline figures alongside.
         /// </summary>
-        /// <param name="date">Day to report on; defaults to today</param>
         /// <returns>The computed stat sheet.</returns>
-        [HttpGet("stats/day")]
+        [HttpGet("stats/all")]
         [Authorize(AuthenticationSchemes = "Bearer")]
-        public async Task<IActionResult> GetStatsForDay([FromQuery] DateTime? date = null)
+        public async Task<IActionResult> GetStatsForAllEvents()
         {
             try
             {
-                var day = (date ?? DateTime.Today).Date;
-                var next = day.AddDays(1);
+                var orders = await LoadOrdersAsync(DB, o => true);
+                var events = await DB.Events.AsNoTracking().ToListAsync();
 
-                var stats = await BuildStatsAsync(DB, o => o.SaleDate >= day && o.SaleDate < next);
-                stats.EventDate = day;
+                var stats = ComputeStats(orders);
+                stats.Events = events
+                    .OrderByDescending(e => e.EventDate)
+                    .ThenByDescending(e => e.Id)
+                    .Select(e =>
+                    {
+                        var figures = ComputeStats(orders.Where(o => o.EventId == e.Id).ToList());
+                        return new EventTallyDto
+                        {
+                            EventId = e.Id,
+                            Organization = e.Organization,
+                            EventDate = e.EventDate,
+                            IsActive = e.IsActive,
+                            CompletedOrderCount = figures.CompletedOrderCount ?? 0,
+                            MattressAndBaseCount = figures.MattressAndBaseCount ?? 0,
+                            NetSales = figures.NetSales ?? 0,
+                            TotalSales = figures.TotalSales ?? 0,
+                            AverageSale = figures.AverageSale ?? 0,
+                        };
+                    })
+                    .ToList();
 
                 return Ok(stats);
             }
@@ -94,15 +112,33 @@ namespace api.Controllers
         /// <returns>The computed stat sheet.</returns>
         private static async Task<DashboardStatsDto> BuildStatsAsync(
             ApplicationDbContext db,
-            System.Linq.Expressions.Expression<Func<Order, bool>> filter)
-        {
-            var orders = await db.Orders
+            System.Linq.Expressions.Expression<Func<Order, bool>> filter) =>
+            ComputeStats(await LoadOrdersAsync(db, filter));
+
+        /// <summary>
+        /// Loads the orders matching a filter, with their lines and payments.
+        /// </summary>
+        /// <param name="db">EF context</param>
+        /// <param name="filter">Which orders to include</param>
+        /// <returns>The orders, read-only.</returns>
+        private static Task<List<Order>> LoadOrdersAsync(
+            ApplicationDbContext db,
+            System.Linq.Expressions.Expression<Func<Order, bool>> filter) =>
+            db.Orders
                 .Where(filter)
                 .Include(o => o.Lines)
                 .Include(o => o.Payments)
                 .AsNoTracking()
                 .ToListAsync();
 
+        /// <summary>
+        /// Computes the stat sheet over a set of orders already loaded with their lines and
+        /// payments.
+        /// </summary>
+        /// <param name="orders">The orders to report on</param>
+        /// <returns>The computed stat sheet.</returns>
+        private static DashboardStatsDto ComputeStats(List<Order> orders)
+        {
             var completed = orders.Where(o => o.Status == OrderStatus.Completed).ToList();
             var lines = completed.SelectMany(o => o.Lines).ToList();
             var payments = completed.SelectMany(o => o.Payments).ToList();

@@ -3,6 +3,7 @@ import { Navigate } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
+import EventBreakdown from "../Components/Dashboard/EventBreakdown";
 import SalesByHourChart from "../Components/Dashboard/SalesByHourChart";
 import SalesStars from "../Components/Dashboard/SalesStars";
 import StockWatch from "../Components/Dashboard/StockWatch";
@@ -13,29 +14,30 @@ import { EventsForFilter, FormatCurrency, IsPastEvent } from "../Lib/ModelHelper
 import { IsOnline } from "../Lib/Connection";
 import type { DashboardStats } from "../Models/DashboardStats";
 import type { Event } from "../Models/Event";
-import { GetStatsForDay, GetStatsForEvent } from "../Services/DashboardServices";
+import { GetStatsForAllEvents, GetStatsForEvent } from "../Services/DashboardServices";
 import { GetActiveEvent, GetEvents } from "../Services/EventServices";
 
 /** How often the figures refresh while the page is open. */
 const POLL_MS = 15000;
 
 /**
- * The event's stat sheet, live. Only completed sales feed the money figures; work still on the
- * floor or at the checkout table is shown separately so nobody counts it twice.
+ * The event's stat sheet, live, or an overview of every event with each one's figures side by
+ * side. Only completed sales feed the money figures; work still on the floor or at the checkout
+ * table is shown separately so nobody counts it twice.
  */
 const DashboardPage = () => {
     const { user } = useAuth();
 
     const [events, setEvents] = useState<Event[]>([]);
-    const [scope, setScope] = useState<"event" | "day">("event");
+    const [scope, setScope] = useState<"event" | "all">("event");
     const [eventId, setEventId] = useState<number | null>(null);
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
 
-    const loadStats = useCallback(async (currentScope: "event" | "day", id: number | null) => {
+    const loadStats = useCallback(async (currentScope: "event" | "all", id: number | null) => {
         const result =
-            currentScope === "day"
-                ? await GetStatsForDay()
+            currentScope === "all"
+                ? await GetStatsForAllEvents()
                 : id
                   ? await GetStatsForEvent(id)
                   : null;
@@ -68,7 +70,7 @@ const DashboardPage = () => {
 
     if (!user) return <Navigate to="/unauthorized" replace />;
 
-    const switchScope = async (next: "event" | "day") => {
+    const switchScope = async (next: "event" | "all") => {
         setScope(next);
         await loadStats(next, eventId);
     };
@@ -120,7 +122,7 @@ const DashboardPage = () => {
         <div className="mx-auto max-w-screen-2xl p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h1 className="text-xl font-bold">
-                    {scope === "day" ? "Today across all events" : stats?.organization}
+                    {scope === "all" ? "All events" : stats?.organization}
                 </h1>
                 <Button
                     text="Refresh"
@@ -132,9 +134,9 @@ const DashboardPage = () => {
 
             <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1">
                 <TabButton
-                    text="Today"
-                    active={scope === "day"}
-                    onClick={() => switchScope("day")}
+                    text="All events"
+                    active={scope === "all"}
+                    onClick={() => switchScope("all")}
                 />
                 {events.map((event) => (
                     <TabButton
@@ -248,6 +250,12 @@ const DashboardPage = () => {
                     </div>
                 </section>
             </div>
+
+            {scope === "all" && (
+                <div className="mb-4">
+                    <EventBreakdown events={stats?.events ?? []} onSelect={switchEvent} />
+                </div>
+            )}
 
             <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
                 <div className="lg:col-span-2">
