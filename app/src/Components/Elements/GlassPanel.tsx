@@ -1,7 +1,12 @@
 import { GlassView, isGlassEffectAPIAvailable, isLiquidGlassAvailable } from "expo-glass-effect";
+import { cssInterop } from "nativewind";
 import type { ReactNode } from "react";
 import { Platform, View } from "react-native";
 import { cx } from "../../Lib/ClassNames";
+
+// NativeWind only styles the components it knows; without this a glass panel's className - its
+// rounding, padding and shadow - would be dropped on iOS 26.
+cssInterop(GlassView, { className: "style" });
 
 type Props = {
     children: ReactNode;

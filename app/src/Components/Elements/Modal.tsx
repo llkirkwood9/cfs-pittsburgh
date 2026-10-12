@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
 import {
-    KeyboardAvoidingView,
     Modal as NativeModal,
     Platform,
     Pressable,
@@ -10,6 +9,7 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Icon from "./Icon";
+import KeyboardAvoider from "./KeyboardAvoider";
 import Text from "./Text";
 import ToastHost from "./ToastHost";
 import { cx } from "../../Lib/ClassNames";
@@ -52,7 +52,10 @@ const Modal = ({ title, onClose, children, footer, wide = false, scroll = true }
                     hitSlop={8}
                     className="h-11 w-11 items-center justify-center rounded-xl active:bg-zinc-100 dark:active:bg-zinc-700"
                 >
-                    <Icon icon="fa-solid fa-xmark" className="text-xl text-zinc-500 dark:text-zinc-400" />
+                    <Icon
+                        icon="fa-solid fa-xmark"
+                        className="text-xl text-zinc-500 dark:text-zinc-400"
+                    />
                 </Pressable>
             </View>
 
@@ -104,9 +107,12 @@ const Modal = ({ title, onClose, children, footer, wide = false, scroll = true }
             onRequestClose={onClose}
             statusBarTranslucent
         >
-            <KeyboardAvoidingView
-                behavior={Platform.OS === "android" ? undefined : "padding"}
-                className={cx("flex-1 bg-black/50", tablet ? "items-center justify-center" : "justify-end")}
+            {/* The sheet rises above the keyboard, shrinking to fit if it has to. */}
+            <KeyboardAvoider
+                className={cx(
+                    "bg-black/50",
+                    tablet ? "items-center justify-center" : "justify-end"
+                )}
             >
                 <Pressable className="absolute inset-0" onPress={onClose} accessible={false} />
                 <View
@@ -125,7 +131,7 @@ const Modal = ({ title, onClose, children, footer, wide = false, scroll = true }
                 >
                     {body}
                 </View>
-            </KeyboardAvoidingView>
+            </KeyboardAvoider>
             <ToastHost />
         </NativeModal>
     );

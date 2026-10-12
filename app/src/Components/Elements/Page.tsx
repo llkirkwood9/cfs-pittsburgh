@@ -2,6 +2,7 @@ import type { ReactNode, Ref } from "react";
 import { RefreshControl, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import type { Edge } from "react-native-safe-area-context";
+import KeyboardAvoider from "./KeyboardAvoider";
 import Navbar from "../Navbar/Navbar";
 import { cx } from "../../Lib/ClassNames";
 
@@ -46,31 +47,35 @@ const Page = ({
     return (
         <SafeAreaView edges={safeEdges} className="flex-1 bg-zinc-100 dark:bg-zinc-900">
             {navbar && <Navbar />}
-            {scroll ? (
-                <ScrollView
-                    ref={scrollRef}
-                    className="flex-1"
-                    contentContainerClassName={cx(
-                        "mx-auto w-full max-w-screen-2xl p-4 pb-28",
-                        className
-                    )}
-                    keyboardShouldPersistTaps="handled"
-                    automaticallyAdjustKeyboardInsets
-                    contentInsetAdjustmentBehavior="automatic"
-                    refreshControl={
-                        onRefresh ? (
-                            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-                        ) : undefined
-                    }
-                >
-                    {children}
-                </ScrollView>
-            ) : (
-                <View className={cx("mx-auto w-full max-w-screen-2xl flex-1", className)}>
-                    {children}
-                </View>
-            )}
-            {overlay}
+            {/* Android doesn't reliably shrink the screen for the keyboard, so the page makes room
+                for it; on iOS the scroll views below do that themselves. */}
+            <KeyboardAvoider>
+                {scroll ? (
+                    <ScrollView
+                        ref={scrollRef}
+                        className="flex-1"
+                        contentContainerClassName={cx(
+                            "mx-auto w-full max-w-screen-2xl p-4 pb-28",
+                            className
+                        )}
+                        keyboardShouldPersistTaps="handled"
+                        automaticallyAdjustKeyboardInsets
+                        contentInsetAdjustmentBehavior="automatic"
+                        refreshControl={
+                            onRefresh ? (
+                                <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
+                            ) : undefined
+                        }
+                    >
+                        {children}
+                    </ScrollView>
+                ) : (
+                    <View className={cx("mx-auto w-full max-w-screen-2xl flex-1", className)}>
+                        {children}
+                    </View>
+                )}
+                {overlay}
+            </KeyboardAvoider>
         </SafeAreaView>
     );
 };

@@ -1,9 +1,10 @@
 import { Redirect, router } from "expo-router";
 import { useState } from "react";
-import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from "react-native";
+import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
+import KeyboardAvoider from "../Components/Elements/KeyboardAvoider";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
@@ -82,17 +83,17 @@ const LoginPage = () => {
 
     return (
         <SafeAreaView className="flex-1 bg-zinc-900">
-            <KeyboardAvoidingView
-                behavior={Platform.OS === "ios" ? "padding" : undefined}
-                className="flex-1"
-            >
+            <KeyboardAvoider ios>
                 <ScrollView
                     contentContainerClassName="grow items-center justify-center p-4"
                     keyboardShouldPersistTaps="handled"
                 >
                     <View className="w-full max-w-sm rounded-2xl bg-white p-6 raised-2xl dark:bg-zinc-800">
                         <View className="mb-6 items-center gap-2">
-                            <Icon icon="fa-solid fa-bed" className="text-3xl text-sky-600 dark:text-sky-400" />
+                            <Icon
+                                icon="fa-solid fa-bed"
+                                className="text-3xl text-sky-600 dark:text-sky-400"
+                            />
                             <Text className="text-xl font-bold">{settings.appName}</Text>
                             <Text className="text-sm text-zinc-500 dark:text-zinc-400">
                                 Sign in to the cart
@@ -141,8 +142,14 @@ const LoginPage = () => {
                                 accessibilityLabel="Change the server address"
                                 className="mb-4 flex-row items-center gap-2 rounded-xl bg-zinc-100 px-3 py-2 active:bg-zinc-200 dark:bg-zinc-700 dark:active:bg-zinc-600"
                             >
-                                <Icon icon="fa-solid fa-server" className="text-sm text-zinc-500 dark:text-zinc-400" />
-                                <Text className="flex-1 text-sm text-zinc-600 dark:text-zinc-300" numberOfLines={1}>
+                                <Icon
+                                    icon="fa-solid fa-server"
+                                    className="text-sm text-zinc-500 dark:text-zinc-400"
+                                />
+                                <Text
+                                    className="flex-1 text-sm text-zinc-600 dark:text-zinc-300"
+                                    numberOfLines={1}
+                                >
                                     {serverUrl}
                                 </Text>
                                 <Text className="text-sm font-semibold text-sky-700 dark:text-sky-400">
@@ -201,7 +208,10 @@ const LoginPage = () => {
                                             Clear
                                         </Text>
                                     ) : key === "back" ? (
-                                        <Icon icon="fa-solid fa-delete-left" className="text-lg text-zinc-800 dark:text-zinc-100" />
+                                        <Icon
+                                            icon="fa-solid fa-delete-left"
+                                            className="text-lg text-zinc-800 dark:text-zinc-100"
+                                        />
                                     ) : (
                                         <Text className="text-xl font-semibold text-zinc-800 dark:text-zinc-100">
                                             {key}
@@ -221,7 +231,7 @@ const LoginPage = () => {
                         />
                     </View>
                 </ScrollView>
-            </KeyboardAvoidingView>
+            </KeyboardAvoider>
         </SafeAreaView>
     );
 };

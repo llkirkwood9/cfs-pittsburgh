@@ -1,14 +1,13 @@
 import { useState, type ReactNode } from "react";
-import { KeyboardAvoidingView, Modal, Platform, TextInput, View } from "react-native";
+import { TextInput, View } from "react-native";
 // The gesture handler's scroll view, so a stroke on the signature pad wins over scrolling.
-import { GestureHandlerRootView, ScrollView } from "react-native-gesture-handler";
-import { SafeAreaView } from "react-native-safe-area-context";
+import { ScrollView } from "react-native-gesture-handler";
 import Button from "../Elements/Button";
+import FullScreenSheet from "../Elements/FullScreenSheet";
 import Icon from "../Elements/Icon";
 import SignaturePad from "../Elements/SignaturePad";
 import Text from "../Elements/Text";
 import { RenderTermText } from "../Elements/TermText";
-import ToastHost from "../Elements/ToastHost";
 import { useSettings } from "../../Context/SettingsContext";
 import { useBreakpoint } from "../../Hooks/UseBreakpoint";
 import { cx } from "../../Lib/ClassNames";
@@ -25,10 +24,7 @@ type Props = {
 };
 
 type InitialsKey =
-    | "customerInfoInitials"
-    | "warrantyInitials"
-    | "dropShipInitials"
-    | "advisoryInitials";
+    "customerInfoInitials" | "warrantyInitials" | "dropShipInitials" | "advisoryInitials";
 
 /** Which of the order's initials each statement takes, in signing order. */
 const steps: { term: SalesTermKey; key: InitialsKey }[] = [
@@ -77,11 +73,17 @@ const DetailsSummary = ({ order }: { order: Order }) => {
             return {
                 id: item.id,
                 name: `${item.quantity && item.quantity > 1 ? `${item.quantity} x ` : ""}${item.description}`,
-                how: methods.length ? methods.join(" + ") : item.takeWith ? "Take With" : "Drop Ship",
+                how: methods.length
+                    ? methods.join(" + ")
+                    : item.takeWith
+                      ? "Take With"
+                      : "Drop Ship",
             };
         });
 
-    const missing = <Text className="text-lg italic text-amber-700 dark:text-amber-400">Not given</Text>;
+    const missing = (
+        <Text className="text-lg italic text-amber-700 dark:text-amber-400">Not given</Text>
+    );
     const value = (text: ReactNode) =>
         typeof text === "string" ? <Text className="text-lg">{text}</Text> : text;
 
@@ -89,7 +91,13 @@ const DetailsSummary = ({ order }: { order: Order }) => {
         ["Name", order.billingName ? value(order.billingName) : missing],
         [
             "Address",
-            billing.length ? billing.map((l) => <Text key={l} className="text-lg">{l}</Text>) : missing,
+            billing.length
+                ? billing.map((l) => (
+                      <Text key={l} className="text-lg">
+                          {l}
+                      </Text>
+                  ))
+                : missing,
         ],
         ["Phone", phones ? value(phones) : missing],
         ["Email", order.billingEmail ? value(order.billingEmail) : missing],
@@ -99,11 +107,19 @@ const DetailsSummary = ({ order }: { order: Order }) => {
                 value("Same as the address above")
             ) : (
                 <>
-                    {order.deliveryName ? <Text className="text-lg">{order.deliveryName}</Text> : null}
+                    {order.deliveryName ? (
+                        <Text className="text-lg">{order.deliveryName}</Text>
+                    ) : null}
                     {delivery.length
-                        ? delivery.map((l) => <Text key={l} className="text-lg">{l}</Text>)
+                        ? delivery.map((l) => (
+                              <Text key={l} className="text-lg">
+                                  {l}
+                              </Text>
+                          ))
                         : missing}
-                    {order.deliveryCell ? <Text className="text-lg">{order.deliveryCell}</Text> : null}
+                    {order.deliveryCell ? (
+                        <Text className="text-lg">{order.deliveryCell}</Text>
+                    ) : null}
                 </>
             ),
         ],
@@ -199,161 +215,151 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
     };
 
     return (
-        <Modal visible animationType="slide" presentationStyle="fullScreen" onRequestClose={onClose}>
-            {/* A modal is outside the app's gesture root on Android, so it needs its own. */}
-            <GestureHandlerRootView className="flex-1 bg-zinc-50 dark:bg-zinc-900">
-                <SafeAreaView edges={["top"]} className="bg-sky-700 dark:bg-sky-800">
-                    <View className="mx-auto w-full max-w-3xl px-5 py-4">
-                        <View className="flex-row items-center gap-3">
-                            <Icon icon="fa-solid fa-file-signature" className="text-2xl text-white" />
-                            <View>
-                                <Text className="text-xl font-bold text-white">A few things to confirm</Text>
-                                <Text className="text-sm text-sky-100">
-                                    Step {step + 1} of {totalSteps}
-                                </Text>
-                            </View>
-                        </View>
-
-                        <View className="mt-3 flex-row gap-1.5">
-                            {Array.from({ length: totalSteps }).map((_, index) => (
-                                <View
-                                    key={index}
-                                    className={cx(
-                                        "h-1.5 flex-1 rounded-full",
-                                        index <= step ? "bg-white" : "bg-white/30"
-                                    )}
-                                />
-                            ))}
+        <FullScreenSheet
+            onClose={onClose}
+            header={
+                <View className="mx-auto w-full max-w-3xl px-5 py-4">
+                    <View className="flex-row items-center gap-3">
+                        <Icon icon="fa-solid fa-file-signature" className="text-2xl text-white" />
+                        <View>
+                            <Text className="text-xl font-bold text-white">
+                                A few things to confirm
+                            </Text>
+                            <Text className="text-sm text-sky-100">
+                                Step {step + 1} of {totalSteps}
+                            </Text>
                         </View>
                     </View>
-                </SafeAreaView>
 
-                <KeyboardAvoidingView
-                    behavior={Platform.OS === "ios" ? "padding" : undefined}
-                    className="flex-1"
-                >
-                    <ScrollView
-                        style={{ flex: 1 }}
-                        contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 24 }}
-                        keyboardShouldPersistTaps="handled"
-                    >
-                        <View className="mx-auto w-full max-w-3xl">
-                            {!isSignatureStep ? (
-                                <>
-                                    <Text className="text-2xl font-bold">{term.title}</Text>
-                                    <Text className="mt-4 text-base leading-relaxed text-zinc-700 dark:text-zinc-300">
-                                        {RenderTermText(term.text)}
-                                    </Text>
-                                    {current.key === "customerInfoInitials" && (
-                                        <Text className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-                                            If anything below is wrong, tap Cancel and let us know
-                                            before you initial.
-                                        </Text>
-                                    )}
-
-                                    {current.key === "customerInfoInitials" && (
-                                        <DetailsSummary order={order} />
-                                    )}
-
-                                    <View className="mt-8">
-                                        <Text className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
-                                            Your initials
-                                        </Text>
-                                        <TextInput
-                                            key={current.key}
-                                            value={initials[current.key]}
-                                            onChangeText={(text) =>
-                                                setInitials((value) => ({
-                                                    ...value,
-                                                    [current.key]: text.toUpperCase(),
-                                                }))
-                                            }
-                                            maxLength={10}
-                                            autoCapitalize="characters"
-                                            autoCorrect={false}
-                                            placeholder="AB"
-                                            placeholderTextColor="#a1a1aa"
-                                            accessibilityLabel="Your initials"
-                                            className="mt-2 min-h-[72px] w-40 rounded-2xl border-2 border-zinc-300 bg-white
-                                                text-center text-3xl font-bold tracking-widest text-zinc-900
-                                                focus:border-sky-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
-                                        />
-                                    </View>
-                                </>
-                            ) : (
-                                <>
-                                    <Text className="text-2xl font-bold">Sign to finish</Text>
-                                    <Text className="mt-2 text-base text-zinc-600 dark:text-zinc-400">
-                                        Your signature confirms your details and the points you
-                                        just initialled.
-                                    </Text>
-
-                                    <View className="mt-6">
-                                        <Text className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
-                                            Print your name
-                                        </Text>
-                                        <TextInput
-                                            value={printedName}
-                                            onChangeText={setPrintedName}
-                                            maxLength={150}
-                                            autoCapitalize="words"
-                                            accessibilityLabel="Print your name"
-                                            className="mt-2 min-h-[60px] w-full rounded-2xl border-2 border-zinc-300 bg-white px-4
-                                                text-lg text-zinc-900 focus:border-sky-600
-                                                dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
-                                        />
-                                    </View>
-
-                                    <View className="mt-6">
-                                        <Text className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
-                                            Signature
-                                        </Text>
-                                        <View className="mt-2">
-                                            <SignaturePad value={signature} onChange={setSignature} />
-                                        </View>
-                                    </View>
-                                </>
-                            )}
-                        </View>
-                    </ScrollView>
-
-                    <SafeAreaView
-                        edges={["bottom"]}
-                        className="border-t border-zinc-200 bg-white dark:border-zinc-700 dark:bg-zinc-800"
-                    >
-                        <View className="mx-auto w-full max-w-3xl flex-row gap-3 px-4 py-4">
-                            <Button
-                                text={step === 0 ? "Cancel" : "Back"}
-                                icon={step === 0 ? undefined : "fa-solid fa-arrow-left"}
-                                onClick={() => (step === 0 ? onClose() : setStep((value) => value - 1))}
-                                className="min-h-[60px] bg-zinc-500 px-6 text-lg dark:bg-zinc-600"
+                    <View className="mt-3 flex-row gap-1.5">
+                        {Array.from({ length: totalSteps }).map((_, index) => (
+                            <View
+                                key={index}
+                                className={cx(
+                                    "h-1.5 flex-1 rounded-full",
+                                    index <= step ? "bg-white" : "bg-white/30"
+                                )}
                             />
-                            {isSignatureStep ? (
-                                <Button
-                                    text="Done"
-                                    icon="fa-solid fa-check"
-                                    onClick={handleFinish}
-                                    loading={saving}
-                                    className="min-h-[60px] flex-1 bg-green-700 text-lg dark:bg-green-600"
-                                />
-                            ) : (
-                                <Button
-                                    text={
-                                        current.key === "customerInfoInitials"
-                                            ? "My details are correct"
-                                            : "I understand"
-                                    }
-                                    icon="fa-solid fa-arrow-right"
-                                    onClick={next}
-                                    className="min-h-[60px] flex-1 text-lg"
-                                />
+                        ))}
+                    </View>
+                </View>
+            }
+            footer={
+                <View className="mx-auto w-full max-w-3xl flex-row gap-3 px-4 py-4">
+                    <Button
+                        text={step === 0 ? "Cancel" : "Back"}
+                        icon={step === 0 ? undefined : "fa-solid fa-arrow-left"}
+                        onClick={() => (step === 0 ? onClose() : setStep((value) => value - 1))}
+                        className="min-h-[60px] bg-zinc-500 px-6 text-lg dark:bg-zinc-600"
+                    />
+                    {isSignatureStep ? (
+                        <Button
+                            text="Done"
+                            icon="fa-solid fa-check"
+                            onClick={handleFinish}
+                            loading={saving}
+                            className="min-h-[60px] flex-1 bg-green-700 text-lg dark:bg-green-600"
+                        />
+                    ) : (
+                        <Button
+                            text={
+                                current.key === "customerInfoInitials"
+                                    ? "My details are correct"
+                                    : "I understand"
+                            }
+                            icon="fa-solid fa-arrow-right"
+                            onClick={next}
+                            className="min-h-[60px] flex-1 text-lg"
+                        />
+                    )}
+                </View>
+            }
+        >
+            <ScrollView
+                style={{ flex: 1 }}
+                contentContainerStyle={{ paddingHorizontal: 16, paddingVertical: 24 }}
+                keyboardShouldPersistTaps="handled"
+            >
+                <View className="mx-auto w-full max-w-3xl">
+                    {!isSignatureStep ? (
+                        <>
+                            <Text className="text-2xl font-bold">{term.title}</Text>
+                            <Text className="mt-4 text-base leading-relaxed text-zinc-700 dark:text-zinc-300">
+                                {RenderTermText(term.text)}
+                            </Text>
+                            {current.key === "customerInfoInitials" && (
+                                <Text className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
+                                    If anything below is wrong, tap Cancel and let us know before
+                                    you initial.
+                                </Text>
                             )}
-                        </View>
-                    </SafeAreaView>
-                </KeyboardAvoidingView>
-            </GestureHandlerRootView>
-            <ToastHost />
-        </Modal>
+
+                            {current.key === "customerInfoInitials" && (
+                                <DetailsSummary order={order} />
+                            )}
+
+                            <View className="mt-8">
+                                <Text className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
+                                    Your initials
+                                </Text>
+                                <TextInput
+                                    key={current.key}
+                                    value={initials[current.key]}
+                                    onChangeText={(text) =>
+                                        setInitials((value) => ({
+                                            ...value,
+                                            [current.key]: text.toUpperCase(),
+                                        }))
+                                    }
+                                    maxLength={10}
+                                    autoCapitalize="characters"
+                                    autoCorrect={false}
+                                    placeholder="AB"
+                                    placeholderTextColor="#a1a1aa"
+                                    accessibilityLabel="Your initials"
+                                    className="mt-2 min-h-[72px] w-40 rounded-2xl border-2 border-zinc-300 bg-white
+                                        text-center text-3xl font-bold tracking-widest text-zinc-900
+                                        focus:border-sky-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                                />
+                            </View>
+                        </>
+                    ) : (
+                        <>
+                            <Text className="text-2xl font-bold">Sign to finish</Text>
+                            <Text className="mt-2 text-base text-zinc-600 dark:text-zinc-400">
+                                Your signature confirms your details and the points you just
+                                initialled.
+                            </Text>
+
+                            <View className="mt-6">
+                                <Text className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
+                                    Print your name
+                                </Text>
+                                <TextInput
+                                    value={printedName}
+                                    onChangeText={setPrintedName}
+                                    maxLength={150}
+                                    autoCapitalize="words"
+                                    accessibilityLabel="Print your name"
+                                    className="mt-2 min-h-[60px] w-full rounded-2xl border-2 border-zinc-300 bg-white px-4
+                                        text-lg text-zinc-900 focus:border-sky-600
+                                        dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                                />
+                            </View>
+
+                            <View className="mt-6">
+                                <Text className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
+                                    Signature
+                                </Text>
+                                <View className="mt-2">
+                                    <SignaturePad value={signature} onChange={setSignature} />
+                                </View>
+                            </View>
+                        </>
+                    )}
+                </View>
+            </ScrollView>
+        </FullScreenSheet>
     );
 };
 
