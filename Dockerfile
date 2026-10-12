@@ -16,12 +16,15 @@
 
 # ---------------------------------------------------------------------------------------------
 # 1. Dashboard: static build. VITE_API_URL is left unset so every API call is same-origin.
+#    DASHBOARD_VERSION (YYYY.MM.<build>) is passed in by the image workflow; without it the
+#    dashboard calls itself this month's build 0.
 # ---------------------------------------------------------------------------------------------
 FROM --platform=$BUILDPLATFORM node:22-alpine AS dashboard
 WORKDIR /src
 COPY dashboard/package.json dashboard/package-lock.json ./
 RUN npm ci
 COPY dashboard/ ./
+ARG DASHBOARD_VERSION=
 RUN npm run build
 
 # ---------------------------------------------------------------------------------------------

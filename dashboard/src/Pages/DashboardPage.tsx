@@ -176,7 +176,10 @@ const DashboardPage = () => {
                 <StatCard
                     label="Net sales"
                     value={FormatCurrency(stats?.netSales)}
-                    badge={<SalesStars net={stats?.netSales ?? 0} />}
+                    // Milestone stars are an event's goal; they mean nothing summed across events.
+                    badge={
+                        scope === "event" ? <SalesStars net={stats?.netSales ?? 0} /> : undefined
+                    }
                     sublabel="Product revenue before tax"
                     icon="fa-solid fa-receipt"
                     accent="sky"
@@ -273,12 +276,16 @@ const DashboardPage = () => {
                 </div>
             )}
 
-            <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
-                <div className="lg:col-span-2">
-                    <SalesByHourChart sales={stats?.sales ?? []} />
+            {/* Sales by the hour and stock levels are about one event, so the overview leaves them
+                out. */}
+            {scope === "event" && (
+                <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-3">
+                    <div className="lg:col-span-2">
+                        <SalesByHourChart sales={stats?.sales ?? []} />
+                    </div>
+                    <StockWatch />
                 </div>
-                <StockWatch />
-            </div>
+            )}
 
             <div className="grid grid-cols-1 gap-4">
                 <section className="rounded-xl bg-white p-4 shadow-sm dark:bg-zinc-800">

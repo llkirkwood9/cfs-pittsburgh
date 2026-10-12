@@ -85,7 +85,8 @@ namespace api.Controllers
                 static List<Order> Completed(IEnumerable<Order> list) =>
                     list.Where(o => o.Status == OrderStatus.Completed).ToList();
 
-                var stats = Build(Completed(orders), orders);
+                // Every item sold, ranked, rather than an event's top 15.
+                var stats = Build(Completed(orders), orders, topProducts: null);
                 stats.Events = events
                     .OrderByDescending(e => e.EventDate)
                     .ThenByDescending(e => e.Id)
@@ -219,8 +220,9 @@ namespace api.Controllers
         /// </summary>
         /// <param name="completed">Completed orders, with lines (and payments, for the payment totals)</param>
         /// <param name="orders">Every order in range, for the work-in-progress counts</param>
+        /// <param name="topProducts">How many best sellers to list; null lists every item sold</param>
         /// <returns>The computed stat sheet.</returns>
-        private static DashboardStatsDto Build(List<Order> completed, List<Order> orders)
+        private static DashboardStatsDto Build(List<Order> completed, List<Order> orders, int? topProducts = 15)
         {
             var lines = completed.SelectMany(o => o.Lines).ToList();
             var payments = completed.SelectMany(o => o.Payments).ToList();
@@ -314,7 +316,7 @@ namespace api.Controllers
                     })
                     .OrderByDescending(p => p.Quantity)
                     .ThenByDescending(p => p.Revenue)
-                    .Take(15)
+                    .Take(topProducts ?? int.MaxValue)
                     .ToList(),
 
                 RepTotals = completed

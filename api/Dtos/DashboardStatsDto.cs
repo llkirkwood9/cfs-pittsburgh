@@ -180,7 +180,8 @@ namespace api.Dtos
         public List<SaleMomentDto>? Sales { get; set; }
 
         /// <summary>
-        /// Units sold per product, best sellers first
+        /// Units sold per product, best sellers first: the top 15 for an event, every item sold
+        /// for the overview of every event
         /// </summary>
         public List<ProductTallyDto>? TopProducts { get; set; }
 
