@@ -130,10 +130,10 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
                     onChange={setDiscount}
                 />
 
-                {(HasDiscount(sale) || choices) && (
+                {(HasDiscount(sale) || Boolean(choices)) && (
                     <Cell span={2}>
                         <View className="rounded-lg bg-zinc-100 px-3 py-2 dark:bg-zinc-700">
-                            {choices && <Text className="text-sm">{choices}</Text>}
+                            {choices ? <Text className="text-sm">{choices}</Text> : null}
                             {HasDiscount(sale) && (
                                 <Text className="text-sm">
                                     On sale at {DiscountText(sale)} off when it was added

@@ -158,6 +158,11 @@ Once a development build is installed, `npx expo start` serves it in place of Ex
 - Sign in against the server, then sign out and back in. The server address should be
   remembered.
 - **Sell:** start an order, add items, and send it to checkout.
+- **Lists:** tapping a row opens it (an order item's editor, a product, an event, a crew
+  member, an order's sales sheet, a size's count). Swiping a row to the left uncovers its other
+  actions - Add service, Add upcharge, Remove, Delete, Reopen, History - and tapping an open row
+  closes it. Holding an order item, delivery option or financing option for a moment, then
+  dragging it, puts it in a new place.
 - **Checkout:** take a payment, hand the device to the customer for initials and a signature,
   and complete the order.
 - **Sales sheet:** print it to an AirPrint or Android print-service printer, and **Email** a

@@ -6,10 +6,11 @@ import Checkbox from "../Components/Elements/Checkbox";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Grid, { Cell } from "../Components/Elements/Grid";
 import Icon from "../Components/Elements/Icon";
-import IconButton from "../Components/Elements/IconButton";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import Page from "../Components/Elements/Page";
+import SwipeRow from "../Components/Elements/SwipeRow";
+import type { SwipeAction } from "../Components/Elements/SwipeRow";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
@@ -157,78 +158,81 @@ const CrewPage = () => {
                 </View>
 
                 <View className="gap-2">
-                    {users.map((crew) => (
-                        <View
-                            key={crew.id}
-                            className="flex-row flex-wrap items-center gap-3 rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800"
-                        >
-                            <View className="min-w-0 flex-1">
-                                <View className="flex-row flex-wrap items-center gap-2">
-                                    <Text className="font-semibold">{crew.name}</Text>
-                                    {!crew.isActive && (
-                                        <View className="rounded bg-zinc-200 px-1.5 py-0.5 dark:bg-zinc-700">
-                                            <Text className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
-                                                Inactive
+                    {users.map((crew) => {
+                        // An administrator can see a system admin's account but not change it.
+                        const canChange = isSystemAdmin || crew.role !== "SystemAdmin";
+                        const actions: SwipeAction[] = [];
+                        if (crew.isActive && crew.id !== user.id && canChange)
+                            actions.push({
+                                label: "Deactivate",
+                                icon: "fa-solid fa-user-slash",
+                                tone: "amber",
+                                onPress: () => setDeactivating(crew),
+                            });
+                        if (isSystemAdmin && crew.id !== user.id)
+                            actions.push({
+                                label: "Delete",
+                                icon: "fa-solid fa-trash",
+                                tone: "danger",
+                                onPress: () => setRemoving(crew),
+                            });
+
+                        return (
+                            <SwipeRow
+                                key={crew.id}
+                                onPress={canChange ? () => open(crew) : undefined}
+                                actions={actions}
+                                accessibilityLabel={`${crew.name}, ${crew.role ? UserRoleLabels[crew.role] : ""}`}
+                                className="flex-row items-center gap-3 p-4"
+                            >
+                                <View className="min-w-0 flex-1">
+                                    <View className="flex-row flex-wrap items-center gap-2">
+                                        <Text className="font-semibold">{crew.name}</Text>
+                                        {!crew.isActive && (
+                                            <View className="rounded bg-zinc-200 px-1.5 py-0.5 dark:bg-zinc-700">
+                                                <Text className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                                    Inactive
+                                                </Text>
+                                            </View>
+                                        )}
+                                    </View>
+                                    <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+                                        {crew.username} ·{" "}
+                                        {crew.role ? UserRoleLabels[crew.role] : ""}
+                                        {crew.email ? ` · ${crew.email}` : ""}
+                                    </Text>
+                                    {/* Sign-in times are only sent to a system admin. */}
+                                    {isSystemAdmin && (
+                                        <View className="mt-0.5 flex-row items-center gap-1.5">
+                                            <Icon
+                                                icon="fa-solid fa-clock-rotate-left"
+                                                className="text-xs text-zinc-500 dark:text-zinc-400"
+                                            />
+                                            <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+                                                {crew.lastLoginAt ? (
+                                                    <>
+                                                        Last login{" "}
+                                                        {FormatDateTime(crew.lastLoginAt)}{" "}
+                                                        <Text className="text-xs text-zinc-400 dark:text-zinc-500">
+                                                            ({FormatElapsed(crew.lastLoginAt)})
+                                                        </Text>
+                                                    </>
+                                                ) : (
+                                                    "No sign-in recorded yet"
+                                                )}
                                             </Text>
                                         </View>
                                     )}
                                 </View>
-                                <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                                    {crew.username} · {crew.role ? UserRoleLabels[crew.role] : ""}
-                                    {crew.email ? ` · ${crew.email}` : ""}
-                                </Text>
-                                {/* Sign-in times are only sent to a system admin. */}
-                                {isSystemAdmin && (
-                                    <View className="mt-0.5 flex-row items-center gap-1.5">
-                                        <Icon
-                                            icon="fa-solid fa-clock-rotate-left"
-                                            className="text-xs text-zinc-500 dark:text-zinc-400"
-                                        />
-                                        <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                                            {crew.lastLoginAt ? (
-                                                <>
-                                                    Last login {FormatDateTime(crew.lastLoginAt)}{" "}
-                                                    <Text className="text-xs text-zinc-400 dark:text-zinc-500">
-                                                        ({FormatElapsed(crew.lastLoginAt)})
-                                                    </Text>
-                                                </>
-                                            ) : (
-                                                "No sign-in recorded yet"
-                                            )}
-                                        </Text>
-                                    </View>
-                                )}
-                            </View>
-
-                            {/* An administrator can see a system admin's account but not change it. */}
-                            {(isSystemAdmin || crew.role !== "SystemAdmin") && (
-                                <Button
-                                    text="Edit"
-                                    icon="fa-solid fa-pen"
-                                    onClick={() => open(crew)}
-                                    className="min-h-[40px] bg-zinc-500 px-3 text-sm dark:bg-zinc-600"
-                                />
-                            )}
-                            {isSystemAdmin && crew.id !== user.id && (
-                                <IconButton
-                                    icon="fa-solid fa-trash"
-                                    label="Delete account permanently"
-                                    onPress={() => setRemoving(crew)}
-                                    danger
-                                />
-                            )}
-                            {crew.isActive &&
-                                crew.id !== user.id &&
-                                (isSystemAdmin || crew.role !== "SystemAdmin") && (
-                                    <IconButton
-                                        icon="fa-solid fa-user-slash"
-                                        label="Deactivate account"
-                                        onPress={() => setDeactivating(crew)}
-                                        danger
+                                {canChange && (
+                                    <Icon
+                                        icon="fa-solid fa-chevron-right"
+                                        className="text-xs text-zinc-400"
                                     />
                                 )}
-                        </View>
-                    ))}
+                            </SwipeRow>
+                        );
+                    })}
                 </View>
             </View>
 
@@ -318,7 +322,9 @@ const CrewPage = () => {
                                                 <Text
                                                     className={cx(
                                                         "text-sm font-semibold",
-                                                        selected ? "text-white" : "text-zinc-800 dark:text-zinc-100"
+                                                        selected
+                                                            ? "text-white"
+                                                            : "text-zinc-800 dark:text-zinc-100"
                                                     )}
                                                 >
                                                     {UserRoleLabels[r]}
@@ -326,7 +332,9 @@ const CrewPage = () => {
                                                 <Text
                                                     className={cx(
                                                         "text-[11px]",
-                                                        selected ? "text-white/80" : "text-zinc-600 dark:text-zinc-300"
+                                                        selected
+                                                            ? "text-white/80"
+                                                            : "text-zinc-600 dark:text-zinc-300"
                                                     )}
                                                 >
                                                     {roleBlurb[r]}
@@ -338,7 +346,11 @@ const CrewPage = () => {
                         </Cell>
 
                         <Cell span={{ base: 1, sm: 2 }}>
-                            <Checkbox label="Can sign in" checked={isActive} onChange={setIsActive} />
+                            <Checkbox
+                                label="Can sign in"
+                                checked={isActive}
+                                onChange={setIsActive}
+                            />
                         </Cell>
                     </Grid>
                 </Modal>

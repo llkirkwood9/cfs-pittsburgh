@@ -6,10 +6,10 @@ import Checkbox from "../Components/Elements/Checkbox";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import DateField from "../Components/Elements/DateField";
 import Grid, { Cell } from "../Components/Elements/Grid";
-import IconButton from "../Components/Elements/IconButton";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import Page from "../Components/Elements/Page";
+import SwipeRow from "../Components/Elements/SwipeRow";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
@@ -164,10 +164,21 @@ const EventsPage = () => {
     // before today.
     const { current, past } = SplitEvents(events);
 
+    // Tap an event to edit it; Close out and Sales sheets stay on the row, and Delete is a swipe away.
     const renderEvent = (event: Event) => (
-        <View
+        <SwipeRow
             key={event.id}
-            className="flex-row flex-wrap items-center gap-3 rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800"
+            onPress={() => open(event)}
+            actions={[
+                {
+                    label: "Delete",
+                    icon: "fa-solid fa-trash",
+                    tone: "danger",
+                    onPress: () => setDeleting(event),
+                },
+            ]}
+            accessibilityLabel={`${event.organization}, ${FormatShortDate(event.eventDate)}`}
+            className="flex-row flex-wrap items-center gap-3 p-4"
         >
             <View className="min-w-[240px] flex-1">
                 <View className="flex-row flex-wrap items-center gap-2">
@@ -236,20 +247,8 @@ const EventsPage = () => {
                     }
                     className="min-h-[40px] px-3 text-sm"
                 />
-                <Button
-                    text="Edit"
-                    icon="fa-solid fa-pen"
-                    onClick={() => open(event)}
-                    className="min-h-[40px] bg-zinc-500 px-3 text-sm dark:bg-zinc-600"
-                />
-                <IconButton
-                    icon="fa-solid fa-trash"
-                    label="Delete event"
-                    onPress={() => setDeleting(event)}
-                    danger
-                />
             </View>
-        </View>
+        </SwipeRow>
     );
 
     return (
@@ -280,7 +279,10 @@ const EventsPage = () => {
                 {past.length > 0 && (
                     <>
                         {/* Everything below the line is over. */}
-                        <View className="my-6 flex-row items-center gap-3" accessibilityRole="header">
+                        <View
+                            className="my-6 flex-row items-center gap-3"
+                            accessibilityRole="header"
+                        >
                             <View className="h-px flex-1 bg-zinc-300 dark:bg-zinc-700" />
                             <Text className="text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                                 Past events
@@ -350,7 +352,11 @@ const EventsPage = () => {
                             inputMode="numeric"
                         />
                         <View className="flex-1 justify-end">
-                            <Checkbox label="Active event" checked={isActive} onChange={setIsActive} />
+                            <Checkbox
+                                label="Active event"
+                                checked={isActive}
+                                onChange={setIsActive}
+                            />
                         </View>
                     </Grid>
 

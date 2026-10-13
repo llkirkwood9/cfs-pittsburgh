@@ -1,12 +1,13 @@
 import { router } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Pressable, ScrollView, View } from "react-native";
+import { ScrollView, View } from "react-native";
 import Button from "../Components/Elements/Button";
 import Grid from "../Components/Elements/Grid";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import Page from "../Components/Elements/Page";
+import SwipeRow from "../Components/Elements/SwipeRow";
 import TabButton from "../Components/Elements/TabButton";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
@@ -216,8 +217,9 @@ const InventoryPage = () => {
                             · {outOfStock} size{outOfStock === 1 ? "" : "s"} out of stock
                         </Text>
                     )}
-                    . Take With sales come off automatically when checkout completes the order. Pull
-                    down to refresh.
+                    . Take With sales come off automatically when checkout completes the order. Tap a
+                    size to enter its count, or swipe it to the left for its history. Pull down to
+                    refresh.
                 </Text>
 
                 {items.length > 0 && (
@@ -353,9 +355,21 @@ const InventoryPage = () => {
                                                     const onHand = item.quantityOnHand ?? 0;
                                                     const busy = busyId === InventoryRowKey(item);
 
+                                                    // Tap a size to enter its count; its history is a swipe away.
                                                     return (
-                                                        <View
+                                                        <SwipeRow
                                                             key={InventoryRowKey(item)}
+                                                            variant="row"
+                                                            onPress={() => openCount(item)}
+                                                            actions={[
+                                                                {
+                                                                    label: "History",
+                                                                    icon: "fa-solid fa-clock-rotate-left",
+                                                                    tone: "sky",
+                                                                    onPress: () => openHistory(item),
+                                                                },
+                                                            ]}
+                                                            accessibilityLabel={`${product.name} ${InventorySizeLabel(item)}, ${onHand} on hand. Enter a count`}
                                                             className={cx(
                                                                 "flex-row flex-wrap items-center gap-2 py-2",
                                                                 index > 0 && "border-t border-zinc-100 dark:border-zinc-700"
@@ -384,12 +398,7 @@ const InventoryPage = () => {
                                                                     title="Remove one"
                                                                     className="bg-zinc-500 px-4"
                                                                 />
-                                                                <Pressable
-                                                                    onPress={() => openCount(item)}
-                                                                    accessibilityRole="button"
-                                                                    accessibilityLabel={`${onHand} on hand. Enter a count`}
-                                                                    className="min-h-[48px] min-w-[72px] items-center justify-center rounded-xl px-3 active:bg-zinc-100 dark:active:bg-zinc-700"
-                                                                >
+                                                                <View className="min-h-[48px] min-w-[72px] items-center justify-center px-3">
                                                                     <Text
                                                                         className={cx(
                                                                             "text-xl font-bold tabular-nums",
@@ -398,7 +407,7 @@ const InventoryPage = () => {
                                                                     >
                                                                         {onHand}
                                                                     </Text>
-                                                                </Pressable>
+                                                                </View>
                                                                 <Button
                                                                     icon="fa-solid fa-plus"
                                                                     onClick={() => nudge(item, 1)}
@@ -406,19 +415,8 @@ const InventoryPage = () => {
                                                                     title="Add one"
                                                                     className="bg-zinc-500 px-4"
                                                                 />
-                                                                <Pressable
-                                                                    onPress={() => openHistory(item)}
-                                                                    accessibilityRole="button"
-                                                                    accessibilityLabel="History"
-                                                                    className="h-12 w-12 items-center justify-center rounded-lg active:bg-zinc-100 dark:active:bg-zinc-700"
-                                                                >
-                                                                    <Icon
-                                                                        icon="fa-solid fa-clock-rotate-left"
-                                                                        className="text-zinc-500 dark:text-zinc-400"
-                                                                    />
-                                                                </Pressable>
                                                             </View>
-                                                        </View>
+                                                        </SwipeRow>
                                                     );
                                                 })}
                                             </View>

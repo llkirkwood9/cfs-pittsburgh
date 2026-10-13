@@ -7,9 +7,10 @@ import FinanceOptionList from "../Components/Catalog/FinanceOptionList";
 import ImportCatalogModal from "../Components/Catalog/ImportCatalogModal";
 import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
-import IconButton from "../Components/Elements/IconButton";
+import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Page from "../Components/Elements/Page";
+import SwipeRow from "../Components/Elements/SwipeRow";
 import TabButton from "../Components/Elements/TabButton";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
@@ -347,9 +348,19 @@ const CatalogPage = () => {
 
                     <View className="gap-2">
                         {filtered.map((product) => (
-                            <View
+                            <SwipeRow
                                 key={product.id}
-                                className="flex-row flex-wrap items-center gap-3 rounded-xl bg-white p-3 raised-sm dark:bg-zinc-800"
+                                onPress={() => setEditing(product)}
+                                actions={[
+                                    {
+                                        label: "Delete",
+                                        icon: "fa-solid fa-trash",
+                                        tone: "danger",
+                                        onPress: () => setDeleting(product),
+                                    },
+                                ]}
+                                accessibilityLabel={`${product.name}, ${product.brand ?? ""}`}
+                                className="flex-row items-center gap-3 p-3"
                             >
                                 <View className="min-w-[200px] flex-1">
                                     <View className="flex-row flex-wrap items-center gap-2">
@@ -397,19 +408,8 @@ const CatalogPage = () => {
                                     ) : null}
                                 </View>
 
-                                <Button
-                                    text="Edit"
-                                    icon="fa-solid fa-pen"
-                                    onClick={() => setEditing(product)}
-                                    className="min-h-[40px] bg-zinc-500 px-3 text-sm dark:bg-zinc-600"
-                                />
-                                <IconButton
-                                    icon="fa-solid fa-trash"
-                                    label="Delete product"
-                                    onPress={() => setDeleting(product)}
-                                    danger
-                                />
-                            </View>
+                                <Icon icon="fa-solid fa-chevron-right" className="text-xs text-zinc-400" />
+                            </SwipeRow>
                         ))}
 
                         {filtered.length === 0 && (

@@ -1,17 +1,18 @@
 import { Redirect, router } from "expo-router";
 import { useCallback, useEffect, useState } from "react";
-import { FlatList, Pressable, RefreshControl, ScrollView, View } from "react-native";
+import { FlatList, RefreshControl, ScrollView, View } from "react-native";
 import ReopenOrderModal from "../Components/Admin/ReopenOrderModal";
 import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Page from "../Components/Elements/Page";
+import SwipeRow from "../Components/Elements/SwipeRow";
+import type { SwipeAction } from "../Components/Elements/SwipeRow";
 import TabButton from "../Components/Elements/TabButton";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
-import { useBreakpoint } from "../Hooks/UseBreakpoint";
 import { cx } from "../Lib/ClassNames";
 import {
     EventsForFilter,
@@ -57,7 +58,6 @@ const statusLabels: Record<OrderStatus, string> = {
  */
 const OrdersPage = () => {
     const { user, hasRole } = useAuth();
-    const { sm } = useBreakpoint();
 
     const isAdmin = hasRole("Admin");
     const isSystemAdmin = user?.role === "SystemAdmin";
@@ -267,83 +267,75 @@ const OrdersPage = () => {
         </View>
     );
 
+    // Tap an order to see its sales sheet; Reopen and Delete are a swipe away.
     const renderOrder = ({ item: order }: { item: OrderSummary }) => {
         const style = statusStyles[order.status ?? "Draft"];
+        const actions: SwipeAction[] = [];
+        if (isAdmin && (order.status === "Completed" || order.status === "AwaitingCheckout"))
+            actions.push({
+                label: "Reopen",
+                icon: "fa-solid fa-arrow-rotate-left",
+                tone: "amber",
+                onPress: () => setReopening(order),
+            });
+        if (isSystemAdmin)
+            actions.push({
+                label: "Delete",
+                icon: "fa-solid fa-trash",
+                tone: "danger",
+                onPress: () => setRemoving(order),
+            });
+
         return (
-            <View
-                className={cx(
-                    "mb-2 gap-2 rounded-xl bg-white p-3 raised-sm dark:bg-zinc-800",
-                    sm && "flex-row items-center gap-3"
-                )}
+            <SwipeRow
+                onPress={() =>
+                    router.push({
+                        pathname: "/receipt/[orderId]",
+                        params: { orderId: String(order.id) },
+                    })
+                }
+                actions={actions}
+                accessibilityLabel={`Order ${order.orderNumber}, ${order.billingName || "no name"}, ${
+                    statusLabels[order.status ?? "Draft"]
+                }, ${FormatCurrency(order.total)}. Opens the sales sheet`}
+                containerClassName="mb-2"
+                className="flex-row items-center gap-3 p-3"
             >
-                <View className="min-w-0 flex-1 flex-row items-center gap-3">
-                    <View className="h-12 min-w-[56px] items-center justify-center rounded-lg bg-zinc-100 px-1 dark:bg-zinc-700">
-                        <Text className="text-sm font-bold">#{order.orderNumber}</Text>
-                    </View>
-
-                    <View className="min-w-0 flex-1">
-                        <Text className="font-semibold">{order.billingName || "No name"}</Text>
-                        <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {[
-                                scope?.kind === "all" ? order.eventOrganization : null,
-                                FormatShortDate(order.eventDate ?? order.createdAt),
-                                order.cfsRepName,
-                                `${order.lineCount ?? 0} item${(order.lineCount ?? 0) === 1 ? "" : "s"}`,
-                                order.completedAt ? FormatTime(order.completedAt) : null,
-                            ]
-                                .filter(Boolean)
-                                .join("  ·  ")}
-                        </Text>
-                    </View>
-
-                    <View className="items-end">
-                        <Text className="font-bold tabular-nums">{FormatCurrency(order.total)}</Text>
-                        {(order.balanceDue ?? 0) > 0 && (
-                            <Text className="text-xs text-amber-700 dark:text-amber-400">
-                                {FormatCurrency(order.balanceDue)} due
-                            </Text>
-                        )}
-                    </View>
+                <View className="h-12 min-w-[56px] items-center justify-center rounded-lg bg-zinc-100 px-1 dark:bg-zinc-700">
+                    <Text className="text-sm font-bold">#{order.orderNumber}</Text>
                 </View>
 
-                <View className="flex-row flex-wrap items-center justify-end gap-2">
-                    <View className={cx("rounded-full px-2.5 py-1", style.box, !sm && "mr-auto")}>
+                <View className="min-w-0 flex-1">
+                    <Text className="font-semibold">{order.billingName || "No name"}</Text>
+                    <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+                        {[
+                            scope?.kind === "all" ? order.eventOrganization : null,
+                            FormatShortDate(order.eventDate ?? order.createdAt),
+                            order.cfsRepName,
+                            `${order.lineCount ?? 0} item${(order.lineCount ?? 0) === 1 ? "" : "s"}`,
+                            order.completedAt ? FormatTime(order.completedAt) : null,
+                        ]
+                            .filter(Boolean)
+                            .join("  ·  ")}
+                    </Text>
+                </View>
+
+                <View className="items-end gap-1">
+                    <Text className="font-bold tabular-nums">{FormatCurrency(order.total)}</Text>
+                    {(order.balanceDue ?? 0) > 0 && (
+                        <Text className="text-xs text-amber-700 dark:text-amber-400">
+                            {FormatCurrency(order.balanceDue)} due
+                        </Text>
+                    )}
+                    <View className={cx("rounded-full px-2.5 py-1", style.box)}>
                         <Text className={cx("text-xs font-semibold", style.text)}>
                             {statusLabels[order.status ?? "Draft"]}
                         </Text>
                     </View>
-
-                    <Button
-                        text="Sales sheet"
-                        icon="fa-solid fa-file-lines"
-                        onClick={() =>
-                            router.push({
-                                pathname: "/receipt/[orderId]",
-                                params: { orderId: String(order.id) },
-                            })
-                        }
-                        className="min-h-[44px] px-3 text-sm"
-                    />
-                    {isAdmin && (order.status === "Completed" || order.status === "AwaitingCheckout") && (
-                        <Button
-                            text="Reopen"
-                            icon="fa-solid fa-arrow-rotate-left"
-                            onClick={() => setReopening(order)}
-                            className="min-h-[44px] bg-amber-600 px-3 text-sm dark:bg-amber-600"
-                        />
-                    )}
-                    {isSystemAdmin && (
-                        <Pressable
-                            onPress={() => setRemoving(order)}
-                            accessibilityRole="button"
-                            accessibilityLabel="Delete order permanently"
-                            className="h-11 w-11 items-center justify-center rounded-lg active:bg-red-100 dark:active:bg-red-950/40"
-                        >
-                            <Icon icon="fa-solid fa-trash" className="text-red-700 dark:text-red-400" />
-                        </Pressable>
-                    )}
                 </View>
-            </View>
+
+                <Icon icon="fa-solid fa-chevron-right" className="text-xs text-zinc-400" />
+            </SwipeRow>
         );
     };
 

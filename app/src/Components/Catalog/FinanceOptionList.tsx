@@ -3,8 +3,10 @@ import { View } from "react-native";
 import Button from "../Elements/Button";
 import Checkbox from "../Elements/Checkbox";
 import ConfirmationModal from "../Elements/ConfirmationModal";
-import IconButton from "../Elements/IconButton";
+import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
+import SortableList from "../Elements/SortableList";
+import SwipeRow from "../Elements/SwipeRow";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
 import { Toast } from "../../Lib/Toast";
@@ -70,7 +72,8 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                 financing number, when a sale is financed; both print in the sales sheet&apos;s
                 comments. Whether checkout can also pick{" "}
                 <Text className="text-sm font-bold">Other</Text> and type one in is set under
-                Settings.
+                Settings. Tap an option to edit it, swipe it to the left to delete it, or hold it and
+                drag it to change the order.
             </Text>
 
             {options.length === 0 && (
@@ -81,11 +84,29 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                 </View>
             )}
 
-            <View className="gap-2">
-                {options.map((option, index) => (
-                    <View
-                        key={option.id}
-                        className="flex-row flex-wrap items-center gap-2 rounded-xl bg-white p-3 raised-sm dark:bg-zinc-800"
+            <SortableList
+                data={options}
+                keyExtractor={(option) => String(option.id)}
+                onReorder={(reordered) => onReorder(reordered.map((o) => o.id ?? 0))}
+                renderItem={(option, index) => (
+                    <SwipeRow
+                        onPress={() => open(option)}
+                        actions={[
+                            {
+                                label: "Delete",
+                                icon: "fa-solid fa-trash",
+                                tone: "danger",
+                                onPress: () => setDeleting(option),
+                            },
+                        ]}
+                        accessibilityOnlyActions={[
+                            ...(index > 0 ? [{ label: "Move up", onPress: () => move(index, -1) }] : []),
+                            ...(index < options.length - 1
+                                ? [{ label: "Move down", onPress: () => move(index, 1) }]
+                                : []),
+                        ]}
+                        accessibilityLabel={option.name ?? ""}
+                        className="flex-row items-center gap-3 p-3"
                     >
                         <View className="min-w-0 flex-1">
                             <Text className="font-semibold">{option.name}</Text>
@@ -95,34 +116,10 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                                 </Text>
                             )}
                         </View>
-
-                        <IconButton
-                            icon="fa-solid fa-arrow-up"
-                            label="Move up"
-                            onPress={() => move(index, -1)}
-                            disabled={index === 0}
-                        />
-                        <IconButton
-                            icon="fa-solid fa-arrow-down"
-                            label="Move down"
-                            onPress={() => move(index, 1)}
-                            disabled={index === options.length - 1}
-                        />
-                        <Button
-                            text="Edit"
-                            icon="fa-solid fa-pen"
-                            onClick={() => open(option)}
-                            className="min-h-[40px] bg-zinc-500 px-3 text-sm dark:bg-zinc-600"
-                        />
-                        <IconButton
-                            icon="fa-solid fa-trash"
-                            label="Delete option"
-                            onPress={() => setDeleting(option)}
-                            danger
-                        />
-                    </View>
-                ))}
-            </View>
+                        <Icon icon="fa-solid fa-chevron-right" className="text-xs text-zinc-400" />
+                    </SwipeRow>
+                )}
+            />
 
             {editing && (
                 <Modal

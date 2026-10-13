@@ -6,8 +6,10 @@ import Button from "../Elements/Button";
 import Checkbox from "../Elements/Checkbox";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Grid, { Cell } from "../Elements/Grid";
-import IconButton from "../Elements/IconButton";
+import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
+import SortableList from "../Elements/SortableList";
+import SwipeRow from "../Elements/SwipeRow";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
 import { FormatCurrency, ParseMoney } from "../../Lib/ModelHelpers";
@@ -29,8 +31,8 @@ const meta = "text-xs text-zinc-500 dark:text-zinc-400";
 
 /**
  * The shared catalog of delivery methods and in-home services. Products pick from this list, so
- * adding White Glove here makes it available to attach anywhere. The arrows set the order the
- * sales floor offers them in.
+ * adding White Glove here makes it available to attach anywhere. Holding one and dragging it
+ * sets the order the sales floor offers them in.
  */
 const DeliveryOptionList = ({
     options,
@@ -111,15 +113,38 @@ const DeliveryOptionList = ({
                 />
             </View>
 
-            <View className="gap-2">
-                {options.map((option, index) => {
+            <Text className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
+                Tap an option to edit it, or swipe it to the left to delete it. Hold one and drag it
+                to change the order the sales floor sees them in.
+            </Text>
+
+            <SortableList
+                data={options}
+                keyExtractor={(option) => String(option.id)}
+                onReorder={(reordered) => onReorder(reordered.map((o) => o.id ?? 0))}
+                renderItem={(option, index) => {
                     const off = CleanDiscount(option.saleDiscountPercent, option.saleDiscountAmount);
                     return (
-                        <View
-                            key={option.id}
-                            className="flex-row flex-wrap items-center gap-3 rounded-xl bg-white p-3 raised-sm dark:bg-zinc-800"
+                        <SwipeRow
+                            onPress={() => open(option)}
+                            actions={[
+                                {
+                                    label: "Delete",
+                                    icon: "fa-solid fa-trash",
+                                    tone: "danger",
+                                    onPress: () => setDeleting(option),
+                                },
+                            ]}
+                            accessibilityOnlyActions={[
+                                ...(index > 0 ? [{ label: "Move up", onPress: () => move(index, -1) }] : []),
+                                ...(index < options.length - 1
+                                    ? [{ label: "Move down", onPress: () => move(index, 1) }]
+                                    : []),
+                            ]}
+                            accessibilityLabel={`${option.name}, ${FormatCurrency(option.price)}`}
+                            className="flex-row items-center gap-3 p-3"
                         >
-                            <View className="min-w-[160px] flex-1">
+                            <View className="min-w-0 flex-1">
                                 <Text className="font-semibold">{option.name}</Text>
                                 <View className="flex-row flex-wrap items-center gap-x-2">
                                     <Text className={meta}>{FormatCurrency(option.price)}</Text>
@@ -144,37 +169,11 @@ const DeliveryOptionList = ({
                                     )}
                                 </View>
                             </View>
-
-                            <View className="flex-row items-center gap-1">
-                                <IconButton
-                                    icon="fa-solid fa-arrow-up"
-                                    label="Move up"
-                                    onPress={() => move(index, -1)}
-                                    disabled={index === 0}
-                                />
-                                <IconButton
-                                    icon="fa-solid fa-arrow-down"
-                                    label="Move down"
-                                    onPress={() => move(index, 1)}
-                                    disabled={index === options.length - 1}
-                                />
-                                <Button
-                                    text="Edit"
-                                    icon="fa-solid fa-pen"
-                                    onClick={() => open(option)}
-                                    className="min-h-[40px] bg-zinc-500 px-3 text-sm dark:bg-zinc-600"
-                                />
-                                <IconButton
-                                    icon="fa-solid fa-trash"
-                                    label="Delete option"
-                                    onPress={() => setDeleting(option)}
-                                    danger
-                                />
-                            </View>
-                        </View>
+                            <Icon icon="fa-solid fa-chevron-right" className="text-xs text-zinc-400" />
+                        </SwipeRow>
                     );
-                })}
-            </View>
+                }}
+            />
 
             {editing && (
                 <Modal
