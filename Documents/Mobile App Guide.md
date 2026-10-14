@@ -221,7 +221,7 @@ The app's identity is set in `app/app.json`:
 | Setting | Value |
 | --- | --- |
 | Name | CFS Sales |
-| iOS bundle ID / Android package | `com.customfundraisingsolutions.cfssales` |
+| iOS bundle ID / Android package | `com.cfsbeds.cfssales` |
 | Icon and splash | `app/assets/images/` |
 
 ---
@@ -236,7 +236,7 @@ TestFlight is Apple's way to hand out an app before, or instead of, the App Stor
    few days; as an individual it is usually same-day.
 2. **Create the app in App Store Connect** (<https://appstoreconnect.apple.com>): **Apps → + → New
    App**. Choose iOS, name it **CFS Sales**, and pick the bundle ID
-   `com.customfundraisingsolutions.cfssales`. If that bundle ID isn't in the list, register it
+   `com.cfsbeds.cfssales`. If that bundle ID isn't in the list, register it
    first under **Certificates, Identifiers & Profiles → Identifiers** on developer.apple.com, or
    run the first build in step 5, which registers it for you. The SKU can be anything, e.g.
    `cfs-sales`. Open the new app's **App Information** page and note its **Apple ID**, a number
@@ -256,7 +256,8 @@ TestFlight is Apple's way to hand out an app before, or instead of, the App Stor
    ```
 
    `init` adds the EAS project's ID to `app/app.json`; commit that change. Then add the app's
-   Apple ID from step 2 to the `production` submit profile in `app/eas.json`:
+   Apple ID from step 2 to the `production` submit profile in `app/eas.json` - not `app.json`,
+   which has no submit settings:
 
    ```json
    "submit": {

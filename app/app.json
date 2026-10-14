@@ -8,7 +8,7 @@
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.customfundraisingsolutions.cfssales",
+      "bundleIdentifier": "com.cfsbeds.cfssales",
       "infoPlist": {
         "NSAppTransportSecurity": {
           "NSAllowsArbitraryLoads": true,
@@ -21,7 +21,7 @@
       }
     },
     "android": {
-      "package": "com.customfundraisingsolutions.cfssales",
+      "package": "com.cfsbeds.cfssales",
       "adaptiveIcon": {
         "backgroundColor": "#18181B",
         "foregroundImage": "./assets/images/android-icon-foreground.png",
