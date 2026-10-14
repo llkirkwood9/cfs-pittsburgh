@@ -1,10 +1,11 @@
 import { useRef } from "react";
 import type { ReactNode } from "react";
-import { Platform, Pressable, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import ReanimatedSwipeable from "react-native-gesture-handler/ReanimatedSwipeable";
 import type { SwipeableMethods } from "react-native-gesture-handler/ReanimatedSwipeable";
 import Icon from "./Icon";
 import Text from "./Text";
+import { useTheme } from "../../Hooks/UseTheme";
 import { cx } from "../../Lib/ClassNames";
 
 export type SwipeAction = {
@@ -66,6 +67,7 @@ const SwipeRow = ({
     variant = "card",
 }: Props) => {
     const isCard = variant === "card";
+    const { isDark } = useTheme();
     // Every action, for the screen reader's actions menu.
     const spoken = [...actions, ...accessibilityOnlyActions];
     const accessibility = {
@@ -100,9 +102,32 @@ const SwipeRow = ({
             accessibilityLabel={accessibilityLabel}
             accessibilityHint={actions.length ? "Swipe left for more actions" : undefined}
             {...accessibility}
-            className={cx("active:opacity-80", inner)}
+            // Wait a moment before showing the press, so a touch that turns into a swipe doesn't
+            // flash it, as iOS lists do.
+            unstable_pressDelay={120}
+            className={inner}
         >
-            {children}
+            {({ pressed }) => (
+                <>
+                    {children}
+                    {/* The press is a shade over the row rather than fading it: a see-through row
+                        would show the buttons behind it as a swipe begins. */}
+                    {pressed && (
+                        <View
+                            pointerEvents="none"
+                            style={[
+                                StyleSheet.absoluteFill,
+                                {
+                                    borderRadius: isCard ? 12 : 0,
+                                    backgroundColor: isDark
+                                        ? "rgba(255, 255, 255, 0.06)"
+                                        : "rgba(0, 0, 0, 0.05)",
+                                },
+                            ]}
+                        />
+                    )}
+                </>
+            )}
         </Pressable>
     ) : (
         <View
