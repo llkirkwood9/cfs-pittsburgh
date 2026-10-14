@@ -11,8 +11,7 @@
       "bundleIdentifier": "com.cfsbeds.cfssales",
       "infoPlist": {
         "NSAppTransportSecurity": {
-          "NSAllowsArbitraryLoads": true,
-          "NSAllowsLocalNetworking": true
+          "NSAllowsArbitraryLoads": true
         },
         "NSLocalNetworkUsageDescription": "The app connects to the CFS server on this network."
       },
