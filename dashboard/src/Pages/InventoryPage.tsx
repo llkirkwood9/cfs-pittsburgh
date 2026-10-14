@@ -451,7 +451,7 @@ const InventoryPage = () => {
                             label="Note (optional)"
                             value={countNote}
                             onChange={setCountNote}
-                            placeholder="e.g. Delivery received, end-of-event count"
+                            placeholder="ex. Delivery received"
                             maxLength={300}
                         />
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">

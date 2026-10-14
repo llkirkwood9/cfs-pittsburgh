@@ -346,7 +346,7 @@ const EditProductForm = ({
                         onChange={setNotes}
                         className="sm:col-span-2"
                         maxLength={500}
-                        placeholder="e.g. Floor model clearance"
+                        placeholder="ex. Sale, warranty info"
                     />
 
                     <div className="sm:col-span-2">

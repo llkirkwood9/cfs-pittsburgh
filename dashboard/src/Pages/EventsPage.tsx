@@ -279,7 +279,7 @@ const EventsPage = () => {
                             value={organization}
                             onChange={setOrganization}
                             maxLength={150}
-                            placeholder="e.g. School Band"
+                            placeholder="ex. School Band"
                             className="sm:col-span-2"
                         />
                         <TextField

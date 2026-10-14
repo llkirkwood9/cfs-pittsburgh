@@ -159,11 +159,6 @@ const EventSheetsPage = () => {
                             {FormatShortDate(saleEvent?.eventDate)} · {orders.length} completed sale
                             {orders.length === 1 ? "" : "s"} · {FormatCurrency(total)}
                         </Text>
-                        <Text className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                            The stat sheet prints first, then each sales sheet on its own page, then
-                            the accessory inventory sheet. Email report sends the same pages as one
-                            PDF.
-                        </Text>
                     </View>
                 </View>
 

@@ -81,7 +81,7 @@ const UpchargeModal = ({ parentLine, line, onSave, onClose }: Props) => {
                         label="Reason"
                         value={reason}
                         onChange={setReason}
-                        placeholder="e.g. Special order - custom firmness"
+                        placeholder="ex. Custom size"
                         maxLength={300}
                         autoFocus
                     />
@@ -98,7 +98,6 @@ const UpchargeModal = ({ parentLine, line, onSave, onClose }: Props) => {
                 {quantity > 1 && valid
                     ? `${FormatCurrency(parsed)} × ${quantity} = ${FormatCurrency(total)}. `
                     : ""}
-                Printed on its own row under the item.{" "}
                 {parentLine.isTaxable === false ? "Not taxed, like the item." : "Taxed, like the item."}
                 {quantity > 1 && " Charged for each one, so it follows the item's quantity."}
             </Text>

@@ -128,9 +128,6 @@ const AddServiceModal = ({ parentLine, options, products = [], onAdd, onClose }:
                     );
                 })}
             </Grid>
-            <Text className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-                To take something off a service, add it, then use Edit on its row.
-            </Text>
         </Modal>
     );
 };

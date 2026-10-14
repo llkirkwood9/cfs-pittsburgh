@@ -292,10 +292,6 @@ const OrderLineList = ({
     if (onReorder && !readOnly) {
         return (
             <View className="gap-2">
-                <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Tap an item to change it. Swipe it to the left to add a service or upcharge or
-                    to remove it, or hold it and drag it to a new place.
-                </Text>
                 <SortableList
                     data={groups}
                     keyExtractor={(group) => String(group[0].id)}

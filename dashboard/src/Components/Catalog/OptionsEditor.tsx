@@ -248,7 +248,7 @@ const OptionsEditor = ({ options, onChange, trackInventory }: Props) => {
                                             })
                                         }
                                         maxLength={50}
-                                        placeholder="Choice, e.g. Gray"
+                                        placeholder="Choice, ex. Gray"
                                         aria-label={`${option.name || "Selection"} choice`}
                                         className={chip}
                                     />

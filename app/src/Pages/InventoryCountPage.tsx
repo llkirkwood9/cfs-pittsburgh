@@ -172,10 +172,6 @@ const InventoryCountPage = () => {
                 <View className="mx-auto max-w-lg items-center p-6">
                     <Icon icon="fa-solid fa-calendar-xmark" className="text-3xl text-zinc-400" />
                     <Text className="mt-3 text-xl font-bold">No active event</Text>
-                    <Text className="mt-1 text-center text-sm text-zinc-600 dark:text-zinc-400">
-                        Shelf counts are saved against the active event. An administrator can
-                        activate one under Events.
-                    </Text>
                     <Button
                         text="Back to inventory"
                         icon="fa-solid fa-arrow-left"

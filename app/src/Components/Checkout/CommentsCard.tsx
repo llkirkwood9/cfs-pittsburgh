@@ -58,7 +58,6 @@ const CommentsCard = ({ order, readOnly = false, onSave }: Props) => {
                     multiline
                     textAlignVertical="top"
                     maxLength={1000}
-                    placeholder="Anything the delivery crew needs to know - printed in the Comments box"
                     placeholderTextColor="#a1a1aa"
                     accessibilityLabel="Comments"
                     style={{ minHeight: 92 }}

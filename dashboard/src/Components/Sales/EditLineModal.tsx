@@ -248,7 +248,7 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
                         label="Note"
                         value={notes}
                         onChange={setNotes}
-                        placeholder="e.g. Floor model - small scuff on the corner"
+                        placeholder="ex. Floor model"
                         className="sm:col-span-2"
                         maxLength={500}
                     />

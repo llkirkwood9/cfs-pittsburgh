@@ -148,11 +148,6 @@ const OptionsEditor = ({ options, onChange, trackInventory }: Props) => {
                     className="min-h-[40px] px-3 text-sm"
                 />
             </View>
-            <Text className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
-                Anything the rep picks besides the size, such as a sheet set&apos;s Color. Each
-                choice can add to the price (or take off, with a minus). The choice prints on the
-                sales sheet with the item.
-            </Text>
 
             {options.length === 0 && (
                 <View className="rounded-xl border-2 border-dashed border-zinc-300 py-4 dark:border-zinc-600">
@@ -233,7 +228,7 @@ const OptionsEditor = ({ options, onChange, trackInventory }: Props) => {
                                             setChoice(option.key, choice.key, { name: value })
                                         }
                                         maxLength={50}
-                                        placeholder="Choice, e.g. Gray"
+                                        placeholder="Choice, ex. Gray"
                                         placeholderTextColor="#a1a1aa"
                                         accessibilityLabel={`${option.name || "Selection"} choice`}
                                         className={cx(chip, "flex-1")}

@@ -227,7 +227,7 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                         value={otherType}
                         onChange={setOtherType}
                         maxLength={100}
-                        placeholder="e.g. 36 months, 9.99% APR"
+                        placeholder="ex. 12 months SAC"
                         className="sm:col-span-2"
                     />
                 )}

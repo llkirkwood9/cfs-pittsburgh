@@ -912,7 +912,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                         label="Note (optional)"
                         value={itemNotes}
                         onChange={setItemNotes}
-                        placeholder="e.g. Floor model - small scuff on the corner"
+                        placeholder="ex. Floor model"
                         maxLength={500}
                     />
                 </div>

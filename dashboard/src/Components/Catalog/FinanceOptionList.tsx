@@ -155,7 +155,7 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                             value={name}
                             onChange={setName}
                             maxLength={100}
-                            placeholder="e.g. 12 months no interest"
+                            placeholder="ex. 12 months SAC"
                         />
                         <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-zinc-100 px-3 dark:bg-zinc-700">
                             <input

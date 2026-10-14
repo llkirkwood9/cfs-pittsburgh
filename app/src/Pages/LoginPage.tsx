@@ -107,13 +107,12 @@ const LoginPage = () => {
                                     value={serverText}
                                     onChange={setServerText}
                                     onSubmit={saveServer}
-                                    placeholder="e.g. 192.168.1.20:8080"
+                                    placeholder="ex. cfs.local:8080"
                                     autoCapitalize="none"
                                     inputMode="email"
                                 />
                                 <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                                    The address of the cart&apos;s server - the same one you type
-                                    into a browser for the dashboard.
+                                    The address of the cart&apos;s server.
                                 </Text>
                                 <View className="flex-row gap-2">
                                     {serverUrl && (

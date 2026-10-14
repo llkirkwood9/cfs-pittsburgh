@@ -67,15 +67,6 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                 />
             </View>
 
-            <Text className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
-                The kinds of financing a customer can choose. Checkout picks one, and enters the
-                financing number, when a sale is financed; both print in the sales sheet&apos;s
-                comments. Whether checkout can also pick{" "}
-                <Text className="text-sm font-bold">Other</Text> and type one in is set under
-                Settings. Tap an option to edit it, swipe it to the left to delete it, or hold it and
-                drag it to change the order.
-            </Text>
-
             {options.length === 0 && (
                 <View className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
                     <Text className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -147,12 +138,9 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                             value={name}
                             onChange={setName}
                             maxLength={100}
-                            placeholder="e.g. 12 months no interest"
+                            placeholder="ex. 12 months SAC"
                         />
                         <Checkbox label="Offered at checkout" checked={isActive} onChange={setIsActive} />
-                        <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                            Renaming an option doesn&apos;t change sales already recorded with it.
-                        </Text>
                     </View>
                 </Modal>
             )}

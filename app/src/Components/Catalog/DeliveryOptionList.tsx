@@ -113,11 +113,6 @@ const DeliveryOptionList = ({
                 />
             </View>
 
-            <Text className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
-                Tap an option to edit it, or swipe it to the left to delete it. Hold one and drag it
-                to change the order the sales floor sees them in.
-            </Text>
-
             <SortableList
                 data={options}
                 keyExtractor={(option) => String(option.id)}

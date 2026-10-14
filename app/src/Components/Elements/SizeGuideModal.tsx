@@ -1,5 +1,4 @@
 import { Image } from "expo-image";
-import { useState } from "react";
 import { Pressable, View, useWindowDimensions } from "react-native";
 import Modal from "./Modal";
 import Text from "./Text";
@@ -26,31 +25,13 @@ const chart = require("../../../assets/images/mattress_sizes.png");
  */
 const SizeGuideModal = ({ onClose }: Props) => {
     const { width } = useWindowDimensions();
-    const [full, setFull] = useState<boolean>(false);
     const sideBySide = width >= 768;
-
-    if (full) {
-        return (
-            <Modal title="Mattress sizes" onClose={() => setFull(false)} wide>
-                <Pressable onPress={() => setFull(false)} accessibilityLabel="Close the full-size chart">
-                    <View className="rounded-xl bg-white p-2">
-                        <Image
-                            source={chart}
-                            contentFit="contain"
-                            style={{ width: "100%", aspectRatio: 1869 / 1999 }}
-                        />
-                    </View>
-                </Pressable>
-            </Modal>
-        );
-    }
 
     return (
         <Modal title="Mattress sizes" onClose={onClose} wide>
             <View className={sideBySide ? "flex-row items-start gap-4" : "gap-4"}>
                 {/* The chart is drawn on white, so it keeps a white card in dark mode too. */}
                 <Pressable
-                    onPress={() => setFull(true)}
                     accessibilityRole="imagebutton"
                     accessibilityLabel="Mattress sizes drawn to scale. Tap to open the chart full size."
                     className={sideBySide ? "flex-[3]" : ""}
@@ -90,8 +71,7 @@ const SizeGuideModal = ({ onClose }: Props) => {
                     ))}
                     <Text className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
                         Inches, width by length. A Split King is two Twin XLs side by side -
-                        together the size of a King (76&quot; x 80&quot;). Tap the chart to see it
-                        full size.
+                        together the size of a King (76&quot; x 80&quot;).
                     </Text>
                 </View>
             </View>

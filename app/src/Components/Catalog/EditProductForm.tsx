@@ -340,7 +340,7 @@ const EditProductForm = ({
                             value={notes}
                             onChange={setNotes}
                             maxLength={500}
-                            placeholder="e.g. Floor model clearance"
+                            placeholder="ex. Sale, warranty info"
                         />
                     </Cell>
                     <Cell span={{ base: 1, sm: 2 }}>
@@ -364,10 +364,7 @@ const EditProductForm = ({
                     </View>
 
                     <Text className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
-                        Leave a price blank to mark it Inquire - the rep will have to key a price in
-                        before that size can be sold. Use Include item to make a size a bundle, such
-                        as a mattress sold with an adjustable base: the included items print as
-                        their own rows on the sales sheet at no extra charge.
+                        Leave a price blank to mark it Inquire - the rep will have to enter a price for that option.
                     </Text>
 
                     <View className="gap-2">
