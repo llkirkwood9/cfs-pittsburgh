@@ -125,10 +125,13 @@ jobs:
           echo "{ \"version\": \"$VERSION\" }" > version.json
 
       # Built on EAS's Macs and submitted to App Store Connect when it finishes; TestFlight
-      # testers get it once Apple has processed it.
+      # testers get it once Apple has processed it. The Apple Team ID lets EAS sign in with the
+      # App Store Connect API key without asking for it (it isn't a secret). There's no "What to
+      # Test" note: EAS only sends one on its Enterprise plan.
       - name: Build and submit to TestFlight
         env:
           COMMIT_MESSAGE: ${{ github.event.head_commit.message || 'Manual release' }}
+          EXPO_APPLE_TEAM_ID: UM4FVJ7P7Y
         run: |
           message=$(printf '%s' "$COMMIT_MESSAGE" | head -n 1)
-          eas build --platform ios --profile production --non-interactive --wait --auto-submit --message "$message" --what-to-test "$message"
+          eas build --platform ios --profile production --non-interactive --wait --auto-submit --message "$message"

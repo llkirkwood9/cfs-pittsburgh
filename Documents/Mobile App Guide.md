@@ -302,8 +302,8 @@ pushed. Both builds run on EAS's servers, so no Mac is needed:
 
 - **Android:** an APK is built and attached to a new **GitHub release**, named after the version
   (e.g. `app-v2026.10.1`).
-- **iOS:** a build is made and sent to **TestFlight**, with the commit message as its "What to
-  Test" note.
+- **iOS:** a build is made and sent to **TestFlight**. EAS only fills in TestFlight's "What to
+  Test" note on its Enterprise plan, so add one in App Store Connect if testers need it.
 
 It can also be started by hand: **Actions → App release → Run workflow**.
 
@@ -311,7 +311,9 @@ It can also be started by hand: **Actions → App release → Run workflow**.
 
 1. Do steps 1-5 of section 5, and commit the `app/app.json` and `app/eas.json` changes. The
    workflow can't answer questions, so the signing credentials and the API key must already be
-   stored on EAS.
+   stored on EAS. If the Apple Developer account changes, also change `EXPO_APPLE_TEAM_ID` in
+   `.github/workflows/app-release.yml` to its Team ID (shown under **Membership details** on
+   developer.apple.com); EAS needs it to use the API key without asking.
 2. Run one Android build by hand too, so EAS creates the Android signing key:
 
    ```bash
