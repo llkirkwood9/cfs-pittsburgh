@@ -13,10 +13,11 @@ import StatCard from "../Components/Elements/StatCard";
 import TabButton from "../Components/Elements/TabButton";
 import Text from "../Components/Elements/Text";
 import { useAuth } from "../Context/AuthContext";
+import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { cx } from "../Lib/ClassNames";
 import { IsOnline } from "../Lib/Connection";
 import { EventsForFilter, FormatCurrency, IsPastEvent } from "../Lib/ModelHelpers";
-import type { DashboardStats } from "../Models/DashboardStats";
+import type { DashboardStats, ProductTally } from "../Models/DashboardStats";
 import type { Event } from "../Models/Event";
 import { GetStatsForAllEvents, GetStatsForEvent } from "../Services/DashboardServices";
 import { GetActiveEvent, GetEvents } from "../Services/EventServices";
@@ -33,6 +34,37 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
         {children}
     </View>
 );
+
+/** Products with the units each sold, in the order given. */
+const ProductRanking = ({ products, empty }: { products: ProductTally[]; empty: string }) =>
+    products.length === 0 ? (
+        <Text className="text-sm text-zinc-500 dark:text-zinc-400">{empty}</Text>
+    ) : (
+        <View className="gap-1">
+            {products.map((product, index) => (
+                <View
+                    key={`${product.description}-${index}`}
+                    className={cx(
+                        "flex-row items-center gap-3 rounded-lg px-2 py-1.5",
+                        index % 2 === 0 && "bg-zinc-50 dark:bg-zinc-700/40"
+                    )}
+                >
+                    <Text className="w-8 text-center text-lg font-bold tabular-nums text-sky-700 dark:text-sky-400">
+                        {product.quantity}
+                    </Text>
+                    <View className="min-w-0 flex-1">
+                        <Text className="text-sm font-medium" numberOfLines={2}>
+                            {product.description}
+                        </Text>
+                        <Text className="text-xs text-zinc-500 dark:text-zinc-400">{product.brand}</Text>
+                    </View>
+                    <Text className="text-sm font-semibold tabular-nums">
+                        {FormatCurrency(product.revenue)}
+                    </Text>
+                </View>
+            ))}
+        </View>
+    );
 
 /**
  * The event's stat sheet, live, or an overview of every event with each one's figures side by
@@ -51,56 +83,67 @@ const DashboardPage = () => {
     const [refreshing, setRefreshing] = useState<boolean>(false);
     const [refreshKey, setRefreshKey] = useState<number>(0);
 
-    const loadStats = useCallback(async (currentScope: "event" | "all", id: number | null) => {
-        const result =
+    // The active event when the page last loaded, so a change of event can be noticed.
+    const [activeId, setActiveId] = useState<number | null | undefined>(undefined);
+
+    const fetchStats = useCallback(
+        (currentScope: "event" | "all", id: number | null) =>
             currentScope === "all"
-                ? await GetStatsForAllEvents()
+                ? GetStatsForAllEvents()
                 : id
-                  ? await GetStatsForEvent(id)
-                  : null;
-        // Keep the last figures up while the server cannot be reached, rather than showing zeros.
-        if (result || IsOnline()) setStats(result);
-    }, []);
+                  ? GetStatsForEvent(id)
+                  : Promise.resolve(null),
+        []
+    );
 
-    useEffect(() => {
-        const load = async () => {
-            setLoading(true);
+    /**
+     * Shows a scope's figures. The scope changes together with its figures, so one scope is never
+     * shown with another's - the overview's net sales lighting up an event's stars.
+     */
+    const show = useCallback(
+        async (nextScope: "event" | "all", id: number | null) => {
+            const result = await fetchStats(nextScope, id);
+            // Keep the last figures up while the server cannot be reached, rather than showing zeros.
+            if (!result && !IsOnline()) return;
+            setScope(nextScope);
+            setEventId(id);
+            setStats(result);
+        },
+        [fetchStats]
+    );
 
+    // Opens on the active event, or the latest one when none is active; the overview stays put.
+    const load = useCallback(
+        async (currentScope: "event" | "all") => {
             const [all, active] = await Promise.all([GetEvents(), GetActiveEvent()]);
             const list = EventsForFilter(all);
             setEvents(list);
-
-            const id = active?.id ?? list[0]?.id ?? null;
-            setEventId(id);
-            await loadStats("event", id);
-
-            setLoading(false);
-        };
-
-        load();
-    }, [loadStats]);
+            setActiveId(active?.id ?? null);
+            await show(currentScope, active?.id ?? list[0]?.id ?? null);
+        },
+        [show]
+    );
 
     useEffect(() => {
-        const timer = setInterval(() => loadStats(scope, eventId), POLL_MS);
+        load("event").finally(() => setLoading(false));
+    }, [load]);
+
+    useActiveEventChange(loading ? undefined : activeId, () => load(scope));
+
+    useEffect(() => {
+        const timer = setInterval(() => show(scope, eventId), POLL_MS);
         return () => clearInterval(timer);
-    }, [scope, eventId, loadStats]);
+    }, [scope, eventId, show]);
 
     if (!user) return <Redirect href="/unauthorized" />;
 
-    const switchScope = async (next: "event" | "all") => {
-        setScope(next);
-        await loadStats(next, eventId);
-    };
+    const switchScope = (next: "event" | "all") => show(next, eventId);
 
-    const switchEvent = async (id: number) => {
-        setEventId(id);
-        setScope("event");
-        await loadStats("event", id);
-    };
+    const switchEvent = (id: number) => show("event", id);
 
     const handleRefresh = async () => {
         setRefreshing(true);
-        await loadStats(scope, eventId);
+        await show(scope, eventId);
         setRefreshKey((k) => k + 1);
         setRefreshing(false);
     };
@@ -174,7 +217,7 @@ const DashboardPage = () => {
                     label="Net sales"
                     value={FormatCurrency(stats?.netSales)}
                     // Milestone stars are an event's goal; they mean nothing summed across events.
-                    badge={scope === "event" ? <SalesStars net={stats?.netSales ?? 0} /> : undefined}
+                    badge={scope === "event" && stats?.eventId ? <SalesStars net={stats?.netSales ?? 0} /> : undefined}
                     sublabel="Product revenue before tax"
                     icon="fa-solid fa-receipt"
                     accent="sky"
@@ -273,35 +316,16 @@ const DashboardPage = () => {
             )}
 
             <Section title="Best sellers">
-                {(stats?.topProducts ?? []).length === 0 ? (
-                    <Text className="text-sm text-zinc-500 dark:text-zinc-400">No sales yet.</Text>
-                ) : (
-                    <View className="gap-1">
-                        {(stats?.topProducts ?? []).map((product, index) => (
-                            <View
-                                key={`${product.description}-${index}`}
-                                className={cx(
-                                    "flex-row items-center gap-3 rounded-lg px-2 py-1.5",
-                                    index % 2 === 0 && "bg-zinc-50 dark:bg-zinc-700/40"
-                                )}
-                            >
-                                <Text className="w-8 text-center text-lg font-bold tabular-nums text-sky-700 dark:text-sky-400">
-                                    {product.quantity}
-                                </Text>
-                                <View className="min-w-0 flex-1">
-                                    <Text className="text-sm font-medium" numberOfLines={2}>
-                                        {product.description}
-                                    </Text>
-                                    <Text className="text-xs text-zinc-500 dark:text-zinc-400">{product.brand}</Text>
-                                </View>
-                                <Text className="text-sm font-semibold tabular-nums">
-                                    {FormatCurrency(product.revenue)}
-                                </Text>
-                            </View>
-                        ))}
-                    </View>
-                )}
+                <ProductRanking products={stats?.topProducts ?? []} empty="No sales yet." />
             </Section>
+
+            {scope === "all" && (
+                <View className="mt-4">
+                    <Section title="Worst sellers">
+                        <ProductRanking products={stats?.worstProducts ?? []} empty="No products yet." />
+                    </Section>
+                </View>
+            )}
         </Page>
     );
 };

@@ -8,9 +8,9 @@ import { HomePathForRole } from "../Lib/RoleRoutes";
  * than dropping everyone on the sales floor.
  */
 const HomeRedirect = () => {
-    const { user, loading } = useAuth();
+    const { user, loading, logout } = useAuth();
 
-    if (loading) return <LoadingPage />;
+    if (loading) return <LoadingPage onSignOut={logout} />;
     if (!user) return <Redirect href="/login" />;
 
     return <Redirect href={HomePathForRole(user.role)} />;

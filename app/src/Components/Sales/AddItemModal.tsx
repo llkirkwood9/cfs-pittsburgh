@@ -825,10 +825,6 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                     <Text className="text-sm font-semibold">{FormatCurrency(shipSalePrice)}</Text>
                                 </Text>
                             )}
-                            <Text className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                                Need a second service, such as White Glove plus Haul Away? Add the
-                                item, then use Add service on the line.
-                            </Text>
                         </View>
                     )}
 

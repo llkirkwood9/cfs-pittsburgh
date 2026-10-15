@@ -186,6 +186,12 @@ namespace api.Dtos
         public List<ProductTallyDto>? TopProducts { get; set; }
 
         /// <summary>
+        /// The catalog's products that have sold the fewest units, fewest first, including any
+        /// never sold. Only filled in for the overview of every event.
+        /// </summary>
+        public List<ProductTallyDto>? WorstProducts { get; set; }
+
+        /// <summary>
         /// Completed sales per rep
         /// </summary>
         public List<RepTallyDto>? RepTotals { get; set; }

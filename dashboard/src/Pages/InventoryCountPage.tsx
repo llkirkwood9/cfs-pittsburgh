@@ -24,7 +24,7 @@ type Phase = "start" | "end";
 const copy: Record<Phase, { title: string; intro: string; saved: string }> = {
     start: {
         title: "Start-of-event count",
-        intro: "Count what is on the shelf before the doors open, including anything delivered today.",
+        intro: "Count what is on the shelf before the doors open.",
         saved: "Start-of-event count saved",
     },
     end: {
@@ -162,8 +162,7 @@ const InventoryCountPage = () => {
                 <Icon icon="fa-solid fa-calendar-xmark" className="text-3xl text-zinc-400" />
                 <h1 className="mt-3 text-xl font-bold">No active event</h1>
                 <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                    Shelf counts are saved against the active event. An administrator can activate
-                    one under Events.
+                    An administrator can activate one under Events.
                 </p>
                 <Button
                     text="Back to inventory"
@@ -197,9 +196,7 @@ const InventoryCountPage = () => {
                 </div>
             </div>
             <p className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
-                {saleEvent.organization}. {text.intro} Tap{" "}
-                <span className="font-semibold">Matches</span> when the shelf agrees with the app.
-                Leave a size blank to skip it.
+                {saleEvent.organization}. {text.intro} Leave a size blank to skip it.
             </p>
 
             <div className="space-y-6">

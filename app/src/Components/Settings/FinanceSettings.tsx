@@ -42,7 +42,7 @@ const FinanceSettings = ({ onLayout }: Props) => {
             id="financing"
             title="Financing"
             icon="fa-solid fa-file-invoice-dollar"
-            description="How checkout records the type of financing. The financing options themselves are kept in Catalog, under Financing Options."
+            description="How checkout records the type of financing."
             status={
                 settings.allowOtherFinanceType
                     ? "Checkout can pick Other and type a financing type in."
@@ -66,7 +66,6 @@ const FinanceSettings = ({ onLayout }: Props) => {
         >
             <Checkbox
                 label="Offer “Other” at checkout"
-                hint="Adds Other to the end of the financing type list, so checkout can type in a kind of financing that isn't one of the financing options. Turn it off to allow only the financing options."
                 checked={allowOther}
                 onChange={setAllowOther}
             />

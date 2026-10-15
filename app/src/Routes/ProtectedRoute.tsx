@@ -14,9 +14,9 @@ type Props = {
  * screen and anyone lacking the required role to the unauthorized screen.
  */
 const ProtectedRoute = ({ children, roles }: Props) => {
-    const { user, loading, hasRole } = useAuth();
+    const { user, loading, hasRole, logout } = useAuth();
 
-    if (loading) return <LoadingPage />;
+    if (loading) return <LoadingPage onSignOut={logout} />;
     if (!user) return <Redirect href="/login" />;
     if (roles && !hasRole(...roles)) return <Redirect href="/unauthorized" />;
 

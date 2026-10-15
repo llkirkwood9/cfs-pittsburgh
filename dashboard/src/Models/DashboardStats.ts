@@ -64,6 +64,8 @@ export type DashboardStats = {
     /** Each completed sale's time and total, for the sales-by-hour chart. */
     sales?: SaleMoment[];
     topProducts?: ProductTally[];
+    /** The catalog's products that have sold the fewest units, fewest first. All events only. */
+    worstProducts?: ProductTally[];
     repTotals?: RepTally[];
     /** Each event's headline figures, newest first; only in the overview of every event. */
     events?: EventTally[];

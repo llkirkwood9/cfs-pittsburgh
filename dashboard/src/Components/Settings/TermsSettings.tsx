@@ -82,7 +82,7 @@ const TermsSettings = () => {
             id="terms"
             title="Sales sheet terms"
             icon="fa-solid fa-file-signature"
-            description="The statements customers initial. Each paragraph prints on the sales sheet beside its INITIAL line, and the customer reads the same words on their initialling screen."
+            description="The statements customers initial."
             status={isDefault ? "Using the paper form's wording." : "Using your own wording."}
             dirty={dirty}
             saving={saving}
@@ -93,11 +93,8 @@ const TermsSettings = () => {
             <p className="mb-3 flex items-start gap-2 rounded-lg bg-sky-50 p-3 text-sm text-sky-900 dark:bg-sky-950/40 dark:text-sky-100">
                 <Icon icon="fa-solid fa-circle-info" className="mt-0.5" />
                 <span>
-                    Put <code className="font-mono">**two stars**</code> around words to make them{" "}
-                    <strong>bold</strong>, and{" "}
-                    <code className="font-mono">__two underscores__</code> to <u>underline</u> them.
-                    Completed sales keep the wording the customer initialled, so changing it here
-                    never changes a sheet already signed.
+                    <code className="font-mono">**two stars**</code> for <strong>bold</strong>,{" "}
+                    <code className="font-mono">__two underscores__</code> to <u>underline</u>.
                 </span>
             </p>
 
@@ -130,10 +127,6 @@ const TermsSettings = () => {
                                         maxLength={MAX_HEADING}
                                         placeholder="None"
                                     />
-                                    <p className={`mt-1 ${hint}`}>
-                                        Printed bold and underlined before the paragraph. Leave
-                                        blank for none.
-                                    </p>
                                 </div>
                             </div>
                             <label className="mt-3 flex flex-col gap-1">

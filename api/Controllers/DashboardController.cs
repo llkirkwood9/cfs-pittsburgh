@@ -91,6 +91,7 @@ namespace api.Controllers
                         };
                     })
                     .ToList();
+                stats.WorstProducts = await WorstSellersAsync(DB, orders);
 
                 return Ok(stats);
             }
@@ -115,6 +116,55 @@ namespace api.Controllers
             ApplicationDbContext db,
             System.Linq.Expressions.Expression<Func<Order, bool>> filter) =>
             ComputeStats(await LoadOrdersAsync(db, filter));
+
+        /// <summary>
+        /// The products in the catalog that have sold the fewest units in completed sales, fewest
+        /// first, including any that have never sold. An item that comes in a set counts as sold,
+        /// so a base that only ever goes out with a mattress is not listed as unpopular.
+        /// </summary>
+        /// <param name="db">EF context</param>
+        /// <param name="orders">The orders to report on, with their lines</param>
+        /// <param name="count">How many to list</param>
+        /// <returns>The worst sellers.</returns>
+        private static async Task<List<ProductTallyDto>> WorstSellersAsync(
+            ApplicationDbContext db,
+            List<Order> orders,
+            int count = 10)
+        {
+            var products = await db.Products
+                .AsNoTracking()
+                .Where(p => p.IsActive)
+                .Select(p => new { p.Id, p.Name, p.Brand, p.Category, VariantIds = p.Variants.Select(v => v.Id).ToList() })
+                .ToListAsync();
+
+            var sold = orders
+                .Where(o => o.Status == OrderStatus.Completed)
+                .SelectMany(o => o.Lines)
+                .Where(l => l.ProductVariantId != null
+                            && l.LineType is not (OrderLineType.Delivery or OrderLineType.Upcharge))
+                .GroupBy(l => l.ProductVariantId!.Value)
+                .ToDictionary(g => g.Key, g => (Quantity: g.Sum(l => l.Quantity), Revenue: g.Sum(l => l.LineTotal)));
+
+            return products
+                .Select(p =>
+                {
+                    var tallies = p.VariantIds.Where(sold.ContainsKey).Select(id => sold[id]).ToList();
+                    return new ProductTallyDto
+                    {
+                        Description = p.Name,
+                        Brand = p.Brand,
+                        Category = p.Category.ToString(),
+                        Quantity = tallies.Sum(t => t.Quantity),
+                        Revenue = Math.Round(tallies.Sum(t => t.Revenue), 2),
+                    };
+                })
+                .OrderBy(p => p.Quantity)
+                .ThenBy(p => p.Revenue)
+                .ThenBy(p => p.Brand)
+                .ThenBy(p => p.Description)
+                .Take(count)
+                .ToList();
+        }
 
         /// <summary>
         /// Loads the orders matching a filter, with their lines and payments.

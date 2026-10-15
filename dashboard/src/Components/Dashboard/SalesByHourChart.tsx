@@ -106,7 +106,7 @@ const SalesByHourChart = ({ sales }: Props) => {
 
             {buckets.length === 0 ? (
                 <p className="py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
-                    No completed sales yet. Bars appear here as checkout completes orders.
+                    No completed sales yet.
                 </p>
             ) : (
                 <>

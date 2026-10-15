@@ -12,9 +12,9 @@ import { useAuth } from "../../Context/AuthContext";
  * bar only appears once someone is signed in, and signing out leaves it.
  */
 export default function TabsLayout() {
-    const { user, loading, hasRole } = useAuth();
+    const { user, loading, hasRole, logout } = useAuth();
 
-    if (loading) return <LoadingPage />;
+    if (loading) return <LoadingPage onSignOut={logout} />;
     if (!user) return <Redirect href="/login" />;
 
     return (

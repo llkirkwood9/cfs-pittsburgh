@@ -82,8 +82,7 @@ const ChangePinModal = ({ onClose }: Props) => {
                     inputMode="numeric"
                 />
                 <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                    Forgotten your current PIN? An administrator can set a new one for you on the
-                    Crew screen.
+                    Forgot it? An administrator can reset it.
                 </Text>
             </View>
         </Modal>

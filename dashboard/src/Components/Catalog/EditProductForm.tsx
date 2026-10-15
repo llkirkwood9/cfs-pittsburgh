@@ -332,11 +332,6 @@ const EditProductForm = ({
                         />
                         <span className="text-sm">
                             <span className="font-medium">Track inventory</span>
-                            <span className="block text-xs text-zinc-500 dark:text-zinc-400">
-                                For items kept at the cart, such as pillows and protectors. Take
-                                With is only allowed while a size is in stock. Set the counts on the
-                                Inventory screen. A size can be left out below.
-                            </span>
                         </span>
                     </label>
 
@@ -351,10 +346,6 @@ const EditProductForm = ({
 
                     <div className="sm:col-span-2">
                         <SaleEditor label="Sale on every size" draft={sale} onChange={setSale} />
-                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                            Taken off when the item goes on an order; a size can set its own sale
-                            below. Items already on orders keep the price they were added at.
-                        </p>
                     </div>
                 </div>
 
@@ -372,10 +363,7 @@ const EditProductForm = ({
                     </div>
 
                     <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
-                        Leave a price blank to mark it Inquire - the rep will have to key a price in
-                        before that size can be sold. Use Include item to make a size a bundle, such
-                        as a mattress sold with an adjustable base: the included items print as
-                        their own rows on the sales sheet at no extra charge.
+                        Leave a price blank for Inquire.
                     </p>
 
                     <ul className="space-y-2">
@@ -444,11 +432,6 @@ const EditProductForm = ({
                                         />
                                         <span className="text-sm">
                                             <span className="font-medium">Count in inventory</span>
-                                            <span className="block text-xs text-zinc-500 dark:text-zinc-400">
-                                                Untick for a size that isn&apos;t kept at the cart.
-                                                It won&apos;t be counted or shown on the Inventory
-                                                screen, and Take With isn&apos;t limited by stock.
-                                            </span>
                                         </span>
                                     </label>
                                 )}

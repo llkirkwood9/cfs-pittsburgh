@@ -147,7 +147,7 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
             id="receipt-email"
             title="Receipt email"
             icon="fa-solid fa-envelope"
-            description="The message customers get when their receipt is emailed. The receipt itself is attached as a PDF."
+            description="The message sent with an emailed receipt."
             badge={
                 <View
                     className={cx(
@@ -281,9 +281,8 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
                                 {[
                                     "Leave a blank line between paragraphs.",
                                     'Start lines with "- " to make a bulleted list.',
-                                    "Placeholders in curly braces are filled in for each order, in the subject as well as the message. Tap one above to add it where the cursor is.",
-                                    'Put {WhatHappensNext} on a line of its own for the "What happens next" list. It only lists what applies to that order, and disappears when nothing does.',
-                                    "The company name and phone number come from Business details above.",
+                                    "Tap a placeholder above to add it.",
+                                    "Put {WhatHappensNext} on its own line for the next steps.",
                                 ].map((line) => (
                                     <Text key={line} className="text-sm text-zinc-700 dark:text-zinc-300">
                                         • {line}

@@ -12,13 +12,57 @@ import TabButton from "../Components/Elements/TabButton";
 import { useAuth } from "../Context/AuthContext";
 import { EventsForFilter, FormatCurrency, IsPastEvent } from "../Lib/ModelHelpers";
 import { IsOnline } from "../Lib/Connection";
-import type { DashboardStats } from "../Models/DashboardStats";
+import type { DashboardStats, ProductTally } from "../Models/DashboardStats";
 import type { Event } from "../Models/Event";
 import { GetStatsForAllEvents, GetStatsForEvent } from "../Services/DashboardServices";
 import { GetActiveEvent, GetEvents } from "../Services/EventServices";
 
 /** How often the figures refresh while the page is open. */
 const POLL_MS = 15000;
+
+/** A titled list of products with the units each sold, in the order given. */
+const ProductRanking = ({
+    title,
+    products,
+    empty,
+}: {
+    title: string;
+    products: ProductTally[];
+    empty: string;
+}) => (
+    <section className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
+        <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+            {title}
+        </h2>
+        {products.length === 0 ? (
+            <p className="text-sm text-zinc-500 dark:text-zinc-400">{empty}</p>
+        ) : (
+            <ul className="space-y-1">
+                {products.map((product, index) => (
+                    <li
+                        key={`${product.description}-${index}`}
+                        className="flex items-center gap-3 rounded-lg px-2 py-1.5 odd:bg-zinc-50 dark:odd:bg-zinc-700/40"
+                    >
+                        <span className="w-8 shrink-0 text-center text-lg font-bold tabular-nums text-sky-700 dark:text-sky-400">
+                            {product.quantity}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                            <span className="line-clamp-2 block text-sm font-medium">
+                                {product.description}
+                            </span>
+                            <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                                {product.brand}
+                            </span>
+                        </span>
+                        <span className="shrink-0 text-sm font-semibold tabular-nums">
+                            {FormatCurrency(product.revenue)}
+                        </span>
+                    </li>
+                ))}
+            </ul>
+        )}
+    </section>
+);
 
 /**
  * The event's stat sheet, live, or an overview of every event with each one's figures side by
@@ -34,15 +78,22 @@ const DashboardPage = () => {
     const [stats, setStats] = useState<DashboardStats | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
 
-    const loadStats = useCallback(async (currentScope: "event" | "all", id: number | null) => {
+    /**
+     * Shows a scope's figures. The scope changes together with its figures, so one scope is never
+     * shown with another's - the overview's net sales lighting up an event's stars.
+     */
+    const show = useCallback(async (nextScope: "event" | "all", id: number | null) => {
         const result =
-            currentScope === "all"
+            nextScope === "all"
                 ? await GetStatsForAllEvents()
                 : id
                   ? await GetStatsForEvent(id)
                   : null;
         // Keep the last figures up while the server cannot be reached, rather than showing zeros.
-        if (result || IsOnline()) setStats(result);
+        if (!result && !IsOnline()) return;
+        setScope(nextScope);
+        setEventId(id);
+        setStats(result);
     }, []);
 
     useEffect(() => {
@@ -53,33 +104,24 @@ const DashboardPage = () => {
             const list = EventsForFilter(all);
             setEvents(list);
 
-            const id = active?.id ?? list[0]?.id ?? null;
-            setEventId(id);
-            await loadStats("event", id);
+            await show("event", active?.id ?? list[0]?.id ?? null);
 
             setLoading(false);
         };
 
         load();
-    }, [loadStats]);
+    }, [show]);
 
     useEffect(() => {
-        const timer = setInterval(() => loadStats(scope, eventId), POLL_MS);
+        const timer = setInterval(() => show(scope, eventId), POLL_MS);
         return () => clearInterval(timer);
-    }, [scope, eventId, loadStats]);
+    }, [scope, eventId, show]);
 
     if (!user) return <Navigate to="/unauthorized" replace />;
 
-    const switchScope = async (next: "event" | "all") => {
-        setScope(next);
-        await loadStats(next, eventId);
-    };
+    const switchScope = (next: "event" | "all") => show(next, eventId);
 
-    const switchEvent = async (id: number) => {
-        setEventId(id);
-        setScope("event");
-        await loadStats("event", id);
-    };
+    const switchEvent = (id: number) => show("event", id);
 
     if (loading) {
         return (
@@ -127,7 +169,7 @@ const DashboardPage = () => {
                 <Button
                     text="Refresh"
                     icon="fa-solid fa-rotate"
-                    onClick={() => loadStats(scope, eventId)}
+                    onClick={() => show(scope, eventId)}
                     className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                 />
             </div>
@@ -162,7 +204,9 @@ const DashboardPage = () => {
                     value={FormatCurrency(stats?.netSales)}
                     // Milestone stars are an event's goal; they mean nothing summed across events.
                     badge={
-                        scope === "event" ? <SalesStars net={stats?.netSales ?? 0} /> : undefined
+                        scope === "event" && stats?.eventId ? (
+                            <SalesStars net={stats?.netSales ?? 0} />
+                        ) : undefined
                     }
                     sublabel="Product revenue before tax"
                     icon="fa-solid fa-receipt"
@@ -271,39 +315,19 @@ const DashboardPage = () => {
                 </div>
             )}
 
-            <div className="grid grid-cols-1 gap-4">
-                <section className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
-                    <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                        Best sellers
-                    </h2>
-                    {(stats?.topProducts ?? []).length === 0 ? (
-                        <p className="text-sm text-zinc-500 dark:text-zinc-400">No sales yet.</p>
-                    ) : (
-                        <ul className="space-y-1">
-                            {(stats?.topProducts ?? []).map((product, index) => (
-                                <li
-                                    key={`${product.description}-${index}`}
-                                    className="flex items-center gap-3 rounded-lg px-2 py-1.5 odd:bg-zinc-50 dark:odd:bg-zinc-700/40"
-                                >
-                                    <span className="w-8 shrink-0 text-center text-lg font-bold tabular-nums text-sky-700 dark:text-sky-400">
-                                        {product.quantity}
-                                    </span>
-                                    <span className="min-w-0 flex-1">
-                                        <span className="line-clamp-2 block text-sm font-medium">
-                                            {product.description}
-                                        </span>
-                                        <span className="block text-xs text-zinc-500 dark:text-zinc-400">
-                                            {product.brand}
-                                        </span>
-                                    </span>
-                                    <span className="shrink-0 text-sm font-semibold tabular-nums">
-                                        {FormatCurrency(product.revenue)}
-                                    </span>
-                                </li>
-                            ))}
-                        </ul>
-                    )}
-                </section>
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+                <ProductRanking
+                    title="Best sellers"
+                    products={stats?.topProducts ?? []}
+                    empty="No sales yet."
+                />
+                {scope === "all" && (
+                    <ProductRanking
+                        title="Worst sellers"
+                        products={stats?.worstProducts ?? []}
+                        empty="No products yet."
+                    />
+                )}
             </div>
         </div>
     );

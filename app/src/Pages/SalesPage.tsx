@@ -19,6 +19,7 @@ import OrderLineList from "../Components/Sales/OrderLineList";
 import OrderTotals from "../Components/Sales/OrderTotals";
 import UpchargeModal from "../Components/Sales/UpchargeModal";
 import { useAuth } from "../Context/AuthContext";
+import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { useBreakpoint } from "../Hooks/UseBreakpoint";
 import { FormatCurrency } from "../Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
@@ -89,6 +90,9 @@ const SalesPage = () => {
     const load = useCallback(async () => {
         const active = await GetActiveEvent();
         setSaleEvent(active);
+        // Drafts belong to their event, so a different event starts from its own.
+        setDrafts([]);
+        setOrder(null);
 
         if (!active?.id) return;
 
@@ -114,17 +118,21 @@ const SalesPage = () => {
         load().finally(() => setLoading(false));
     }, [load]);
 
+    const checkActiveEvent = useActiveEventChange(loading ? undefined : (saleEvent?.id ?? null), load);
+
     if (!user) return <Redirect href="/unauthorized" />;
 
-    // Pull down to pick up drafts started on another tablet and fresh stock counts.
+    // Pull down to pick up drafts started on another device and fresh stock counts.
     const handleRefresh = async () => {
         setRefreshing(true);
-        if (saleEvent?.id) {
+        // A change of active event reloads everything; otherwise just the drafts and stock.
+        const switched = await checkActiveEvent();
+        if (!switched && saleEvent?.id) {
             const [list, catalog] = await Promise.all([refreshDrafts(saleEvent.id), GetProducts()]);
             if (catalog.length) setProducts(catalog);
             const keep = order?.id && list.some((d) => d.id === order.id) ? order.id : list[0]?.id;
             setOrder(keep ? await GetOrder(keep) : null);
-        } else {
+        } else if (!switched) {
             await load();
         }
         setRefreshing(false);
@@ -232,10 +240,7 @@ const SalesPage = () => {
                 <View className="mx-auto max-w-lg items-center p-6">
                     <Icon icon="fa-solid fa-calendar-xmark" className="text-3xl text-zinc-400" />
                     <Text className="mt-3 text-xl font-bold">No active event</Text>
-                    <Text className="mt-1 text-center text-sm text-zinc-600 dark:text-zinc-400">
-                        New orders can only be taken while an event is active. An administrator
-                        can activate one under Events.
-                    </Text>
+                    <Text className="mt-1 text-center text-sm text-zinc-600 dark:text-zinc-400">An administrator can activate one under Events.</Text>
                 </View>
             </Page>
         );
@@ -276,7 +281,7 @@ const SalesPage = () => {
     const customerPane = order && (
         <View key="customer" className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
             <Button
-                text="Hand tablet to customer"
+                text="Hand device to customer"
                 icon="fa-solid fa-hand-holding-heart"
                 onClick={() => setShowCustomerSheet(true)}
                 className="mb-4 w-full"

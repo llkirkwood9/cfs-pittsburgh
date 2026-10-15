@@ -214,7 +214,7 @@ const InventoryPage = () => {
                         &middot; {outOfStock} size{outOfStock === 1 ? "" : "s"} out of stock
                     </span>
                 )}
-                . Take With sales come off automatically when checkout completes the order.
+                .
             </p>
 
             {items.length > 0 && (

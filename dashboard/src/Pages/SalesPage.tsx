@@ -218,8 +218,7 @@ const SalesPage = () => {
                 <Icon icon="fa-solid fa-calendar-xmark" className="text-3xl text-zinc-400" />
                 <h1 className="mt-3 text-xl font-bold">No active event</h1>
                 <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                    New orders can only be taken while an event is active. An administrator can
-                    activate one under Events.
+                    An administrator can activate one under Events.
                 </p>
             </div>
         );
@@ -305,7 +304,7 @@ const SalesPage = () => {
                         >
                             <div className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
                                 <Button
-                                    text="Hand tablet to customer"
+                                    text="Hand device to customer"
                                     icon="fa-solid fa-hand-holding-heart"
                                     onClick={() => setShowCustomerSheet(true)}
                                     className="mb-4 w-full"

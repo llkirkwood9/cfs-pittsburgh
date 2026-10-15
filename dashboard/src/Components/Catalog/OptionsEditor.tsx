@@ -144,11 +144,6 @@ const OptionsEditor = ({ options, onChange, trackInventory }: Props) => {
                     className="min-h-[40px] px-3 text-sm"
                 />
             </div>
-            <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
-                Anything the rep picks besides the size, such as a sheet set&apos;s Color. Each
-                choice can add to the price (or take off, with a minus). The choice prints on the
-                sales sheet with the item.
-            </p>
 
             {options.length === 0 && (
                 <p className="rounded-xl border-2 border-dashed border-zinc-300 py-4 text-center text-sm text-zinc-500 dark:border-zinc-600 dark:text-zinc-400">

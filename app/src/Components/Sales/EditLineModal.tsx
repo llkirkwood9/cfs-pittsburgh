@@ -136,9 +136,9 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
                             {choices ? <Text className="text-sm">{choices}</Text> : null}
                             {HasDiscount(sale) && (
                                 <Text className="text-sm">
-                                    On sale at {DiscountText(sale)} off when it was added
+                                    On sale at {DiscountText(sale)} off
                                     {(line.unitPrice ?? 0) > 0 && ` (from ${FormatCurrency(line.unitPrice)})`}
-                                    . Any extra discount comes off the sale price.
+                                    .
                                 </Text>
                             )}
                         </View>

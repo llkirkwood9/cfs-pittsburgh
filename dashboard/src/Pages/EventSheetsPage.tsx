@@ -154,11 +154,6 @@ const EventSheetsPage = () => {
                         sale
                         {orders.length === 1 ? "" : "s"} &middot; {FormatCurrency(total)}
                     </p>
-                    <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                        The stat sheet prints first, then each sales sheet on its own page, then the
-                        accessory inventory sheet. To save a PDF, choose Save as PDF as the printer
-                        - on a tablet the PDF opens in a new tab, to print or share from there.
-                    </p>
                 </div>
             </div>
 

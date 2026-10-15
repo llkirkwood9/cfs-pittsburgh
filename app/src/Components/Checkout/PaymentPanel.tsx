@@ -163,9 +163,7 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                         method === "VisaMc" && (
                             <Text className="text-sm text-amber-800 dark:text-amber-300">
                                 A {(feeRate * 100).toFixed(2).replace(/\.?0+$/, "")}% card processing
-                                fee of {FormatCurrency(order.ccProcessingFee)} is included in the
-                                total below. Switch to another method, or turn on No card fee, to
-                                remove it.
+                                fee of {FormatCurrency(order.ccProcessingFee)} is included.
                             </Text>
                         )
                     )}
@@ -213,8 +211,7 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                         <View className="flex-row gap-2 rounded-lg bg-amber-50 px-3 py-2 dark:bg-amber-950/40">
                             <Icon icon="fa-solid fa-circle-info" className="text-sm text-amber-800 dark:text-amber-300" />
                             <Text className="flex-1 text-sm text-amber-800 dark:text-amber-300">
-                                No financing options are set up. An administrator adds them in
-                                Catalog, under Financing Options.
+                                No financing options are set up.
                             </Text>
                         </View>
                     ))}

@@ -154,9 +154,7 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                             <p>
                                 <Icon icon="fa-solid fa-circle-info" /> A{" "}
                                 {(feeRate * 100).toFixed(2).replace(/\.?0+$/, "")}% card processing
-                                fee of {FormatCurrency(order.ccProcessingFee)} is included in the
-                                total below. Switch to another method, or tick No card fee, to
-                                remove it.
+                                fee of {FormatCurrency(order.ccProcessingFee)} is included.
                             </p>
                         )
                     )}
@@ -218,7 +216,6 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                     ) : (
                         <p className="self-end rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
                             <Icon icon="fa-solid fa-circle-info" /> No financing options are set up.
-                            An administrator adds them in Catalog, under Financing Options.
                         </p>
                     ))}
                 {method === "Financing" && financeChoice === OTHER && (

@@ -70,8 +70,7 @@ const SizeGuideModal = ({ onClose }: Props) => {
                         </View>
                     ))}
                     <Text className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
-                        Inches, width by length. A Split King is two Twin XLs side by side -
-                        together the size of a King (76&quot; x 80&quot;).
+                        Inches, width by length.
                     </Text>
                 </View>
             </View>

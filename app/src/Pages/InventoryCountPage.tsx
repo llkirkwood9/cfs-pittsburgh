@@ -30,7 +30,7 @@ type Phase = "start" | "end";
 const copy: Record<Phase, { title: string; intro: string; saved: string }> = {
     start: {
         title: "Start-of-event count",
-        intro: "Count what is on the shelf before the doors open, including anything delivered today.",
+        intro: "Count what is on the shelf before the doors open.",
         saved: "Start-of-event count saved",
     },
     end: {
@@ -218,9 +218,7 @@ const InventoryCountPage = () => {
             {header}
             <View className="mx-auto w-full max-w-4xl">
                 <Text className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
-                    {saleEvent.organization}. {text.intro} Tap{" "}
-                    <Text className="text-sm font-semibold">Matches</Text> when the shelf agrees
-                    with the app. Leave a size blank to skip it.
+                    {saleEvent.organization}. {text.intro} Leave a size blank to skip it.
                 </Text>
 
                 {blanks > 0 && (

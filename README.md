@@ -575,7 +575,7 @@ Routes are the dashboard's; the app has the same screens.
   prints as its own row, follows the item's quantity and is taxed when the item is.
 - Items can be put in a new order - with the arrows on the dashboard, or by holding and dragging
   in the app. An item's own rows move with it.
-- **Hand tablet to customer** opens a plain-language, oversized form for the customer's own
+- **Hand device to customer** opens a plain-language, oversized form for the customer's own
   address, a delivery address if the bed is going elsewhere, and who referred them. No prices and
   no navigation are on screen while they have it.
 - **Complete** hands the order to the checkout table.
@@ -610,7 +610,8 @@ Routes are the dashboard's; the app has the same screens.
 - The stat sheet, live: total and net sales, units by category, mattresses plus adjustable bases,
   average sale, payment breakdown, best sellers, sales by the hour and stock to watch. Items inside
   a bundle count in their own unit column but aren't listed as best sellers - the bundle is.
-- **All events** gives an overview of every event with each one's figures side by side. Only
+- **All events** gives an overview of every event with each one's figures side by side, and the
+  worst sellers: the catalog's products that have sold the fewest, including any never sold. Only
   completed sales feed the money figures; drafts and voided orders are reported separately.
 
 **Inventory** (`/inventory`, Checkout role)

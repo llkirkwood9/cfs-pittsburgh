@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { View } from "react-native";
 import SettingsCard from "./SettingsCard";
 import Grid from "../Elements/Grid";
 import Text from "../Elements/Text";
@@ -11,8 +10,6 @@ import { SaveGeneralSettings } from "../../Services/SettingsServices";
 
 /** Matches the server's limit: 25%, to catch a rate typed in the wrong box. */
 const MAX_PERCENT = 25;
-
-const hint = "mt-1 text-xs text-zinc-500 dark:text-zinc-400";
 
 /** A rate as the percent people type, e.g. 0.07 as "7". */
 const AsPercent = (rate: number) => String(Number((rate * 100).toFixed(4)));
@@ -92,7 +89,7 @@ const NewEventSettings = ({ onLayout }: Props) => {
             id="events"
             title="New events"
             icon="fa-solid fa-calendar-plus"
-            description="The rates a new event starts with. Each event's own rates can still be changed on the Events screen."
+            description="The rates a new event starts with."
             status={isDefault ? "Using the default rates." : "Using your own rates."}
             dirty={dirty}
             saving={saving}
@@ -105,28 +102,20 @@ const NewEventSettings = ({ onLayout }: Props) => {
             onLayout={onLayout}
         >
             <Grid columns={{ base: 1, md: 2 }} gap={16}>
-                <View>
-                    <TextField
-                        label="Sales tax (%)"
-                        inputMode="decimal"
-                        value={tax}
-                        onChange={setTax}
-                        placeholder={AsPercent(defaults.defaultSalesTaxRate)}
-                    />
-                    <Text className={hint}>Charged on taxable items.</Text>
-                </View>
-                <View>
-                    <TextField
-                        label="Card processing fee (%)"
-                        inputMode="decimal"
-                        value={fee}
-                        onChange={setFee}
-                        placeholder={AsPercent(defaults.defaultCcProcessingFeeRate)}
-                    />
-                    <Text className={hint}>
-                        Added to the part of a sale paid by credit or debit card.
-                    </Text>
-                </View>
+                <TextField
+                    label="Sales tax (%)"
+                    inputMode="decimal"
+                    value={tax}
+                    onChange={setTax}
+                    placeholder={AsPercent(defaults.defaultSalesTaxRate)}
+                />
+                <TextField
+                    label="Card processing fee (%)"
+                    inputMode="decimal"
+                    value={fee}
+                    onChange={setFee}
+                    placeholder={AsPercent(defaults.defaultCcProcessingFeeRate)}
+                />
             </Grid>
             <Text className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
                 Events already set up keep their own rates.

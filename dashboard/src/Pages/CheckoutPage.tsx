@@ -538,20 +538,14 @@ const CheckoutPage = () => {
 
                                 {!closed && !acknowledged && (
                                     <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
-                                        <Icon icon="fa-solid fa-file-signature" /> Hand the tablet
-                                        to the customer to confirm their details, initial and sign
-                                        before completing.
+                                        <Icon icon="fa-solid fa-file-signature" /> The customer
+                                        still needs to initial and sign.
                                     </p>
                                 )}
                                 {!closed && (order.balanceDue ?? 0) > 0 && (
                                     <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
                                         <Icon icon="fa-solid fa-triangle-exclamation" /> A balance
                                         will remain on this sale.
-                                        <span className="hidden sm:inline">
-                                            {" "}
-                                            That is expected for layaway and financing, otherwise
-                                            record the rest of the payment first.
-                                        </span>
                                     </p>
                                 )}
                             </div>

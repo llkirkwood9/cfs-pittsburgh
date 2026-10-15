@@ -283,10 +283,7 @@ const EventCloseOutPage = () => {
                             <Icon icon="fa-solid fa-print" className="text-lg text-zinc-500" />
                             <View className="min-w-[200px] flex-1">
                                 <Text className="font-semibold">Print the event&apos;s sheets</Text>
-                                <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-                                    The stat sheet, every completed sales sheet and the Accessory
-                                    Inventory Sheet, in one print job.
-                                </Text>
+                                <Text className="text-sm text-zinc-600 dark:text-zinc-400">Stat sheet, sales sheets and inventory sheet.</Text>
                             </View>
                             <Button
                                 text="Sales sheets"
@@ -306,11 +303,7 @@ const EventCloseOutPage = () => {
                 {active && (
                     <View className="mt-5 rounded-xl border-2 border-zinc-200 p-4 dark:border-zinc-700">
                         <Text className="font-semibold">Close the event</Text>
-                        <Text className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
-                            Closing makes it inactive, so no new orders can be taken under it. Its
-                            orders, sheets and totals stay available, and it can be made active
-                            again from Events if needed.
-                        </Text>
+                        <Text className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">No new orders can be taken once it&apos;s closed.</Text>
                         <Button
                             text={blocking.length ? "Close anyway" : "Close event"}
                             icon="fa-solid fa-flag-checkered"

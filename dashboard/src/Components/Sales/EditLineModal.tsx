@@ -167,10 +167,10 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
                         {choices && <span className="block">{choices}</span>}
                         {HasDiscount(sale) && (
                             <span className="block">
-                                On sale at {DiscountText(sale)} off when it was added
+                                On sale at {DiscountText(sale)} off
                                 {(line.unitPrice ?? 0) > 0 &&
                                     ` (from ${FormatCurrency(line.unitPrice)})`}
-                                . Any extra discount comes off the sale price.
+                                .
                             </span>
                         )}
                     </p>

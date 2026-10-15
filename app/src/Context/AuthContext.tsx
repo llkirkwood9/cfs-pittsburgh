@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { getAccessToken, getRefreshToken, setTokens, subscribeTokenChanged } from "../Lib/api";
 import { GetServerUrl } from "../Lib/Server";
@@ -22,6 +22,14 @@ type AuthState = {
 
 const AuthContext = createContext<AuthState | undefined>(undefined);
 
+/** How long signing out waits for the server before carrying on without it. */
+const LOGOUT_WAIT_MS = 2000;
+
+/** How long the app waits at start for the server to confirm the session. */
+const RESTORE_WAIT_MS = 10000;
+
+const wait = (ms: number) => new Promise<null>((resolve) => setTimeout(() => resolve(null), ms));
+
 type Props = {
     children: ReactNode;
 };
@@ -35,6 +43,8 @@ export const AuthProvider = ({ children }: Props) => {
     const [accessToken, setAccessToken] = useState<string | null>(getAccessToken());
     const [refreshToken, setRefreshToken] = useState<string | null>(getRefreshToken());
     const [loading, setLoading] = useState<boolean>(true);
+    // Cleared by signing out, so a session check still waiting on the server can't sign back in.
+    const restoring = useRef<boolean>(true);
 
     useEffect(() => {
         const unsubscribe = subscribeTokenChanged((access, refresh) => {
@@ -49,11 +59,16 @@ export const AuthProvider = ({ children }: Props) => {
     useEffect(() => {
         const restore = async () => {
             if (!getAccessToken() || !GetServerUrl()) {
+                restoring.current = false;
                 setLoading(false);
                 return;
             }
 
-            const profile = await GetCurrentUser();
+            // A server that can't be reached would otherwise hold the app on its loading screen for
+            // the whole request timeout; past this the crew member goes to the sign-in screen.
+            const profile = await Promise.race([GetCurrentUser(), wait(RESTORE_WAIT_MS)]);
+            if (!restoring.current) return;
+            restoring.current = false;
             setUser(profile);
             setLoading(false);
         };
@@ -71,9 +86,12 @@ export const AuthProvider = ({ children }: Props) => {
     };
 
     const logout = async (): Promise<void> => {
-        await LogoutRequest();
+        restoring.current = false;
+        // Tell the server, but don't keep the crew member waiting on one that can't be reached.
+        await Promise.race([LogoutRequest(), wait(LOGOUT_WAIT_MS)]);
         setTokens(null, null);
         setUser(null);
+        setLoading(false);
     };
 
     const fetchUserProfile = async (): Promise<void> => {

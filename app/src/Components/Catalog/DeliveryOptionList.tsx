@@ -202,7 +202,6 @@ const DeliveryOptionList = ({
                         <Cell span={{ base: 1, sm: 2 }}>
                             <Checkbox
                                 label="Show on sales sheet"
-                                hint="When off, the row stays on the order but is left off the printed sheet. A row with a charge always prints."
                                 checked={showOnSalesSheet}
                                 onChange={setShowOnSalesSheet}
                             />
@@ -216,10 +215,6 @@ const DeliveryOptionList = ({
                         </Cell>
                         <Cell span={{ base: 1, sm: 2 }}>
                             <SaleEditor draft={sale} onChange={setSale} label="Sale on this option" />
-                            <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                                Taken off whenever this option is added to an order, until it is
-                                turned off. A product can set its own sale on it instead.
-                            </Text>
                         </Cell>
                     </Grid>
                 </Modal>

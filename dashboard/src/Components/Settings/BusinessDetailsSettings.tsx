@@ -12,8 +12,6 @@ const MAX_APP_NAME = 30;
 const MAX_COMPANY = 60;
 const MAX_PHONE = 30;
 
-const hint = "text-xs text-zinc-500 dark:text-zinc-400";
-
 /**
  * The names and number printed on sheets and emails: the app's name, the company named on every
  * sales sheet, and the customer service phone.
@@ -96,47 +94,29 @@ const BusinessDetailsSettings = () => {
             onReset={isDefault ? undefined : () => setResetting(true)}
         >
             <div className="grid gap-4 md:grid-cols-3">
-                <div>
-                    <TextField
-                        label="Company name"
-                        value={company}
-                        onChange={setCompany}
-                        maxLength={MAX_COMPANY}
-                        placeholder={defaults.companyName}
-                    />
-                    <p className={`mt-1 ${hint}`}>
-                        Across the top of every sales sheet, and{" "}
-                        <code className="font-mono">{"{CompanyName}"}</code> in the receipt email.
-                    </p>
-                </div>
-                <div>
-                    <TextField
-                        label="Customer service phone"
-                        type="tel"
-                        inputMode="tel"
-                        value={phone}
-                        onChange={setPhone}
-                        maxLength={MAX_PHONE}
-                        placeholder={defaults.customerServicePhone}
-                    />
-                    <p className={`mt-1 ${hint}`}>
-                        Under the company name on every sales sheet, and{" "}
-                        <code className="font-mono">{"{CustomerServicePhone}"}</code> in emails.
-                    </p>
-                </div>
-                <div>
-                    <TextField
-                        label="App name"
-                        value={appName}
-                        onChange={setAppName}
-                        maxLength={MAX_APP_NAME}
-                        placeholder={defaults.appName}
-                    />
-                    <p className={`mt-1 ${hint}`}>
-                        In the menu bar, on the sign-in screen, in the browser tab, and as the name
-                        emails come from.
-                    </p>
-                </div>
+                <TextField
+                    label="Company name"
+                    value={company}
+                    onChange={setCompany}
+                    maxLength={MAX_COMPANY}
+                    placeholder={defaults.companyName}
+                />
+                <TextField
+                    label="Customer service phone"
+                    type="tel"
+                    inputMode="tel"
+                    value={phone}
+                    onChange={setPhone}
+                    maxLength={MAX_PHONE}
+                    placeholder={defaults.customerServicePhone}
+                />
+                <TextField
+                    label="App name"
+                    value={appName}
+                    onChange={setAppName}
+                    maxLength={MAX_APP_NAME}
+                    placeholder={defaults.appName}
+                />
             </div>
 
             {resetting && (

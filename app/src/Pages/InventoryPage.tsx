@@ -13,6 +13,7 @@ import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
 import InventoryNotesEditor from "../Components/Inventory/InventoryNotesEditor";
 import { useSettings } from "../Context/SettingsContext";
+import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { cx } from "../Lib/ClassNames";
 import { IsOnline } from "../Lib/Connection";
 import {
@@ -79,6 +80,8 @@ const InventoryPage = () => {
     useEffect(() => {
         load();
     }, [load]);
+
+    useActiveEventChange(loading ? undefined : (saleEvent?.id ?? null), load);
 
     const handleRefresh = async () => {
         setRefreshing(true);
@@ -217,8 +220,7 @@ const InventoryPage = () => {
                             · {outOfStock} size{outOfStock === 1 ? "" : "s"} out of stock
                         </Text>
                     )}
-                    . Tap a size to enter its count, or swipe it to the left for its history. Pull down to
-                    refresh.
+                    .
                 </Text>
 
                 {items.length > 0 && (

@@ -37,7 +37,7 @@ const FinanceSettings = () => {
             id="financing"
             title="Financing"
             icon="fa-solid fa-file-invoice-dollar"
-            description="How checkout records the type of financing. The financing options themselves are kept in Catalog, under Financing Options."
+            description="How checkout records the type of financing."
             status={
                 settings.allowOtherFinanceType
                     ? "Checkout can pick Other and type a financing type in."
@@ -67,11 +67,6 @@ const FinanceSettings = () => {
                 />
                 <span className="text-sm">
                     <span className="font-medium">Offer &ldquo;Other&rdquo; at checkout</span>
-                    <span className="block text-xs text-zinc-500 dark:text-zinc-400">
-                        Adds Other to the end of the financing type list, so checkout can type in a
-                        kind of financing that isn&apos;t one of the financing options. Untick it to
-                        allow only the financing options.
-                    </span>
                 </span>
             </label>
         </SettingsCard>

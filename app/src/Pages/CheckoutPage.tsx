@@ -22,6 +22,7 @@ import OrderLineList from "../Components/Sales/OrderLineList";
 import OrderTotals from "../Components/Sales/OrderTotals";
 import UpchargeModal from "../Components/Sales/UpchargeModal";
 import { useAuth } from "../Context/AuthContext";
+import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { useBreakpoint } from "../Hooks/UseBreakpoint";
 import { cx } from "../Lib/ClassNames";
 import { IsOnline } from "../Lib/Connection";
@@ -130,7 +131,11 @@ const CheckoutPage = () => {
         const active = await GetActiveEvent();
         setSaleEvent(active);
 
-        if (!active?.id) return;
+        if (!active?.id) {
+            setQueue([]);
+            setOrder(null);
+            return;
+        }
 
         const [list, catalog, options] = await Promise.all([
             refreshQueue(active.id),
@@ -143,6 +148,7 @@ const CheckoutPage = () => {
 
         if (orderId) await openOrder(Number(orderId));
         else if (list[0]?.id) await openOrder(list[0].id);
+        else setOrder(null);
     }, [orderId, openOrder, refreshQueue]);
 
     useEffect(() => {
@@ -164,14 +170,18 @@ const CheckoutPage = () => {
         return () => clearInterval(timer);
     }, [saleEvent?.id]);
 
+    const checkActiveEvent = useActiveEventChange(loading ? undefined : (saleEvent?.id ?? null), load);
+
     if (!user) return <Redirect href="/unauthorized" />;
 
     const handleRefresh = async () => {
         setRefreshing(true);
-        if (saleEvent?.id) {
+        // A change of active event reloads everything; otherwise just the queue and the order.
+        const switched = await checkActiveEvent();
+        if (!switched && saleEvent?.id) {
             await refreshQueue(saleEvent.id);
             if (order?.id) await openOrder(order.id);
-        } else {
+        } else if (!switched) {
             await load();
         }
         setRefreshing(false);
@@ -563,15 +573,12 @@ const CheckoutPage = () => {
 
                         {!closed && !acknowledged && (
                             <Text className="mt-2 text-xs text-amber-700 dark:text-amber-400">
-                                Hand the tablet to the customer to confirm their details, initial
-                                and sign before completing.
+                                The customer still needs to initial and sign.
                             </Text>
                         )}
                         {!closed && (order.balanceDue ?? 0) > 0 && (
                             <Text className="mt-2 text-xs text-amber-700 dark:text-amber-400">
                                 A balance will remain on this sale.
-                                {sm &&
-                                    " That is expected for layaway and financing, otherwise record the rest of the payment first."}
                             </Text>
                         )}
                     </GlassPanel>

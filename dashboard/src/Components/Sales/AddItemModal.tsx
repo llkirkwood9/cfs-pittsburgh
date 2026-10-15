@@ -810,10 +810,6 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                     </span>
                                 </p>
                             )}
-                            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                                Need a second service, such as White Glove plus Haul Away? Add the
-                                item, then use Add service on the line.
-                            </p>
                         </div>
                     )}
 

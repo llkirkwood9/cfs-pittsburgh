@@ -251,7 +251,7 @@ const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
                             Where should we deliver?
                         </h1>
                         <p className="text-sm text-sky-100">
-                            Fill this in and hand the tablet back.
+                            Fill this in and hand the device back.
                         </p>
                     </div>
                 </div>

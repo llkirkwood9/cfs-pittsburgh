@@ -329,7 +329,6 @@ const EditProductForm = ({
                     <Cell span={{ base: 1, sm: 2 }}>
                         <Checkbox
                             label="Track inventory"
-                            hint="For items kept at the cart, such as pillows and protectors. Take With is only allowed while a size is in stock. Set the counts on the Inventory screen. A size can be left out below."
                             checked={trackInventory}
                             onChange={setTrackInventory}
                         />
@@ -345,10 +344,6 @@ const EditProductForm = ({
                     </Cell>
                     <Cell span={{ base: 1, sm: 2 }}>
                         <SaleEditor label="Sale on every size" draft={sale} onChange={setSale} />
-                        <Text className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                            Taken off when the item goes on an order; a size can set its own sale
-                            below. Items already on orders keep the price they were added at.
-                        </Text>
                     </Cell>
                 </Grid>
 
@@ -364,7 +359,7 @@ const EditProductForm = ({
                     </View>
 
                     <Text className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
-                        Leave a price blank to mark it Inquire - the rep will have to enter a price for that option.
+                        Leave a price blank for Inquire.
                     </Text>
 
                     <View className="gap-2">
@@ -419,7 +414,6 @@ const EditProductForm = ({
                                 {trackInventory && (
                                     <Checkbox
                                         label="Count in inventory"
-                                        hint="Turn off for a size that isn't kept at the cart. It won't be counted or shown on the Inventory screen, and Take With isn't limited by stock."
                                         checked={!variant.excludeFromInventory}
                                         onChange={(checked) =>
                                             setVariant(index, { excludeFromInventory: !checked })

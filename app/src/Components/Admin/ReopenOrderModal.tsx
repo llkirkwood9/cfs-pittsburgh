@@ -69,8 +69,7 @@ const ReopenOrderModal = ({ order, onReopen, onClose }: Props) => {
                         className="mt-0.5 text-sm text-amber-800 dark:text-amber-300"
                     />
                     <Text className="flex-1 text-sm text-amber-800 dark:text-amber-300">
-                        This sale drops out of the event&apos;s totals and printed sheets until it
-                        is completed again. Payments already recorded stay on it.
+                        It leaves the event&apos;s totals until it is completed again.
                     </Text>
                 </View>
             )}

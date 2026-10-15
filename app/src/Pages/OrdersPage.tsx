@@ -13,6 +13,7 @@ import TabButton from "../Components/Elements/TabButton";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
+import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { cx } from "../Lib/ClassNames";
 import {
     EventsForFilter,
@@ -112,31 +113,38 @@ const OrdersPage = () => {
         [load]
     );
 
-    useEffect(() => {
-        const boot = async () => {
-            const [list, active] = await Promise.all([
-                isAdmin ? GetEvents() : Promise.resolve([]),
-                GetActiveEvent(),
-            ]);
+    // The active event when the page last loaded, so a change of event can be noticed.
+    const [activeId, setActiveId] = useState<number | null | undefined>(undefined);
 
-            setEvents(EventsForFilter(list));
+    const boot = useCallback(async () => {
+        const [list, active] = await Promise.all([
+            isAdmin ? GetEvents() : Promise.resolve([]),
+            GetActiveEvent(),
+        ]);
 
-            // Between fundraisers there is no active event. An admin falls back to every event;
-            // everyone else has nothing current to show, and all-events history is admin-only.
-            if (!active?.id && !isAdmin) {
-                setScope(null);
-                setLoading(false);
-                return;
-            }
+        setEvents(EventsForFilter(list));
+        setActiveId(active?.id ?? null);
 
-            const target: Scope = active?.id ? { kind: "event", eventId: active.id } : { kind: "all" };
+        // Between fundraisers there is no active event. An admin falls back to every event;
+        // everyone else has nothing current to show, and all-events history is admin-only.
+        if (!active?.id && !isAdmin) {
+            setScope(null);
+            setOrders([]);
+            setLoading(false);
+            return;
+        }
 
-            setScope(target);
-            await loadWith(target, "All", "");
-        };
+        const target: Scope = active?.id ? { kind: "event", eventId: active.id } : { kind: "all" };
 
-        boot();
+        setScope(target);
+        await loadWith(target, "All", "");
     }, [isAdmin, loadWith]);
+
+    useEffect(() => {
+        boot();
+    }, [boot]);
+
+    useActiveEventChange(loading ? undefined : activeId, boot);
 
     if (!user) return <Redirect href="/unauthorized" />;
 

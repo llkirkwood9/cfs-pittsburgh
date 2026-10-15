@@ -325,8 +325,7 @@ const EventsPage = () => {
                     </div>
 
                     <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-                        Changing the tax rate only affects orders taken from now on. Every order
-                        stores the rate it was written under, so past receipts never change.
+                        Rate changes only apply to new orders.
                     </p>
                 </Modal>
             )}

@@ -90,7 +90,7 @@ const TermsSettings = ({ onLayout }: Props) => {
             id="terms"
             title="Sales sheet terms"
             icon="fa-solid fa-file-signature"
-            description="The statements customers initial. Each paragraph prints on the sales sheet beside its INITIAL line, and the customer reads the same words on their initialling screen."
+            description="The statements customers initial."
             status={isDefault ? "Using the paper form's wording." : "Using your own wording."}
             dirty={dirty}
             saving={saving}
@@ -102,13 +102,10 @@ const TermsSettings = ({ onLayout }: Props) => {
             <View className="mb-3 flex-row items-start gap-2 rounded-lg bg-sky-50 p-3 dark:bg-sky-950/40">
                 <Icon icon="fa-solid fa-circle-info" className="mt-0.5 text-sm text-sky-900 dark:text-sky-100" />
                 <Text className="flex-1 text-sm text-sky-900 dark:text-sky-100">
-                    Put <Text className="font-mono text-sm text-sky-900 dark:text-sky-100">**two stars**</Text>{" "}
-                    around words to make them{" "}
-                    <Text className="text-sm font-bold text-sky-900 dark:text-sky-100">bold</Text>, and{" "}
+                    <Text className="font-mono text-sm text-sky-900 dark:text-sky-100">**two stars**</Text> for{" "}
+                    <Text className="text-sm font-bold text-sky-900 dark:text-sky-100">bold</Text>,{" "}
                     <Text className="font-mono text-sm text-sky-900 dark:text-sky-100">__two underscores__</Text>{" "}
-                    to <Text className="text-sm text-sky-900 underline dark:text-sky-100">underline</Text>{" "}
-                    them. Completed sales keep the wording the customer initialled, so changing it
-                    here never changes a sheet already signed.
+                    to <Text className="text-sm text-sky-900 underline dark:text-sky-100">underline</Text>.
                 </Text>
             </View>
 
@@ -139,10 +136,6 @@ const TermsSettings = ({ onLayout }: Props) => {
                                         maxLength={MAX_HEADING}
                                         placeholder="None"
                                     />
-                                    <Text className={`mt-1 ${hint}`}>
-                                        Printed bold and underlined before the paragraph. Leave
-                                        blank for none.
-                                    </Text>
                                 </View>
                             </Grid>
 

@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
-import { View } from "react-native";
 import SettingsCard from "./SettingsCard";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Grid from "../Elements/Grid";
-import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
 import { useSettings } from "../../Context/SettingsContext";
 import { Toast } from "../../Lib/Toast";
@@ -15,9 +13,6 @@ import { SaveGeneralSettings } from "../../Services/SettingsServices";
 const MAX_APP_NAME = 30;
 const MAX_COMPANY = 60;
 const MAX_PHONE = 30;
-
-const hint = "mt-1 text-xs text-zinc-500 dark:text-zinc-400";
-const code = "font-mono text-xs text-zinc-500 dark:text-zinc-400";
 
 type Props = {
     onLayout?: (id: string, y: number) => void;
@@ -106,49 +101,31 @@ const BusinessDetailsSettings = ({ onLayout }: Props) => {
             onLayout={onLayout}
         >
             <Grid columns={{ base: 1, md: 3 }} gap={16}>
-                <View>
-                    <TextField
-                        label="Company name"
-                        value={company}
-                        onChange={setCompany}
-                        maxLength={MAX_COMPANY}
-                        placeholder={defaults.companyName}
-                        autoCapitalize="words"
-                    />
-                    <Text className={hint}>
-                        Across the top of every sales sheet, and{" "}
-                        <Text className={code}>{"{CompanyName}"}</Text> in the receipt email.
-                    </Text>
-                </View>
-                <View>
-                    <TextField
-                        label="Customer service phone"
-                        type="tel"
-                        inputMode="tel"
-                        value={phone}
-                        onChange={setPhone}
-                        maxLength={MAX_PHONE}
-                        placeholder={defaults.customerServicePhone}
-                    />
-                    <Text className={hint}>
-                        Under the company name on every sales sheet, and{" "}
-                        <Text className={code}>{"{CustomerServicePhone}"}</Text> in emails.
-                    </Text>
-                </View>
-                <View>
-                    <TextField
-                        label="App name"
-                        value={appName}
-                        onChange={setAppName}
-                        maxLength={MAX_APP_NAME}
-                        placeholder={defaults.appName}
-                        autoCapitalize="words"
-                    />
-                    <Text className={hint}>
-                        In the menu bar, on the sign-in screen, in the browser tab, and as the name
-                        emails come from.
-                    </Text>
-                </View>
+                <TextField
+                    label="Company name"
+                    value={company}
+                    onChange={setCompany}
+                    maxLength={MAX_COMPANY}
+                    placeholder={defaults.companyName}
+                    autoCapitalize="words"
+                />
+                <TextField
+                    label="Customer service phone"
+                    type="tel"
+                    inputMode="tel"
+                    value={phone}
+                    onChange={setPhone}
+                    maxLength={MAX_PHONE}
+                    placeholder={defaults.customerServicePhone}
+                />
+                <TextField
+                    label="App name"
+                    value={appName}
+                    onChange={setAppName}
+                    maxLength={MAX_APP_NAME}
+                    placeholder={defaults.appName}
+                    autoCapitalize="words"
+                />
             </Grid>
 
             {resetting && (
