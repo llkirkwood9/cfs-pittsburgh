@@ -23,8 +23,6 @@ The catalog and the printed receipt are both built from the supplied source docu
 11. [Contributing](#11-contributing)
 12. [What it does, screen by screen](#12-what-it-does-screen-by-screen)
 13. [How the domain is modelled](#13-how-the-domain-is-modelled)
-14. [Seeded catalog, and what still needs prices](#14-seeded-catalog-and-what-still-needs-prices)
-15. [Deviations from the blueprint](#15-deviations-from-the-blueprint)
 
 ---
 
@@ -396,29 +394,6 @@ then by hand.
 | Mobile app, after a dependency or config change | `cd app && npx expo-doctor && npx expo export -p ios` |
 | App image, after a Dockerfile change | `docker compose build` |
 
-**By hand**
-
-- Run the change against a local stack (section 3) as each role it affects. The seeded `sales` and
-  `checkout` accounts show what a non-admin sees.
-- **Pricing reference.** The pricing was checked against a real sheet: Hampton order **No. 1614**
-  (Therapedic King Agility 3000 at 10% off, White Glove, Haul Away, a King mattress protector taken
-  with) reproduces through the API to the cent. Anything touching `OrderCalculator`, sales,
-  discounts, tax or the card fee should still produce it:
-
-  | | Paper sheet | App |
-  |---|---|---|
-  | Subtotal | $2,526.10 | $2,526.10 |
-  | Sales tax | $176.83 | $176.83 |
-  | Total | $2,702.93 | $2,702.93 |
-  | Balance due | $0.00 | $0.00 |
-
-- **Sales sheets.** Print and email a sheet after any change to the receipt or its PDF; the
-  printed and emailed copies are the same PDF and should match.
-- **The mobile app.** Section 3 of the
-  [Mobile App Guide](Documents/Mobile%20App%20Guide.md#3-testing) lists what to try on a real
-  iPhone and Android device (keyboard, safe areas, dark mode, swipe and drag, printing).
-- Clean up afterwards: void test orders or reset the development database (section 5).
-
 ---
 
 ## 10. Deployment
@@ -740,7 +715,7 @@ in line and adds the rest; `mode: "replace"` runs `PermanentDelete.CatalogAsync`
 checked in full and the restore runs in one transaction, so a bad file changes nothing.
 `Utils/CatalogTransfer.cs` does the work.
 
-**An event is named by its organization**, e.g. "Hampton Band", which heads the stat sheet and is
+**An event is named by its organization**, e.g. "New York Marching Band", which heads the stat sheet and is
 copied onto each order. Only one event is active at a time, and new orders can only be taken while
 one is.
 
@@ -775,54 +750,3 @@ recorded - and checkout warns when one will remain. A completed order keeps a co
 was signed with (`Orders.TermsJson`), so a reprint never shows wording the customer didn't see.
 
 ---
-
-## 14. Seeded catalog, and what still needs prices
-
-From the 9/12/26 price cards, complete:
-
-- **24 CFS models** (TSS, Southerland, Therapedic) with Twin through King in Mattress Only,
-  Hi-Rise and IMC61 Adjustable, plus ES200 Flex Head on the seven premium Therapedic models.
-  Twin is omitted for adjustable bases and Full is stored as Inquire, as the cards show.
-- **9 premium models** (Helix, Purple, Brooklyn Bedding, Beautyrest) with their sale-price notes.
-  Sizes the PDF shows as a dash are simply not created.
-
-Read off the Hampton order sheets:
-
-- Mattress protectors: Twin $69, Queen $89, King $99.
-- Pillows: SoftCell Chill (2.0) $149, Replenish $129.
-- Delivery: White Glove $79, Haul Away $99.
-
-**Still needs prices before an event** - seeded as *Inquire* rather than guessed, so they are safe
-to leave but slow a rep down:
-
-- Mattress protectors in Twin XL and Full.
-- Shoulder Carbon Cool, Sub 0 Down Complete, Shattered Ice and Snowflake pillows; King in every
-  pillow.
-- Sheet sets, bed frames and bean bag chairs (no prices appear in the supplied documents).
-- Standalone adjustable bases (the cards only quote them bundled with a mattress).
-- Monarch Euro Top, King, ES200 Flex Head - the price isn't legible on the supplied card.
-
-Fill them in at `/catalog`.
-
-Two notes on the source data: the Agility 3000, Agility 5000 and Monarch Euro Top share identical
-Hi-Rise prices in the price guide, and the Callista Extra Firm and Callista X Firm rows are
-identical throughout. Both are transcribed as printed rather than corrected.
-
----
-
-## 15. Deviations from the blueprint
-
-Three, each deliberate:
-
-1. **One SPA, not two.** The blueprint's `frontend/` is a public guest site; every user here is
-   crew, so there is only `dashboard/` (and the app, which mirrors it).
-2. **PIN sign-in instead of Google OAuth.** Floor reps share a tablet at a school gym and often
-   have no Google account on it, so sign-in is a username and a numeric keypad. The rest is
-   unchanged: JWT bearer access tokens, opaque refresh tokens on the user row, the same
-   `TokenService` shape, and no self-service signup.
-3. **Only the FontAwesome solid set is registered.** `library.add(fas, far, fab)` roughly doubles
-   the bundle and nothing here uses a regular or brand icon; on venue wifi that is worth it.
-
-One lint rule is also turned off beyond the blueprint's two: `react-hooks/set-state-in-effect`,
-which rejects fetch-on-mount into `useState` wholesale - the pattern this codebase uses throughout,
-having no query library.
