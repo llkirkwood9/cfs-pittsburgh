@@ -1,12 +1,6 @@
-# CFS Mattress Fundraiser
+# CFS Sales App
 
-Order-taking, checkout, inventory and reporting for CFS mattress fundraisers. Reps write orders on
-tablets and phones on the sales floor, the checkout table takes payment and the customer's
-signature, and the result is a printed or emailed copy of the CFS sales sheet, plus a stat sheet
-for the event.
-
-The catalog and the printed receipt are both built from the supplied source documents: the
-9/12/26 price cards and the Hampton 9/12 sales sheets.
+Order-taking, checkout, inventory and reporting for CFS mattress fundraisers.
 
 **Contents**
 
