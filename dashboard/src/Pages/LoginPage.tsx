@@ -86,7 +86,6 @@ const LoginPage = () => {
                     <h1 className="text-xl font-bold text-zinc-900 dark:text-zinc-100">
                         {settings.appName}
                     </h1>
-                    <p className="text-sm text-zinc-500 dark:text-zinc-400">Sign in to the cart</p>
                 </div>
 
                 <TextField

@@ -95,9 +95,6 @@ const LoginPage = () => {
                                 className="text-3xl text-sky-600 dark:text-sky-400"
                             />
                             <Text className="text-xl font-bold">{settings.appName}</Text>
-                            <Text className="text-sm text-zinc-500 dark:text-zinc-400">
-                                Sign in to the cart
-                            </Text>
                         </View>
 
                         {editingServer ? (
@@ -112,7 +109,7 @@ const LoginPage = () => {
                                     inputMode="email"
                                 />
                                 <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                                    The address of the cart&apos;s server.
+                                    The address of the server.
                                 </Text>
                                 <View className="flex-row gap-2">
                                     {serverUrl && (
