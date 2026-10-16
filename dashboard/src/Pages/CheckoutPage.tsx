@@ -17,6 +17,7 @@ import OrderLineList from "../Components/Sales/OrderLineList";
 import OrderTotals from "../Components/Sales/OrderTotals";
 import { useAuth } from "../Context/AuthContext";
 import { FormatCurrency, IsAcknowledged } from "../Lib/ModelHelpers";
+import { CheckoutQueueCounted } from "../Lib/CheckoutWaiting";
 import { IsOnline } from "../Lib/Connection";
 import { Toast } from "../Lib/Toast";
 import type { DeliveryOption } from "../Models/DeliveryOption";
@@ -44,8 +45,11 @@ import {
 } from "../Services/OrderServices";
 import { GetProducts } from "../Services/ProductServices";
 
-/** How often the queue re-polls, so a new hand-off shows up without anyone refreshing. */
-const POLL_MS = 8000;
+/**
+ * How often the queue re-polls, so a new hand-off shows up without anyone refreshing. It also
+ * keeps the Checkout tab's count current while this screen is open.
+ */
+const POLL_MS = 5000;
 
 /**
  * The checkout table. The queue on the left fills itself as reps complete orders; the panel on
@@ -77,6 +81,7 @@ const CheckoutPage = () => {
     const refreshQueue = useCallback(async (eventId: number) => {
         const list = await GetCheckoutQueue(eventId);
         setQueue(list);
+        if (IsOnline()) CheckoutQueueCounted(list.length);
         return list;
     }, []);
 
@@ -122,7 +127,9 @@ const CheckoutPage = () => {
             // A poll that fails while the Wi-Fi is down keeps the queue on screen rather than
             // emptying it.
             GetCheckoutQueue(saleEvent.id!).then((list) => {
-                if (IsOnline()) setQueue(list);
+                if (!IsOnline()) return;
+                setQueue(list);
+                CheckoutQueueCounted(list.length);
             });
         }, POLL_MS);
 

@@ -1,4 +1,5 @@
 import api from "../Lib/api";
+import { CheckoutQueueChanged } from "../Lib/CheckoutWaiting";
 import { HandleAxiosError } from "../Lib/ErrorHandler";
 import type { Order, OrderStatus } from "../Models/Order";
 import type { OrderLine } from "../Models/OrderLine";
@@ -69,6 +70,7 @@ export const AddOrderPayment = async (
 export const SubmitOrder = async (orderId: number): Promise<Order | null> => {
     try {
         const response = await api.post<Order>(`/api/Order/order/${orderId}/submit`);
+        CheckoutQueueChanged();
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
@@ -84,6 +86,7 @@ export const SubmitOrder = async (orderId: number): Promise<Order | null> => {
 export const CompleteOrder = async (orderId: number): Promise<Order | null> => {
     try {
         const response = await api.post<Order>(`/api/Order/order/${orderId}/complete`);
+        CheckoutQueueChanged();
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
@@ -106,6 +109,7 @@ export const ReopenOrder = async (
         const response = await api.post<Order>(`/api/Order/order/${orderId}/reopen`, null, {
             params: { to },
         });
+        CheckoutQueueChanged();
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
@@ -121,6 +125,7 @@ export const ReopenOrder = async (
 export const VoidOrder = async (orderId: number): Promise<Order | null> => {
     try {
         const response = await api.post<Order>(`/api/Order/order/${orderId}/void`);
+        CheckoutQueueChanged();
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
@@ -336,6 +341,7 @@ export const DeleteOrder = async (id: number, permanent = false): Promise<boolea
         const response = await api.delete(`/api/Order/order/${id}`, {
             params: permanent ? { permanent: true } : undefined,
         });
+        CheckoutQueueChanged();
         return response.status === 200;
     } catch (error) {
         HandleAxiosError(error);

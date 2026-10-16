@@ -582,8 +582,9 @@ Routes are the dashboard's; the app has the same screens.
 
 **Checkout table** (`/checkout`, Checkout role)
 - A queue of the orders the floor has handed over, oldest first, with how long each customer has
-  been waiting. It refreshes itself every 8 seconds. Anywhere in the app, the Checkout tab shows
-  how many customers are waiting.
+  been waiting. It refreshes itself every 5 seconds. Anywhere in the app, the Checkout tab shows
+  how many customers are waiting: read every 20 seconds, at once when this device sends over,
+  completes, reopens, voids or deletes an order, and with every refresh while Checkout is open.
 - Items and comments can still be changed here, exactly as on the floor.
 - Payment can be split across cash, check, credit/debit card, financing and layaway. Choosing
   Credit/Debit Card puts the card processing fee on the total at once, so the figure quoted is the
