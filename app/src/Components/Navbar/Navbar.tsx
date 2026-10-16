@@ -4,6 +4,7 @@ import SizeGuideButton from "./SizeGuideButton";
 import ThemeToggle from "./ThemeToggle";
 import UserProfileDropdown from "./UserProfileDropdown";
 import Icon from "../Elements/Icon";
+import LightStatusBar from "../Elements/LightStatusBar";
 import Text from "../Elements/Text";
 import { useSettings } from "../../Context/SettingsContext";
 
@@ -18,6 +19,8 @@ const Navbar = () => {
 
     return (
         <View className="bg-zinc-900 raised-lg dark:bg-black" style={{ paddingTop: insets.top }}>
+            {/* The bar is dark in both themes, so the status bar over it is always white. */}
+            <LightStatusBar />
             <View className="mx-auto h-14 w-full max-w-screen-2xl flex-row items-center gap-2 px-3">
                 <Icon icon="fa-solid fa-bed" className="text-xl text-sky-400" />
                 <Text className="flex-1 text-base font-bold tracking-tight text-white" numberOfLines={1}>

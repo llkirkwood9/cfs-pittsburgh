@@ -33,10 +33,6 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         refresh();
     }, [refresh]);
 
-    useEffect(() => {
-        document.title = settings.appName;
-    }, [settings.appName]);
-
     return (
         <SettingsContext.Provider value={{ settings, apply: setSettings, refresh }}>
             {children}

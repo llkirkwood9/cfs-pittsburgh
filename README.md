@@ -582,7 +582,8 @@ Routes are the dashboard's; the app has the same screens.
 
 **Checkout table** (`/checkout`, Checkout role)
 - A queue of the orders the floor has handed over, oldest first, with how long each customer has
-  been waiting. It refreshes itself every 8 seconds.
+  been waiting. It refreshes itself every 8 seconds. Anywhere in the app, the Checkout tab shows
+  how many customers are waiting.
 - Items and comments can still be changed here, exactly as on the floor.
 - Payment can be split across cash, check, credit/debit card, financing and layaway. Choosing
   Credit/Debit Card puts the card processing fee on the total at once, so the figure quoted is the
@@ -601,7 +602,9 @@ Routes are the dashboard's; the app has the same screens.
   it with a friendly note whose wording is set on `/settings`. The API accepts a PDF under 18 MB.
 
 **Orders** (`/orders`, all roles)
-- Every order for the event, filterable by status and searchable by customer, rep or order number.
+- Every order for the event, filterable by status and searchable by customer, rep or order number,
+  with a line above the list giving how many it shows, what they come to and what is still owed
+  (voided orders aren't counted in the money).
 - An admin also gets **All events** and a per-event picker, and can **Reopen** a completed order -
   to the checkout table to fix a payment, initials or signature, or to the floor to change what was
   sold.

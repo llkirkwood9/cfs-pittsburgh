@@ -3,6 +3,7 @@ import { Modal, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import KeyboardAvoider from "./KeyboardAvoider";
+import LightStatusBar from "./LightStatusBar";
 import ToastHost from "./ToastHost";
 
 type Props = {
@@ -36,6 +37,7 @@ const FullScreenSheet = ({ header, footer, children, onClose }: Props) => {
                 colours go on the view inside: NativeWind doesn't style the gesture root. */}
             <GestureHandlerRootView style={{ flex: 1 }}>
                 <View className="flex-1 bg-zinc-50 dark:bg-zinc-900">
+                    <LightStatusBar />
                     <View
                         className="bg-sky-700 dark:bg-sky-800"
                         style={{

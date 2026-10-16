@@ -1,3 +1,4 @@
+import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
 import { AppState, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -53,6 +54,8 @@ const ConnectionBanner = () => {
             className="absolute inset-x-0 top-0 z-40 flex-row items-center justify-center gap-2 bg-amber-500 px-3 pb-2 raised-lg"
             style={{ paddingTop: insets.top + 4 }}
         >
+            {/* Dark status bar text on the amber, whatever the theme. */}
+            <StatusBar style="dark" />
             <Icon icon="fa-solid fa-wifi" className="text-sm text-amber-950" />
             <Text className="shrink text-center text-sm font-semibold text-amber-950">
                 Can&apos;t reach the server - retrying. Changes won&apos;t save until it&apos;s

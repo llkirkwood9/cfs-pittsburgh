@@ -54,6 +54,23 @@ const statusLabels: Record<OrderStatus, string> = {
 };
 
 /**
+ * A line over the list: how many orders it holds, what they come to and what is still owed.
+ * Voided orders are listed but not counted in the money.
+ */
+const Summary = (orders: OrderSummary[]): string => {
+    const live = orders.filter((o) => o.status !== "Voided");
+    const total = live.reduce((sum, o) => sum + (o.total ?? 0), 0);
+    const owed = live.reduce((sum, o) => sum + (o.balanceDue ?? 0), 0);
+    return [
+        `${orders.length} order${orders.length === 1 ? "" : "s"}`,
+        `${FormatCurrency(total)} total`,
+        owed > 0 ? `${FormatCurrency(owed)} still owed` : null,
+    ]
+        .filter(Boolean)
+        .join(" · ");
+};
+
+/**
  * Past orders. Everyone can look back over the event they are working and open any sales sheet
  * for reprinting; an administrator can additionally search across every event that has ever run.
  */
@@ -254,6 +271,9 @@ const OrdersPage = () => {
             </View>
 
             {loading && <ListSkeleton rows={6} />}
+            {!loading && scope && orders.length > 0 && (
+                <Text className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">{Summary(orders)}</Text>
+            )}
             {!loading && !scope && (
                 <View className="items-center rounded-xl border-2 border-dashed border-zinc-300 py-14 dark:border-zinc-700">
                     <Icon icon="fa-solid fa-calendar-xmark" className="text-3xl text-zinc-400" />
