@@ -258,6 +258,7 @@ const EditProductForm = ({
                 })),
                 isActive: v.isActive ?? true,
                 excludeFromInventory: v.excludeFromInventory ?? false,
+                notes: (v.notes ?? "").trim() || null,
                 sortOrder: index + 1,
                 hasOwnSale: v.sale.mode !== "follow",
                 saleDiscountPercent: FromSaleDraft(v.sale).percent,
@@ -436,6 +437,15 @@ const EditProductForm = ({
                                 >
                                     <Icon icon="fa-solid fa-trash" />
                                 </button>
+
+                                <TextField
+                                    label="Note for the rep"
+                                    value={variant.notes ?? ""}
+                                    onChange={(value) => setVariant(index, { notes: value })}
+                                    className="col-span-full"
+                                    maxLength={300}
+                                    placeholder="ex. Special order - 4 to 6 weeks"
+                                />
 
                                 <div className="col-span-full">
                                     <SaleEditor

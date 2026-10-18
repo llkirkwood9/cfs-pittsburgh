@@ -696,6 +696,16 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                         </Grid>
                     </View>
 
+                    {/* The picked size's own note, such as a longer wait for a special order. */}
+                    {variant?.notes ? (
+                        <View className="flex-row gap-2 rounded-lg bg-amber-50 px-3 py-2 dark:bg-amber-950/40">
+                            <Icon icon="fa-solid fa-circle-info" className="mt-0.5 text-sm text-amber-800 dark:text-amber-300" />
+                            <Text className="flex-1 text-sm text-amber-800 dark:text-amber-300">
+                                {variant.notes}
+                            </Text>
+                        </View>
+                    ) : null}
+
                     {(selected.options ?? [])
                         .filter((o) => (o.choices ?? []).length > 0)
                         .map((option) => (

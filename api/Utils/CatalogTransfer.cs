@@ -125,6 +125,7 @@ namespace api.Utils
                             Price = v.Price,
                             IsActive = v.IsActive,
                             ExcludeFromInventory = v.ExcludeFromInventory ? true : null,
+                            Notes = v.Notes,
                             HasOwnSale = v.HasOwnSale,
                             SaleDiscountPercent = v.SaleDiscountPercent,
                             SaleDiscountAmount = v.SaleDiscountAmount,
@@ -493,6 +494,7 @@ namespace api.Utils
                 variant.SortOrder = index + 1;
                 variant.IsActive = v.IsActive ?? true;
                 variant.ExcludeFromInventory = v.ExcludeFromInventory ?? false;
+                variant.Notes = ProductController.CleanSizeNotes(v.Notes);
                 variant.HasOwnSale = v.HasOwnSale ?? false;
                 (variant.SaleDiscountPercent, variant.SaleDiscountAmount) = variant.HasOwnSale
                     ? ProductController.CleanSale(v.SaleDiscountPercent, v.SaleDiscountAmount)

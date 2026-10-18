@@ -306,6 +306,7 @@ namespace api.Controllers
                         variant.SortOrder = dto.SortOrder ?? 0;
                         variant.IsActive = dto.IsActive ?? true;
                         variant.ExcludeFromInventory = dto.ExcludeFromInventory ?? false;
+                        variant.Notes = CleanSizeNotes(dto.Notes);
                         variant.HasOwnSale = dto.HasOwnSale ?? false;
                         (variant.SaleDiscountPercent, variant.SaleDiscountAmount) = variant.HasOwnSale
                             ? CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount)
@@ -429,6 +430,7 @@ namespace api.Controllers
                     SortOrder = dto.SortOrder ?? 0,
                     IsActive = dto.IsActive ?? true,
                     ExcludeFromInventory = dto.ExcludeFromInventory ?? false,
+                    Notes = CleanSizeNotes(dto.Notes),
                     HasOwnSale = dto.HasOwnSale ?? false,
                 };
                 if (variant.HasOwnSale)
@@ -522,6 +524,18 @@ namespace api.Controllers
             var trimmed = length?.Trim();
             if (string.IsNullOrEmpty(trimmed)) return null;
             return trimmed.Length > 60 ? trimmed[..60] : trimmed;
+        }
+
+        /// <summary>
+        /// A size's note as stored: trimmed, at most 300 characters, nothing when blank.
+        /// </summary>
+        /// <param name="notes">What was typed</param>
+        /// <returns>The cleaned note, or null.</returns>
+        internal static string? CleanSizeNotes(string? notes)
+        {
+            var trimmed = notes?.Trim();
+            if (string.IsNullOrEmpty(trimmed)) return null;
+            return trimmed.Length > 300 ? trimmed[..300] : trimmed;
         }
 
         /// <summary>
@@ -805,6 +819,7 @@ namespace api.Controllers
                         IsActive = v.IsActive,
                         QuantityOnHand = v.QuantityOnHand,
                         ExcludeFromInventory = v.ExcludeFromInventory,
+                        Notes = v.Notes,
                         HasOwnSale = v.HasOwnSale,
                         SaleDiscountPercent = v.SaleDiscountPercent,
                         SaleDiscountAmount = v.SaleDiscountAmount,

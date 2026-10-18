@@ -236,6 +236,7 @@ namespace api.Data
                             Price = v.Price,
                             SortOrder = v.SortOrder ?? 0,
                             IsActive = true,
+                            Notes = v.Notes,
                         });
                     }
                 }
@@ -420,6 +421,9 @@ namespace api.Data
 
             /// <summary>Display order.</summary>
             public int? SortOrder { get; set; }
+
+            /// <summary>A note shown to the rep when this size is picked.</summary>
+            public string? Notes { get; set; }
         }
 
         /// <summary>

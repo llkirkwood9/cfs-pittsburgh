@@ -638,7 +638,8 @@ Routes are the dashboard's; the app has the same screens.
 
 **Admin** (Admin role)
 - `/catalog` - products, sizes and prices, bundles, delivery options and their prices per product,
-  sales (per product, per size and per delivery option), selections, Track inventory, warranty
+  sales (per product, per size and per delivery option), a note for the rep on the product and on
+  each size (shown in Add item), selections, Track inventory, warranty
   (whether a product has one, and its length, shown in Add item), financing
   options, and the order the floor offers delivery and financing in. System admins can **Export
   catalog** and **Restore catalog** as a JSON file (section 13).
@@ -719,8 +720,9 @@ resolves picks, builds keys and reads and changes counts.
 that includes it. `Utils/InventoryRules.cs` enforces it.
 
 **Catalog files.** `GET /api/catalog/export` and `POST /api/catalog/import` (system admins only)
-save and restore the catalog as JSON (`"format": "cfs-catalog", "version": 1`) with no database
-ids: products are matched by brand and name, sizes by size and configuration, and everything else
+save and restore the catalog as JSON (`"format": "cfs-catalog", "version": 1`) - every product
+setting, size (with its note and sale), bundle, selection, delivery and financing option, but no
+stock counts - with no database ids: products are matched by brand and name, sizes by size and configuration, and everything else
 by name, so a matched item keeps its stock counts and past sales. `mode: "update"` brings matches
 in line and adds the rest; `mode: "replace"` runs `PermanentDelete.CatalogAsync` first. The file is
 checked in full and the restore runs in one transaction, so a bad file changes nothing.

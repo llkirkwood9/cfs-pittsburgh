@@ -810,6 +810,10 @@ namespace api.Migrations
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
+                    b.Property<string>("Notes")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
+
                     b.Property<decimal?>("Price")
                         .HasColumnType("numeric(18,4)");
 
