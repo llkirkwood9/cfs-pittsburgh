@@ -27,9 +27,11 @@ namespace api.Models
         public Event? Event { get; set; }
 
         /// <summary>
-        /// Sequential number printed in the top right corner of the sheet
+        /// Sequential number printed in the top right corner of the sheet. A new draft has none
+        /// until its first item is added, so a rep can open one just to check prices without using
+        /// up a number or putting a blank order on the Orders screen.
         /// </summary>
-        public int OrderNumber { get; set; }
+        public int? OrderNumber { get; set; }
 
         /// <summary>
         /// Where the order sits between the sales floor and the checkout table
@@ -80,10 +82,23 @@ namespace api.Models
         #region Customer Billing Name and Address
 
         /// <summary>
-        /// Billing block - Name
+        /// Billing block - Name: the first and last name together, as printed and searched. Kept in
+        /// step with BillingFirstName and BillingLastName.
         /// </summary>
         [MaxLength(150)]
         public string? BillingName { get; set; }
+
+        /// <summary>
+        /// Billing block - the customer's first name
+        /// </summary>
+        [MaxLength(75)]
+        public string? BillingFirstName { get; set; }
+
+        /// <summary>
+        /// Billing block - the customer's last name
+        /// </summary>
+        [MaxLength(75)]
+        public string? BillingLastName { get; set; }
 
         /// <summary>
         /// Billing block - Address

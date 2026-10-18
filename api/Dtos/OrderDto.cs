@@ -18,7 +18,7 @@ namespace api.Dtos
         public int? EventId { get; set; }
 
         /// <summary>
-        /// Sequential number printed in the top right corner
+        /// Sequential number printed in the top right corner; none until the first item is added
         /// </summary>
         public int? OrderNumber { get; set; }
 
@@ -66,9 +66,20 @@ namespace api.Dtos
         #region Customer Billing Name and Address
 
         /// <summary>
-        /// Billing block - Name
+        /// Billing block - Name: first and last together. Sent on its own (by an older app), it is
+        /// split into the two at the first space.
         /// </summary>
         public string? BillingName { get; set; }
+
+        /// <summary>
+        /// Billing block - the customer's first name
+        /// </summary>
+        public string? BillingFirstName { get; set; }
+
+        /// <summary>
+        /// Billing block - the customer's last name
+        /// </summary>
+        public string? BillingLastName { get; set; }
 
         /// <summary>
         /// Billing block - Address

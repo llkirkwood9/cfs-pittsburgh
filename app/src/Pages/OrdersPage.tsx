@@ -340,7 +340,7 @@ const OrdersPage = () => {
                             scope?.kind === "all" ? order.eventOrganization : null,
                             FormatShortDate(order.eventDate ?? order.createdAt),
                             order.cfsRepName,
-                            `${order.lineCount ?? 0} item${(order.lineCount ?? 0) === 1 ? "" : "s"}`,
+                            `${order.itemCount ?? 0} item${(order.itemCount ?? 0) === 1 ? "" : "s"}`,
                             order.completedAt ? FormatTime(order.completedAt) : null,
                         ]
                             .filter(Boolean)

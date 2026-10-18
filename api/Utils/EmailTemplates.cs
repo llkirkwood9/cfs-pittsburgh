@@ -92,10 +92,10 @@ namespace api.Utils
 
             var values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
             {
-                ["FirstName"] = FirstName(order.BillingName) ?? "there",
+                ["FirstName"] = FirstNonBlank(order.BillingFirstName, FirstName(order.BillingName)) ?? "there",
                 ["CustomerName"] = order.BillingName?.Trim() ?? string.Empty,
                 ["Organization"] = org,
-                ["OrderNumber"] = order.OrderNumber.ToString(Us),
+                ["OrderNumber"] = order.OrderNumber?.ToString(Us) ?? string.Empty,
                 ["SaleDate"] = order.SaleDate.ToString("MMMM d, yyyy", Us),
                 ["Total"] = Money(order.Total),
                 ["BalanceDue"] = Money(order.BalanceDue),

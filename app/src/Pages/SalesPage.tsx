@@ -150,7 +150,7 @@ const SalesPage = () => {
         setOrder(created);
         setPane("customer");
         await refreshDrafts(saleEvent.id);
-        Toast.Success(`Order #${created.orderNumber} started.`);
+        Toast.Success("Order started.");
     };
 
     const handleSelectDraft = async (id: number) => {
@@ -255,7 +255,8 @@ const SalesPage = () => {
                 <Text className="shrink font-bold">
                     Items
                     <Text className="text-sm font-normal text-zinc-500 dark:text-zinc-400">
-                        {"  "}Order #{order.orderNumber}
+                        {"  "}
+                        {order.orderNumber ? `Order #${order.orderNumber}` : "New order"}
                     </Text>
                 </Text>
                 <Button
@@ -396,12 +397,12 @@ const SalesPage = () => {
                                     loading={submitting}
                                     // The API rejects an empty or unnamed order anyway; greying
                                     // the button out saves the rep a round trip to find out.
-                                    disabled={(order.lines?.length ?? 0) === 0 || !order.billingName}
+                                    disabled={(order.lines?.length ?? 0) === 0 || !order.billingFirstName?.trim() || !order.billingLastName?.trim()}
                                     title={
                                         (order.lines?.length ?? 0) === 0
                                             ? "Add at least one item first"
-                                            : !order.billingName
-                                              ? "Enter the customer name first"
+                                            : !order.billingFirstName?.trim() || !order.billingLastName?.trim()
+                                              ? "Enter the customer's first and last name first"
                                               : undefined
                                     }
                                     className={
@@ -486,7 +487,9 @@ const SalesPage = () => {
             {discardingDraft && (
                 <ConfirmationModal
                     title="Discard draft"
-                    message={`Discard order #${order?.orderNumber}? This cannot be undone.`}
+                    message={`Discard ${
+                        order?.orderNumber ? `order #${order.orderNumber}` : "this order"
+                    }? This cannot be undone.`}
                     confirmText="Discard"
                     destructive
                     onConfirm={handleDiscardDraft}

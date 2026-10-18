@@ -30,7 +30,12 @@ const DraftTabs = ({ drafts, activeId, onSelect, onNew, creating = false }: Prop
             >
                 {drafts.map((draft) => {
                     const active = draft.id === activeId;
-                    const label = draft.draftLabel || draft.billingName || `#${draft.orderNumber}`;
+                    // A draft gets its number with its first item.
+                    const number = draft.orderNumber ? `#${draft.orderNumber} · ` : "";
+                    const label =
+                        draft.draftLabel ||
+                        draft.billingName ||
+                        (draft.orderNumber ? `#${draft.orderNumber}` : "New order");
                     const color = active ? "text-white" : "text-zinc-800 dark:text-zinc-100";
 
                     return (
@@ -50,8 +55,9 @@ const DraftTabs = ({ drafts, activeId, onSelect, onNew, creating = false }: Prop
                                 {label}
                             </Text>
                             <Text className={cx("text-xs opacity-80", color)}>
-                                #{draft.orderNumber} · {draft.lineCount ?? 0} item
-                                {(draft.lineCount ?? 0) === 1 ? "" : "s"} · {FormatCurrency(draft.total)}
+                                {number}
+                                {draft.itemCount ?? 0} item
+                                {(draft.itemCount ?? 0) === 1 ? "" : "s"} · {FormatCurrency(draft.total)}
                             </Text>
                         </Pressable>
                     );

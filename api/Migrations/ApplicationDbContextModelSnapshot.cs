@@ -286,9 +286,17 @@ namespace api.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("BillingFirstName")
+                        .HasMaxLength(75)
+                        .HasColumnType("character varying(75)");
+
                     b.Property<string>("BillingFloor")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("BillingLastName")
+                        .HasMaxLength(75)
+                        .HasColumnType("character varying(75)");
 
                     b.Property<string>("BillingName")
                         .HasMaxLength(150)
@@ -405,7 +413,7 @@ namespace api.Migrations
                     b.Property<int>("EventId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("OrderNumber")
+                    b.Property<int?>("OrderNumber")
                         .HasColumnType("integer");
 
                     b.Property<string>("Organization")

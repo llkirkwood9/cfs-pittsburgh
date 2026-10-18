@@ -14,6 +14,8 @@ export type OrderSummary = {
     billingAlt?: string | null;
     billingEmail?: string | null;
     lineCount?: number;
+    /** Items sold and items that come with a bundle, by quantity - not shipping or upcharges. */
+    itemCount?: number;
     subtotal?: number;
     total?: number;
     balanceDue?: number;

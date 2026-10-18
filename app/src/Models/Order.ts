@@ -17,7 +17,10 @@ export type Order = {
     referralName?: string | null;
     cfsRepName?: string | null;
 
+    /** First and last name together, as printed; kept in step by the API. */
     billingName?: string | null;
+    billingFirstName?: string | null;
+    billingLastName?: string | null;
     billingAddress?: string | null;
     billingUnit?: string | null;
     billingFloor?: string | null;

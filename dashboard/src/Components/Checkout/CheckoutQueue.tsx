@@ -54,8 +54,8 @@ const CheckoutQueue = ({ orders, activeId, onSelect }: Props) => {
                                     {order.billingName || "No name yet"}
                                 </span>
                                 <span className="block text-xs opacity-80">
-                                    {order.cfsRepName} &middot; {order.lineCount ?? 0} item
-                                    {(order.lineCount ?? 0) === 1 ? "" : "s"} &middot;{" "}
+                                    {order.cfsRepName} &middot; {order.itemCount ?? 0} item
+                                    {(order.itemCount ?? 0) === 1 ? "" : "s"} &middot;{" "}
                                     {FormatElapsed(order.submittedAt)}
                                 </span>
                             </span>

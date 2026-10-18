@@ -72,7 +72,16 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
 
     const address = (prefix: "billing" | "delivery") => (
         <Grid columns={ADDRESS_COLUMNS}>
-            <Cell span={2}>{field("Name", `${prefix}Name` as keyof Order)}</Cell>
+            {/* The customer's name in two parts, so neither is left off; the delivery name
+                is whoever receives it, in one. */}
+            {prefix === "billing" ? (
+                <>
+                    {field("First name", "billingFirstName")}
+                    {field("Last name", "billingLastName")}
+                </>
+            ) : (
+                <Cell span={2}>{field("Name", "deliveryName")}</Cell>
+            )}
             <Cell span={2}>{field("Address", `${prefix}Address` as keyof Order)}</Cell>
             {field("Unit #", `${prefix}Unit` as keyof Order)}
             {field("Floor", `${prefix}Floor` as keyof Order)}

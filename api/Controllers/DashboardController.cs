@@ -260,7 +260,8 @@ namespace api.Controllers
                 LayawayTotal = PaidBy(PaymentMethod.Layaway),
 
                 CompletedOrderCount = completed.Count,
-                DraftOrderCount = orders.Count(o => o.Status == OrderStatus.Draft),
+                // A blank draft, with no number yet, is a rep checking prices rather than a sale under way.
+                DraftOrderCount = orders.Count(o => o.Status == OrderStatus.Draft && o.OrderNumber != null),
                 AwaitingCheckoutCount = orders.Count(o => o.Status == OrderStatus.AwaitingCheckout),
                 VoidedOrderCount = orders.Count(o => o.Status == OrderStatus.Voided),
 

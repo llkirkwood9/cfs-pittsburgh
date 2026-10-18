@@ -558,7 +558,11 @@ Routes are the dashboard's; the app has the same screens.
 
 **Sales floor** (`/sales`, Sales role)
 - A rep holds as many drafts open at once as they have customers, each a tab across the top. Every
-  change is saved to the server as it is made, so switching never loses anything.
+  change is saved to the server as it is made, so switching never loses anything. A new draft
+  has no order number until its first item is added, and stays off the Orders screen until then,
+  so a rep can open one just to check prices.
+- The customer's first and last name are separate boxes, on the rep's form and the customer's, and
+  checkout won't take the order until both are filled in.
 - Items are added from the catalog: pick a category, a product, a size or configuration, any
   selections the product has (such as a sheet set's Color), and a shipping method. Quantity, a
   discount (a percent, or a fixed amount off each item) and a price for "Inquire" sizes are on the
@@ -579,6 +583,8 @@ Routes are the dashboard's; the app has the same screens.
   address, a delivery address if the bed is going elsewhere, and who referred them. No prices and
   no navigation are on screen while they have it.
 - **Complete** hands the order to the checkout table.
+- The item count on each order (draft tabs, the checkout queue, Orders) counts items sold and what
+  comes with a bundle, by quantity - not shipping, services or upcharges.
 
 **Checkout table** (`/checkout`, Checkout role)
 - A queue of the orders the floor has handed over, oldest first, with how long each customer has
@@ -586,6 +592,8 @@ Routes are the dashboard's; the app has the same screens.
   how many customers are waiting: read every 20 seconds, at once when this device sends over,
   completes, reopens, voids or deletes an order, and with every refresh while Checkout is open.
 - Items and comments can still be changed here, exactly as on the floor.
+- If another device completes, voids or sends back the order on screen, it closes here with a
+  message, once it drops out of the queue.
 - Payment can be split across cash, check, credit/debit card, financing and layaway. Choosing
   Credit/Debit Card puts the card processing fee on the total at once, so the figure quoted is the
   figure charged; **No card fee on this order** waives it. Financing takes the type (from the
@@ -743,6 +751,11 @@ Draft ──Complete──> AwaitingCheckout ──Complete sale──> Complete
   └────── Send back ───────┘          Reopen (admin) <─────┘
                                       Void ──> Voided (kept, excluded from totals)
 ```
+
+A draft takes the event's next order number when its first item is added, in one statement
+(`UPDATE ... RETURNING`), so two reps can't get the same number. `BillingName` is kept as the
+first and last name together, for printing and search; an app that still sends the whole name has
+it split at the first space.
 
 Completing with a balance outstanding is allowed - that is how layaway and financing sales are
 recorded - and checkout warns when one will remain. A completed order keeps a copy of the terms it

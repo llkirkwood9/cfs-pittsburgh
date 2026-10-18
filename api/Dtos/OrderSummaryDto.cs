@@ -67,9 +67,15 @@ namespace api.Dtos
         public string? BillingEmail { get; set; }
 
         /// <summary>
-        /// Number of line items on the order
+        /// Number of rows on the order, shipping and upcharges included
         /// </summary>
         public int? LineCount { get; set; }
+
+        /// <summary>
+        /// Number of items on the order: each item sold and each item that comes with a bundle,
+        /// by quantity. Shipping, services and upcharges aren't items.
+        /// </summary>
+        public int? ItemCount { get; set; }
 
         /// <summary>
         /// Subtotal before tax

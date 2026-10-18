@@ -28,7 +28,8 @@ namespace api.Controllers
         #region POST Methods
 
         /// <summary>
-        /// Opens a new draft order against an event and reserves the next order number.
+        /// Opens a new draft order against an event. It gets its order number when its first item is
+        /// added, so a draft opened just to look at prices uses up no number.
         /// </summary>
         /// <param name="request">Event id, and optionally a draft label and rep name</param>
         /// <returns>The created order.</returns>
@@ -53,7 +54,6 @@ namespace api.Controllers
                 var order = new Order
                 {
                     EventId = saleEvent.Id,
-                    OrderNumber = saleEvent.NextOrderNumber,
                     Status = OrderStatus.Draft,
                     DraftLabel = request.DraftLabel,
                     SaleDate = request.SaleDate ?? saleEvent.EventDate,
@@ -66,8 +66,6 @@ namespace api.Controllers
                     DeliverySameAsBilling = true,
                     CreatedByUserId = GetCurrentUserId(),
                 };
-
-                saleEvent.NextOrderNumber += 1;
 
                 DB.Orders.Add(order);
                 await DB.SaveChangesAsync();
@@ -306,6 +304,7 @@ namespace api.Controllers
                 InventoryRules.SyncIncludedTakeWith(order);
                 LineOrder.Normalize(order);
                 OrderCalculator.RecalculateOrder(order);
+                order.OrderNumber ??= await NextOrderNumberAsync(DB, order.EventId);
                 order.UpdatedAt = DateTime.UtcNow;
                 await DB.SaveChangesAsync();
 
@@ -404,8 +403,8 @@ namespace api.Controllers
                 if (order.Lines.Count == 0)
                     return BadRequest(new { error = "Add at least one item before sending to checkout." });
 
-                if (string.IsNullOrWhiteSpace(order.BillingName))
-                    return BadRequest(new { error = "Enter the customer name before sending to checkout." });
+                if (string.IsNullOrWhiteSpace(order.BillingFirstName) || string.IsNullOrWhiteSpace(order.BillingLastName))
+                    return BadRequest(new { error = "Enter the customer's first and last name before sending to checkout." });
 
                 OrderCalculator.RecalculateOrder(order);
                 order.Status = OrderStatus.AwaitingCheckout;
@@ -590,7 +589,9 @@ namespace api.Controllers
         {
             try
             {
-                var query = DB.Orders.Where(o => o.EventId == eventId);
+                // A draft with nothing on it yet has no number and isn't an order to anyone but
+                // the rep who opened it, so it stays off the Orders screen.
+                var query = DB.Orders.Where(o => o.EventId == eventId && o.OrderNumber != null);
 
                 if (!string.IsNullOrWhiteSpace(status))
                 {
@@ -702,7 +703,8 @@ namespace api.Controllers
                 if (!IsInRole(UserRole.Admin))
                     return StatusCode(403, new { error = "Only an administrator may browse every event." });
 
-                var query = DB.Orders.AsQueryable();
+                // Blank drafts, with no number yet, aren't listed.
+                var query = DB.Orders.Where(o => o.OrderNumber != null);
 
                 if (!string.IsNullOrWhiteSpace(status))
                 {
@@ -1538,7 +1540,22 @@ namespace api.Controllers
         /// <param name="request">Incoming DTO</param>
         private static void ApplyBilling(Order order, OrderDto request)
         {
-            if (request.BillingName != null) order.BillingName = request.BillingName;
+            if (request.BillingFirstName != null || request.BillingLastName != null)
+            {
+                if (request.BillingFirstName != null) order.BillingFirstName = Blank(request.BillingFirstName);
+                if (request.BillingLastName != null) order.BillingLastName = Blank(request.BillingLastName);
+                order.BillingName = Blank($"{order.BillingFirstName} {order.BillingLastName}");
+            }
+            else if (request.BillingName != null)
+            {
+                // An app from before the name was split sends the whole name: the first word is the
+                // first name and the rest the last.
+                var (first, last) = SplitName(request.BillingName);
+                order.BillingFirstName = first;
+                order.BillingLastName = last;
+                order.BillingName = Blank(request.BillingName);
+            }
+
             if (request.BillingAddress != null) order.BillingAddress = request.BillingAddress;
             if (request.BillingUnit != null) order.BillingUnit = request.BillingUnit;
             if (request.BillingFloor != null) order.BillingFloor = request.BillingFloor;
@@ -1549,6 +1566,45 @@ namespace api.Controllers
             if (request.BillingCell != null) order.BillingCell = request.BillingCell;
             if (request.BillingAlt != null) order.BillingAlt = request.BillingAlt;
             if (request.BillingEmail != null) order.BillingEmail = request.BillingEmail;
+        }
+
+        /// <summary>
+        /// Trims a typed value, treating one that is only spaces as nothing.
+        /// </summary>
+        /// <param name="value">What was typed</param>
+        /// <returns>The trimmed value, or null.</returns>
+        private static string? Blank(string? value)
+        {
+            var trimmed = value?.Trim();
+            return string.IsNullOrEmpty(trimmed) ? null : trimmed;
+        }
+
+        /// <summary>
+        /// Splits a whole name at the first space: "Mary Ann Smith" is "Mary" and "Ann Smith".
+        /// </summary>
+        /// <param name="name">The whole name</param>
+        /// <returns>The first name and the last name, either of which may be null.</returns>
+        private static (string? First, string? Last) SplitName(string? name)
+        {
+            var trimmed = Blank(name);
+            if (trimmed == null) return (null, null);
+            var space = trimmed.IndexOf(' ');
+            return space < 0 ? (trimmed, null) : (trimmed[..space], Blank(trimmed[(space + 1)..]));
+        }
+
+        /// <summary>
+        /// Takes the event's next order number, in one statement so two reps adding their first
+        /// item at the same moment can't both get the same number.
+        /// </summary>
+        /// <param name="db">EF context</param>
+        /// <param name="eventId">The order's event</param>
+        /// <returns>The number for the order.</returns>
+        private static async Task<int> NextOrderNumberAsync(ApplicationDbContext db, int eventId)
+        {
+            var taken = await db.Database
+                .SqlQuery<int>($@"UPDATE ""Events"" SET ""NextOrderNumber"" = ""NextOrderNumber"" + 1 WHERE ""Id"" = {eventId} RETURNING ""NextOrderNumber"" - 1 AS ""Value""")
+                .ToListAsync();
+            return taken.Single();
         }
 
         /// <summary>
@@ -1668,6 +1724,8 @@ namespace api.Controllers
                 ReferralName = order.ReferralName,
                 CfsRepName = order.CfsRepName,
                 BillingName = order.BillingName,
+                BillingFirstName = order.BillingFirstName,
+                BillingLastName = order.BillingLastName,
                 BillingAddress = order.BillingAddress,
                 BillingUnit = order.BillingUnit,
                 BillingFloor = order.BillingFloor,
@@ -1808,6 +1866,11 @@ namespace api.Controllers
                 BillingAlt = order.BillingAlt,
                 BillingEmail = order.BillingEmail,
                 LineCount = order.Lines.Count,
+                // Items sold and the items that come with a bundle; shipping, services and
+                // upcharges are charges on an item, not items.
+                ItemCount = order.Lines
+                    .Where(l => l.LineType is not (OrderLineType.Delivery or OrderLineType.Upcharge))
+                    .Sum(l => l.Quantity),
                 Subtotal = order.Subtotal,
                 Total = order.Total,
                 BalanceDue = order.BalanceDue,

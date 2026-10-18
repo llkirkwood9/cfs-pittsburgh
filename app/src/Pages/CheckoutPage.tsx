@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
 import { Redirect, router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import { RefreshControl, ScrollView, View } from "react-native";
 import AcknowledgementSheet from "../Components/Checkout/AcknowledgementSheet";
@@ -119,6 +119,9 @@ const CheckoutPage = () => {
     const [removingLine, setRemovingLine] = useState<OrderLine | null>(null);
     const [showCustomerSheet, setShowCustomerSheet] = useState<boolean>(false);
     const [showAcknowledgements, setShowAcknowledgements] = useState<boolean>(false);
+    // Orders this device is completing, voiding or sending back, so the check below doesn't take
+    // its own work for someone else's.
+    const closedHere = useRef<Set<number>>(new Set());
 
     const refreshQueue = useCallback(async (eventId: number) => {
         const list = await GetCheckoutQueue(eventId);
@@ -176,6 +179,32 @@ const CheckoutPage = () => {
 
         return () => clearInterval(timer);
     }, [saleEvent?.id]);
+
+    // Someone else may finish the order on screen - complete or void it at another device, or
+    // send it back to the floor. Once it drops out of the queue, look it up and close it here too,
+    // so nobody keeps working on a sale that is already done.
+    useEffect(() => {
+        if (!order?.id || order.status !== "AwaitingCheckout") return;
+        if (queue.some((o) => o.id === order.id) || closedHere.current.has(order.id)) return;
+
+        let cancelled = false;
+        GetOrder(order.id).then((latest) => {
+            if (cancelled || !IsOnline() || latest?.status === "AwaitingCheckout") return;
+            const what =
+                latest?.status === "Completed"
+                    ? "completed"
+                    : latest?.status === "Voided"
+                      ? "voided"
+                      : latest?.status === "Draft"
+                        ? "sent back to the sales floor"
+                        : "removed";
+            Toast.Info(`Order #${order.orderNumber} was ${what} on another device.`);
+            setOrder(null);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [queue, order?.id, order?.status, order?.orderNumber]);
 
     const checkActiveEvent = useActiveEventChange(loading ? undefined : (saleEvent?.id ?? null), load);
 
@@ -252,12 +281,17 @@ const CheckoutPage = () => {
 
     const handleComplete = async () => {
         if (!order?.id) return;
+        const closing = order.id;
+        closedHere.current.add(closing);
 
         setCompleting(true);
         const result = await CompleteOrder(order.id);
         setCompleting(false);
 
-        if (!result?.id) return;
+        if (!result?.id) {
+            closedHere.current.delete(closing);
+            return;
+        }
 
         Toast.Success(`Order #${result.orderNumber} completed.`);
         openReceipt(result.id);
@@ -269,9 +303,14 @@ const CheckoutPage = () => {
 
     const handleSendBack = async () => {
         if (!order?.id) return;
+        const closing = order.id;
+        closedHere.current.add(closing);
 
         const result = await ReopenOrder(order.id);
-        if (!result) return;
+        if (!result) {
+            closedHere.current.delete(closing);
+            return;
+        }
 
         Toast.Info(`Order #${result.orderNumber} sent back to the floor.`);
 
@@ -283,11 +322,16 @@ const CheckoutPage = () => {
 
     const handleVoid = async () => {
         if (!order?.id) return;
+        const closing = order.id;
+        closedHere.current.add(closing);
 
         const result = await VoidOrder(order.id);
         setVoiding(false);
 
-        if (!result) return;
+        if (!result) {
+            closedHere.current.delete(closing);
+            return;
+        }
 
         Toast.Info(`Order #${result.orderNumber} voided.`);
 

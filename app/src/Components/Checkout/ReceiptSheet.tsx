@@ -228,9 +228,10 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
                 >
                     <Text
                         style={{
-                            fontSize: 88,
+                            // Small enough that NOT COMPLETED fits across the sheet in full.
+                            fontSize: 64,
                             fontWeight: "900",
-                            letterSpacing: 8,
+                            letterSpacing: 6,
                             color: "rgba(220, 38, 38, 0.2)",
                             transform: [{ rotate: "-30deg" }],
                         }}

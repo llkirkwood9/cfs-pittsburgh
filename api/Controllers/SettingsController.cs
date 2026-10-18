@@ -349,6 +349,8 @@ namespace api.Controllers
                 Organization = saleEvent?.Organization ?? "Sample School Band",
                 SaleDate = saleEvent?.EventDate ?? DateTime.Today,
                 BillingName = "Jamie Smith",
+                BillingFirstName = "Jamie",
+                BillingLastName = "Smith",
                 BillingAddress = "123 Main Street",
                 BillingCity = "Pittsburgh",
                 BillingState = "PA",

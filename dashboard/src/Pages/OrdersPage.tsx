@@ -304,8 +304,8 @@ const OrdersPage = () => {
                                         </span>
                                         {order.cfsRepName && <span>{order.cfsRepName}</span>}
                                         <span>
-                                            {order.lineCount ?? 0} item
-                                            {(order.lineCount ?? 0) === 1 ? "" : "s"}
+                                            {order.itemCount ?? 0} item
+                                            {(order.itemCount ?? 0) === 1 ? "" : "s"}
                                         </span>
                                         {order.completedAt && (
                                             <span>{FormatTime(order.completedAt)}</span>

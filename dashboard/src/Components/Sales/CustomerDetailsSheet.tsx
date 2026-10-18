@@ -24,9 +24,15 @@ type Field = {
 
 const billingFields: Field[] = [
     {
-        key: "billingName",
-        label: "Your name",
-        span: "col-span-2 sm:col-span-6",
+        key: "billingFirstName",
+        label: "First name",
+        span: "col-span-1 sm:col-span-3",
+        autoCapitalize: "words",
+    },
+    {
+        key: "billingLastName",
+        label: "Last name",
+        span: "col-span-1 sm:col-span-3",
         autoCapitalize: "words",
     },
     {
@@ -181,7 +187,8 @@ const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
         setForm((current) => ({ ...current, [key]: value }));
 
     const handleDone = async () => {
-        if (!(form.billingName ?? "").trim()) return Toast.Warning("Please enter your name.");
+        if (!(form.billingFirstName ?? "").trim() || !(form.billingLastName ?? "").trim())
+            return Toast.Warning("Please enter your first and last name.");
 
         if (elsewhere && !(form.deliveryAddress ?? "").trim())
             return Toast.Warning("Please enter the delivery address.");
@@ -198,7 +205,8 @@ const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
                 id: order.id,
                 deliverySameAsBilling: !elsewhere,
                 ...delivery,
-                billingName: form.billingName ?? "",
+                billingFirstName: form.billingFirstName ?? "",
+                billingLastName: form.billingLastName ?? "",
                 billingAddress: form.billingAddress ?? "",
                 billingUnit: form.billingUnit ?? "",
                 billingFloor: form.billingFloor ?? "",

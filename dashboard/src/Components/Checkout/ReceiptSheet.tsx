@@ -195,7 +195,7 @@ const ReceiptSheet = ({ order }: Props) => {
                     aria-hidden
                     className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center"
                 >
-                    <span className="rotate-[-30deg] select-none whitespace-nowrap text-[88px] font-black tracking-widest text-red-600/20">
+                    <span className="rotate-[-30deg] select-none whitespace-nowrap text-[64px] font-black tracking-widest text-red-600/20">
                         {notice.stamp}
                     </span>
                 </div>
