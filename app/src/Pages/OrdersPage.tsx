@@ -14,6 +14,7 @@ import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
 import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
+import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
 import {
     EventsForFilter,
@@ -161,9 +162,7 @@ const OrdersPage = () => {
         boot();
     }, [boot]);
 
-    useActiveEventChange(loading ? undefined : activeId, boot);
-
-    if (!user) return <Redirect href="/unauthorized" />;
+    const checkActiveEvent = useActiveEventChange(loading ? undefined : activeId, boot);
 
     const switchScope = async (target: Scope) => {
         setScope(target);
@@ -179,12 +178,23 @@ const OrdersPage = () => {
         if (scope) await loadWith(scope, statusFilter, search);
     };
 
+    // A change of active event starts the screen again; otherwise the same list, read again.
+    const reload = async () => {
+        if (await checkActiveEvent()) return;
+        if (scope) await load(scope, statusFilter, search);
+    };
+
     const handleRefresh = async () => {
         if (!scope) return;
         setRefreshing(true);
-        await load(scope, statusFilter, search);
+        await reload();
         setRefreshing(false);
     };
+
+    // Back on this screen: read it again.
+    useRefreshOnFocus(reload);
+
+    if (!user) return <Redirect href="/unauthorized" />;
 
     const handleReopen = async (to: "floor" | "checkout") => {
         if (!reopening?.id) return;

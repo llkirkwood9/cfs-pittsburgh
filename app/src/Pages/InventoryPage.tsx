@@ -14,6 +14,7 @@ import TextField from "../Components/Elements/TextField";
 import InventoryNotesEditor from "../Components/Inventory/InventoryNotesEditor";
 import { useSettings } from "../Context/SettingsContext";
 import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
+import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
 import { IsOnline } from "../Lib/Connection";
 import {
@@ -82,6 +83,9 @@ const InventoryPage = () => {
     }, [load]);
 
     useActiveEventChange(loading ? undefined : (saleEvent?.id ?? null), load);
+
+    // Back on this screen: read it again.
+    useRefreshOnFocus(load);
 
     const handleRefresh = async () => {
         setRefreshing(true);

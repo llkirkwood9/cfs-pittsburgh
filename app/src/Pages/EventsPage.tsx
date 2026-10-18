@@ -14,6 +14,7 @@ import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
 import { useSettings } from "../Context/SettingsContext";
+import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import {
     FormatRate,
     FormatShortDate,
@@ -66,6 +67,9 @@ const EventsPage = () => {
     useEffect(() => {
         load();
     }, [load]);
+
+    // Back on this screen: read it again.
+    useRefreshOnFocus(load);
 
     if (!user) return <Redirect href="/unauthorized" />;
 

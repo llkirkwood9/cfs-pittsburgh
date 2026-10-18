@@ -170,6 +170,10 @@ Once a development build is installed, `npx expo start` serves it in place of Ex
   sheets should do the same for the whole stack.
 - **Orders**, **Dashboard** and **More** (Inventory, Catalog, Events, Crew, Settings), in light
   and dark mode, on a phone and on a tablet, in both orientations.
+- **Refresh on return:** change something on another device (send an order to checkout, add a
+  product), then switch back to the tab. It should show the change without pulling down.
+- **Close out** an event: swiping an open order uncovers Discard (or Void), and Clear all / Void
+  all clear a whole step.
 - Turn Wi-Fi off for a moment. The "can't reach the server" banner should show, then clear when
   Wi-Fi is back.
 

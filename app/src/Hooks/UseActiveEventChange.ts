@@ -6,9 +6,9 @@ import { GetActiveEvent } from "../Services/EventServices";
 
 /**
  * Keeps a screen on the active event. Tabs stay loaded once opened, so a screen loaded before an
- * admin switched events would go on showing the old one; this checks again whenever the screen
- * comes back into view or the app comes back to the front, and reloads the screen if the active
- * event is not the one it loaded.
+ * admin switched events would go on showing the old one; this checks again when the app comes back
+ * to the front, and the screen's own refresh (useRefreshOnFocus, pull to refresh) runs the check it
+ * returns. Either way the screen reloads if the active event is not the one it loaded.
  * @param activeId The active event's id as the screen last loaded it: null for none, undefined
  * while it is still loading.
  * @param reload Loads the screen again.
@@ -37,11 +37,10 @@ export const useActiveEventChange = (
     useFocusEffect(
         useCallback(() => {
             focused.current = true;
-            check();
             return () => {
                 focused.current = false;
             };
-        }, [check])
+        }, [])
     );
 
     useEffect(() => {

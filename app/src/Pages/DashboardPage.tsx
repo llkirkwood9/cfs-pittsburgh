@@ -14,6 +14,7 @@ import TabButton from "../Components/Elements/TabButton";
 import Text from "../Components/Elements/Text";
 import { useAuth } from "../Context/AuthContext";
 import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
+import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
 import { IsOnline } from "../Lib/Connection";
 import { EventsForFilter, FormatCurrency, IsPastEvent } from "../Lib/ModelHelpers";
@@ -128,25 +129,33 @@ const DashboardPage = () => {
         load("event").finally(() => setLoading(false));
     }, [load]);
 
-    useActiveEventChange(loading ? undefined : activeId, () => load(scope));
+    const checkActiveEvent = useActiveEventChange(loading ? undefined : activeId, () => load(scope));
 
     useEffect(() => {
         const timer = setInterval(() => show(scope, eventId), POLL_MS);
         return () => clearInterval(timer);
     }, [scope, eventId, show]);
 
-    if (!user) return <Redirect href="/unauthorized" />;
-
     const switchScope = (next: "event" | "all") => show(next, eventId);
 
     const switchEvent = (id: number) => show("event", id);
 
+    // A change of active event opens on it; otherwise the same figures, read again.
+    const reload = async () => {
+        if (!(await checkActiveEvent())) await show(scope, eventId);
+        setRefreshKey((k) => k + 1);
+    };
+
     const handleRefresh = async () => {
         setRefreshing(true);
-        await show(scope, eventId);
-        setRefreshKey((k) => k + 1);
+        await reload();
         setRefreshing(false);
     };
+
+    // Back on this screen: read it again.
+    useRefreshOnFocus(reload);
+
+    if (!user) return <Redirect href="/unauthorized" />;
 
     if (loading) {
         return (

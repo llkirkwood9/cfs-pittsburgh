@@ -15,6 +15,7 @@ import TabButton from "../Components/Elements/TabButton";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
+import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { ShareTextFile } from "../Lib/Files";
 import { FormatCurrency } from "../Lib/ModelHelpers";
 import { DiscountText, HasDiscount, OnSale, SaleFor } from "../Lib/Pricing";
@@ -110,6 +111,9 @@ const CatalogPage = () => {
         // Sorted as the Add item list is: categories in tab order, the chosen sort within each.
         return SortProducts(matches, sortKey, categories);
     }, [products, tab, search, sortKey, categories]);
+
+    // Back on this screen: read it again.
+    useRefreshOnFocus(load);
 
     if (!user) return <Redirect href="/unauthorized" />;
 

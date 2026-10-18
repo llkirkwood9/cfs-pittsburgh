@@ -14,6 +14,7 @@ import type { SwipeAction } from "../Components/Elements/SwipeRow";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
+import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
 import { FormatDateTime, FormatElapsed } from "../Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
@@ -62,6 +63,9 @@ const CrewPage = () => {
     useEffect(() => {
         load();
     }, [load]);
+
+    // Back on this screen: read it again.
+    useRefreshOnFocus(load);
 
     if (!user) return <Redirect href="/unauthorized" />;
 

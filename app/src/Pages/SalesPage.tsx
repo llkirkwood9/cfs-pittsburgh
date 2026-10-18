@@ -20,6 +20,7 @@ import OrderTotals from "../Components/Sales/OrderTotals";
 import UpchargeModal from "../Components/Sales/UpchargeModal";
 import { useAuth } from "../Context/AuthContext";
 import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
+import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { useBreakpoint } from "../Hooks/UseBreakpoint";
 import { FormatCurrency } from "../Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
@@ -120,11 +121,8 @@ const SalesPage = () => {
 
     const checkActiveEvent = useActiveEventChange(loading ? undefined : (saleEvent?.id ?? null), load);
 
-    if (!user) return <Redirect href="/unauthorized" />;
-
     // Pull down to pick up drafts started on another device and fresh stock counts.
-    const handleRefresh = async () => {
-        setRefreshing(true);
+    const reload = async () => {
         // A change of active event reloads everything; otherwise just the drafts and stock.
         const switched = await checkActiveEvent();
         if (!switched && saleEvent?.id) {
@@ -135,8 +133,18 @@ const SalesPage = () => {
         } else if (!switched) {
             await load();
         }
+    };
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await reload();
         setRefreshing(false);
     };
+
+    // Back on this screen: read it again.
+    useRefreshOnFocus(reload);
+
+    if (!user) return <Redirect href="/unauthorized" />;
 
     const handleNewDraft = async () => {
         if (!saleEvent?.id) return;

@@ -287,7 +287,9 @@ properly.
 Expo SDK 57 + React Native 0.86 + Expo Router in [`app/`](app), styled with NativeWind 4 so it
 looks like the dashboard. Every dashboard screen is there, on a native tab bar (Sell, Checkout,
 Orders, Dashboard, and More for Inventory, Catalog, Events, Crew and Settings). Sheets print and
-email as the same picture-per-page PDF the dashboard makes.
+email as the same picture-per-page PDF the dashboard makes. Each screen reads its data again,
+quietly, whenever it comes back into view (`Hooks/UseRefreshOnFocus.ts`) - every one but Settings,
+so a half-typed change there isn't lost.
 
 **Run it**
 
@@ -645,7 +647,10 @@ Routes are the dashboard's; the app has the same screens.
   catalog** and **Restore catalog** as a JSON file (section 13).
 - `/events` - each event's organization, sales tax rate, card processing fee and order numbers, and
   which one is active. **Close out** (`/events/:id/close`) lists what to check before the cart
-  packs up - orders still open, balances owed, stock counts - then closes the event.
+  packs up - orders still open, balances owed, stock counts - then closes the event. An admin can
+  clear the open orders from there, one at a time (a button on the dashboard, a swipe in the app)
+  or all at once: a draft with nothing paid is discarded, anything at checkout or with a payment
+  is voided.
   **Sales sheets** (`/events/:id/sheets`) shows the filled-in Fundraiser Stat Sheet and every
   completed sheet, to print as one PDF, download as CSV, or email (with the accessory inventory
   sheet) to up to 10 addresses.

@@ -23,6 +23,7 @@ import OrderTotals from "../Components/Sales/OrderTotals";
 import UpchargeModal from "../Components/Sales/UpchargeModal";
 import { useAuth } from "../Context/AuthContext";
 import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
+import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { useBreakpoint } from "../Hooks/UseBreakpoint";
 import { cx } from "../Lib/ClassNames";
 import { CheckoutQueueCounted } from "../Lib/CheckoutWaiting";
@@ -208,10 +209,7 @@ const CheckoutPage = () => {
 
     const checkActiveEvent = useActiveEventChange(loading ? undefined : (saleEvent?.id ?? null), load);
 
-    if (!user) return <Redirect href="/unauthorized" />;
-
-    const handleRefresh = async () => {
-        setRefreshing(true);
+    const reload = async () => {
         // A change of active event reloads everything; otherwise just the queue and the order.
         const switched = await checkActiveEvent();
         if (!switched && saleEvent?.id) {
@@ -220,8 +218,18 @@ const CheckoutPage = () => {
         } else if (!switched) {
             await load();
         }
+    };
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        await reload();
         setRefreshing(false);
     };
+
+    // Back on this screen: read it again.
+    useRefreshOnFocus(reload);
+
+    if (!user) return <Redirect href="/unauthorized" />;
 
     const applyResult = async (result: Order | null) => {
         if (!result) return;

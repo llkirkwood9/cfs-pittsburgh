@@ -2,13 +2,17 @@ import { router, Stack, useLocalSearchParams } from "expo-router";
 import type { Href } from "expo-router";
 import { useEffect, useState } from "react";
 import type { ReactNode } from "react";
-import { Pressable, View } from "react-native";
+import { View } from "react-native";
 import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Page from "../Components/Elements/Page";
+import SwipeRow from "../Components/Elements/SwipeRow";
+import type { SwipeAction } from "../Components/Elements/SwipeRow";
 import Text from "../Components/Elements/Text";
+import { useAuth } from "../Context/AuthContext";
+import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
 import { FormatCurrency, FormatShortDate, FormatTime } from "../Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
@@ -17,7 +21,7 @@ import type { InventoryItem } from "../Models/InventoryItem";
 import type { OrderSummary } from "../Models/OrderSummary";
 import { GetEvent, UpdateEvent } from "../Services/EventServices";
 import { GetInventory } from "../Services/InventoryServices";
-import { GetOrdersForEvent } from "../Services/OrderServices";
+import { DeleteOrder, GetOrdersForEvent, VoidOrder } from "../Services/OrderServices";
 
 type Step = {
     key: string;
@@ -29,6 +33,17 @@ type Step = {
     children?: ReactNode;
     action?: ReactNode;
 };
+
+/**
+ * Whether clearing an open order voids it rather than discarding it. A draft with nothing paid is
+ * discarded - deleted, as the Sell screen does - but anything that reached checkout, or has a
+ * payment on it, is voided so the record of it stays.
+ */
+const VoidsWhenCleared = (o: OrderSummary) =>
+    o.status !== "Draft" || (o.total ?? 0) - (o.balanceDue ?? 0) > 0.004;
+
+/** Orders about to be discarded or voided, waiting for a yes. */
+type Clearing = { orders: OrderSummary[]; title: string; message: string; confirmText: string };
 
 /** Where an order opens: its sales sheet, or the checkout screen for one waiting to be paid. */
 const receipt = (o: OrderSummary): Href => ({
@@ -48,6 +63,9 @@ const checkout = (o: OrderSummary): Href => ({
 const EventCloseOutPage = () => {
     const { eventId } = useLocalSearchParams<{ eventId: string }>();
     const id = Number(eventId);
+    const { hasRole } = useAuth();
+    // Discarding and voiding open orders is for administrators.
+    const canClear = hasRole("Admin");
 
     const [saleEvent, setSaleEvent] = useState<Event | null>(null);
     const [orders, setOrders] = useState<OrderSummary[]>([]);
@@ -56,6 +74,8 @@ const EventCloseOutPage = () => {
     const [refreshing, setRefreshing] = useState<boolean>(false);
     const [confirming, setConfirming] = useState<boolean>(false);
     const [closing, setClosing] = useState<boolean>(false);
+    const [clearing, setClearing] = useState<Clearing | null>(null);
+    const [working, setWorking] = useState<boolean>(false);
 
     const load = async (eventNumber: number) => {
         if (!eventNumber) return setLoading(false);
@@ -79,6 +99,9 @@ const EventCloseOutPage = () => {
         await load(id);
         setRefreshing(false);
     };
+
+    // Back from an order opened from the list: read the list again.
+    useRefreshOnFocus(() => load(id));
 
     if (loading) {
         return (
@@ -118,27 +141,122 @@ const EventCloseOutPage = () => {
     const tracks = inventory.length > 0;
     const active = Boolean(saleEvent.isActive);
 
-    const orderList = (list: OrderSummary[], to: (o: OrderSummary) => Href) => (
+    const orderName = (o: OrderSummary) =>
+        `order #${o.orderNumber}${o.billingName ? ` for ${o.billingName}` : ""}`;
+
+    /** Asks before discarding or voiding one open order. */
+    const askOne = (o: OrderSummary) =>
+        setClearing(
+            VoidsWhenCleared(o)
+                ? {
+                      orders: [o],
+                      title: "Void order",
+                      message: `Void ${orderName(o)}? It's kept, marked Voided, and left out of the totals.`,
+                      confirmText: "Void",
+                  }
+                : {
+                      orders: [o],
+                      title: "Discard order",
+                      message: `Discard ${orderName(o)}? It's deleted and can't be brought back.`,
+                      confirmText: "Discard",
+                  }
+        );
+
+    /** Asks before clearing every order in one step. */
+    const askAll = (list: OrderSummary[], what: string) => {
+        const voiding = list.filter(VoidsWhenCleared).length;
+        const discarding = list.length - voiding;
+        const parts = [
+            discarding ? `${discarding} discarded (deleted for good)` : null,
+            voiding ? `${voiding} voided (kept, but left out of the totals)` : null,
+        ].filter(Boolean);
+        setClearing({
+            orders: list,
+            title: `Clear ${list.length} ${what}`,
+            message: `Clear all ${list.length} ${what}? ${parts.join(" and ")}.`,
+            confirmText: "Clear all",
+        });
+    };
+
+    const clear = async () => {
+        if (!clearing) return;
+        // The system alert has already closed; let it go before working through the list.
+        const list = clearing.orders;
+        setClearing(null);
+        setWorking(true);
+        let done = 0;
+        for (const o of list) {
+            if (!o.id) continue;
+            const ok = VoidsWhenCleared(o)
+                ? Boolean(await VoidOrder(o.id))
+                : await DeleteOrder(o.id);
+            if (ok) done += 1;
+        }
+        setOrders(await GetOrdersForEvent(id));
+        setWorking(false);
+        if (done) Toast.Success(`${done} order${done === 1 ? "" : "s"} cleared.`);
+    };
+
+    const clearAllButton = (list: OrderSummary[], what: string, text: string) =>
+        canClear && list.length > 1 ? (
+            <Button
+                text={text}
+                icon={text === "Void all" ? "fa-solid fa-ban" : "fa-solid fa-broom"}
+                onClick={() => askAll(list, what)}
+                loading={working}
+                className="min-h-[40px] bg-red-700 px-3 text-sm dark:bg-red-600"
+            />
+        ) : undefined;
+
+    // Tap an order to open it; an administrator swipes it to discard or void it.
+    const orderList = (list: OrderSummary[], to: (o: OrderSummary) => Href, clearable = false) => (
         <View className="mt-2 gap-1">
-            {list.map((o) => (
-                <Pressable
-                    key={o.id}
-                    onPress={() => router.navigate(to(o))}
-                    accessibilityRole="button"
-                    className="min-h-[44px] flex-row items-center gap-3 rounded-lg bg-zinc-50 px-3 py-2 active:bg-zinc-100
-                        dark:bg-zinc-900/40 dark:active:bg-zinc-700"
-                >
-                    <Text className="text-sm font-bold tabular-nums">#{o.orderNumber}</Text>
-                    <Text className="min-w-0 flex-1 text-sm" numberOfLines={1}>
-                        {o.billingName || o.draftLabel || "No name yet"}
-                        {o.cfsRepName ? (
-                            <Text className="text-sm text-zinc-500 dark:text-zinc-400"> · {o.cfsRepName}</Text>
-                        ) : null}
-                    </Text>
-                    <Text className="text-sm tabular-nums">{FormatCurrency(o.balanceDue ?? o.total)}</Text>
-                    <Icon icon="fa-solid fa-chevron-right" className="text-xs text-zinc-400" />
-                </Pressable>
-            ))}
+            {list.map((o) => {
+                const actions: SwipeAction[] =
+                    clearable && canClear
+                        ? [
+                              VoidsWhenCleared(o)
+                                  ? {
+                                        label: "Void",
+                                        icon: "fa-solid fa-ban",
+                                        tone: "danger",
+                                        onPress: () => askOne(o),
+                                    }
+                                  : {
+                                        label: "Discard",
+                                        icon: "fa-solid fa-trash",
+                                        tone: "danger",
+                                        onPress: () => askOne(o),
+                                    },
+                          ]
+                        : [];
+                return (
+                    <SwipeRow
+                        key={o.id}
+                        variant="row"
+                        onPress={() => router.navigate(to(o))}
+                        actions={actions}
+                        accessibilityLabel={`Order ${o.orderNumber}, ${o.billingName || "no name yet"}`}
+                        containerClassName="overflow-hidden rounded-lg"
+                        className="min-h-[44px] flex-row items-center gap-3 bg-zinc-50 px-3 py-2 dark:bg-zinc-900/40"
+                    >
+                        <Text className="text-sm font-bold tabular-nums">#{o.orderNumber}</Text>
+                        <Text className="min-w-0 flex-1 text-sm" numberOfLines={1}>
+                            {o.billingName || o.draftLabel || "No name yet"}
+                            {o.cfsRepName ? (
+                                <Text className="text-sm text-zinc-500 dark:text-zinc-400">
+                                    {" "}
+                                    · {o.cfsRepName}
+                                </Text>
+                            ) : null}
+                        </Text>
+                        <Text className="text-sm tabular-nums">
+                            {FormatCurrency(o.balanceDue ?? o.total)}
+                        </Text>
+                        <Icon icon="fa-solid fa-chevron-right" className="text-xs text-zinc-400" />
+                    </SwipeRow>
+                );
+            })}
         </View>
     );
 
@@ -152,8 +270,9 @@ const EventCloseOutPage = () => {
                     ? "Every order has been sent to checkout or discarded."
                     : `${drafts.length} order${drafts.length === 1 ? " is" : "s are"} still being written up. Send ${
                           drafts.length === 1 ? "it" : "them"
-                      } to checkout, or discard ${drafts.length === 1 ? "it" : "them"} on the Sell screen.`,
-            children: drafts.length > 0 && orderList(drafts, receipt),
+                      } to checkout, or discard ${drafts.length === 1 ? "it" : "them"}.`,
+            children: drafts.length > 0 && orderList(drafts, receipt, true),
+            action: clearAllButton(drafts, "orders on the floor", "Clear all"),
         },
         {
             key: "checkout",
@@ -162,8 +281,11 @@ const EventCloseOutPage = () => {
             summary:
                 atCheckout.length === 0
                     ? "Every order that reached checkout has been completed or voided."
-                    : `${atCheckout.length} order${atCheckout.length === 1 ? " is" : "s are"} waiting to be paid.`,
-            children: atCheckout.length > 0 && orderList(atCheckout, checkout),
+                    : `${atCheckout.length} order${atCheckout.length === 1 ? " is" : "s are"} waiting to be paid. Complete or void ${
+                          atCheckout.length === 1 ? "it" : "them"
+                      }.`,
+            children: atCheckout.length > 0 && orderList(atCheckout, checkout, true),
+            action: clearAllButton(atCheckout, "orders at checkout", "Void all"),
         },
         {
             key: "balances",
@@ -240,7 +362,10 @@ const EventCloseOutPage = () => {
 
                 <View className="gap-3">
                     {steps.map((step) => (
-                        <View key={step.key} className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
+                        <View
+                            key={step.key}
+                            className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800"
+                        >
                             <View className="flex-row flex-wrap items-start gap-3">
                                 {/* Status is an icon plus the wording, never color alone. */}
                                 <Icon
@@ -283,7 +408,9 @@ const EventCloseOutPage = () => {
                             <Icon icon="fa-solid fa-print" className="text-lg text-zinc-500" />
                             <View className="min-w-[200px] flex-1">
                                 <Text className="font-semibold">Print the event&apos;s sheets</Text>
-                                <Text className="text-sm text-zinc-600 dark:text-zinc-400">Stat sheet, sales sheets and inventory sheet.</Text>
+                                <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                                    Stat sheet, sales sheets and inventory sheet.
+                                </Text>
                             </View>
                             <Button
                                 text="Sales sheets"
@@ -303,7 +430,9 @@ const EventCloseOutPage = () => {
                 {active && (
                     <View className="mt-5 rounded-xl border-2 border-zinc-200 p-4 dark:border-zinc-700">
                         <Text className="font-semibold">Close the event</Text>
-                        <Text className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">No new orders can be taken once it&apos;s closed.</Text>
+                        <Text className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
+                            No new orders can be taken once it&apos;s closed.
+                        </Text>
                         <Button
                             text={blocking.length ? "Close anyway" : "Close event"}
                             icon="fa-solid fa-flag-checkered"
@@ -332,6 +461,17 @@ const EventCloseOutPage = () => {
                     confirmText={closing ? "Closing..." : "Close event"}
                     onConfirm={closeEvent}
                     onCancel={() => setConfirming(false)}
+                />
+            )}
+
+            {clearing && (
+                <ConfirmationModal
+                    title={clearing.title}
+                    message={clearing.message}
+                    confirmText={clearing.confirmText}
+                    destructive
+                    onConfirm={clear}
+                    onCancel={() => setClearing(null)}
                 />
             )}
         </Page>
