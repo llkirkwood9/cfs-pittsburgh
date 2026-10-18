@@ -12,7 +12,7 @@ export type ProductVariant = {
     quantityOnHand?: number;
     /** Left out of a tracked product's inventory: not counted, and Take With isn't limited. */
     excludeFromInventory?: boolean;
-    /** A note shown to the rep when this size is picked, e.g. "Special order - 4 to 6 weeks". */
+    /** A note shown to the rep when this size is picked, e.g. "Not compressed". */
     notes?: string | null;
     /** Whether this size has its own sale rather than the product's (none = left out of it). */
     hasOwnSale?: boolean;

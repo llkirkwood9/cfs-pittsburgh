@@ -444,7 +444,7 @@ const EditProductForm = ({
                                     onChange={(value) => setVariant(index, { notes: value })}
                                     className="col-span-full"
                                     maxLength={300}
-                                    placeholder="ex. Special order - 4 to 6 weeks"
+                                    placeholder="ex. Not compressed"
                                 />
 
                                 <div className="col-span-full">
