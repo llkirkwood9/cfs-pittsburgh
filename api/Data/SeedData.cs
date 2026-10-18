@@ -221,6 +221,8 @@ namespace api.Data
                     SortOrder = p.SortOrder ?? 0,
                     IsActive = true,
                     TrackInventory = p.TrackInventory ?? false,
+                    HasWarranty = p.HasWarranty ?? api.Controllers.ProductController.WarrantyByDefault(category),
+                    WarrantyLength = p.WarrantyLength,
                 };
 
                 if (p.Variants != null)
@@ -391,6 +393,12 @@ namespace api.Data
 
             /// <summary>Whether on-hand stock is counted for this product.</summary>
             public bool? TrackInventory { get; set; }
+
+            /// <summary>Whether the product has a manufacturer warranty; by category when left out.</summary>
+            public bool? HasWarranty { get; set; }
+
+            /// <summary>How long the warranty lasts.</summary>
+            public string? WarrantyLength { get; set; }
         }
 
         /// <summary>

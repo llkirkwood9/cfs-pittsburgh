@@ -600,6 +600,9 @@ Routes are the dashboard's; the app has the same screens.
   catalog's financing options, or Other) and the financing number, both printed on the sheet.
 - **Hand to customer** walks the customer through the acknowledgements one at a time, taking
   initials for each, then a finger-drawn signature, stored with the order and printed on the sheet.
+  Only the statements that apply to the order are asked (see *Acknowledgements* in section 13): a
+  pillow taken home goes straight to All sales are final and the signature, and the skipped ones
+  print N/A.
 - **Complete sale** closes the sale and opens the receipt.
 
 **Sales sheet** (`/receipt/:id`, all roles)
@@ -635,7 +638,8 @@ Routes are the dashboard's; the app has the same screens.
 
 **Admin** (Admin role)
 - `/catalog` - products, sizes and prices, bundles, delivery options and their prices per product,
-  sales (per product, per size and per delivery option), selections, Track inventory, financing
+  sales (per product, per size and per delivery option), selections, Track inventory, warranty
+  (whether a product has one, and its length, shown in Add item), financing
   options, and the order the floor offers delivery and financing in. System admins can **Export
   catalog** and **Restore catalog** as a JSON file (section 13).
 - `/events` - each event's organization, sales tax rate, card processing fee and order numbers, and
@@ -646,7 +650,7 @@ Routes are the dashboard's; the app has the same screens.
   sheet) to up to 10 addresses.
 - `/crew` - accounts, PINs and roles.
 - `/settings` - business details (company name, customer service number, app name), the sales
-  sheet terms the customer initials, the receipt email's subject and wording (with `{Placeholders}`
+  sheet terms the customer initials and when each is asked, the receipt email's subject and wording (with `{Placeholders}`
   and a live preview), whether financing allows Other, the rates a new event starts with (7% and
   2%), and the dashboard's star and running-low levels. Stored in `AppSettings`, one row per
   setting that differs from its default. `GET /api/settings/general` is open (the sign-in screen
@@ -734,6 +738,14 @@ checkout picks Credit/Debit Card and cleared otherwise (the stored method is sti
 a card payment is keyed in, that amount caps the fee, so a payment that already includes the fee
 never compounds it. `WaiveCcProcessingFee` treats the fee rate as zero; a checkout role can set it
 until the sale is complete.
+
+**Acknowledgements.** Each statement under Settings has an `AskWhen`: `always`, `shipped` (some
+item isn't Take With) or `warranty` (some item has a warranty). `Utils/Acknowledgements.cs` works
+out the order's `RequiredTerms` from its lines - a product's `HasWarranty` and `WarrantyLength` are
+copied onto the line when it is added - and completing checks only those. A completed order is
+judged by the terms it kept (`TermsJson`). Defaults: details and drop ship when something ships,
+warranty when an item has one, all sales final always. Mattresses and adjustable bases have a
+warranty unless an admin unticks it.
 
 **Upcharges are lines.** An `OrderLineType.Upcharge` row has the reason as its description, the
 amount per item as its unit price and the item as its `ParentLineId`. `OrderCalculator` keeps its

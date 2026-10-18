@@ -30,6 +30,9 @@ export type OrderLine = {
     salePrice?: number;
     lineTotal?: number;
     includesAdjustableBase?: boolean;
+    /** Whether the item has a manufacturer warranty, from the catalog when it was added. */
+    hasWarranty?: boolean;
+    warrantyLength?: string | null;
     showOnSalesSheet?: boolean;
     isTaxable?: boolean;
     sortOrder?: number;

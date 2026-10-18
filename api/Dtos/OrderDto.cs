@@ -286,6 +286,12 @@ namespace api.Dtos
         public List<SalesTermDto>? Terms { get; set; }
 
         /// <summary>
+        /// The statements this order needs initialled (customerInfo, warranty, dropShip, advisory),
+        /// from what is on it: one that doesn't apply is skipped at checkout and prints N/A
+        /// </summary>
+        public List<string>? RequiredTerms { get; set; }
+
+        /// <summary>
         /// Customer Name printed beside the signature line
         /// </summary>
         public string? CustomerSignatureName { get; set; }

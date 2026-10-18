@@ -1,4 +1,5 @@
 import type { Event } from "../Models/Event";
+import type { SalesTermKey } from "../Models/GeneralSettings";
 import type { InventoryItem } from "../Models/InventoryItem";
 import type { Order } from "../Models/Order";
 import type { OrderLine } from "../Models/OrderLine";
@@ -237,19 +238,64 @@ export const ParseMoney = (value: string): number | null => {
 };
 
 /**
- * Whether the customer has confirmed their details, initialled all three paragraphs and signed -
- * everything the sales sheet needs before checkout can complete the sale.
+ * A product's warranty as the rep reads it out, e.g. "Warranty: 10 years".
+ * @param product The product.
+ * @returns The wording, or nothing for a product without one.
+ */
+export const WarrantyText = (product: {
+    hasWarranty?: boolean;
+    warrantyLength?: string | null;
+}): string | null => {
+    if (!product.hasWarranty) return null;
+    const length = product.warrantyLength?.trim();
+    return length ? `Warranty: ${length}` : "Manufacturer warranty";
+};
+
+/** Every statement, in signing order. */
+const ALL_TERMS: SalesTermKey[] = ["customerInfo", "warranty", "dropShip", "advisory"];
+
+/**
+ * The statements an order needs initialled, worked out by the API from what is on it - a pillow
+ * taken home today skips the warranty, drop ship and details steps.
+ * @param order The order.
+ * @returns The keys that apply, in signing order.
+ */
+export const RequiredTerms = (order: Order): SalesTermKey[] =>
+    ALL_TERMS.filter((key) => (order.requiredTerms ?? ALL_TERMS).includes(key));
+
+/**
+ * The initials an order has against a statement.
+ * @param order The order.
+ * @param key The statement.
+ * @returns The initials, or nothing.
+ */
+export const InitialsFor = (order: Order, key: SalesTermKey): string | null | undefined =>
+    ({
+        customerInfo: order.customerInfoInitials,
+        warranty: order.warrantyInitials,
+        dropShip: order.dropShipInitials,
+        advisory: order.advisoryInitials,
+    })[key];
+
+/**
+ * What the sales sheet prints in a statement's INITIAL box: the initials, or N/A for one the order
+ * didn't need.
+ * @param order The order.
+ * @param key The statement.
+ * @returns The text for the box.
+ */
+export const PrintedInitials = (order: Order, key: SalesTermKey): string =>
+    InitialsFor(order, key)?.trim() || (RequiredTerms(order).includes(key) ? "" : "N/A");
+
+/**
+ * Whether the customer has initialled every statement the order needs and signed - everything
+ * the sales sheet needs before checkout can complete the sale.
  * @param order The order.
  * @returns True when every acknowledgement is in.
  */
 export const IsAcknowledged = (order: Order): boolean =>
-    Boolean(
-        order.customerInfoInitials?.trim() &&
-        order.warrantyInitials?.trim() &&
-        order.dropShipInitials?.trim() &&
-        order.advisoryInitials?.trim() &&
-        order.customerSignature
-    );
+    Boolean(order.customerSignature) &&
+    RequiredTerms(order).every((key) => Boolean(InitialsFor(order, key)?.trim()));
 
 /**
  * One address as printed lines, e.g. ["211 Central Drive, Unit 4", "Butler, PA 16001"].

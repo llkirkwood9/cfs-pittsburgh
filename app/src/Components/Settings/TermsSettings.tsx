@@ -5,13 +5,14 @@ import { SERIF } from "../Checkout/SheetTable";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Grid from "../Elements/Grid";
 import Icon from "../Elements/Icon";
+import SelectField from "../Elements/SelectField";
 import { RenderTermText } from "../Elements/TermText";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
 import { useSettings } from "../../Context/SettingsContext";
 import { Toast } from "../../Lib/Toast";
-import { DefaultSalesTerms } from "../../Models/GeneralSettings";
-import type { SalesTerm } from "../../Models/GeneralSettings";
+import { AskWhenOptions, DefaultSalesTerms } from "../../Models/GeneralSettings";
+import type { AskWhen, SalesTerm } from "../../Models/GeneralSettings";
 import { SaveGeneralSettings } from "../../Services/SettingsServices";
 
 /** Matches the server's limits. */
@@ -27,7 +28,8 @@ const same = (a: SalesTerm[], b: SalesTerm[]) =>
             t.key === b[i].key &&
             t.title.trim() === b[i].title &&
             t.heading.trim() === b[i].heading &&
-            t.text.trim() === b[i].text
+            t.text.trim() === b[i].text &&
+            (t.askWhen ?? "always") === (b[i].askWhen ?? "always")
     );
 
 type Props = {
@@ -120,7 +122,7 @@ const TermsSettings = ({ onLayout }: Props) => {
                             <Text className="mb-2 text-sm font-semibold">
                                 {index + 1}. {t.title || fallback?.title}
                             </Text>
-                            <Grid columns={{ base: 1, md: 2 }}>
+                            <Grid columns={{ base: 1, md: 3 }}>
                                 <TextField
                                     label="Title on the customer's screen"
                                     value={t.title}
@@ -137,6 +139,13 @@ const TermsSettings = ({ onLayout }: Props) => {
                                         placeholder="None"
                                     />
                                 </View>
+                                {/* A statement that doesn't apply to an order is skipped and prints N/A. */}
+                                <SelectField<AskWhen>
+                                    label="Ask the customer"
+                                    value={t.askWhen ?? "always"}
+                                    options={AskWhenOptions}
+                                    onChange={(v) => change(t.key, "askWhen", v)}
+                                />
                             </Grid>
 
                             <View className="mt-3 gap-1">

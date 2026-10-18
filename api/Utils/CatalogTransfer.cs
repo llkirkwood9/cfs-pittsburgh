@@ -111,6 +111,8 @@ namespace api.Utils
                     SortOrder = p.SortOrder,
                     IsActive = p.IsActive,
                     TrackInventory = p.TrackInventory,
+                    HasWarranty = p.HasWarranty,
+                    WarrantyLength = p.WarrantyLength,
                     SaleDiscountPercent = p.SaleDiscountPercent,
                     SaleDiscountAmount = p.SaleDiscountAmount,
                     Variants = p.Variants
@@ -439,6 +441,9 @@ namespace api.Utils
             product.SortOrder = dto.SortOrder ?? 0;
             product.IsActive = dto.IsActive ?? true;
             product.TrackInventory = dto.TrackInventory ?? false;
+            // A file from before warranties were recorded goes by category.
+            product.HasWarranty = dto.HasWarranty ?? ProductController.WarrantyByDefault(product.Category);
+            product.WarrantyLength = ProductController.CleanWarrantyLength(dto.WarrantyLength);
             (product.SaleDiscountPercent, product.SaleDiscountAmount) =
                 ProductController.CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount);
 

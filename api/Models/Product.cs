@@ -53,6 +53,18 @@ namespace api.Models
         public bool TrackInventory { get; set; }
 
         /// <summary>
+        /// Whether the product comes with a manufacturer warranty. An order with one asks the
+        /// customer to initial the warranty statement (when Settings says to ask only then).
+        /// </summary>
+        public bool HasWarranty { get; set; }
+
+        /// <summary>
+        /// How long the warranty lasts, as the rep reads it out - "10 years", "Lifetime".
+        /// </summary>
+        [MaxLength(60)]
+        public string? WarrantyLength { get; set; }
+
+        /// <summary>
         /// A sale on every size, as a percent off (e.g. 20 for 20%). A size can set its own sale
         /// instead. Applied when the item goes on an order.
         /// </summary>

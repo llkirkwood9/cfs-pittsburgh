@@ -148,6 +148,8 @@ namespace api.Controllers
 
                     line.ProductVariantId = variant.Id;
                     line.Category = variant.Product?.Category ?? ProductCategory.Misc;
+                    line.HasWarranty = variant.Product?.HasWarranty ?? false;
+                    line.WarrantyLength = variant.Product?.HasWarranty == true ? variant.Product.WarrantyLength : null;
                     line.Brand = request.Brand ?? variant.Product?.Brand;
                     line.Size = request.Size ?? variant.Size;
                     line.Description = request.Description ?? BuildDescription(variant);
@@ -449,8 +451,8 @@ namespace api.Controllers
                 if (order.Payments.Count == 0)
                     return BadRequest(new { error = "Record at least one payment before completing the order." });
 
-                if (!IsAcknowledged(order))
-                    return BadRequest(new { error = "The customer needs to confirm their details, initial each acknowledgement and sign before the order can be completed." });
+                if (!Acknowledgements.IsComplete(order, (await SettingsStore.LoadAsync(DB)).Terms))
+                    return BadRequest(new { error = "The customer needs to initial each acknowledgement that applies and sign before the order can be completed." });
 
                 // Another sale may have taken the last one since this order was written up.
                 InventoryRules.SyncIncludedTakeWith(order);
@@ -787,7 +789,8 @@ namespace api.Controllers
                     .OrderBy(o => o.OrderNumber)
                     .ToListAsync();
 
-                return Ok(orders.Select(ToDto).ToList());
+                var currentTerms = (await SettingsStore.LoadAsync(DB)).Terms;
+                return Ok(orders.Select(o => ToDto(o, currentTerms)).ToList());
             }
             catch (Exception e)
             {
@@ -1419,6 +1422,8 @@ namespace api.Controllers
                     OrderId = order.Id,
                     LineType = OrderLineType.Included,
                     Category = product.Category,
+                    HasWarranty = product.HasWarranty,
+                    WarrantyLength = product.HasWarranty ? product.WarrantyLength : null,
                     ProductVariantId = item.Id,
                     ParentLineId = parent.Id,
                     Brand = product.Brand,
@@ -1634,21 +1639,6 @@ namespace api.Controllers
         /// <param name="order">Target order</param>
         /// <param name="request">Incoming DTO</param>
         /// <summary>
-        /// Whether the customer has confirmed their details, initialled all three paragraphs and
-        /// signed - everything the sales sheet needs before the sale is final.
-        /// </summary>
-        /// <param name="order">Order entity</param>
-        /// <returns>True when complete.</returns>
-        private static bool IsAcknowledged(Order order)
-        {
-            return !string.IsNullOrWhiteSpace(order.CustomerInfoInitials)
-                   && !string.IsNullOrWhiteSpace(order.WarrantyInitials)
-                   && !string.IsNullOrWhiteSpace(order.DropShipInitials)
-                   && !string.IsNullOrWhiteSpace(order.AdvisoryInitials)
-                   && !string.IsNullOrWhiteSpace(order.CustomerSignature);
-        }
-
-        /// <summary>
         /// Everything the customer confirms on the details screen, as one string for comparison.
         /// </summary>
         /// <param name="order">Order entity</param>
@@ -1701,16 +1691,20 @@ namespace api.Controllers
                 .AsNoTracking()
                 .FirstOrDefaultAsync(o => o.Id == id);
 
-            return order == null ? null : ToDto(order);
+            return order == null ? null : ToDto(order, (await SettingsStore.LoadAsync(DB)).Terms);
         }
 
         /// <summary>
         /// Maps an order entity to the full DTO.
         /// </summary>
         /// <param name="order">Order entity with children loaded</param>
+        /// <param name="currentTerms">The statements in force now, for an order with no copy of its own</param>
         /// <returns>The mapped DTO.</returns>
-        private static OrderDto ToDto(Order order)
+        private static OrderDto ToDto(Order order, IReadOnlyList<SalesTerm> currentTerms)
         {
+            // A completed order is judged by the wording, and rules, it was signed under.
+            var terms = order.TermsJson == null ? currentTerms : SettingsStore.ReadTerms(order.TermsJson);
+
             return new OrderDto
             {
                 Id = order.Id,
@@ -1766,8 +1760,9 @@ namespace api.Controllers
                 Terms = order.TermsJson == null
                     ? null
                     : SettingsStore.ReadTerms(order.TermsJson)
-                        .Select(t => new SalesTermDto { Key = t.Key, Title = t.Title, Heading = t.Heading, Text = t.Text })
+                        .Select(t => new SalesTermDto { Key = t.Key, Title = t.Title, Heading = t.Heading, Text = t.Text, AskWhen = t.AskWhen })
                         .ToList(),
+                RequiredTerms = Acknowledgements.RequiredTerms(order, terms),
                 CustomerSignatureName = order.CustomerSignatureName,
                 CustomerSignature = order.CustomerSignature,
                 SignedDate = order.SignedDate,
@@ -1814,6 +1809,8 @@ namespace api.Controllers
                         SalePrice = l.SalePrice,
                         LineTotal = l.LineTotal,
                         IncludesAdjustableBase = l.IncludesAdjustableBase,
+                        HasWarranty = l.HasWarranty,
+                        WarrantyLength = l.WarrantyLength,
                         ShowOnSalesSheet = l.ShowOnSalesSheet,
                         IsTaxable = l.IsTaxable,
                         SortOrder = l.SortOrder,

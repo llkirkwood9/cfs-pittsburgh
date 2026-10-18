@@ -21,6 +21,10 @@ export type Product = {
     sortOrder?: number;
     isActive?: boolean;
     trackInventory?: boolean;
+    /** Whether the product comes with a manufacturer warranty. */
+    hasWarranty?: boolean;
+    /** How long the warranty lasts, e.g. "10 years". */
+    warrantyLength?: string | null;
     /** A sale on every size, as a percent off; a size can have its own instead. */
     saleDiscountPercent?: number | null;
     /** A sale on every size, as a fixed amount off each item. */

@@ -6,6 +6,7 @@ import {
     FormatShortDate,
     FormatStampDate,
     PaymentMethodLabels,
+    PrintedInitials,
     PrintsOnSalesSheet,
     SortLinesForPrint,
 } from "../../Lib/ModelHelpers";
@@ -307,7 +308,7 @@ const ReceiptSheet = ({ order }: Props) => {
                 <span className="font-bold">
                     INITIAL{" "}
                     <span className="inline-block min-w-[3em] border-b border-black text-center font-normal">
-                        {order.customerInfoInitials}
+                        {PrintedInitials(order, "customerInfo")}
                     </span>
                 </span>
             </p>
@@ -504,9 +505,9 @@ const ReceiptSheet = ({ order }: Props) => {
             <div className="mt-2 space-y-1 font-serif text-[9px] leading-tight">
                 {(
                     [
-                        ["warranty", order.warrantyInitials],
-                        ["dropShip", order.dropShipInitials],
-                        ["advisory", order.advisoryInitials],
+                        ["warranty", PrintedInitials(order, "warranty")],
+                        ["dropShip", PrintedInitials(order, "dropShip")],
+                        ["advisory", PrintedInitials(order, "advisory")],
                     ] as [SalesTermKey, string | null | undefined][]
                 ).map(([key, initials]) => (
                     <p key={key}>

@@ -283,7 +283,10 @@ namespace api.Controllers
                     return (null, $"\"{title ?? d.Title}\" can be at most {SettingsStore.MaxTermTextLength:N0} characters, so the sales sheet still fits on one page.");
                 if (title?.Length > SettingsStore.MaxTermHeadingLength || heading.Length > SettingsStore.MaxTermHeadingLength)
                     return (null, $"Titles and headings can be at most {SettingsStore.MaxTermHeadingLength} characters.");
-                result.Add(new SalesTerm(d.Key, string.IsNullOrWhiteSpace(title) ? d.Title : title, heading, text));
+                if (e?.AskWhen != null && !Acknowledgements.AskWhenValues.Contains(e.AskWhen))
+                    return (null, "Each statement is asked always, when something ships, or when an item has a warranty.");
+                result.Add(new SalesTerm(d.Key, string.IsNullOrWhiteSpace(title) ? d.Title : title, heading, text,
+                    SettingsStore.AskWhenOrDefault(e?.AskWhen, d.AskWhen)));
             }
             return (result, null);
         }
@@ -304,7 +307,7 @@ namespace api.Controllers
                 DefaultSalesTaxRate = settings.DefaultSalesTaxRate,
                 DefaultCcProcessingFeeRate = settings.DefaultCcProcessingFeeRate,
                 Terms = settings.Terms
-                    .Select(t => new SalesTermDto { Key = t.Key, Title = t.Title, Heading = t.Heading, Text = t.Text })
+                    .Select(t => new SalesTermDto { Key = t.Key, Title = t.Title, Heading = t.Heading, Text = t.Text, AskWhen = t.AskWhen })
                     .ToList(),
                 AllowOtherFinanceType = settings.AllowOtherFinanceType,
                 Defaults = includeDefaults ? ToDto(SettingsStore.Defaults, includeDefaults: false) : null,

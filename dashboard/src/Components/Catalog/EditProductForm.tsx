@@ -47,6 +47,14 @@ const EditProductForm = ({
     const [notes, setNotes] = useState<string>(product.notes ?? "");
     const [isActive, setIsActive] = useState<boolean>(product.isActive ?? true);
     const [trackInventory, setTrackInventory] = useState<boolean>(product.trackInventory ?? false);
+    // Until it is ticked or unticked, a new product follows its category: mattresses and bases
+    // have a warranty.
+    const [warrantyChoice, setWarrantyChoice] = useState<boolean | null>(
+        product.hasWarranty ?? null
+    );
+    const hasWarranty =
+        warrantyChoice ?? (category === "Mattress" || category === "AdjustableBase");
+    const [warrantyLength, setWarrantyLength] = useState<string>(product.warrantyLength ?? "");
     const [saving, setSaving] = useState<boolean>(false);
     const [sale, setSale] = useState<SaleDraft>(
         ToSaleDraft(product.saleDiscountPercent, product.saleDiscountAmount)
@@ -231,6 +239,8 @@ const EditProductForm = ({
             notes: notes.trim(),
             isActive,
             trackInventory,
+            hasWarranty,
+            warrantyLength: warrantyLength.trim(),
             sortOrder: product.sortOrder ?? 0,
             saleDiscountPercent: itemSale.percent,
             saleDiscountAmount: itemSale.amount,
@@ -334,6 +344,25 @@ const EditProductForm = ({
                             <span className="font-medium">Track inventory</span>
                         </span>
                     </label>
+
+                    {/* Decides whether the customer initials the warranty statement. */}
+                    <label className="flex min-h-[48px] cursor-pointer items-center gap-3 self-end rounded-xl bg-zinc-100 px-3 py-2 dark:bg-zinc-700">
+                        <input
+                            type="checkbox"
+                            checked={hasWarranty}
+                            onChange={(e) => setWarrantyChoice(e.target.checked)}
+                            className="h-5 w-5 accent-sky-600"
+                        />
+                        <span className="text-sm font-medium">Has a manufacturer warranty</span>
+                    </label>
+                    <TextField
+                        label="Warranty length"
+                        value={warrantyLength}
+                        onChange={setWarrantyLength}
+                        maxLength={60}
+                        placeholder="ex. 10 years"
+                        disabled={!hasWarranty}
+                    />
 
                     <TextField
                         label="Notes shown to the rep"

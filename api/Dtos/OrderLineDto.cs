@@ -91,6 +91,16 @@ namespace api.Dtos
         public bool? IncludesAdjustableBase { get; set; }
 
         /// <summary>
+        /// Whether the item has a manufacturer warranty (from the catalog when it was added)
+        /// </summary>
+        public bool? HasWarranty { get; set; }
+
+        /// <summary>
+        /// How long the warranty lasts, e.g. "10 years"
+        /// </summary>
+        public string? WarrantyLength { get; set; }
+
+        /// <summary>
         /// Whether a delivery row prints on the sales sheet
         /// </summary>
         public bool? ShowOnSalesSheet { get; set; }

@@ -6,8 +6,8 @@ import TextField from "../Elements/TextField";
 import SettingsCard from "./SettingsCard";
 import { useSettings } from "../../Context/SettingsContext";
 import { Toast } from "../../Lib/Toast";
-import { DefaultSalesTerms } from "../../Models/GeneralSettings";
-import type { SalesTerm } from "../../Models/GeneralSettings";
+import { AskWhenOptions, DefaultSalesTerms } from "../../Models/GeneralSettings";
+import type { AskWhen, SalesTerm } from "../../Models/GeneralSettings";
 import { SaveGeneralSettings } from "../../Services/SettingsServices";
 
 /** Matches the server's limits. */
@@ -23,7 +23,8 @@ const same = (a: SalesTerm[], b: SalesTerm[]) =>
             t.key === b[i].key &&
             t.title.trim() === b[i].title &&
             t.heading.trim() === b[i].heading &&
-            t.text.trim() === b[i].text
+            t.text.trim() === b[i].text &&
+            (t.askWhen ?? "always") === (b[i].askWhen ?? "always")
     );
 
 /**
@@ -109,7 +110,7 @@ const TermsSettings = () => {
                             <legend className="px-1 text-sm font-semibold">
                                 {index + 1}. {t.title || fallback?.title}
                             </legend>
-                            <div className="grid gap-3 md:grid-cols-2">
+                            <div className="grid gap-3 md:grid-cols-3">
                                 <div>
                                     <TextField
                                         label="Title on the customer's screen"
@@ -128,6 +129,27 @@ const TermsSettings = () => {
                                         placeholder="None"
                                     />
                                 </div>
+                                {/* A statement that doesn't apply to an order is skipped and prints N/A. */}
+                                <label className="flex flex-col gap-1">
+                                    <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                        Ask the customer
+                                    </span>
+                                    <select
+                                        value={t.askWhen ?? "always"}
+                                        onChange={(e) =>
+                                            change(t.key, "askWhen", e.target.value as AskWhen)
+                                        }
+                                        className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base
+                                            text-zinc-900 outline-hidden focus:border-sky-600
+                                            dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                                    >
+                                        {AskWhenOptions.map((o) => (
+                                            <option key={o.value} value={o.value}>
+                                                {o.label}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </label>
                             </div>
                             <label className="mt-3 flex flex-col gap-1">
                                 <span className="flex items-baseline justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">

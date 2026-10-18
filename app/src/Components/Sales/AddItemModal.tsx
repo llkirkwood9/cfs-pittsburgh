@@ -19,6 +19,7 @@ import {
     ParseMoney,
     TakeWithBlocked,
     VariantLabel,
+    WarrantyText,
 } from "../../Lib/ModelHelpers";
 import {
     ApplyDiscount,
@@ -611,6 +612,14 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                             <Icon icon="fa-solid fa-circle-info" className="mt-0.5 text-sm text-amber-800 dark:text-amber-300" />
                             <Text className="flex-1 text-sm text-amber-800 dark:text-amber-300">
                                 {selected.notes}
+                            </Text>
+                        </View>
+                    ) : null}
+                    {WarrantyText(selected) ? (
+                        <View className="flex-row items-center gap-2">
+                            <Icon icon="fa-solid fa-shield-halved" className="text-sm text-sky-800 dark:text-sky-300" />
+                            <Text className="text-sm font-medium text-sky-800 dark:text-sky-300">
+                                {WarrantyText(selected)}
                             </Text>
                         </View>
                     ) : null}

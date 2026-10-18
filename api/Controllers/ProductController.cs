@@ -55,6 +55,8 @@ namespace api.Controllers
                     SortOrder = request.SortOrder ?? 0,
                     IsActive = request.IsActive ?? true,
                     TrackInventory = request.TrackInventory ?? false,
+                    HasWarranty = request.HasWarranty ?? WarrantyByDefault(category),
+                    WarrantyLength = CleanWarrantyLength(request.WarrantyLength),
                 };
 
                 var componentError = await ValidateComponentsAsync(null, request.Variants);
@@ -259,6 +261,12 @@ namespace api.Controllers
 
                 if (request.TrackInventory != null)
                     product.TrackInventory = request.TrackInventory.Value;
+
+                if (request.HasWarranty != null)
+                    product.HasWarranty = request.HasWarranty.Value;
+
+                if (request.WarrantyLength != null)
+                    product.WarrantyLength = CleanWarrantyLength(request.WarrantyLength);
 
                 if (request.Variants != null)
                 {
@@ -493,6 +501,27 @@ namespace api.Controllers
                 return "A bundle cannot include another bundle. Pick the individual items instead.";
 
             return null;
+        }
+
+        /// <summary>
+        /// Whether a new product of a category has a warranty unless told otherwise: mattresses and
+        /// adjustable bases do.
+        /// </summary>
+        /// <param name="category">The product's category</param>
+        /// <returns>True for a mattress or a base.</returns>
+        internal static bool WarrantyByDefault(ProductCategory category) =>
+            category is ProductCategory.Mattress or ProductCategory.AdjustableBase;
+
+        /// <summary>
+        /// A warranty length as stored: trimmed, at most 60 characters, nothing when blank.
+        /// </summary>
+        /// <param name="length">What was typed</param>
+        /// <returns>The cleaned length, or null.</returns>
+        internal static string? CleanWarrantyLength(string? length)
+        {
+            var trimmed = length?.Trim();
+            if (string.IsNullOrEmpty(trimmed)) return null;
+            return trimmed.Length > 60 ? trimmed[..60] : trimmed;
         }
 
         /// <summary>
@@ -733,6 +762,8 @@ namespace api.Controllers
                 SortOrder = product.SortOrder,
                 IsActive = product.IsActive,
                 TrackInventory = product.TrackInventory,
+                HasWarranty = product.HasWarranty,
+                WarrantyLength = product.WarrantyLength,
                 SaleDiscountPercent = product.SaleDiscountPercent,
                 SaleDiscountAmount = product.SaleDiscountAmount,
                 Options = product.Options

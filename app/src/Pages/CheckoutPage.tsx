@@ -27,7 +27,7 @@ import { useBreakpoint } from "../Hooks/UseBreakpoint";
 import { cx } from "../Lib/ClassNames";
 import { CheckoutQueueCounted } from "../Lib/CheckoutWaiting";
 import { IsOnline } from "../Lib/Connection";
-import { FormatCurrency, IsAcknowledged } from "../Lib/ModelHelpers";
+import { FormatCurrency, InitialsFor, IsAcknowledged, RequiredTerms } from "../Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
 import type { DeliveryOption } from "../Models/DeliveryOption";
 import type { Event } from "../Models/Event";
@@ -373,10 +373,15 @@ const CheckoutPage = () => {
 
     const closed = order?.status === "Completed" || order?.status === "Voided";
     const signed = Boolean(order?.customerSignature);
-    const confirmed = Boolean(order?.customerInfoInitials);
-    const initialled = Boolean(
-        order?.warrantyInitials && order?.dropShipInitials && order?.advisoryInitials
-    );
+    // Only the statements this order needs: a take-home sale skips some of them.
+    const required = order ? RequiredTerms(order) : [];
+    const detailsNeeded = required.includes("customerInfo");
+    const confirmed = !detailsNeeded || Boolean(order?.customerInfoInitials);
+    const initialsNeeded = required.filter((key) => key !== "customerInfo");
+    const initialled = Boolean(order) && initialsNeeded.every((key) => InitialsFor(order!, key));
+    const initialsText = order
+        ? initialsNeeded.map((key) => InitialsFor(order, key)).join(", ")
+        : "";
     const acknowledged = order ? IsAcknowledged(order) : false;
 
     const queuePane = (
@@ -506,13 +511,17 @@ const CheckoutPage = () => {
                 <View className="flex-row flex-wrap items-center gap-4">
                     <Check
                         done={confirmed}
-                        text={`Details confirmed${confirmed ? ` (${order.customerInfoInitials})` : ""}`}
+                        text={
+                            !detailsNeeded
+                                ? "Details not needed"
+                                : `Details confirmed${confirmed ? ` (${order.customerInfoInitials})` : ""}`
+                        }
                     />
                     <Check
                         done={initialled}
                         text={`Initials${
                             initialled
-                                ? ` (${order.warrantyInitials}, ${order.dropShipInitials}, ${order.advisoryInitials})`
+                                ? initialsText && ` (${initialsText})`
                                 : ""
                         }`}
                     />

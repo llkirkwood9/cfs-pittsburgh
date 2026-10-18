@@ -144,6 +144,16 @@ namespace api.Dtos
         public bool? TrackInventory { get; set; }
 
         /// <summary>
+        /// Whether the product comes with a manufacturer warranty
+        /// </summary>
+        public bool? HasWarranty { get; set; }
+
+        /// <summary>
+        /// How long the warranty lasts, e.g. "10 years"
+        /// </summary>
+        public string? WarrantyLength { get; set; }
+
+        /// <summary>
         /// Sale on every size, as a percent
         /// </summary>
         public decimal? SaleDiscountPercent { get; set; }

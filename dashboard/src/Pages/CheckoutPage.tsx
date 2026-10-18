@@ -16,7 +16,7 @@ import UpchargeModal from "../Components/Sales/UpchargeModal";
 import OrderLineList from "../Components/Sales/OrderLineList";
 import OrderTotals from "../Components/Sales/OrderTotals";
 import { useAuth } from "../Context/AuthContext";
-import { FormatCurrency, IsAcknowledged } from "../Lib/ModelHelpers";
+import { FormatCurrency, InitialsFor, IsAcknowledged, RequiredTerms } from "../Lib/ModelHelpers";
 import { CheckoutQueueCounted } from "../Lib/CheckoutWaiting";
 import { IsOnline } from "../Lib/Connection";
 import { Toast } from "../Lib/Toast";
@@ -310,10 +310,15 @@ const CheckoutPage = () => {
 
     const closed = order?.status === "Completed" || order?.status === "Voided";
     const signed = Boolean(order?.customerSignature);
-    const confirmed = Boolean(order?.customerInfoInitials);
-    const initialled = Boolean(
-        order?.warrantyInitials && order?.dropShipInitials && order?.advisoryInitials
-    );
+    // Only the statements this order needs: a take-home sale skips some of them.
+    const required = order ? RequiredTerms(order) : [];
+    const detailsNeeded = required.includes("customerInfo");
+    const confirmed = !detailsNeeded || Boolean(order?.customerInfoInitials);
+    const initialsNeeded = required.filter((key) => key !== "customerInfo");
+    const initialled = Boolean(order) && initialsNeeded.every((key) => InitialsFor(order!, key));
+    const initialsText = order
+        ? initialsNeeded.map((key) => InitialsFor(order, key)).join(", ")
+        : "";
     const acknowledged = order ? IsAcknowledged(order) : false;
 
     return (
@@ -481,8 +486,9 @@ const CheckoutPage = () => {
                                                     : "fa-regular fa-circle"
                                             }
                                         />
-                                        Details confirmed
-                                        {confirmed && ` (${order.customerInfoInitials})`}
+                                        {detailsNeeded
+                                            ? `Details confirmed${confirmed ? ` (${order.customerInfoInitials})` : ""}`
+                                            : "Details not needed"}
                                     </span>
 
                                     <span
@@ -500,8 +506,7 @@ const CheckoutPage = () => {
                                             }
                                         />
                                         Initials
-                                        {initialled &&
-                                            ` (${order.warrantyInitials}, ${order.dropShipInitials}, ${order.advisoryInitials})`}
+                                        {initialled && initialsText && ` (${initialsText})`}
                                     </span>
 
                                     <span

@@ -56,6 +56,11 @@ const EditProductForm = ({
     const [notes, setNotes] = useState<string>(product.notes ?? "");
     const [isActive, setIsActive] = useState<boolean>(product.isActive ?? true);
     const [trackInventory, setTrackInventory] = useState<boolean>(product.trackInventory ?? false);
+    // Until it is ticked or unticked, a new product follows its category: mattresses and bases
+    // have a warranty.
+    const [warrantyChoice, setWarrantyChoice] = useState<boolean | null>(product.hasWarranty ?? null);
+    const hasWarranty = warrantyChoice ?? (category === "Mattress" || category === "AdjustableBase");
+    const [warrantyLength, setWarrantyLength] = useState<string>(product.warrantyLength ?? "");
     const [saving, setSaving] = useState<boolean>(false);
     const [sale, setSale] = useState<SaleDraft>(
         ToSaleDraft(product.saleDiscountPercent, product.saleDiscountAmount)
@@ -252,6 +257,8 @@ const EditProductForm = ({
             notes: notes.trim(),
             isActive,
             trackInventory,
+            hasWarranty,
+            warrantyLength: warrantyLength.trim(),
             sortOrder: product.sortOrder ?? 0,
             saleDiscountPercent: itemSale.percent,
             saleDiscountAmount: itemSale.amount,
@@ -333,6 +340,22 @@ const EditProductForm = ({
                             onChange={setTrackInventory}
                         />
                     </Cell>
+                    {/* Decides whether the customer initials the warranty statement. */}
+                    <View className="flex-1 justify-end">
+                        <Checkbox
+                            label="Has a manufacturer warranty"
+                            checked={hasWarranty}
+                            onChange={setWarrantyChoice}
+                        />
+                    </View>
+                    <TextField
+                        label="Warranty length"
+                        value={warrantyLength}
+                        onChange={setWarrantyLength}
+                        maxLength={60}
+                        placeholder="ex. 10 years"
+                        disabled={!hasWarranty}
+                    />
                     <Cell span={{ base: 1, sm: 2 }}>
                         <TextField
                             label="Notes shown to the rep"

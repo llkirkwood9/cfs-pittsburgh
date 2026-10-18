@@ -514,6 +514,9 @@ namespace api.Migrations
                     b.Property<decimal?>("DiscountPercent")
                         .HasColumnType("numeric(18,4)");
 
+                    b.Property<bool>("HasWarranty")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IncludesAdjustableBase")
                         .HasColumnType("boolean");
 
@@ -571,6 +574,10 @@ namespace api.Migrations
 
                     b.Property<decimal>("UnitPrice")
                         .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("WarrantyLength")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
 
                     b.HasKey("Id");
 
@@ -641,6 +648,9 @@ namespace api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<bool>("HasWarranty")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -664,6 +674,10 @@ namespace api.Migrations
 
                     b.Property<bool>("TrackInventory")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("WarrantyLength")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
 
                     b.HasKey("Id");
 

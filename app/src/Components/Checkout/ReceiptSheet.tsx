@@ -11,6 +11,7 @@ import {
     FormatShortDate,
     FormatStampDate,
     PaymentMethodLabels,
+    PrintedInitials,
     PrintsOnSalesSheet,
     SortLinesForPrint,
 } from "../../Lib/ModelHelpers";
@@ -345,7 +346,7 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
                 </Row>
             </View>
             <View style={{ marginTop: 2 }}>
-                {initialled("customerInfo", order.customerInfoInitials, "right")}
+                {initialled("customerInfo", PrintedInitials(order, "customerInfo"), "right")}
             </View>
 
             {/* Line items */}
@@ -491,9 +492,9 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
 
             {/* Acknowledgements: the wording set under Settings, or the copy kept with a completed sale */}
             <View style={{ marginTop: 8, gap: 4 }}>
-                {initialled("warranty", order.warrantyInitials)}
-                {initialled("dropShip", order.dropShipInitials)}
-                {initialled("advisory", order.advisoryInitials)}
+                {initialled("warranty", PrintedInitials(order, "warranty"))}
+                {initialled("dropShip", PrintedInitials(order, "dropShip"))}
+                {initialled("advisory", PrintedInitials(order, "advisory"))}
             </View>
 
             {/* Signature row */}

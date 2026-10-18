@@ -1,4 +1,4 @@
-import type { SalesTerm } from "./GeneralSettings";
+import type { SalesTerm, SalesTermKey } from "./GeneralSettings";
 import type { OrderLine } from "./OrderLine";
 import type { OrderPayment } from "./OrderPayment";
 
@@ -64,6 +64,8 @@ export type Order = {
     advisoryInitials?: string | null;
     /** The wording the customer initialled, kept when the sale was completed. */
     terms?: SalesTerm[] | null;
+    /** The statements this order needs initialled, from what is on it; the rest are skipped. */
+    requiredTerms?: SalesTermKey[];
     customerSignatureName?: string | null;
     customerSignature?: string | null;
     signedDate?: string | null;
