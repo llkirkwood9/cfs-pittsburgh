@@ -22,6 +22,8 @@ type Props = {
     wide?: boolean;
     /** Leaves out the scroll view, for content that scrolls itself (a long list). */
     scroll?: boolean;
+    /** False hides the close button and ignores taps outside, for a step that can't be skipped. */
+    dismissible?: boolean;
 };
 
 /**
@@ -29,7 +31,15 @@ type Props = {
  * up from the bottom on an iPhone, swiped down to close. On Android it's drawn the way the
  * dashboard draws it: full width from the bottom on a phone, a centred card on a tablet.
  */
-const Modal = ({ title, onClose, children, footer, wide = false, scroll = true }: Props) => {
+const Modal = ({
+    title,
+    onClose,
+    children,
+    footer,
+    wide = false,
+    scroll = true,
+    dismissible = true,
+}: Props) => {
     const insets = useSafeAreaInsets();
     const { width, height } = useWindowDimensions();
     const ios = Platform.OS === "ios";
@@ -45,18 +55,20 @@ const Modal = ({ title, onClose, children, footer, wide = false, scroll = true }
                 >
                     {title}
                 </Text>
-                <Pressable
-                    onPress={onClose}
-                    accessibilityRole="button"
-                    accessibilityLabel="Close"
-                    hitSlop={8}
-                    className="h-11 w-11 items-center justify-center rounded-xl active:bg-zinc-100 dark:active:bg-zinc-700"
-                >
-                    <Icon
-                        icon="fa-solid fa-xmark"
-                        className="text-xl text-zinc-500 dark:text-zinc-400"
-                    />
-                </Pressable>
+                {dismissible && (
+                    <Pressable
+                        onPress={onClose}
+                        accessibilityRole="button"
+                        accessibilityLabel="Close"
+                        hitSlop={8}
+                        className="h-11 w-11 items-center justify-center rounded-xl active:bg-zinc-100 dark:active:bg-zinc-700"
+                    >
+                        <Icon
+                            icon="fa-solid fa-xmark"
+                            className="text-xl text-zinc-500 dark:text-zinc-400"
+                        />
+                    </Pressable>
+                )}
             </View>
 
             {scroll ? (
@@ -85,15 +97,25 @@ const Modal = ({ title, onClose, children, footer, wide = false, scroll = true }
         </>
     );
 
+    // A step that can't be skipped ignores the back button and taps outside.
+    const close = dismissible ? onClose : () => undefined;
+
     if (ios) {
         return (
             <NativeModal
                 visible
                 animationType="slide"
-                presentationStyle={wide ? "pageSheet" : "formSheet"}
-                onRequestClose={onClose}
+                // A sheet can be swiped away, so one that mustn't be is full screen instead.
+                presentationStyle={!dismissible ? "fullScreen" : wide ? "pageSheet" : "formSheet"}
+                onRequestClose={close}
             >
-                <View className="flex-1 bg-white dark:bg-zinc-800">{body}</View>
+                <View
+                    className="flex-1 bg-white dark:bg-zinc-800"
+                    // Full screen, it keeps clear of the notch and the Dynamic Island itself.
+                    style={{ paddingTop: dismissible ? 0 : insets.top }}
+                >
+                    {body}
+                </View>
                 <ToastHost />
             </NativeModal>
         );
@@ -104,7 +126,7 @@ const Modal = ({ title, onClose, children, footer, wide = false, scroll = true }
             visible
             transparent
             animationType={tablet ? "fade" : "slide"}
-            onRequestClose={onClose}
+            onRequestClose={close}
             statusBarTranslucent
         >
             {/* The sheet rises above the keyboard, shrinking to fit if it has to. */}
@@ -114,7 +136,7 @@ const Modal = ({ title, onClose, children, footer, wide = false, scroll = true }
                     tablet ? "items-center justify-center" : "justify-end"
                 )}
             >
-                <Pressable className="absolute inset-0" onPress={onClose} accessible={false} />
+                <Pressable className="absolute inset-0" onPress={close} accessible={false} />
                 <View
                     className={cx(
                         "w-full bg-white dark:bg-zinc-800",

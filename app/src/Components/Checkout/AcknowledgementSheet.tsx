@@ -8,7 +8,7 @@ import Icon from "../Elements/Icon";
 import SignaturePad from "../Elements/SignaturePad";
 import Text from "../Elements/Text";
 import { RenderTermText } from "../Elements/TermText";
-import { useSettings } from "../../Context/SettingsContext";
+import { useSettingsFor } from "../../Context/SettingsContext";
 import { useBreakpoint } from "../../Hooks/UseBreakpoint";
 import { cx } from "../../Lib/ClassNames";
 import { AddressLines, RequiredTerms, SortLinesForPrint } from "../../Lib/ModelHelpers";
@@ -168,7 +168,8 @@ const DetailsSummary = ({ order }: { order: Order }) => {
  */
 const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
     // The same wording the sales sheet prints beside each set of initials, set under Settings.
-    const { settings } = useSettings();
+    // The wording of the territory the sale is being taken in.
+    const settings = useSettingsFor(order.territoryId);
 
     const [step, setStep] = useState<number>(0);
     const [initials, setInitials] = useState<Record<string, string>>({

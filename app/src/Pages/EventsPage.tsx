@@ -6,14 +6,17 @@ import Checkbox from "../Components/Elements/Checkbox";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import DateField from "../Components/Elements/DateField";
 import Grid, { Cell } from "../Components/Elements/Grid";
+import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import Page from "../Components/Elements/Page";
+import SelectField from "../Components/Elements/SelectField";
 import SwipeRow from "../Components/Elements/SwipeRow";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
 import { useSettings } from "../Context/SettingsContext";
+import { useTerritory } from "../Context/TerritoryContext";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import {
     FormatRate,
@@ -26,6 +29,7 @@ import {
 import { cx } from "../Lib/ClassNames";
 import { Toast } from "../Lib/Toast";
 import type { Event } from "../Models/Event";
+import { IsCompanyWide } from "../Models/User";
 import { AddEvent, DeleteEvent, GetEvents, UpdateEvent } from "../Services/EventServices";
 
 /** A small rounded label beside an event's name. */
@@ -37,11 +41,14 @@ const Tag = ({ text, box, color }: { text: string; box: string; color: string })
 
 /**
  * Event administration. The sales tax rate, the card processing fee and the order number
- * sequence all live on the event, so each fundraiser can run with its own figures.
+ * sequence all live on the event, so each fundraiser can run with its own figures. Every event
+ * belongs to a territory, and each territory has one active event at a time.
  */
 const EventsPage = () => {
     const { user } = useAuth();
-    const { settings } = useSettings();
+    const { settingsFor } = useSettings();
+    const { territories, territoryId: territoryInView } = useTerritory();
+    const companyWide = IsCompanyWide(user?.role);
 
     const [events, setEvents] = useState<Event[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -58,6 +65,7 @@ const EventsPage = () => {
     const [feePercent, setFeePercent] = useState<string>("2");
     const [nextOrderNumber, setNextOrderNumber] = useState<string>("1001");
     const [isActive, setIsActive] = useState<boolean>(true);
+    const [territoryId, setTerritoryId] = useState<number | null>(null);
 
     const load = useCallback(async () => {
         setEvents(await GetEvents());
@@ -91,20 +99,33 @@ const EventsPage = () => {
         setFeePercent(String(Number(((event.ccProcessingFeeRate ?? 0.02) * 100).toFixed(4))));
         setNextOrderNumber(String(event.nextOrderNumber ?? 1001));
         setIsActive(event.isActive ?? true);
+        setTerritoryId(event.territoryId ?? territoryInView ?? user?.territoryId ?? null);
+    };
+
+    // A new event's rates come from its territory's settings.
+    const pickTerritory = async (id: number | null) => {
+        setTerritoryId(id);
+        if (editing?.id || id == null) return;
+        const defaults = await settingsFor(id);
+        setTaxPercent(String(Number((defaults.defaultSalesTaxRate * 100).toFixed(4))));
+        setFeePercent(String(Number((defaults.defaultCcProcessingFeeRate * 100).toFixed(4))));
     };
 
     // A new event starts with the tax rate and card fee set under Settings, the most recent event's
     // cart, and order numbers carrying on from the highest used so far so no two sales sheets
     // share a number.
-    const newEventDefaults = (): Event => {
+    const newEventDefaults = async (): Promise<Event> => {
         const latest = [...events].sort((a, b) =>
             (b.eventDate ?? "").localeCompare(a.eventDate ?? "")
         )[0];
         const nextNumber = Math.max(1001, ...events.map((e) => e.nextOrderNumber ?? 0));
+        const territory = territoryInView ?? user?.territoryId ?? null;
+        const defaults = await settingsFor(territory);
         return {
+            territoryId: territory ?? undefined,
             cartName: latest?.cartName,
-            salesTaxRate: settings.defaultSalesTaxRate,
-            ccProcessingFeeRate: settings.defaultCcProcessingFeeRate,
+            salesTaxRate: defaults.defaultSalesTaxRate,
+            ccProcessingFeeRate: defaults.defaultCcProcessingFeeRate,
             nextOrderNumber: nextNumber,
             isActive: true,
         };
@@ -122,6 +143,8 @@ const EventsPage = () => {
         if (fee === null || fee < 0 || fee > 100)
             return Toast.Warning("The card fee must be between 0 and 100 percent.");
 
+        if (companyWide && territoryId == null) return Toast.Warning("Pick the territory the event is in.");
+
         const payload: Event = {
             id: editing?.id,
             organization: organization.trim(),
@@ -131,6 +154,7 @@ const EventsPage = () => {
             ccProcessingFeeRate: fee / 100,
             nextOrderNumber: Number(nextOrderNumber) || 1001,
             isActive,
+            territoryId: companyWide ? (territoryId ?? undefined) : undefined,
         };
 
         setSaving(true);
@@ -210,6 +234,17 @@ const EventsPage = () => {
                     )}
                 </View>
                 <View className="mt-0.5 flex-row flex-wrap gap-x-3">
+                    {companyWide && territoryInView == null && event.territoryName && (
+                        <View className="flex-row items-center gap-1">
+                            <Icon
+                                icon="fa-solid fa-location-dot"
+                                className="text-xs text-zinc-700 dark:text-zinc-300"
+                            />
+                            <Text className="text-xs font-semibold text-zinc-700 dark:text-zinc-300">
+                                {event.territoryName}
+                            </Text>
+                        </View>
+                    )}
                     {[
                         FormatShortDate(event.eventDate),
                         event.cartName ? `Cart: ${event.cartName}` : null,
@@ -265,7 +300,7 @@ const EventsPage = () => {
                     <Button
                         text="New event"
                         icon="fa-solid fa-plus"
-                        onClick={() => open(newEventDefaults())}
+                        onClick={async () => open(await newEventDefaults())}
                         className="bg-green-700 dark:bg-green-600"
                     />
                 </View>
@@ -319,6 +354,25 @@ const EventsPage = () => {
                     }
                 >
                     <Grid columns={{ base: 1, sm: 2 }}>
+                        {companyWide && (
+                            <Cell span={{ base: 1, sm: 2 }}>
+                                <SelectField<number | null>
+                                    label="Territory"
+                                    value={territoryId}
+                                    placeholder="Pick a territory..."
+                                    options={territories
+                                        .filter((t) => t.isActive !== false || t.id === territoryId)
+                                        .map((t) => ({ value: t.id ?? null, label: t.name ?? "" }))}
+                                    onChange={pickTerritory}
+                                />
+                                {editing.id != null && territoryId !== editing.territoryId && (
+                                    <Text className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+                                        Only an event with no orders yet can move. It is switched off
+                                        when it moves; activate it again afterwards.
+                                    </Text>
+                                )}
+                            </Cell>
+                        )}
                         <Cell span={{ base: 1, sm: 2 }}>
                             <TextField
                                 label="Organization"
@@ -357,7 +411,7 @@ const EventsPage = () => {
                         />
                         <View className="flex-1 justify-end">
                             <Checkbox
-                                label="Active event"
+                                label="Active event (one per territory)"
                                 checked={isActive}
                                 onChange={setIsActive}
                             />

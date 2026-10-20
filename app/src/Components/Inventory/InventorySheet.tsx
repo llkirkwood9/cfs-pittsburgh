@@ -105,8 +105,8 @@ const InventorySheet = ({ saleEvent, items, sheetRef }: Props) => {
 
             {groups.length === 0 ? (
                 <SheetText size={12} italic style={{ marginTop: 24 }}>
-                    No products are set to track inventory. An administrator can turn on Track
-                    inventory for a product in the Catalog.
+                    No products are set to track inventory. A manager can turn on Track inventory
+                    for a product in the Catalog.
                 </SheetText>
             ) : (
                 groups.map((group) => (

@@ -202,6 +202,12 @@ const CrewPage = () => {
                 />
             </div>
 
+            {users.length === 0 && (
+                <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                    No crew here yet. Click Add crew to set someone up.
+                </p>
+            )}
+
             <ul className="space-y-2">
                 {users.map((crew) => (
                     <li

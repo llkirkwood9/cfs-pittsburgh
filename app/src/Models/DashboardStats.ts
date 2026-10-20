@@ -17,6 +17,8 @@ export type RepTally = {
 export type EventTally = {
     eventId?: number;
     organization?: string | null;
+    /** The event's territory, when the overview covers every territory. */
+    territoryName?: string | null;
     eventDate?: string | null;
     isActive?: boolean;
     completedOrderCount?: number;

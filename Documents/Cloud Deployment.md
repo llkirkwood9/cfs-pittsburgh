@@ -149,6 +149,10 @@ Sign in and you'll be asked to choose your own password straight away. Then:
 4. **Settings** - the company-wide details, terms and receipt email; each territory can then change
    what it needs to.
 
+**The mobile app** signs in to the same app: type the domain (`sales.example.com`) as the server
+address on its sign-in screen. It keeps its session in the device's Keychain / Keystore rather
+than a cookie, so nothing extra is needed on the host.
+
 ---
 
 ## Moving an existing cart's data to the cloud

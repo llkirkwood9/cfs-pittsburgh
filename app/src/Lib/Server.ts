@@ -7,15 +7,27 @@ type Listener = (url: string | null) => void;
 let listeners: Listener[] = [];
 
 /**
- * Tidies a server address as typed: adds http:// when no scheme is given (the cart's Pi serves
- * plain http on the local network) and drops any trailing slash.
- * @param value The address as typed, e.g. "192.168.1.20:8080".
+ * Tidies a server address as typed and drops any trailing slash. With no scheme given, a cart's
+ * address - an IP address, localhost, a .local name, or anything with a port - gets http://, since
+ * the cart's Pi serves plain http on the local network; a domain name, such as the cloud's
+ * sales.example.com, gets https://.
+ * @param value The address as typed, e.g. "192.168.1.20:8080" or "sales.example.com".
  * @returns The address to use, or null when nothing was typed.
  */
 export const NormalizeServerUrl = (value: string): string | null => {
     let url = value.trim();
     if (!url) return null;
-    if (!/^https?:\/\//i.test(url)) url = `http://${url}`;
+    if (!/^https?:\/\//i.test(url)) {
+        const authority = url.split("/")[0];
+        const host = authority.replace(/:\d+$/, "").toLowerCase();
+        const local =
+            authority !== host ||
+            /^\d{1,3}(\.\d{1,3}){3}$/.test(host) ||
+            host === "localhost" ||
+            host.endsWith(".local") ||
+            !host.includes(".");
+        url = `${local ? "http" : "https"}://${url}`;
+    }
     return url.replace(/\/+$/, "");
 };
 

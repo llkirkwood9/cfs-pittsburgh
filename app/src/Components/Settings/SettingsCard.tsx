@@ -4,6 +4,7 @@ import type { LayoutChangeEvent } from "react-native";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import Text from "../Elements/Text";
+import { useSettingsScope } from "./SettingsScope";
 
 type Props = {
     id: string;
@@ -28,7 +29,8 @@ type Props = {
 /**
  * One group of settings with its own Save, so changing the phone number never saves a half-
  * written email. Discard puts the saved values back; Reset to default asks the card to start over
- * from the app's own values.
+ * from the app's own values. For a territory, "the defaults" are the company-wide settings: a card
+ * with nothing to reset follows them, and resetting goes back to them.
  */
 const SettingsCard = ({
     id,
@@ -45,6 +47,14 @@ const SettingsCard = ({
     onReset,
     onLayout,
 }: Props) => {
+    const { territoryId, scopeName } = useSettingsScope();
+    const isTerritory = territoryId != null;
+    const footer = isTerritory
+        ? onReset
+            ? `Set for ${scopeName}.`
+            : "Following the company-wide settings."
+        : status;
+
     return (
         <View
             onLayout={(e: LayoutChangeEvent) => onLayout?.(id, e.nativeEvent.layout.y)}
@@ -62,18 +72,46 @@ const SettingsCard = ({
                         description
                     )}
                 </View>
-                {badge}
+                {isTerritory ? (
+                    <View
+                        className={
+                            onReset
+                                ? "flex-row items-center gap-1.5 rounded-full bg-sky-100 px-2.5 py-1 dark:bg-sky-900/50"
+                                : "flex-row items-center gap-1.5 rounded-full bg-zinc-100 px-2.5 py-1 dark:bg-zinc-700"
+                        }
+                    >
+                        <Icon
+                            icon={onReset ? "fa-solid fa-location-dot" : "fa-solid fa-building"}
+                            className={
+                                onReset
+                                    ? "text-xs text-sky-800 dark:text-sky-300"
+                                    : "text-xs text-zinc-600 dark:text-zinc-300"
+                            }
+                        />
+                        <Text
+                            className={
+                                onReset
+                                    ? "text-xs font-semibold text-sky-800 dark:text-sky-300"
+                                    : "text-xs font-semibold text-zinc-600 dark:text-zinc-300"
+                            }
+                        >
+                            {onReset ? `${scopeName}'s own` : "Company-wide"}
+                        </Text>
+                    </View>
+                ) : (
+                    badge
+                )}
             </View>
 
             {children}
 
             <View className="mt-4 flex-row flex-wrap items-center gap-2 border-t border-zinc-200 pt-4 dark:border-zinc-700">
                 <Text className="mr-auto min-w-[140px] flex-1 text-xs text-zinc-500 dark:text-zinc-400">
-                    {dirty ? "You have unsaved changes." : status}
+                    {dirty ? "You have unsaved changes." : footer}
                 </Text>
                 {onReset && (
                     <Button
-                        text="Reset to default"
+                        text={isTerritory ? "Follow company settings" : "Reset to default"}
                         icon="fa-solid fa-rotate-left"
                         onClick={onReset}
                         disabled={saving}

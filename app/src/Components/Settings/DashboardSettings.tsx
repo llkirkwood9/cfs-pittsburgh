@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import SettingsCard from "./SettingsCard";
+import { useSettingsScope } from "./SettingsScope";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Grid from "../Elements/Grid";
 import TextField from "../Elements/TextField";
-import { useSettings } from "../../Context/SettingsContext";
 import { FormatCurrency } from "../../Lib/ModelHelpers";
 import { Toast } from "../../Lib/Toast";
 import { DefaultGeneralSettings } from "../../Models/GeneralSettings";
@@ -25,7 +25,7 @@ type Props = {
  * is "running low" on the dashboard and the Inventory screen.
  */
 const DashboardSettings = ({ onLayout }: Props) => {
-    const { settings, apply } = useSettings();
+    const { settings, apply, territoryId } = useSettingsScope();
     const defaults = settings.defaults ?? DefaultGeneralSettings;
 
     const [firstAt, setFirstAt] = useState<string>(String(settings.starsFirstAt));
@@ -62,7 +62,7 @@ const DashboardSettings = ({ onLayout }: Props) => {
         lowStockAt: number;
     }) => {
         setSaving(true);
-        const result = await SaveGeneralSettings(values);
+        const result = await SaveGeneralSettings(values, territoryId);
         setSaving(false);
         if (!result) return false;
         apply(result);

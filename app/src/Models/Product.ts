@@ -14,6 +14,11 @@ export type ProductCategory =
 
 export type Product = {
     id?: number;
+    /** The territory it's sold in; null for a global item sold everywhere. */
+    territoryId?: number | null;
+    territoryName?: string | null;
+    /** Whether the signed-in user may change it - a manager can't change global items. */
+    canEdit?: boolean;
     name?: string;
     brand?: string;
     category?: ProductCategory;

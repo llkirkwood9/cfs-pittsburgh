@@ -24,6 +24,7 @@ export default function MoreLayout() {
             <Stack.Screen name="events/[eventId]/close" options={{ title: "Close out event" }} />
             <Stack.Screen name="crew" options={{ title: "Crew" }} />
             <Stack.Screen name="settings" options={{ title: "Settings" }} />
+            <Stack.Screen name="territories" options={{ title: "Territories" }} />
         </Stack>
     );
 }

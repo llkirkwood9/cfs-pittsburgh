@@ -11,6 +11,7 @@ export const HomePathForRole = (role?: UserRole | null): Href => {
     switch (role) {
         case "Checkout":
             return "/checkout";
+        case "Manager":
         case "Admin":
         case "SystemAdmin":
             return "/dashboard";

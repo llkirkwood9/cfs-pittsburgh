@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Text as RNText, TextInput, View } from "react-native";
 import SettingsCard from "./SettingsCard";
+import { useSettingsScope } from "./SettingsScope";
 import { SERIF } from "../Checkout/SheetTable";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Grid from "../Elements/Grid";
@@ -9,7 +10,6 @@ import SelectField from "../Elements/SelectField";
 import { RenderTermText } from "../Elements/TermText";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
-import { useSettings } from "../../Context/SettingsContext";
 import { Toast } from "../../Lib/Toast";
 import { AskWhenOptions, DefaultSalesTerms } from "../../Models/GeneralSettings";
 import type { AskWhen, SalesTerm } from "../../Models/GeneralSettings";
@@ -41,7 +41,7 @@ type Props = {
  * its INITIAL line and shown, word for word, on the customer's initialling screen.
  */
 const TermsSettings = ({ onLayout }: Props) => {
-    const { settings, apply } = useSettings();
+    const { settings, apply, territoryId } = useSettingsScope();
     const defaults = settings.defaults?.terms ?? DefaultSalesTerms;
 
     const [terms, setTerms] = useState<SalesTerm[]>(settings.terms);
@@ -60,14 +60,17 @@ const TermsSettings = ({ onLayout }: Props) => {
 
     const save = async (next: SalesTerm[]) => {
         setSaving(true);
-        const result = await SaveGeneralSettings({
-            terms: next.map((t) => ({
-                ...t,
-                title: t.title.trim(),
-                heading: t.heading.trim(),
-                text: t.text.trim(),
-            })),
-        });
+        const result = await SaveGeneralSettings(
+            {
+                terms: next.map((t) => ({
+                    ...t,
+                    title: t.title.trim(),
+                    heading: t.heading.trim(),
+                    text: t.text.trim(),
+                })),
+            },
+            territoryId
+        );
         setSaving(false);
         if (!result) return false;
         apply(result);

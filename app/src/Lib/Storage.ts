@@ -11,9 +11,9 @@ const cache = new Map<string, string | null>();
 /** The keys the app reads before the first screen draws. */
 const PRELOADED = [
     "cfs.serverUrl",
-    "cfs.accessToken",
     "cfs.refreshToken",
     "cfs.lastUsername",
+    "cfs.territory",
     "theme",
 ] as const;
 

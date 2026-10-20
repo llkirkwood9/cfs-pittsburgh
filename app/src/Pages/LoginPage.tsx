@@ -14,13 +14,12 @@ import { GetServerUrl, NormalizeServerUrl, SetServerUrl, TestServerUrl } from ".
 import { GetItem, SetItem } from "../Lib/Storage";
 import { Toast } from "../Lib/Toast";
 
-const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"];
-
 /**
- * Sign-in screen. The PIN goes in through an on-screen keypad rather than the keyboard, which is
- * faster on a cart and keeps the keyboard from covering the form. Unlike the dashboard - which is
- * served by the server it talks to - the app has to be told where the server is, so the first
- * time it asks for the server's address and checks that it answers.
+ * Sign-in screen: username and password. Too many wrong passwords lock the account for a while,
+ * and someone signing in for the first time - or with a password a manager set for them - is
+ * asked to choose their own straight afterwards. Unlike the dashboard - which is served by the
+ * server it talks to - the app has to be told where the server is, so the first time it asks for
+ * the server's address and checks that it answers.
  */
 const LoginPage = () => {
     const { user, loading, login } = useAuth();
@@ -32,7 +31,9 @@ const LoginPage = () => {
     const [checkingServer, setCheckingServer] = useState<boolean>(false);
 
     const [username, setUsername] = useState<string>(() => GetItem("cfs.lastUsername") ?? "");
-    const [pin, setPin] = useState<string>("");
+    // Only the username is remembered on the device, never the password.
+    const [password, setPassword] = useState<string>("");
+    const [showPassword, setShowPassword] = useState<boolean>(false);
     const [submitting, setSubmitting] = useState<boolean>(false);
 
     if (!loading && user) return <Redirect href={HomePathForRole(user.role)} />;
@@ -47,7 +48,7 @@ const LoginPage = () => {
 
         if (!answers)
             return Toast.Error(
-                `No CFS server answered at ${url}. Check the address and that this device is on the same Wi-Fi.`
+                `No CFS server answered at ${url}. Check the address and this device's internet connection.`
             );
 
         SetServerUrl(url);
@@ -57,27 +58,20 @@ const LoginPage = () => {
         Toast.Success("Connected to the server.");
     };
 
-    const press = (key: string) => {
-        if (key === "clear") return setPin("");
-        if (key === "back") return setPin((value) => value.slice(0, -1));
-        if (pin.length >= 12) return;
-        setPin((value) => value + key);
-    };
-
     const handleSubmit = async () => {
         if (!serverUrl) return Toast.Warning("Set the server's address first.");
         if (!username.trim()) return Toast.Warning("Enter your username.");
-        if (pin.length < 4) return Toast.Warning("Enter your PIN.");
+        if (!password) return Toast.Warning("Enter your password.");
 
         setSubmitting(true);
-        const signedIn = await login(username.trim(), pin);
+        const signedIn = await login(username.trim(), password);
         setSubmitting(false);
 
         if (signedIn) {
             SetItem("cfs.lastUsername", username.trim());
             router.replace(HomePathForRole(signedIn.role));
         } else {
-            setPin("");
+            setPassword("");
         }
     };
 
@@ -104,7 +98,7 @@ const LoginPage = () => {
                                     value={serverText}
                                     onChange={setServerText}
                                     onSubmit={saveServer}
-                                    placeholder="ex. cfs.local:8080"
+                                    placeholder="ex. sales.example.com"
                                     autoCapitalize="none"
                                     inputMode="email"
                                 />
@@ -161,60 +155,31 @@ const LoginPage = () => {
                             className="mb-4"
                             maxLength={50}
                             autoCapitalize="none"
+                            autoComplete="username"
                         />
 
-                        <View className="mb-3">
-                            <Text className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                                PIN
-                            </Text>
-                            <View
-                                className="mt-1 min-h-[48px] flex-row items-center justify-center gap-3 rounded-xl
-                                    border border-zinc-300 bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900"
-                                accessibilityLabel={`${pin.length} digits entered`}
+                        <View className="mb-6">
+                            <TextField
+                                label="Password"
+                                value={password}
+                                onChange={setPassword}
+                                onSubmit={handleSubmit}
+                                type={showPassword ? "text" : "password"}
+                                maxLength={128}
+                                autoCapitalize="none"
+                                autoComplete="current-password"
+                            />
+                            <Pressable
+                                onPress={() => setShowPassword((v) => !v)}
+                                accessibilityRole="button"
+                                accessibilityLabel={showPassword ? "Hide password" : "Show password"}
+                                className="absolute bottom-0 right-0 h-12 w-12 items-center justify-center"
                             >
-                                {pin.length === 0 ? (
-                                    <Text className="text-sm text-zinc-400">Enter your PIN</Text>
-                                ) : (
-                                    pin
-                                        .split("")
-                                        .map((_, index) => (
-                                            <View
-                                                key={index}
-                                                className="h-3 w-3 rounded-full bg-sky-600 dark:bg-sky-400"
-                                            />
-                                        ))
-                                )}
-                            </View>
-                        </View>
-
-                        <View className="mb-4 flex-row flex-wrap justify-between gap-y-2">
-                            {keys.map((key) => (
-                                <Pressable
-                                    key={key}
-                                    onPress={() => press(key)}
-                                    accessibilityRole="button"
-                                    accessibilityLabel={
-                                        key === "back" ? "Delete" : key === "clear" ? "Clear" : key
-                                    }
-                                    className="h-14 w-[31.5%] items-center justify-center rounded-xl bg-zinc-100
-                                        active:bg-zinc-200 dark:bg-zinc-700 dark:active:bg-zinc-600"
-                                >
-                                    {key === "clear" ? (
-                                        <Text className="text-sm font-semibold text-zinc-800 dark:text-zinc-100">
-                                            Clear
-                                        </Text>
-                                    ) : key === "back" ? (
-                                        <Icon
-                                            icon="fa-solid fa-delete-left"
-                                            className="text-lg text-zinc-800 dark:text-zinc-100"
-                                        />
-                                    ) : (
-                                        <Text className="text-xl font-semibold text-zinc-800 dark:text-zinc-100">
-                                            {key}
-                                        </Text>
-                                    )}
-                                </Pressable>
-                            ))}
+                                <Icon
+                                    icon={showPassword ? "fa-solid fa-eye-slash" : "fa-solid fa-eye"}
+                                    className="text-zinc-500 dark:text-zinc-400"
+                                />
+                            </Pressable>
                         </View>
 
                         <Button
@@ -225,6 +190,10 @@ const LoginPage = () => {
                             disabled={!serverUrl || editingServer}
                             className="w-full"
                         />
+
+                        <Text className="mt-4 text-center text-xs text-zinc-500 dark:text-zinc-400">
+                            Forgot your password? Ask your manager to set a new one.
+                        </Text>
                     </View>
                 </ScrollView>
             </KeyboardAvoider>

@@ -5,6 +5,7 @@ import EventBreakdown from "../Components/Dashboard/EventBreakdown";
 import SalesByHourChart from "../Components/Dashboard/SalesByHourChart";
 import SalesStars from "../Components/Dashboard/SalesStars";
 import StockWatch from "../Components/Dashboard/StockWatch";
+import TerritoryComparison from "../Components/Dashboard/TerritoryComparison";
 import Grid, { Cell } from "../Components/Elements/Grid";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
@@ -13,6 +14,7 @@ import StatCard from "../Components/Elements/StatCard";
 import TabButton from "../Components/Elements/TabButton";
 import Text from "../Components/Elements/Text";
 import { useAuth } from "../Context/AuthContext";
+import { useTerritory } from "../Context/TerritoryContext";
 import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
@@ -70,11 +72,14 @@ const ProductRanking = ({ products, empty }: { products: ProductTally[]; empty: 
 /**
  * The event's stat sheet, live, or an overview of every event with each one's figures side by
  * side. Only completed sales feed the money figures; work still on the floor or at the checkout
- * table is shown separately so nobody counts it twice. Pull down to refresh; it also refreshes
- * itself every few seconds.
+ * table is shown separately so nobody counts it twice. It covers the territory picked in the
+ * menu bar; a system admin or administrator viewing every territory also gets them side by side.
+ * Pull down to refresh; it also refreshes itself every few seconds.
  */
 const DashboardPage = () => {
     const { user } = useAuth();
+    const { canSwitch, territoryId: territoryInView, territoryName } = useTerritory();
+    const viewingAll = canSwitch && territoryInView == null;
 
     const [events, setEvents] = useState<Event[]>([]);
     const [scope, setScope] = useState<"event" | "all">("event");
@@ -189,8 +194,14 @@ const DashboardPage = () => {
     return (
         <Page navbar onRefresh={handleRefresh} refreshing={refreshing} className="p-3 sm:p-4">
             <Text className="mb-3 text-xl font-bold">
-                {scope === "all" ? "All events" : stats?.organization}
+                {scope === "all"
+                    ? viewingAll
+                        ? "All events in every territory"
+                        : `All ${territoryName ? `${territoryName} ` : ""}events`
+                    : stats?.organization}
             </Text>
+
+            {viewingAll && <TerritoryComparison pollMs={POLL_MS} refreshKey={refreshKey} />}
 
             <ScrollView
                 horizontal
@@ -206,7 +217,11 @@ const DashboardPage = () => {
                 {events.map((event) => (
                     <TabButton
                         key={event.id}
-                        text={event.organization ?? ""}
+                        text={
+                            viewingAll && event.territoryName
+                                ? `${event.organization ?? ""} · ${event.territoryName}`
+                                : (event.organization ?? "")
+                        }
                         tag={IsPastEvent(event) ? "Past" : undefined}
                         active={scope === "event" && event.id === eventId}
                         onClick={() => event.id && switchEvent(event.id)}

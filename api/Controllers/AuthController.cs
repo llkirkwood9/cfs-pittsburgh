@@ -38,6 +38,16 @@ namespace api.Controllers
         /// <summary>The header renewal and sign-out require, as a cross-site request guard.</summary>
         public const string ClientHeader = "X-CFS-Client";
 
+        /// <summary>
+        /// The client header's value from the phone app. A native app has no browser cookie jar to
+        /// hide the refresh token in, so it gets the token in the response body, keeps it in the
+        /// phone's secure storage (Keychain / Keystore) and sends it back in RefreshHeader.
+        /// </summary>
+        public const string AppClient = "app";
+
+        /// <summary>The header the phone app sends its refresh token in.</summary>
+        public const string RefreshHeader = "X-Refresh-Token";
+
         private const string WrongPassword = "Incorrect username or password.";
 
         #endregion
@@ -118,8 +128,7 @@ namespace api.Controllers
                 var refreshToken = await OpenSessionAsync(user);
                 await DB.SaveChangesAsync();
 
-                SetRefreshCookie(refreshToken);
-                return Ok(Respond(user));
+                return Issue(user, refreshToken);
             }
             catch (Exception e)
             {
@@ -139,7 +148,7 @@ namespace api.Controllers
                 if (!Request.Headers.ContainsKey(ClientHeader))
                     return BadRequest(new { error = "Missing client header." });
 
-                var token = Request.Cookies[RefreshCookie];
+                var token = IncomingRefreshToken();
                 if (string.IsNullOrEmpty(token))
                     return Unauthorized(new { error = "Please sign in." });
 
@@ -169,8 +178,7 @@ namespace api.Controllers
                 session.LastUsedAt = DateTime.UtcNow;
                 await DB.SaveChangesAsync();
 
-                SetRefreshCookie(next);
-                return Ok(Respond(user));
+                return Issue(user, next);
             }
             catch (Exception e)
             {
@@ -217,7 +225,7 @@ namespace api.Controllers
                 Passwords.Set(TokenService, user, request.NewPassword, mustChange: false);
 
                 // Keep this device signed in; sign every other one out.
-                var keep = Request.Cookies[RefreshCookie] is { Length: > 0 } cookie ? TokenService.HashRefreshToken(cookie) : "";
+                var keep = IncomingRefreshToken() is { Length: > 0 } thisDevice ? TokenService.HashRefreshToken(thisDevice) : "";
                 await DB.UserSessions.Where(s => s.UserId == user.Id && s.TokenHash != keep).ExecuteDeleteAsync();
                 await DB.SaveChangesAsync();
 
@@ -243,7 +251,7 @@ namespace api.Controllers
                 if (!Request.Headers.ContainsKey(ClientHeader))
                     return BadRequest(new { error = "Missing client header." });
 
-                var token = Request.Cookies[RefreshCookie];
+                var token = IncomingRefreshToken();
                 if (!string.IsNullOrEmpty(token))
                 {
                     var hash = TokenService.HashRefreshToken(token);
@@ -313,6 +321,34 @@ namespace api.Controllers
             ExpiresIn = TokenService.AccessTokenMinutes() * 60,
             User = UserMapper.ToDto(user),
         };
+
+        /// <summary>Whether the request comes from the phone app rather than the dashboard.</summary>
+        private bool IsApp() =>
+            string.Equals(Request.Headers[ClientHeader].ToString(), AppClient, StringComparison.OrdinalIgnoreCase);
+
+        /// <summary>
+        /// The refresh token the request carries: the phone app's header, or the dashboard's cookie.
+        /// </summary>
+        private string? IncomingRefreshToken()
+        {
+            if (!IsApp()) return Request.Cookies[RefreshCookie];
+            var token = Request.Headers[RefreshHeader].ToString();
+            return string.IsNullOrEmpty(token) ? null : token;
+        }
+
+        /// <summary>
+        /// Answers a sign-in or refresh: the dashboard gets the refresh token as its httpOnly cookie,
+        /// the phone app in the body.
+        /// </summary>
+        private IActionResult Issue(User user, string refreshToken)
+        {
+            var response = Respond(user);
+            if (IsApp())
+                response.RefreshToken = refreshToken;
+            else
+                SetRefreshCookie(refreshToken);
+            return Ok(response);
+        }
 
         /// <summary>Opens a session for this device and returns its refresh token.</summary>
         private async Task<string> OpenSessionAsync(User user)

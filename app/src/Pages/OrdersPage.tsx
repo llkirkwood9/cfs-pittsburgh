@@ -13,6 +13,7 @@ import TabButton from "../Components/Elements/TabButton";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
+import { useTerritory } from "../Context/TerritoryContext";
 import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
@@ -78,7 +79,10 @@ const Summary = (orders: OrderSummary[]): string => {
 const OrdersPage = () => {
     const { user, hasRole } = useAuth();
 
-    const isAdmin = hasRole("Admin");
+    const isManager = hasRole("Manager");
+    const { canSwitch, territoryId: territoryInView } = useTerritory();
+    // Viewing every territory, each order says which one it came from.
+    const showTerritory = canSwitch && territoryInView == null;
     const isSystemAdmin = user?.role === "SystemAdmin";
     const [removing, setRemoving] = useState<OrderSummary | null>(null);
 
@@ -136,16 +140,16 @@ const OrdersPage = () => {
 
     const boot = useCallback(async () => {
         const [list, active] = await Promise.all([
-            isAdmin ? GetEvents() : Promise.resolve([]),
+            isManager ? GetEvents() : Promise.resolve([]),
             GetActiveEvent(),
         ]);
 
         setEvents(EventsForFilter(list));
         setActiveId(active?.id ?? null);
 
-        // Between fundraisers there is no active event. An admin falls back to every event;
-        // everyone else has nothing current to show, and all-events history is admin-only.
-        if (!active?.id && !isAdmin) {
+        // Between fundraisers there is no active event. A manager falls back to every event;
+        // everyone else has nothing current to show, and all-events history is for managers up.
+        if (!active?.id && !isManager) {
             setScope(null);
             setOrders([]);
             setLoading(false);
@@ -156,7 +160,7 @@ const OrdersPage = () => {
 
         setScope(target);
         await loadWith(target, "All", "");
-    }, [isAdmin, loadWith]);
+    }, [isManager, loadWith]);
 
     useEffect(() => {
         boot();
@@ -213,7 +217,7 @@ const OrdersPage = () => {
         <View>
             <View className="mb-3 flex-row flex-wrap items-center justify-between gap-2">
                 <Text className="text-xl font-bold">Orders</Text>
-                {isAdmin && scope?.kind === "event" && (
+                {isManager && scope?.kind === "event" && (
                     <Button
                         text="Print all completed sheets"
                         icon="fa-solid fa-print"
@@ -227,7 +231,7 @@ const OrdersPage = () => {
                 )}
             </View>
 
-            {isAdmin && (
+            {isManager && (
                 <ScrollView
                     horizontal
                     showsHorizontalScrollIndicator={false}
@@ -309,7 +313,7 @@ const OrdersPage = () => {
     const renderOrder = ({ item: order }: { item: OrderSummary }) => {
         const style = statusStyles[order.status ?? "Draft"];
         const actions: SwipeAction[] = [];
-        if (isAdmin && (order.status === "Completed" || order.status === "AwaitingCheckout"))
+        if (isManager && (order.status === "Completed" || order.status === "AwaitingCheckout"))
             actions.push({
                 label: "Reopen",
                 icon: "fa-solid fa-arrow-rotate-left",
@@ -347,6 +351,7 @@ const OrdersPage = () => {
                     <Text className="font-semibold">{order.billingName || "No name"}</Text>
                     <Text className="text-xs text-zinc-500 dark:text-zinc-400">
                         {[
+                            scope?.kind === "all" && showTerritory ? order.territoryName : null,
                             scope?.kind === "all" ? order.eventOrganization : null,
                             FormatShortDate(order.eventDate ?? order.createdAt),
                             order.cfsRepName,

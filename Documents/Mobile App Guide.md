@@ -65,7 +65,8 @@ screen:
 
 1. Type the server address, e.g. `192.168.1.20:5046` (`http://` is added for you), and tap
    **Connect**. The app checks the server's `/health` and remembers the address on the device.
-2. Sign in with a username and PIN as usual. The seeded accounts are listed in the README.
+2. Sign in with a username and password as usual. The first account, `admin`, is described in
+   the README (section 4, *First sign-in*).
 
 To use a different server later, sign out and tap **Change** beside the server address.
 
@@ -156,7 +157,12 @@ Once a development build is installed, `npx expo start` serves it in place of Ex
 ### What to try on a device
 
 - Sign in against the server, then sign out and back in. The server address should be
-  remembered.
+  remembered. Close the app completely and open it again: it should still be signed in (the
+  session is kept in the Keychain / Keystore). An account with a new or reset password is asked
+  to choose its own before anything else.
+- **Territories** (as an admin): switch territory in the menu bar, and pick **All territories**.
+  Sell, Checkout and the stock counts should ask for one territory; the Dashboard should show the
+  territories side by side.
 - **Sell:** start an order, add items, and send it to checkout.
 - **Lists:** tapping a row opens it (an order item's editor, a product, an event, a crew
   member, an order's sales sheet, a size's count). Swiping a row to the left uncovers its other
@@ -168,7 +174,8 @@ Once a development build is installed, `npx expo start` serves it in place of Ex
 - **Sales sheet:** print it to an AirPrint or Android print-service printer, and **Email** a
   completed one. The emailed PDF should match the printed sheet. **Email report** on an event's
   sheets should do the same for the whole stack.
-- **Orders**, **Dashboard** and **More** (Inventory, Catalog, Events, Crew, Settings), in light
+- **Orders**, **Dashboard** and **More** (Inventory, Catalog, Events, Crew, Settings,
+  Territories), in light
   and dark mode, on a phone and on a tablet, in both orientations.
 - **Refresh on return:** change something on another device (send an order to checkout, add a
   product), then switch back to the tab. It should show the change without pulling down.

@@ -1,7 +1,10 @@
 import { Redirect } from "expo-router";
 import { NativeTabs } from "expo-router/unstable-native-tabs";
+import { View } from "react-native";
 import LoadingPage from "../../Components/Elements/LoadingPage";
+import ChangePasswordModal from "../../Components/Navbar/ChangePasswordModal";
 import { useAuth } from "../../Context/AuthContext";
+import { useTerritory } from "../../Context/TerritoryContext";
 import { useCheckoutWaiting } from "../../Hooks/UseCheckoutWaiting";
 
 /**
@@ -14,11 +17,25 @@ import { useCheckoutWaiting } from "../../Hooks/UseCheckoutWaiting";
  */
 export default function TabsLayout() {
     const { user, loading, hasRole, logout } = useAuth();
-    // Customers waiting at the checkout table, on the Checkout tab's badge.
-    const waiting = useCheckoutWaiting(Boolean(user) && hasRole("Checkout"));
+    // Customers waiting at the checkout table, on the Checkout tab's badge - in the territory in
+    // view; with every territory in view there's no one checkout table to count.
+    const { territoryId, canSwitch } = useTerritory();
+    const waiting = useCheckoutWaiting(
+        Boolean(user) && hasRole("Checkout") && (territoryId != null || !canSwitch),
+        territoryId
+    );
 
     if (loading) return <LoadingPage onSignOut={logout} />;
     if (!user) return <Redirect href="/login" />;
+
+    // First sign-in, or a password a manager set: nothing else until they choose their own.
+    if (user.mustChangePassword) {
+        return (
+            <View className="flex-1 bg-zinc-100 dark:bg-zinc-900">
+                <ChangePasswordModal forced onClose={() => undefined} />
+            </View>
+        );
+    }
 
     return (
         <NativeTabs minimizeBehavior="onScrollDown">

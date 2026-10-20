@@ -17,7 +17,16 @@ type Props = {
     maxLength?: number;
     autoFocus?: boolean;
     autoCapitalize?: "none" | "sentences" | "words" | "characters";
+    /** Lets the phone's password manager recognise the field and fill it in. */
+    autoComplete?: "username" | "current-password" | "new-password";
 };
+
+/** The same hints in iOS's words. */
+const contentTypes = {
+    username: "username",
+    "current-password": "password",
+    "new-password": "newPassword",
+} as const;
 
 const keyboards: Record<string, KeyboardTypeOptions> = {
     decimal: "decimal-pad",
@@ -44,6 +53,7 @@ const TextField = ({
     maxLength,
     autoFocus = false,
     autoCapitalize,
+    autoComplete,
 }: Props) => {
     const mode = inputMode ?? (type === "email" ? "email" : type === "tel" ? "tel" : "text");
 
@@ -63,6 +73,8 @@ const TextField = ({
                 maxLength={maxLength}
                 autoFocus={autoFocus}
                 secureTextEntry={type === "password"}
+                autoComplete={autoComplete}
+                textContentType={autoComplete ? contentTypes[autoComplete] : undefined}
                 keyboardType={keyboards[mode] ?? "default"}
                 autoCapitalize={
                     autoCapitalize ?? (mode === "email" || type === "password" ? "none" : "sentences")
