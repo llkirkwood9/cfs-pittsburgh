@@ -1,15 +1,16 @@
 # CFS Fundraiser - the app (API + dashboard) in one image, talking to a PostgreSQL server in its
-# own container. The same image runs on an x86 PC or server, a Raspberry Pi and a cloud host: any
-# container host (Azure Container Apps, AWS App Runner or ECS, Google Cloud Run, Fly.io, Render...)
-# with a managed PostgreSQL database - see Documents/Cloud Deployment.md. It runs as an unprivileged
-# user and keeps nothing on its own disk.
+# own container beside it (docker-compose.yml). The same image and the same two containers run on an
+# x86 PC or server, a Raspberry Pi and the cloud droplet, where Caddy adds HTTPS in front
+# (docker-compose.cloud.yml, Documents/Cloud Deployment.md). It runs as an unprivileged user and
+# keeps nothing on its own disk.
 #
 #   docker compose up -d --build        (builds this image and starts it with PostgreSQL)
 #
-# Published for both architectures by .github/workflows/app-image.yml, or by hand:
+# Published for both architectures by .github/workflows/cloud-deploy.yml on this branch (as
+# :cloud), or by hand:
 #
 #   docker buildx build --platform linux/amd64,linux/arm64 \
-#       -t ghcr.io/<owner>/cfs-fundraiser:latest --push .
+#       -t ghcr.io/<owner>/cfs-fundraiser:cloud --push .
 #
 # Then browse to http://localhost:8080. The API serves the dashboard itself, so there is one origin
 # and one port and no CORS to configure.

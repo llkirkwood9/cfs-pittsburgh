@@ -1,0 +1,45 @@
+# The cloud droplet: the same two containers as docker-compose.yml - the app and PostgreSQL - plus
+# Caddy in front of them for HTTPS on your own domain. It is used together with docker-compose.yml:
+# the droplet's .env says
+#
+#   COMPOSE_FILE=docker-compose.yml:docker-compose.cloud.yml
+#
+# so a plain `docker compose ...` in /opt/cfs uses both. The .env also needs CFS_DOMAIN (for example
+# sales.example.com), besides POSTGRES_PASSWORD and JWT_KEY. .github/workflows/cloud-deploy.yml
+# copies these files to the droplet and starts them; see Documents/Cloud Deployment.md.
+services:
+  app:
+    # Only Caddy talks to the app from outside. 8080 stays open on the droplet itself, for
+    # checking it by hand (curl http://localhost:8080/health).
+    ports: !override
+      - "127.0.0.1:8080:8080"
+    environment:
+      # Caddy is the one hop in front of the app: believe the visitor's address and HTTPS from it.
+      ForwardedHeaders__Enabled: "true"
+      ForwardedHeaders__ForwardLimit: "1"
+      Auth__SecureCookies: "true"
+      # ALLOW_LEGACY_PINS=false in .env turns off the one-time sign-in with a PIN from before
+      # passwords - right for a new install; leave it on while moving a cart's data across.
+      Auth__AllowLegacyPins: "${ALLOW_LEGACY_PINS:-true}"
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: cfs-caddy
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      CFS_DOMAIN: "${CFS_DOMAIN:?Set CFS_DOMAIN in the .env file to the app's domain, e.g. sales.example.com}"
+    volumes:
+      - ./docker/cloud/Caddyfile:/etc/caddy/Caddyfile:ro
+      # The HTTPS certificate and its key; kept so a restart doesn't ask Let's Encrypt again.
+      - caddy-data:/data
+      - caddy-config:/config
+    restart: unless-stopped
+
+volumes:
+  caddy-data:
+  caddy-config:

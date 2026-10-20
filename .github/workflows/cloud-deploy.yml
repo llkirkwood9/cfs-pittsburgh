@@ -1,0 +1,140 @@
+# Builds this branch's app image and deploys it to the cloud droplet.
+#
+# 1. build: the image for x86 (the droplet) and ARM (a Raspberry Pi on this branch), published to
+#    this repository's container registry as :cloud, :cloud-<version> and :<commit>. Each build is
+#    versioned YYYY.MM.<build>, numbered from 1 each month, and tagged cloud-v<version>.
+# 2. deploy: copies the deployment files to /opt/cfs on the droplet over SSH, signs it in to the
+#    registry for the pull, and runs docker/cloud/cfs-deploy.sh there (backup, pull, restart, wait
+#    for healthy). Skipped until the DEPLOY_HOST variable is set.
+#
+# Runs on every push to Cloud-Support that touches the app or its deployment files, and by hand
+# from the Actions tab - where "Build a new image" can be unticked to redeploy the current one.
+#
+# Repository settings (Settings -> Secrets and variables -> Actions), described in
+# Documents/Cloud Deployment.md, Step 6:
+#   variables: DEPLOY_HOST (the droplet's IP address), DEPLOY_USER (default: deploy)
+#   secrets:   DEPLOY_SSH_KEY (a private key the droplet's deploy user accepts),
+#              DEPLOY_KNOWN_HOSTS (the droplet's host key, from ssh-keyscan)
+name: Cloud deploy
+
+on:
+  push:
+    branches: [Cloud-Support]
+    paths:
+      - "api/**"
+      - "dashboard/**"
+      - "Dockerfile"
+      - "docker-compose.yml"
+      - "docker-compose.cloud.yml"
+      - "docker/cloud/**"
+      - "docker/pi/cfs-backup.sh"
+      - ".github/workflows/cloud-deploy.yml"
+  workflow_dispatch:
+    inputs:
+      build:
+        description: Build a new image (untick to redeploy the current one)
+        type: boolean
+        default: true
+
+# One run at a time, so two builds never take the same number and two deploys never overlap.
+concurrency:
+  group: cloud-deploy
+  cancel-in-progress: false
+
+jobs:
+  build:
+    if: github.ref == 'refs/heads/Cloud-Support' && (github.event_name == 'push' || inputs.build)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # to tag the build with its version
+      packages: write
+
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # the tags, to number this build
+
+      # The month's builds so far are its cloud-v<YYYY.MM>.* tags; this one is the next, and its
+      # tag is pushed before building so the number can't be used twice.
+      - name: Number this build
+        id: version
+        run: |
+          month=$(date -u +%Y.%m)
+          last=$(git tag --list "cloud-v${month}.*" | sed "s/^cloud-v${month}\.//" | sort -n | tail -1)
+          version="${month}.$(( ${last:-0} + 1 ))"
+          git tag "cloud-v${version}"
+          git push origin "cloud-v${version}"
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      # The ARM64 final stage installs a package, which needs emulation on an x86 runner.
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          platforms: linux/amd64,linux/arm64
+          push: true
+          build-args: |
+            DASHBOARD_VERSION=${{ steps.version.outputs.version }}
+          tags: |
+            ghcr.io/${{ github.repository_owner }}/cfs-fundraiser:cloud
+            ghcr.io/${{ github.repository_owner }}/cfs-fundraiser:cloud-${{ steps.version.outputs.version }}
+            ghcr.io/${{ github.repository_owner }}/cfs-fundraiser:${{ github.sha }}
+          cache-from: type=gha,scope=cloud
+          cache-to: type=gha,mode=max,scope=cloud
+
+  deploy:
+    needs: build
+    # After a successful build, or straight away when the build was skipped on purpose.
+    if: >-
+      always() && github.ref == 'refs/heads/Cloud-Support' && vars.DEPLOY_HOST != '' &&
+      (needs.build.result == 'success' || needs.build.result == 'skipped')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read # lets the droplet pull the image with this run's token
+    env:
+      TARGET: ${{ vars.DEPLOY_USER || 'deploy' }}@${{ vars.DEPLOY_HOST }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up SSH
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
+          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+
+      # Only what the droplet runs: no source code goes there. The .env with the secrets is the
+      # droplet's own and is never touched.
+      - name: Copy the deployment files
+        run: |
+          tar czf - docker-compose.yml docker-compose.cloud.yml docker/cloud docker/pi/cfs-backup.sh \
+            | ssh "$TARGET" 'mkdir -p /opt/cfs && tar xzf - -C /opt/cfs'
+
+      # This run's token can read the package, and stops working when the run ends.
+      - name: Sign the droplet in to the registry
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ACTOR: ${{ github.actor }}
+        run: printf '%s' "$TOKEN" | ssh "$TARGET" "docker login ghcr.io -u '$ACTOR' --password-stdin"
+
+      - name: Deploy
+        run: ssh "$TARGET" 'bash /opt/cfs/docker/cloud/cfs-deploy.sh'
+
+      - name: Sign the droplet out of the registry
+        if: always()
+        run: ssh "$TARGET" 'docker logout ghcr.io' || true

@@ -1,9 +1,10 @@
 # CFS Sales App
 
 Order-taking, checkout, inventory and reporting for CFS mattress fundraisers, across any number
-of territories. This is the `Cloud-Support` branch: it runs on a cloud container host with a
-managed PostgreSQL database (see [Documents/Cloud Deployment.md](Documents/Cloud%20Deployment.md)),
-or on a single box at the venue - a Docker host or a Raspberry Pi.
+of territories. This is the `Cloud-Support` branch. It runs as the same two containers - the app
+and PostgreSQL - everywhere: on a DigitalOcean droplet with HTTPS in front for the whole business
+(see [Documents/Cloud Deployment.md](Documents/Cloud%20Deployment.md)), or on a single box at the
+venue - a Docker host or a Raspberry Pi.
 
 **Contents**
 
@@ -31,9 +32,9 @@ or on a single box at the venue - a Docker host or a Raspberry Pi.
 | **Database** | (container) | PostgreSQL 16 | One database, `CfsFundraiser`. The API creates and migrates its tables and seeds the catalog itself. |
 | **Dashboard** | [`dashboard/`](dashboard) | Vite, React 19, TypeScript, Tailwind CSS 4 | The web app the crew uses on the cart's tablets and any browser. |
 | **Mobile app** | [`app/`](app) | Expo SDK 57, React Native 0.86, Expo Router, NativeWind 4 | The dashboard's screens as a native app for iPhone, iPad and Android. |
-| **App image** | [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml) | Docker (amd64 and arm64) | The API with the built dashboard inside it, on port 8080, beside a PostgreSQL container. |
+| **App image** | [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml), [`docker-compose.cloud.yml`](docker-compose.cloud.yml) | Docker (amd64 and arm64), Caddy | The API with the built dashboard inside it, on port 8080, beside a PostgreSQL container. In the cloud, Caddy adds HTTPS in front. |
 | **Raspberry Pi scripts** | [`docker/pi/`](docker/pi) | bash, systemd | Start at boot, update, back up, restore and reset a Pi that runs the image at an event. |
-| **CI/CD** | [`.github/workflows/`](.github/workflows) | GitHub Actions, EAS | Publishes the app image to ghcr.io, and builds and ships the mobile app. |
+| **CI/CD** | [`.github/workflows/`](.github/workflows) | GitHub Actions, EAS | Publishes the app image to ghcr.io and deploys it to the cloud droplet, and builds and ships the mobile app. |
 | **Documents** | [`Documents/`](Documents) | Word, Markdown | The user guide for the crew, cloud deployment, the Raspberry Pi setup and the mobile app guide. |
 
 How they fit together:
@@ -45,8 +46,8 @@ How they fit together:
 ```
 
 In production the API serves the built dashboard itself, so a browser sees one origin and one
-port and there is no CORS to set up. In the cloud the same image sits behind the host's load
-balancer, which ends HTTPS. The mobile app talks to the same API: its server address is typed in
+port and there is no CORS to set up. In the cloud the same two containers run on one droplet, with
+Caddy in front of them for HTTPS on the business's own domain. The mobile app talks to the same API: its server address is typed in
 on the sign-in screen (for example `sales.example.com`, or `http://192.168.1.50:8080` on a cart)
 and remembered on the device. In development the three run separately (API on 5046, dashboard on 3000, app in Expo).
 
@@ -57,10 +58,14 @@ and remembered on the device. In development the three run separately (API on 50
 ```
 Dockerfile                  The app image: dashboard build + API publish + ASP.NET runtime
 docker-compose.yml          The app image plus PostgreSQL, on port 8080
+docker-compose.cloud.yml    Adds Caddy (HTTPS) in front, for the cloud droplet
 docker-compose.pi.yml       Includes docker-compose.yml, for Pis set up with this name
-docker/pi/                  cfs.service, cfs-update.sh, cfs-backup.sh, cfs-reset-db.sh
+docker/cloud/               Caddyfile, cfs-deploy.sh (run on the droplet by each deploy)
+docker/pi/                  cfs.service, cfs-update.sh, cfs-backup.sh (also used on the droplet),
+                            cfs-reset-db.sh
 .github/workflows/
 ├── app-image.yml           Numbers and publishes the app image to ghcr.io on a push to main
+├── cloud-deploy.yml        On a push to Cloud-Support: publishes the :cloud image, deploys it
 └── app-release.yml         Builds the mobile app on a push to app-release (APK + TestFlight)
 .gitattributes              Keeps *.sh and Dockerfile at LF line endings
 
@@ -102,7 +107,7 @@ app/                        Expo + React Native app; see app/README.md
 
 Documents/
 ├── CFS Sales App User Guide.docx   For the crew: every screen, by role
-├── Cloud Deployment.md             Running the image on a cloud host with managed PostgreSQL
+├── Cloud Deployment.md             The DigitalOcean droplet: domain, deploys, email, backups
 ├── Mobile App Guide.md             Running, testing, building and releasing the app
 └── Raspberry Pi Setup.md           Running the image on a Pi at an event, email, troubleshooting
 ```
@@ -263,9 +268,10 @@ PIN sign-in off; then a manager sets a starting password for each account on the
   Development.
 - **Configuration.** Outside Development the API refuses to start without a real `Jwt:Key` (32+
   characters, not the placeholder) and a connection string.
-- **Behind a load balancer** the API reads `X-Forwarded-For` / `X-Forwarded-Proto`, believing only
-  the hop the balancer added (`ForwardedHeaders:ForwardLimit`). The single-box compose files turn
-  this off because nothing sits in front of them.
+- **Behind a proxy** - Caddy on the droplet - the API reads `X-Forwarded-For` /
+  `X-Forwarded-Proto`, believing only the hop the proxy added (`ForwardedHeaders:ForwardLimit`).
+  `docker-compose.yml` turns this off, because on a Pi nothing sits in front of the app;
+  `docker-compose.cloud.yml` turns it back on and keeps the app's own port off the internet.
 
 ---
 
@@ -398,7 +404,7 @@ then environment variables, where `:` becomes `__` (`Jwt__Key`, `Cors__AllowedOr
 | `Auth:MaxFailedAttempts`, `Auth:LockoutMinutes` | 5, 15 | Wrong passwords in a row before an account is locked, and for how long |
 | `Auth:AllowLegacyPins` | `true` | Lets an account from before passwords sign in once with its old PIN, then choose a password |
 | `Auth:SecureCookies` | blank (follows the request) | Whether the dashboard's session cookie is HTTPS-only. Blank makes it secure over HTTPS and still work on a cart's plain-HTTP network; `true` or `false` forces it |
-| `ForwardedHeaders:Enabled`, `ForwardLimit` | `true`, 1 | Read the client's address from a load balancer; off in the single-box compose files |
+| `ForwardedHeaders:Enabled`, `ForwardLimit` | `true`, 1 | Read the client's address from a proxy in front (Caddy, in the cloud); off in `docker-compose.yml` |
 | `Seed:AdminPassword` | blank | The first `admin` account's starting password; blank writes a random one to the log |
 | `Seed:Skip` | `false` | `true` starts without the sample catalog, delivery options and event. The first `admin` account is still created when there are no accounts at all, so a new database is never locked. |
 | `Email:Host`, `Port`, `Security`, `Username`, `Password`, `From`, `FromName`, `ReplyTo` | off | SMTP for emailed receipts and reports. With no host, email is off and the dashboard says so. |
@@ -411,7 +417,11 @@ then environment variables, where `:` becomes `__` (`Jwt__Key`, `Cors__AllowedOr
 |---|---|---|
 | `POSTGRES_PASSWORD` | yes | The database password, for both containers |
 | `JWT_KEY` | yes | `Jwt__Key` |
-| `CFS_IMAGE` | no | The image to run (default `ghcr.io/llkirkwood9/cfs-fundraiser:latest`) |
+| `CFS_IMAGE` | no | The image to run (default `ghcr.io/llkirkwood9/cfs-fundraiser:cloud` on this branch) |
+| `CFS_DOMAIN` | in the cloud | The app's domain, e.g. `sales.example.com`; Caddy gets its HTTPS certificate for it |
+| `COMPOSE_FILE` | in the cloud | `docker-compose.yml:docker-compose.cloud.yml`, so every `docker compose` command uses both |
+| `ALLOW_LEGACY_PINS` | no | `false` turns off the one-time PIN sign-in (`Auth__AllowLegacyPins`; cloud only) |
+| `CFS_BACKUP_KEEP` | no | How many backups `cfs-backup.sh` keeps (10) |
 | `SKIP_SEED_DATA` | no | `Seed__Skip` |
 | `SEED_ADMIN_PASSWORD` | no | `Seed__AdminPassword` |
 | `EMAIL_HOST`, `EMAIL_PORT` (587), `EMAIL_SECURITY` (StartTls), `EMAIL_USERNAME`, `EMAIL_PASSWORD`, `EMAIL_FROM` | for email | `Email__*` |
@@ -453,9 +463,14 @@ then by hand.
 
 ### The app image
 
-[`.github/workflows/app-image.yml`](.github/workflows/app-image.yml) runs on every push to `main`
-that touches `api/`, `dashboard/`, the `Dockerfile` or the workflow, or by hand from the Actions
-tab. It:
+On this branch, [`.github/workflows/cloud-deploy.yml`](.github/workflows/cloud-deploy.yml) runs on
+every push to `Cloud-Support` that touches the app or its deployment files, or by hand from the
+Actions tab. It numbers the build from the `cloud-v*` tags, builds it for `linux/amd64` and
+`linux/arm64`, pushes it as `:cloud`, `:cloud-<version>` and `:<commit sha>`, then deploys it to the
+droplet (section *Cloud hosting*). Pis on this branch run `:cloud` too.
+
+On `main`, [`.github/workflows/app-image.yml`](.github/workflows/app-image.yml) runs on every push
+that touches `api/`, `dashboard/`, the `Dockerfile` or the workflow, or by hand. It:
 
 1. Numbers the build YYYY.MM.&lt;build&gt; (the first in October 2026 is `2026.10.1`) from the
    existing `dashboard-v*` tags and pushes the tag `dashboard-v<version>`.
@@ -465,7 +480,7 @@ tab. It:
 To build and push one by hand instead:
 
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/<owner>/cfs-fundraiser:latest --push .
+docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/<owner>/cfs-fundraiser:cloud --push .
 ```
 
 ### Running the image anywhere
@@ -511,11 +526,22 @@ carries on unchanged.
 
 ### Cloud hosting
 
-[`Documents/Cloud Deployment.md`](Documents/Cloud%20Deployment.md) runs the same image on any
-container host behind its load balancer, against a managed PostgreSQL database: building and
-publishing the image, the database, the environment variables, HTTPS and the domain, the first
-sign-in, moving a cart's data across, backups and updating. The mobile app connects to the same
-domain.
+One DigitalOcean droplet (Basic, 2 GiB, 1 vCPU) runs the same `docker-compose.yml` as a Pi - the
+app and PostgreSQL - plus [`docker-compose.cloud.yml`](docker-compose.cloud.yml), which puts
+**Caddy** in front for HTTPS on the business's domain (it gets and renews the Let's Encrypt
+certificate itself) and keeps the app's port 8080 off the internet.
+
+`cloud-deploy.yml` deploys after each build: it copies the compose files, `docker/cloud/` and
+`cfs-backup.sh` to `/opt/cfs` on the droplet over SSH, signs the droplet in to ghcr.io with the
+run's own token, and runs `docker/cloud/cfs-deploy.sh` there - a database backup, `docker compose
+pull`, `up -d`, then a wait for the app to report healthy. The droplet holds no source code; its
+secrets are only in its own `/opt/cfs/.env`. The deploy is skipped until the repository variable
+`DEPLOY_HOST` is set.
+
+[`Documents/Cloud Deployment.md`](Documents/Cloud%20Deployment.md) is the step-by-step guide:
+sizing, the droplet and its firewall, the domain, the GitHub settings, the first sign-in, email
+through SMTP2GO (on port 2525, since DigitalOcean blocks the usual mail ports), backups, moving a
+cart's data across, updating and troubleshooting. The mobile app connects to the same domain.
 
 ### The mobile app
 
