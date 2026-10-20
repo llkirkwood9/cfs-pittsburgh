@@ -43,7 +43,7 @@ const InventoryNotesEditor = ({ eventId, notes, onSaved, className = "" }: Props
                 label="Notes for the inventory sheet"
                 value={value}
                 onChange={setValue}
-                placeholder="e.g. One lavender pillow kept as a floor sample"
+                placeholder="ex. One pillow kept as a floor sample"
                 maxLength={2000}
                 rows={3}
             />

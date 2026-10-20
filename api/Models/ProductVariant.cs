@@ -66,6 +66,12 @@ namespace api.Models
         public bool ExcludeFromInventory { get; set; }
 
         /// <summary>
+        /// A note shown to the rep when this size is picked, such as "Special order - 4 to 6 weeks"
+        /// </summary>
+        [MaxLength(300)]
+        public string? Notes { get; set; }
+
+        /// <summary>
         /// Whether this size has its own sale rather than the product's. With its own sale and no
         /// discount set, this size is left out of the product's sale.
         /// </summary>

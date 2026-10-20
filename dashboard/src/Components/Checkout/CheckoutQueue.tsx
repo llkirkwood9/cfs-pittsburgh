@@ -17,9 +17,7 @@ const CheckoutQueue = ({ orders, activeId, onSelect }: Props) => {
         return (
             <div className="rounded-xl border-2 border-dashed border-zinc-300 py-10 text-center dark:border-zinc-700">
                 <Icon icon="fa-solid fa-mug-hot" className="text-2xl text-zinc-400" />
-                <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">
-                    Nobody waiting. New orders appear here the moment a rep completes one.
-                </p>
+                <p className="mt-2 text-sm text-zinc-500 dark:text-zinc-400">Nobody waiting.</p>
             </div>
         );
     }
@@ -56,8 +54,8 @@ const CheckoutQueue = ({ orders, activeId, onSelect }: Props) => {
                                     {order.billingName || "No name yet"}
                                 </span>
                                 <span className="block text-xs opacity-80">
-                                    {order.cfsRepName} &middot; {order.lineCount ?? 0} item
-                                    {(order.lineCount ?? 0) === 1 ? "" : "s"} &middot;{" "}
+                                    {order.cfsRepName} &middot; {order.itemCount ?? 0} item
+                                    {(order.itemCount ?? 0) === 1 ? "" : "s"} &middot;{" "}
                                     {FormatElapsed(order.submittedAt)}
                                 </span>
                             </span>

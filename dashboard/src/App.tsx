@@ -7,7 +7,27 @@ import ChangePasswordModal from "./Components/Navbar/ChangePasswordModal";
 import Navbar from "./Components/Navbar/Navbar";
 import { useAuth } from "./Context/AuthContext";
 import { useTerritory } from "./Context/TerritoryContext";
+import { useSettings } from "./Context/SettingsContext";
 import { setNavigateFunction } from "./Lib/ErrorHandler";
+
+/** Each screen's name for the browser tab, so several open tabs can be told apart. */
+const pageTitles: [RegExp, string][] = [
+    [/^\/login$/, "Sign in"],
+    [/^\/sales/, "Sell"],
+    [/^\/checkout/, "Checkout"],
+    [/^\/orders/, "Orders"],
+    [/^\/receipt\//, "Sales sheet"],
+    [/^\/dashboard/, "Dashboard"],
+    [/^\/inventory\/count/, "Inventory count"],
+    [/^\/inventory/, "Inventory"],
+    [/^\/catalog/, "Catalog"],
+    [/^\/events\/\d+\/close/, "Close out event"],
+    [/^\/events\/\d+\/sheets/, "Event sheets"],
+    [/^\/events/, "Events"],
+    [/^\/crew/, "Crew"],
+    [/^\/settings/, "Settings"],
+    [/^\/territories/, "Territories"],
+];
 
 /**
  * Layout shell. The navbar is hidden on the sign-in screen and on the printable receipt so the
@@ -18,10 +38,16 @@ const App = () => {
     const location = useLocation();
     const { user } = useAuth();
     const { territoryId } = useTerritory();
+    const { settings } = useSettings();
 
     useEffect(() => {
         setNavigateFunction(navigate);
     }, [navigate]);
+
+    useEffect(() => {
+        const page = pageTitles.find(([pattern]) => pattern.test(location.pathname))?.[1];
+        document.title = page ? `${page} · ${settings.appName}` : settings.appName;
+    }, [location.pathname, settings.appName]);
 
     // Printable pages drop the app chrome so the paper copy is just the sales sheets.
     const chromeless =

@@ -22,7 +22,12 @@ const DraftTabs = ({ drafts, activeId, onSelect, onNew, creating = false }: Prop
             <div className="-mx-1 flex flex-1 gap-2 overflow-x-auto px-1 pb-1">
                 {drafts.map((draft) => {
                     const active = draft.id === activeId;
-                    const label = draft.draftLabel || draft.billingName || `#${draft.orderNumber}`;
+                    // A draft gets its number with its first item.
+                    const number = draft.orderNumber ? `#${draft.orderNumber} · ` : "";
+                    const label =
+                        draft.draftLabel ||
+                        draft.billingName ||
+                        (draft.orderNumber ? `#${draft.orderNumber}` : "New order");
 
                     return (
                         <button
@@ -40,8 +45,9 @@ const DraftTabs = ({ drafts, activeId, onSelect, onNew, creating = false }: Prop
                                 {label}
                             </span>
                             <span className="text-xs opacity-80">
-                                #{draft.orderNumber} &middot; {draft.lineCount ?? 0} item
-                                {(draft.lineCount ?? 0) === 1 ? "" : "s"} &middot;{" "}
+                                {number}
+                                {draft.itemCount ?? 0} item
+                                {(draft.itemCount ?? 0) === 1 ? "" : "s"} &middot;{" "}
                                 {FormatCurrency(draft.total)}
                             </span>
                         </button>

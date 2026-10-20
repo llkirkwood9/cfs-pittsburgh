@@ -1,4 +1,4 @@
-import type { SalesTerm } from "./GeneralSettings";
+import type { SalesTerm, SalesTermKey } from "./GeneralSettings";
 import type { OrderLine } from "./OrderLine";
 import type { OrderPayment } from "./OrderPayment";
 
@@ -20,7 +20,10 @@ export type Order = {
     referralName?: string | null;
     cfsRepName?: string | null;
 
+    /** First and last name together, as printed; kept in step by the API. */
     billingName?: string | null;
+    billingFirstName?: string | null;
+    billingLastName?: string | null;
     billingAddress?: string | null;
     billingUnit?: string | null;
     billingFloor?: string | null;
@@ -64,6 +67,8 @@ export type Order = {
     advisoryInitials?: string | null;
     /** The wording the customer initialled, kept when the sale was completed. */
     terms?: SalesTerm[] | null;
+    /** The statements this order needs initialled, from what is on it; the rest are skipped. */
+    requiredTerms?: SalesTermKey[];
     customerSignatureName?: string | null;
     customerSignature?: string | null;
     signedDate?: string | null;

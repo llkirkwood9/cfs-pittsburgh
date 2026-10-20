@@ -1,6 +1,19 @@
 /** Which initials a statement takes; matches the order's initials fields. */
 export type SalesTermKey = "customerInfo" | "warranty" | "dropShip" | "advisory";
 
+/**
+ * When the customer is asked to initial a statement: on every order, only when something on the
+ * order is shipped rather than taken home, or only when an item on it has a warranty.
+ */
+export type AskWhen = "always" | "shipped" | "warranty";
+
+/** The choices for when a statement is asked, as Settings words them. */
+export const AskWhenOptions: { value: AskWhen; label: string }[] = [
+    { value: "always", label: "Always" },
+    { value: "shipped", label: "Only when something ships" },
+    { value: "warranty", label: "Only when an item has a warranty" },
+];
+
 /** One statement the customer initials, on the sales sheet and on their initialling screen. */
 export type SalesTerm = {
     key: SalesTermKey;
@@ -10,6 +23,8 @@ export type SalesTerm = {
     heading: string;
     /** The paragraph, the same in both places. **bold** and __underline__ allowed. */
     text: string;
+    /** When to ask for it; skipped, it prints N/A. */
+    askWhen?: AskWhen;
 };
 
 /** Business details, dashboard levels, new-event defaults and terms set under Settings. */
@@ -54,6 +69,7 @@ export const DefaultSalesTerms: SalesTerm[] = [
         title: "Check your details",
         heading: "",
         text: "Customer confirms the name, address, phone, email and delivery details above are correct.",
+        askWhen: "shipped",
     },
     {
         key: "warranty",
@@ -65,6 +81,7 @@ export const DefaultSalesTerms: SalesTerm[] = [
             "any stains or soils present even if the product is defective. Customer has been notified that sleep sets must be clean, free of tears, " +
             "burns, odors, pet hair and stains of any kind for the warranty to be valid. In addition, manufacturer warranties only cover the cost of " +
             "the replacement item, not additional expenses such as delivery or set-up.",
+        askWhen: "warranty",
     },
     {
         key: "dropShip",
@@ -74,6 +91,7 @@ export const DefaultSalesTerms: SalesTerm[] = [
             "**ALL ITEMS WILL BE DROP SHIPPED DIRECTLY TO THE CUSTOMER UNLESS OTHERWISE NOTED.** Items do not require a signature when delivered. " +
             "The mattress will be compressed, vacuum sealed and boxed. The product may be heavy and may require additional persons to move it. " +
             "Once open, the bed will completely recover within 24-48 hours, however, sleeping on it sooner will not damage the bed.",
+        askWhen: "shipped",
     },
     {
         key: "advisory",
@@ -82,6 +100,7 @@ export const DefaultSalesTerms: SalesTerm[] = [
         text:
             "Customer acknowledges and understands that this is a sanctioned fundraising event with a portion of the proceeds allocated " +
             "directly to the above mentioned organization and therefore, **__ALL SALES AND TRANSACTIONS ARE FINAL__**.",
+        askWhen: "always",
     },
 ];
 

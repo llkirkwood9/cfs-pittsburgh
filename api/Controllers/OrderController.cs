@@ -28,7 +28,8 @@ namespace api.Controllers
         #region POST Methods
 
         /// <summary>
-        /// Opens a new draft order against an event and reserves the next order number.
+        /// Opens a new draft order against an event. It gets its order number when its first item is
+        /// added, so a draft opened just to look at prices uses up no number.
         /// </summary>
         /// <param name="request">Event id, and optionally a draft label and rep name</param>
         /// <returns>The created order.</returns>
@@ -53,7 +54,6 @@ namespace api.Controllers
                 var order = new Order
                 {
                     EventId = saleEvent.Id,
-                    OrderNumber = saleEvent.NextOrderNumber,
                     Status = OrderStatus.Draft,
                     DraftLabel = request.DraftLabel,
                     SaleDate = request.SaleDate ?? saleEvent.EventDate,
@@ -66,8 +66,6 @@ namespace api.Controllers
                     DeliverySameAsBilling = true,
                     CreatedByUserId = GetCurrentUserId(),
                 };
-
-                saleEvent.NextOrderNumber += 1;
 
                 DB.Orders.Add(order);
                 await DB.SaveChangesAsync();
@@ -150,6 +148,8 @@ namespace api.Controllers
 
                     line.ProductVariantId = variant.Id;
                     line.Category = variant.Product?.Category ?? ProductCategory.Misc;
+                    line.HasWarranty = variant.Product?.HasWarranty ?? false;
+                    line.WarrantyLength = variant.Product?.HasWarranty == true ? variant.Product.WarrantyLength : null;
                     line.Brand = request.Brand ?? variant.Product?.Brand;
                     line.Size = request.Size ?? variant.Size;
                     line.Description = request.Description ?? BuildDescription(variant);
@@ -306,6 +306,7 @@ namespace api.Controllers
                 InventoryRules.SyncIncludedTakeWith(order);
                 LineOrder.Normalize(order);
                 OrderCalculator.RecalculateOrder(order);
+                order.OrderNumber ??= await NextOrderNumberAsync(DB, order.EventId);
                 order.UpdatedAt = DateTime.UtcNow;
                 await DB.SaveChangesAsync();
 
@@ -402,8 +403,8 @@ namespace api.Controllers
                 if (order.Lines.Count == 0)
                     return BadRequest(new { error = "Add at least one item before sending to checkout." });
 
-                if (string.IsNullOrWhiteSpace(order.BillingName))
-                    return BadRequest(new { error = "Enter the customer name before sending to checkout." });
+                if (string.IsNullOrWhiteSpace(order.BillingFirstName) || string.IsNullOrWhiteSpace(order.BillingLastName))
+                    return BadRequest(new { error = "Enter the customer's first and last name before sending to checkout." });
 
                 OrderCalculator.RecalculateOrder(order);
                 order.Status = OrderStatus.AwaitingCheckout;
@@ -447,8 +448,8 @@ namespace api.Controllers
                 if (order.Payments.Count == 0)
                     return BadRequest(new { error = "Record at least one payment before completing the order." });
 
-                if (!IsAcknowledged(order))
-                    return BadRequest(new { error = "The customer needs to confirm their details, initial each acknowledgement and sign before the order can be completed." });
+                if (!Acknowledgements.IsComplete(order, (await SettingsStore.LoadAsync(DB, order.Event!.TerritoryId)).Terms))
+                    return BadRequest(new { error = "The customer needs to initial each acknowledgement that applies and sign before the order can be completed." });
 
                 // Another sale may have taken the last one since this order was written up.
                 InventoryRules.SyncIncludedTakeWith(order);
@@ -587,7 +588,9 @@ namespace api.Controllers
                 if (!await EventVisibleAsync(eventId))
                     return NotFound(new { error = "Event not found." });
 
-                var query = DB.Orders.Where(o => o.EventId == eventId);
+                // A draft with nothing on it yet has no number and isn't an order to anyone but
+                // the rep who opened it, so it stays off the Orders screen.
+                var query = DB.Orders.Where(o => o.EventId == eventId && o.OrderNumber != null);
 
                 if (!string.IsNullOrWhiteSpace(status))
                 {
@@ -707,7 +710,9 @@ namespace api.Controllers
                     return Forbidden("Only a manager, administrator or system admin may browse every event.");
 
                 var territoryId = Scope.TerritoryId;
-                var query = DB.Orders.Where(o => territoryId == null || o.Event!.TerritoryId == territoryId);
+                // Blank drafts, with no number yet, aren't listed.
+                var query = DB.Orders.Where(o => o.OrderNumber != null
+                    && (territoryId == null || o.Event!.TerritoryId == territoryId));
 
                 if (!string.IsNullOrWhiteSpace(status))
                 {
@@ -792,7 +797,9 @@ namespace api.Controllers
                     .OrderBy(o => o.OrderNumber)
                     .ToListAsync();
 
-                return Ok(orders.Select(o => ToDto(o, null)).ToList());
+                // The event's territory may word its terms its own way.
+                var currentTerms = (await SettingsStore.LoadAsync(DB, orders.FirstOrDefault()?.Event?.TerritoryId)).Terms;
+                return Ok(orders.Select(o => ToDto(o, null, currentTerms)).ToList());
             }
             catch (Exception e)
             {
@@ -1431,6 +1438,8 @@ namespace api.Controllers
                     OrderId = order.Id,
                     LineType = OrderLineType.Included,
                     Category = product.Category,
+                    HasWarranty = product.HasWarranty,
+                    WarrantyLength = product.HasWarranty ? product.WarrantyLength : null,
                     ProductVariantId = item.Id,
                     ParentLineId = parent.Id,
                     Brand = product.Brand,
@@ -1557,7 +1566,22 @@ namespace api.Controllers
         /// <param name="request">Incoming DTO</param>
         private static void ApplyBilling(Order order, OrderDto request)
         {
-            if (request.BillingName != null) order.BillingName = request.BillingName;
+            if (request.BillingFirstName != null || request.BillingLastName != null)
+            {
+                if (request.BillingFirstName != null) order.BillingFirstName = Blank(request.BillingFirstName);
+                if (request.BillingLastName != null) order.BillingLastName = Blank(request.BillingLastName);
+                order.BillingName = Blank($"{order.BillingFirstName} {order.BillingLastName}");
+            }
+            else if (request.BillingName != null)
+            {
+                // An app from before the name was split sends the whole name: the first word is the
+                // first name and the rest the last.
+                var (first, last) = SplitName(request.BillingName);
+                order.BillingFirstName = first;
+                order.BillingLastName = last;
+                order.BillingName = Blank(request.BillingName);
+            }
+
             if (request.BillingAddress != null) order.BillingAddress = request.BillingAddress;
             if (request.BillingUnit != null) order.BillingUnit = request.BillingUnit;
             if (request.BillingFloor != null) order.BillingFloor = request.BillingFloor;
@@ -1568,6 +1592,45 @@ namespace api.Controllers
             if (request.BillingCell != null) order.BillingCell = request.BillingCell;
             if (request.BillingAlt != null) order.BillingAlt = request.BillingAlt;
             if (request.BillingEmail != null) order.BillingEmail = request.BillingEmail;
+        }
+
+        /// <summary>
+        /// Trims a typed value, treating one that is only spaces as nothing.
+        /// </summary>
+        /// <param name="value">What was typed</param>
+        /// <returns>The trimmed value, or null.</returns>
+        private static string? Blank(string? value)
+        {
+            var trimmed = value?.Trim();
+            return string.IsNullOrEmpty(trimmed) ? null : trimmed;
+        }
+
+        /// <summary>
+        /// Splits a whole name at the first space: "Mary Ann Smith" is "Mary" and "Ann Smith".
+        /// </summary>
+        /// <param name="name">The whole name</param>
+        /// <returns>The first name and the last name, either of which may be null.</returns>
+        private static (string? First, string? Last) SplitName(string? name)
+        {
+            var trimmed = Blank(name);
+            if (trimmed == null) return (null, null);
+            var space = trimmed.IndexOf(' ');
+            return space < 0 ? (trimmed, null) : (trimmed[..space], Blank(trimmed[(space + 1)..]));
+        }
+
+        /// <summary>
+        /// Takes the event's next order number, in one statement so two reps adding their first
+        /// item at the same moment can't both get the same number.
+        /// </summary>
+        /// <param name="db">EF context</param>
+        /// <param name="eventId">The order's event</param>
+        /// <returns>The number for the order.</returns>
+        private static async Task<int> NextOrderNumberAsync(ApplicationDbContext db, int eventId)
+        {
+            var taken = await db.Database
+                .SqlQuery<int>($@"UPDATE ""Events"" SET ""NextOrderNumber"" = ""NextOrderNumber"" + 1 WHERE ""Id"" = {eventId} RETURNING ""NextOrderNumber"" - 1 AS ""Value""")
+                .ToListAsync();
+            return taken.Single();
         }
 
         /// <summary>
@@ -1596,21 +1659,6 @@ namespace api.Controllers
         /// </summary>
         /// <param name="order">Target order</param>
         /// <param name="request">Incoming DTO</param>
-        /// <summary>
-        /// Whether the customer has confirmed their details, initialled all three paragraphs and
-        /// signed - everything the sales sheet needs before the sale is final.
-        /// </summary>
-        /// <param name="order">Order entity</param>
-        /// <returns>True when complete.</returns>
-        private static bool IsAcknowledged(Order order)
-        {
-            return !string.IsNullOrWhiteSpace(order.CustomerInfoInitials)
-                   && !string.IsNullOrWhiteSpace(order.WarrantyInitials)
-                   && !string.IsNullOrWhiteSpace(order.DropShipInitials)
-                   && !string.IsNullOrWhiteSpace(order.AdvisoryInitials)
-                   && !string.IsNullOrWhiteSpace(order.CustomerSignature);
-        }
-
         /// <summary>
         /// Everything the customer confirms on the details screen, as one string for comparison.
         /// </summary>
@@ -1675,7 +1723,7 @@ namespace api.Controllers
                 ? new Dictionary<(int VariantId, string StockKey), int>()
                 : await InventoryRules.OnHandAsync(DB, order.Event!.TerritoryId, tracked);
 
-            return ToDto(order, onHand);
+            return ToDto(order, onHand, (await SettingsStore.LoadAsync(DB, order.Event!.TerritoryId)).Terms);
         }
 
         /// <summary>
@@ -1683,9 +1731,13 @@ namespace api.Controllers
         /// </summary>
         /// <param name="order">Order entity with children loaded</param>
         /// <param name="onHand">The territory's stock of the order's tracked items, or null to leave it out</param>
+        /// <param name="currentTerms">The statements in force now in the order's territory, for an order with no copy of its own</param>
         /// <returns>The mapped DTO.</returns>
-        private static OrderDto ToDto(Order order, Dictionary<(int VariantId, string StockKey), int>? onHand)
+        private static OrderDto ToDto(Order order, Dictionary<(int VariantId, string StockKey), int>? onHand, IReadOnlyList<SalesTerm> currentTerms)
         {
+            // A completed order is judged by the wording, and rules, it was signed under.
+            var terms = order.TermsJson == null ? currentTerms : SettingsStore.ReadTerms(order.TermsJson);
+
             return new OrderDto
             {
                 Id = order.Id,
@@ -1701,6 +1753,8 @@ namespace api.Controllers
                 ReferralName = order.ReferralName,
                 CfsRepName = order.CfsRepName,
                 BillingName = order.BillingName,
+                BillingFirstName = order.BillingFirstName,
+                BillingLastName = order.BillingLastName,
                 BillingAddress = order.BillingAddress,
                 BillingUnit = order.BillingUnit,
                 BillingFloor = order.BillingFloor,
@@ -1741,8 +1795,9 @@ namespace api.Controllers
                 Terms = order.TermsJson == null
                     ? null
                     : SettingsStore.ReadTerms(order.TermsJson)
-                        .Select(t => new SalesTermDto { Key = t.Key, Title = t.Title, Heading = t.Heading, Text = t.Text })
+                        .Select(t => new SalesTermDto { Key = t.Key, Title = t.Title, Heading = t.Heading, Text = t.Text, AskWhen = t.AskWhen })
                         .ToList(),
+                RequiredTerms = Acknowledgements.RequiredTerms(order, terms),
                 CustomerSignatureName = order.CustomerSignatureName,
                 CustomerSignature = order.CustomerSignature,
                 SignedDate = order.SignedDate,
@@ -1789,6 +1844,8 @@ namespace api.Controllers
                         SalePrice = l.SalePrice,
                         LineTotal = l.LineTotal,
                         IncludesAdjustableBase = l.IncludesAdjustableBase,
+                        HasWarranty = l.HasWarranty,
+                        WarrantyLength = l.WarrantyLength,
                         ShowOnSalesSheet = l.ShowOnSalesSheet,
                         IsTaxable = l.IsTaxable,
                         SortOrder = l.SortOrder,
@@ -1841,6 +1898,11 @@ namespace api.Controllers
                 BillingAlt = order.BillingAlt,
                 BillingEmail = order.BillingEmail,
                 LineCount = order.Lines.Count,
+                // Items sold and the items that come with a bundle; shipping, services and
+                // upcharges are charges on an item, not items.
+                ItemCount = order.Lines
+                    .Where(l => l.LineType is not (OrderLineType.Delivery or OrderLineType.Upcharge))
+                    .Sum(l => l.Quantity),
                 Subtotal = order.Subtotal,
                 Total = order.Total,
                 BalanceDue = order.BalanceDue,

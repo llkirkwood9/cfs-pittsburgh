@@ -128,7 +128,7 @@ const SalesPage = () => {
         setOrder(created);
         setPane("customer");
         await refreshDrafts(saleEvent.id);
-        Toast.Success(`Order #${created.orderNumber} started.`);
+        Toast.Success("Order started.");
     };
 
     const handleSelectDraft = async (id: number) => {
@@ -218,8 +218,7 @@ const SalesPage = () => {
                 <Icon icon="fa-solid fa-calendar-xmark" className="text-3xl text-zinc-400" />
                 <h1 className="mt-3 text-xl font-bold">No active event</h1>
                 <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                    New orders can only be taken while an event is active. A manager can activate
-                    one under Events.
+                    A manager can activate one under Events.
                 </p>
             </div>
         );
@@ -276,7 +275,9 @@ const SalesPage = () => {
                                 <h2 className="text-base font-bold">
                                     Items
                                     <span className="ml-2 text-sm font-normal text-zinc-500 dark:text-zinc-400">
-                                        Order #{order.orderNumber}
+                                        {order.orderNumber
+                                            ? `Order #${order.orderNumber}`
+                                            : "New order"}
                                     </span>
                                 </h2>
                                 <Button
@@ -305,7 +306,7 @@ const SalesPage = () => {
                         >
                             <div className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
                                 <Button
-                                    text="Hand tablet to customer"
+                                    text="Hand device to customer"
                                     icon="fa-solid fa-hand-holding-heart"
                                     onClick={() => setShowCustomerSheet(true)}
                                     className="mb-4 w-full"
@@ -341,13 +342,16 @@ const SalesPage = () => {
                                     // The API rejects an empty or unnamed order anyway; greying
                                     // the button out saves the rep a round trip to find out.
                                     disabled={
-                                        (order.lines?.length ?? 0) === 0 || !order.billingName
+                                        (order.lines?.length ?? 0) === 0 ||
+                                        !order.billingFirstName?.trim() ||
+                                        !order.billingLastName?.trim()
                                     }
                                     title={
                                         (order.lines?.length ?? 0) === 0
                                             ? "Add at least one item first"
-                                            : !order.billingName
-                                              ? "Enter the customer name first"
+                                            : !order.billingFirstName?.trim() ||
+                                                !order.billingLastName?.trim()
+                                              ? "Enter the customer's first and last name first"
                                               : undefined
                                     }
                                     className="flex-1 bg-green-700 hover:bg-green-800 sm:flex-none dark:bg-green-600 dark:hover:bg-green-700"
@@ -428,7 +432,9 @@ const SalesPage = () => {
             {discardingDraft && (
                 <ConfirmationModal
                     title="Discard draft"
-                    message={`Discard order #${order?.orderNumber}? This cannot be undone.`}
+                    message={`Discard ${
+                        order?.orderNumber ? `order #${order.orderNumber}` : "this order"
+                    }? This cannot be undone.`}
                     confirmText="Discard"
                     destructive
                     onConfirm={handleDiscardDraft}

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Navigate, useNavigate, useParams } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
@@ -16,7 +16,8 @@ import UpchargeModal from "../Components/Sales/UpchargeModal";
 import OrderLineList from "../Components/Sales/OrderLineList";
 import OrderTotals from "../Components/Sales/OrderTotals";
 import { useAuth } from "../Context/AuthContext";
-import { FormatCurrency, IsAcknowledged } from "../Lib/ModelHelpers";
+import { FormatCurrency, InitialsFor, IsAcknowledged, RequiredTerms } from "../Lib/ModelHelpers";
+import { CheckoutQueueCounted } from "../Lib/CheckoutWaiting";
 import { IsOnline } from "../Lib/Connection";
 import { Toast } from "../Lib/Toast";
 import type { DeliveryOption } from "../Models/DeliveryOption";
@@ -44,8 +45,11 @@ import {
 } from "../Services/OrderServices";
 import { GetProducts } from "../Services/ProductServices";
 
-/** How often the queue re-polls, so a new hand-off shows up without anyone refreshing. */
-const POLL_MS = 8000;
+/**
+ * How often the queue re-polls, so a new hand-off shows up without anyone refreshing. It also
+ * keeps the Checkout tab's count current while this screen is open.
+ */
+const POLL_MS = 5000;
 
 /**
  * The checkout table. The queue on the left fills itself as reps complete orders; the panel on
@@ -73,10 +77,14 @@ const CheckoutPage = () => {
     const [removingLine, setRemovingLine] = useState<OrderLine | null>(null);
     const [showCustomerSheet, setShowCustomerSheet] = useState<boolean>(false);
     const [showAcknowledgements, setShowAcknowledgements] = useState<boolean>(false);
+    // Orders this device is completing, voiding or sending back, so the check below doesn't take
+    // its own work for someone else's.
+    const closedHere = useRef<Set<number>>(new Set());
 
     const refreshQueue = useCallback(async (eventId: number) => {
         const list = await GetCheckoutQueue(eventId);
         setQueue(list);
+        if (IsOnline()) CheckoutQueueCounted(list.length);
         return list;
     }, []);
 
@@ -122,12 +130,40 @@ const CheckoutPage = () => {
             // A poll that fails while the Wi-Fi is down keeps the queue on screen rather than
             // emptying it.
             GetCheckoutQueue(saleEvent.id!).then((list) => {
-                if (IsOnline()) setQueue(list);
+                if (!IsOnline()) return;
+                setQueue(list);
+                CheckoutQueueCounted(list.length);
             });
         }, POLL_MS);
 
         return () => clearInterval(timer);
     }, [saleEvent?.id]);
+
+    // Someone else may finish the order on screen - complete or void it at another device, or
+    // send it back to the floor. Once it drops out of the queue, look it up and close it here too,
+    // so nobody keeps working on a sale that is already done.
+    useEffect(() => {
+        if (!order?.id || order.status !== "AwaitingCheckout") return;
+        if (queue.some((o) => o.id === order.id) || closedHere.current.has(order.id)) return;
+
+        let cancelled = false;
+        GetOrder(order.id).then((latest) => {
+            if (cancelled || !IsOnline() || latest?.status === "AwaitingCheckout") return;
+            const what =
+                latest?.status === "Completed"
+                    ? "completed"
+                    : latest?.status === "Voided"
+                      ? "voided"
+                      : latest?.status === "Draft"
+                        ? "sent back to the sales floor"
+                        : "removed";
+            Toast.Info(`Order #${order.orderNumber} was ${what} on another device.`);
+            setOrder(null);
+        });
+        return () => {
+            cancelled = true;
+        };
+    }, [queue, order?.id, order?.status, order?.orderNumber]);
 
     if (!user) return <Navigate to="/unauthorized" replace />;
 
@@ -186,12 +222,17 @@ const CheckoutPage = () => {
 
     const handleComplete = async () => {
         if (!order?.id) return;
+        const closing = order.id;
+        closedHere.current.add(closing);
 
         setCompleting(true);
         const result = await CompleteOrder(order.id);
         setCompleting(false);
 
-        if (!result) return;
+        if (!result) {
+            closedHere.current.delete(closing);
+            return;
+        }
 
         Toast.Success(`Order #${result.orderNumber} completed.`);
         navigate(`/receipt/${result.id}`, {
@@ -201,9 +242,14 @@ const CheckoutPage = () => {
 
     const handleSendBack = async () => {
         if (!order?.id) return;
+        const closing = order.id;
+        closedHere.current.add(closing);
 
         const result = await ReopenOrder(order.id);
-        if (!result) return;
+        if (!result) {
+            closedHere.current.delete(closing);
+            return;
+        }
 
         Toast.Info(`Order #${result.orderNumber} sent back to the floor.`);
 
@@ -215,11 +261,16 @@ const CheckoutPage = () => {
 
     const handleVoid = async () => {
         if (!order?.id) return;
+        const closing = order.id;
+        closedHere.current.add(closing);
 
         const result = await VoidOrder(order.id);
         setVoiding(false);
 
-        if (!result) return;
+        if (!result) {
+            closedHere.current.delete(closing);
+            return;
+        }
 
         Toast.Info(`Order #${result.orderNumber} voided.`);
 
@@ -259,10 +310,15 @@ const CheckoutPage = () => {
 
     const closed = order?.status === "Completed" || order?.status === "Voided";
     const signed = Boolean(order?.customerSignature);
-    const confirmed = Boolean(order?.customerInfoInitials);
-    const initialled = Boolean(
-        order?.warrantyInitials && order?.dropShipInitials && order?.advisoryInitials
-    );
+    // Only the statements this order needs: a take-home sale skips some of them.
+    const required = order ? RequiredTerms(order) : [];
+    const detailsNeeded = required.includes("customerInfo");
+    const confirmed = !detailsNeeded || Boolean(order?.customerInfoInitials);
+    const initialsNeeded = required.filter((key) => key !== "customerInfo");
+    const initialled = Boolean(order) && initialsNeeded.every((key) => InitialsFor(order!, key));
+    const initialsText = order
+        ? initialsNeeded.map((key) => InitialsFor(order, key)).join(", ")
+        : "";
     const acknowledged = order ? IsAcknowledged(order) : false;
 
     return (
@@ -430,8 +486,9 @@ const CheckoutPage = () => {
                                                     : "fa-regular fa-circle"
                                             }
                                         />
-                                        Details confirmed
-                                        {confirmed && ` (${order.customerInfoInitials})`}
+                                        {detailsNeeded
+                                            ? `Details confirmed${confirmed ? ` (${order.customerInfoInitials})` : ""}`
+                                            : "Details not needed"}
                                     </span>
 
                                     <span
@@ -449,8 +506,7 @@ const CheckoutPage = () => {
                                             }
                                         />
                                         Initials
-                                        {initialled &&
-                                            ` (${order.warrantyInitials}, ${order.dropShipInitials}, ${order.advisoryInitials})`}
+                                        {initialled && initialsText && ` (${initialsText})`}
                                     </span>
 
                                     <span
@@ -538,20 +594,14 @@ const CheckoutPage = () => {
 
                                 {!closed && !acknowledged && (
                                     <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
-                                        <Icon icon="fa-solid fa-file-signature" /> Hand the tablet
-                                        to the customer to confirm their details, initial and sign
-                                        before completing.
+                                        <Icon icon="fa-solid fa-file-signature" /> The customer
+                                        still needs to initial and sign.
                                     </p>
                                 )}
                                 {!closed && (order.balanceDue ?? 0) > 0 && (
                                     <p className="mt-2 text-xs text-amber-700 dark:text-amber-400">
                                         <Icon icon="fa-solid fa-triangle-exclamation" /> A balance
                                         will remain on this sale.
-                                        <span className="hidden sm:inline">
-                                            {" "}
-                                            That is expected for layaway and financing, otherwise
-                                            record the rest of the payment first.
-                                        </span>
                                     </p>
                                 )}
                             </div>

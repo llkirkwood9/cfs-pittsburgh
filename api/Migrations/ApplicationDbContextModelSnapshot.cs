@@ -311,9 +311,17 @@ namespace api.Migrations
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
+                    b.Property<string>("BillingFirstName")
+                        .HasMaxLength(75)
+                        .HasColumnType("character varying(75)");
+
                     b.Property<string>("BillingFloor")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
+
+                    b.Property<string>("BillingLastName")
+                        .HasMaxLength(75)
+                        .HasColumnType("character varying(75)");
 
                     b.Property<string>("BillingName")
                         .HasMaxLength(150)
@@ -430,7 +438,7 @@ namespace api.Migrations
                     b.Property<int>("EventId")
                         .HasColumnType("integer");
 
-                    b.Property<int>("OrderNumber")
+                    b.Property<int?>("OrderNumber")
                         .HasColumnType("integer");
 
                     b.Property<string>("Organization")
@@ -531,6 +539,9 @@ namespace api.Migrations
                     b.Property<decimal?>("DiscountPercent")
                         .HasColumnType("numeric(18,4)");
 
+                    b.Property<bool>("HasWarranty")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IncludesAdjustableBase")
                         .HasColumnType("boolean");
 
@@ -588,6 +599,10 @@ namespace api.Migrations
 
                     b.Property<decimal>("UnitPrice")
                         .HasColumnType("numeric(18,4)");
+
+                    b.Property<string>("WarrantyLength")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
 
                     b.HasKey("Id");
 
@@ -658,6 +673,9 @@ namespace api.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp without time zone");
 
+                    b.Property<bool>("HasWarranty")
+                        .HasColumnType("boolean");
+
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
 
@@ -684,6 +702,10 @@ namespace api.Migrations
 
                     b.Property<bool>("TrackInventory")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("WarrantyLength")
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
 
                     b.HasKey("Id");
 
@@ -817,6 +839,10 @@ namespace api.Migrations
 
                     b.Property<bool>("IsActive")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("Notes")
+                        .HasMaxLength(300)
+                        .HasColumnType("character varying(300)");
 
                     b.Property<decimal?>("Price")
                         .HasColumnType("numeric(18,4)");

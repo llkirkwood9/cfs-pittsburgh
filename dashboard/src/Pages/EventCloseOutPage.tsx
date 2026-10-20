@@ -5,6 +5,7 @@ import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
+import { useAuth } from "../Context/AuthContext";
 import { FormatCurrency, FormatShortDate, FormatTime } from "../Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
 import type { Event } from "../Models/Event";
@@ -12,7 +13,18 @@ import type { InventoryItem } from "../Models/InventoryItem";
 import type { OrderSummary } from "../Models/OrderSummary";
 import { GetEvent, UpdateEvent } from "../Services/EventServices";
 import { GetInventory } from "../Services/InventoryServices";
-import { GetOrdersForEvent } from "../Services/OrderServices";
+import { DeleteOrder, GetOrdersForEvent, VoidOrder } from "../Services/OrderServices";
+
+/**
+ * Whether clearing an open order voids it rather than discarding it. A draft with nothing paid is
+ * discarded - deleted, as the Sell screen does - but anything that reached checkout, or has a
+ * payment on it, is voided so the record of it stays.
+ */
+const VoidsWhenCleared = (o: OrderSummary) =>
+    o.status !== "Draft" || (o.total ?? 0) - (o.balanceDue ?? 0) > 0.004;
+
+/** Orders about to be discarded or voided, waiting for a yes. */
+type Clearing = { orders: OrderSummary[]; title: string; message: string; confirmText: string };
 
 type Step = {
     key: string;
@@ -33,7 +45,10 @@ type Step = {
 const EventCloseOutPage = () => {
     const { eventId } = useParams();
     const navigate = useNavigate();
+    const { hasRole } = useAuth();
     const id = Number(eventId);
+    // Discarding and voiding open orders is for administrators.
+    const canClear = hasRole("Admin");
 
     const [saleEvent, setSaleEvent] = useState<Event | null>(null);
     const [orders, setOrders] = useState<OrderSummary[]>([]);
@@ -41,6 +56,8 @@ const EventCloseOutPage = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [confirming, setConfirming] = useState<boolean>(false);
     const [closing, setClosing] = useState<boolean>(false);
+    const [clearing, setClearing] = useState<Clearing | null>(null);
+    const [working, setWorking] = useState<boolean>(false);
 
     useEffect(() => {
         const load = async () => {
@@ -94,26 +111,103 @@ const EventCloseOutPage = () => {
     const tracks = inventory.length > 0;
     const active = Boolean(saleEvent.isActive);
 
-    const orderList = (list: OrderSummary[], to: (o: OrderSummary) => string) => (
+    const orderName = (o: OrderSummary) =>
+        `order #${o.orderNumber}${o.billingName ? ` for ${o.billingName}` : ""}`;
+
+    /** Asks before discarding or voiding one open order. */
+    const askOne = (o: OrderSummary) =>
+        setClearing(
+            VoidsWhenCleared(o)
+                ? {
+                      orders: [o],
+                      title: "Void order",
+                      message: `Void ${orderName(o)}? It's kept, marked Voided, and left out of the totals.`,
+                      confirmText: "Void",
+                  }
+                : {
+                      orders: [o],
+                      title: "Discard order",
+                      message: `Discard ${orderName(o)}? It's deleted and can't be brought back.`,
+                      confirmText: "Discard",
+                  }
+        );
+
+    /** Asks before clearing every order in one step. */
+    const askAll = (list: OrderSummary[], what: string) => {
+        const voiding = list.filter(VoidsWhenCleared).length;
+        const discarding = list.length - voiding;
+        const parts = [
+            discarding ? `${discarding} discarded (deleted for good)` : null,
+            voiding ? `${voiding} voided (kept, but left out of the totals)` : null,
+        ].filter(Boolean);
+        setClearing({
+            orders: list,
+            title: `Clear ${list.length} ${what}`,
+            message: `Clear all ${list.length} ${what}? ${parts.join(" and ")}.`,
+            confirmText: "Clear all",
+        });
+    };
+
+    const clear = async () => {
+        if (!clearing) return;
+        setWorking(true);
+        let done = 0;
+        for (const o of clearing.orders) {
+            if (!o.id) continue;
+            const ok = VoidsWhenCleared(o)
+                ? Boolean(await VoidOrder(o.id))
+                : await DeleteOrder(o.id);
+            if (ok) done += 1;
+        }
+        setOrders(await GetOrdersForEvent(id));
+        setWorking(false);
+        setClearing(null);
+        if (done) Toast.Success(`${done} order${done === 1 ? "" : "s"} cleared.`);
+    };
+
+    const clearButton = (o: OrderSummary) => (
+        <Button
+            text={VoidsWhenCleared(o) ? "Void" : "Discard"}
+            icon={VoidsWhenCleared(o) ? "fa-solid fa-ban" : "fa-solid fa-trash"}
+            onClick={() => askOne(o)}
+            className="min-h-[40px] shrink-0 bg-red-700 px-3 text-sm hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
+        />
+    );
+
+    const orderList = (
+        list: OrderSummary[],
+        to: (o: OrderSummary) => string,
+        clearable = false
+    ) => (
         <ul className="mt-2 space-y-1">
             {list.map((o) => (
-                <li key={o.id}>
+                <li key={o.id} className="flex items-center gap-2">
                     <button
                         type="button"
-                        onClick={() => navigate(to(o), { state: { from: `/events/${id}/close`, label: "Back to close-out" } })}
-                        className="flex w-full items-center gap-3 rounded-lg bg-zinc-50 px-3 py-2 text-left text-sm hover:bg-zinc-100
+                        onClick={() =>
+                            navigate(to(o), {
+                                state: { from: `/events/${id}/close`, label: "Back to close-out" },
+                            })
+                        }
+                        className="flex min-w-0 flex-1 items-center gap-3 rounded-lg bg-zinc-50 px-3 py-2 text-left text-sm hover:bg-zinc-100
                             dark:bg-zinc-900/40 dark:hover:bg-zinc-700"
                     >
                         <span className="font-bold tabular-nums">#{o.orderNumber}</span>
                         <span className="min-w-0 flex-1 truncate">
                             {o.billingName || o.draftLabel || "No name yet"}
                             {o.cfsRepName && (
-                                <span className="text-zinc-500 dark:text-zinc-400"> &middot; {o.cfsRepName}</span>
+                                <span className="text-zinc-500 dark:text-zinc-400">
+                                    {" "}
+                                    &middot; {o.cfsRepName}
+                                </span>
                             )}
                         </span>
-                        <span className="tabular-nums">{FormatCurrency(o.balanceDue ?? o.total)}</span>
+                        <span className="tabular-nums">
+                            {FormatCurrency(o.balanceDue ?? o.total)}
+                        </span>
                         <Icon icon="fa-solid fa-chevron-right" className="text-xs text-zinc-400" />
                     </button>
+                    {clearable && canClear && clearButton(o)}
                 </li>
             ))}
         </ul>
@@ -129,8 +223,16 @@ const EventCloseOutPage = () => {
                     ? "Every order has been sent to checkout or discarded."
                     : `${drafts.length} order${drafts.length === 1 ? " is" : "s are"} still being written up. Send ${
                           drafts.length === 1 ? "it" : "them"
-                      } to checkout, or discard ${drafts.length === 1 ? "it" : "them"} on the Sell screen.`,
-            children: drafts.length > 0 && orderList(drafts, (o) => `/receipt/${o.id}`),
+                      } to checkout, or discard ${drafts.length === 1 ? "it" : "them"}.`,
+            children: drafts.length > 0 && orderList(drafts, (o) => `/receipt/${o.id}`, true),
+            action: canClear && drafts.length > 1 && (
+                <Button
+                    text="Clear all"
+                    icon="fa-solid fa-broom"
+                    onClick={() => askAll(drafts, "orders on the floor")}
+                    className="min-h-[40px] bg-red-700 px-3 text-sm hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
+                />
+            ),
         },
         {
             key: "checkout",
@@ -139,8 +241,19 @@ const EventCloseOutPage = () => {
             summary:
                 atCheckout.length === 0
                     ? "Every order that reached checkout has been completed or voided."
-                    : `${atCheckout.length} order${atCheckout.length === 1 ? " is" : "s are"} waiting to be paid.`,
-            children: atCheckout.length > 0 && orderList(atCheckout, (o) => `/checkout/${o.id}`),
+                    : `${atCheckout.length} order${atCheckout.length === 1 ? " is" : "s are"} waiting to be paid. Complete or void ${
+                          atCheckout.length === 1 ? "it" : "them"
+                      }.`,
+            children:
+                atCheckout.length > 0 && orderList(atCheckout, (o) => `/checkout/${o.id}`, true),
+            action: canClear && atCheckout.length > 1 && (
+                <Button
+                    text="Void all"
+                    icon="fa-solid fa-ban"
+                    onClick={() => askAll(atCheckout, "orders at checkout")}
+                    className="min-h-[40px] bg-red-700 px-3 text-sm hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
+                />
+            ),
         },
         {
             key: "balances",
@@ -175,15 +288,14 @@ const EventCloseOutPage = () => {
                           : active
                             ? "Count what's left on the shelf before the event is closed."
                             : "Not taken. Counts can only be taken while the event is active.",
-                      action:
-                          active && (
-                              <Button
-                                  text={endAt ? "Recount" : "Count now"}
-                                  icon="fa-solid fa-clipboard-check"
-                                  onClick={() => navigate("/inventory/count/end")}
-                                  className="min-h-[40px] px-3 text-sm"
-                              />
-                          ),
+                      action: active && (
+                          <Button
+                              text={endAt ? "Recount" : "Count now"}
+                              icon="fa-solid fa-clipboard-check"
+                              onClick={() => navigate("/inventory/count/end")}
+                              className="min-h-[40px] px-3 text-sm"
+                          />
+                      ),
                   },
               ]
             : []),
@@ -220,7 +332,10 @@ const EventCloseOutPage = () => {
 
             <ol className="space-y-3">
                 {steps.map((step) => (
-                    <li key={step.key} className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
+                    <li
+                        key={step.key}
+                        className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800"
+                    >
                         <div className="flex flex-wrap items-start gap-3">
                             {/* Status is an icon plus the wording, never color alone. */}
                             <Icon
@@ -246,7 +361,9 @@ const EventCloseOutPage = () => {
                                         {step.done ? "Done" : step.optional ? "Check" : "To do"}
                                     </span>
                                 </p>
-                                <p className="text-sm text-zinc-600 dark:text-zinc-400">{step.summary}</p>
+                                <p className="text-sm text-zinc-600 dark:text-zinc-400">
+                                    {step.summary}
+                                </p>
                                 {step.children}
                             </div>
                             {step.action}
@@ -260,8 +377,7 @@ const EventCloseOutPage = () => {
                         <div className="min-w-0 flex-1">
                             <p className="font-semibold">Print the event&apos;s sheets</p>
                             <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                                The stat sheet, every completed sales sheet and the Accessory
-                                Inventory Sheet, in one print job.
+                                Stat sheet, sales sheets and inventory sheet.
                             </p>
                         </div>
                         <Button
@@ -269,7 +385,10 @@ const EventCloseOutPage = () => {
                             icon="fa-solid fa-print"
                             onClick={() =>
                                 navigate(`/events/${id}/sheets`, {
-                                    state: { from: `/events/${id}/close`, label: "Back to close-out" },
+                                    state: {
+                                        from: `/events/${id}/close`,
+                                        label: "Back to close-out",
+                                    },
                                 })
                             }
                             className="min-h-[40px] px-3 text-sm"
@@ -282,9 +401,7 @@ const EventCloseOutPage = () => {
                 <div className="mt-5 rounded-xl border-2 border-zinc-200 p-4 dark:border-zinc-700">
                     <p className="font-semibold">Close the event</p>
                     <p className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
-                        Closing makes it inactive, so no new orders can be taken under it. Its
-                        orders, sheets and totals stay available, and it can be made active again
-                        from Events if needed.
+                        No new orders can be taken once it&apos;s closed.
                     </p>
                     <Button
                         text={blocking.length ? "Close anyway" : "Close event"}
@@ -312,6 +429,17 @@ const EventCloseOutPage = () => {
                     confirmText={closing ? "Closing..." : "Close event"}
                     onConfirm={closeEvent}
                     onCancel={() => setConfirming(false)}
+                />
+            )}
+
+            {clearing && (
+                <ConfirmationModal
+                    title={clearing.title}
+                    message={clearing.message}
+                    confirmText={working ? "Working..." : clearing.confirmText}
+                    destructive
+                    onConfirm={clear}
+                    onCancel={() => !working && setClearing(null)}
                 />
             )}
         </div>

@@ -72,6 +72,8 @@ namespace api.Controllers
                     SortOrder = request.SortOrder ?? 0,
                     IsActive = request.IsActive ?? true,
                     TrackInventory = request.TrackInventory ?? false,
+                    HasWarranty = request.HasWarranty ?? WarrantyByDefault(category),
+                    WarrantyLength = CleanWarrantyLength(request.WarrantyLength),
                 };
 
                 var componentError = await ValidateComponentsAsync(null, territoryId, request.Variants)
@@ -300,6 +302,12 @@ namespace api.Controllers
                 if (request.TrackInventory != null)
                     product.TrackInventory = request.TrackInventory.Value;
 
+                if (request.HasWarranty != null)
+                    product.HasWarranty = request.HasWarranty.Value;
+
+                if (request.WarrantyLength != null)
+                    product.WarrantyLength = CleanWarrantyLength(request.WarrantyLength);
+
                 if (request.Variants != null)
                 {
                     // Variants still referenced by a sold line are deactivated rather than removed,
@@ -338,6 +346,7 @@ namespace api.Controllers
                         variant.SortOrder = dto.SortOrder ?? 0;
                         variant.IsActive = dto.IsActive ?? true;
                         variant.ExcludeFromInventory = dto.ExcludeFromInventory ?? false;
+                        variant.Notes = CleanSizeNotes(dto.Notes);
                         variant.HasOwnSale = dto.HasOwnSale ?? false;
                         (variant.SaleDiscountPercent, variant.SaleDiscountAmount) = variant.HasOwnSale
                             ? CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount)
@@ -462,6 +471,7 @@ namespace api.Controllers
                     SortOrder = dto.SortOrder ?? 0,
                     IsActive = dto.IsActive ?? true,
                     ExcludeFromInventory = dto.ExcludeFromInventory ?? false,
+                    Notes = CleanSizeNotes(dto.Notes),
                     HasOwnSale = dto.HasOwnSale ?? false,
                 };
                 if (variant.HasOwnSale)
@@ -579,6 +589,39 @@ namespace api.Controllers
                     : "An item can only offer global delivery options and its own territory's.";
 
             return null;
+        }
+
+        /// <summary>
+        /// Whether a new product of a category has a warranty unless told otherwise: mattresses and
+        /// adjustable bases do.
+        /// </summary>
+        /// <param name="category">The product's category</param>
+        /// <returns>True for a mattress or a base.</returns>
+        internal static bool WarrantyByDefault(ProductCategory category) =>
+            category is ProductCategory.Mattress or ProductCategory.AdjustableBase;
+
+        /// <summary>
+        /// A warranty length as stored: trimmed, at most 60 characters, nothing when blank.
+        /// </summary>
+        /// <param name="length">What was typed</param>
+        /// <returns>The cleaned length, or null.</returns>
+        internal static string? CleanWarrantyLength(string? length)
+        {
+            var trimmed = length?.Trim();
+            if (string.IsNullOrEmpty(trimmed)) return null;
+            return trimmed.Length > 60 ? trimmed[..60] : trimmed;
+        }
+
+        /// <summary>
+        /// A size's note as stored: trimmed, at most 300 characters, nothing when blank.
+        /// </summary>
+        /// <param name="notes">What was typed</param>
+        /// <returns>The cleaned note, or null.</returns>
+        internal static string? CleanSizeNotes(string? notes)
+        {
+            var trimmed = notes?.Trim();
+            if (string.IsNullOrEmpty(trimmed)) return null;
+            return trimmed.Length > 300 ? trimmed[..300] : trimmed;
         }
 
         /// <summary>
@@ -881,6 +924,8 @@ namespace api.Controllers
                 SortOrder = product.SortOrder,
                 IsActive = product.IsActive,
                 TrackInventory = product.TrackInventory,
+                HasWarranty = product.HasWarranty,
+                WarrantyLength = product.WarrantyLength,
                 SaleDiscountPercent = product.SaleDiscountPercent,
                 SaleDiscountAmount = product.SaleDiscountAmount,
                 Options = product.Options
@@ -922,6 +967,7 @@ namespace api.Controllers
                         IsActive = v.IsActive,
                         QuantityOnHand = product.TrackInventory && onHand != null ? onHand.GetValueOrDefault((v.Id, "")) : null,
                         ExcludeFromInventory = v.ExcludeFromInventory,
+                        Notes = v.Notes,
                         HasOwnSale = v.HasOwnSale,
                         SaleDiscountPercent = v.SaleDiscountPercent,
                         SaleDiscountAmount = v.SaleDiscountAmount,

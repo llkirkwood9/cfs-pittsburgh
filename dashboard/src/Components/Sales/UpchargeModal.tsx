@@ -86,7 +86,7 @@ const UpchargeModal = ({ parentLine, line, onSave, onClose }: Props) => {
                     label="Reason"
                     value={reason}
                     onChange={setReason}
-                    placeholder="e.g. Special order - custom firmness"
+                    placeholder="ex. Custom size"
                     className="sm:col-span-2"
                     maxLength={300}
                     autoFocus

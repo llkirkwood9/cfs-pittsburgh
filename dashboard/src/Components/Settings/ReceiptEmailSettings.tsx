@@ -134,7 +134,7 @@ const ReceiptEmailSettings = () => {
             id="receipt-email"
             title="Receipt email"
             icon="fa-solid fa-envelope"
-            description="The message customers get when their receipt is emailed. The receipt itself is attached as a PDF."
+            description="The message sent with an emailed receipt."
             badge={
                 <span
                     className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ${
@@ -241,19 +241,8 @@ const ReceiptEmailSettings = () => {
                         <ul className="mt-2 list-disc space-y-1 pl-5 text-zinc-700 dark:text-zinc-300">
                             <li>Leave a blank line between paragraphs.</li>
                             <li>Start lines with &quot;- &quot; to make a bulleted list.</li>
-                            <li>
-                                Placeholders in curly braces are filled in for each order, in the
-                                subject as well as the message. Tap one above to add it where the
-                                cursor is.
-                            </li>
-                            <li>
-                                Put {"{WhatHappensNext}"} on a line of its own for the &quot;What
-                                happens next&quot; list. It only lists what applies to that order,
-                                and disappears when nothing does.
-                            </li>
-                            <li>
-                                The company name and phone number come from Business details above.
-                            </li>
+                            <li>Tap a placeholder above to add it.</li>
+                            <li>Put {"{WhatHappensNext}"} on its own line for the next steps.</li>
                         </ul>
                         <dl className="mt-3 space-y-1.5">
                             {(saved.placeholders ?? []).map((p) => (

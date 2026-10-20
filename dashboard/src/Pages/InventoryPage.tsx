@@ -214,7 +214,7 @@ const InventoryPage = () => {
                         &middot; {outOfStock} size{outOfStock === 1 ? "" : "s"} out of stock
                     </span>
                 )}
-                . Take With sales come off automatically when checkout completes the order.
+                .
             </p>
 
             {items.length > 0 && (
@@ -451,7 +451,7 @@ const InventoryPage = () => {
                             label="Note (optional)"
                             value={countNote}
                             onChange={setCountNote}
-                            placeholder="e.g. Delivery received, end-of-event count"
+                            placeholder="ex. Delivery received"
                             maxLength={300}
                         />
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">

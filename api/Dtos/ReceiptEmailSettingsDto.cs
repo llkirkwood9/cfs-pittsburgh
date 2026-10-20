@@ -149,6 +149,12 @@ namespace api.Dtos
         /// The paragraph, the same in both places. **bold** and __underline__ allowed.
         /// </summary>
         public string? Text { get; set; }
+
+        /// <summary>
+        /// When the customer is asked to initial it: always, shipped (something on the order isn't
+        /// taken home) or warranty (an item on the order has a warranty)
+        /// </summary>
+        public string? AskWhen { get; set; }
     }
 
     /// <summary>

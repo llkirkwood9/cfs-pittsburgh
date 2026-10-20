@@ -9,8 +9,6 @@ import { SaveGeneralSettings } from "../../Services/SettingsServices";
 /** Matches the server's limit: 25%, to catch a rate typed in the wrong box. */
 const MAX_PERCENT = 25;
 
-const hint = "text-xs text-zinc-500 dark:text-zinc-400";
-
 /** A rate as the percent people type, e.g. 0.07 as "7". */
 const AsPercent = (rate: number) => String(Number((rate * 100).toFixed(4)));
 
@@ -85,7 +83,7 @@ const NewEventSettings = () => {
             id="events"
             title="New events"
             icon="fa-solid fa-calendar-plus"
-            description="The rates a new event starts with. Each event's own rates can still be changed on the Events screen."
+            description="The rates a new event starts with."
             status={isDefault ? "Using the default rates." : "Using your own rates."}
             dirty={dirty}
             saving={saving}
@@ -97,28 +95,20 @@ const NewEventSettings = () => {
             onReset={isDefault ? undefined : handleReset}
         >
             <div className="grid gap-4 md:grid-cols-2">
-                <div>
-                    <TextField
-                        label="Sales tax (%)"
-                        inputMode="decimal"
-                        value={tax}
-                        onChange={setTax}
-                        placeholder={AsPercent(defaults.defaultSalesTaxRate)}
-                    />
-                    <p className={`mt-1 ${hint}`}>Charged on taxable items.</p>
-                </div>
-                <div>
-                    <TextField
-                        label="Card processing fee (%)"
-                        inputMode="decimal"
-                        value={fee}
-                        onChange={setFee}
-                        placeholder={AsPercent(defaults.defaultCcProcessingFeeRate)}
-                    />
-                    <p className={`mt-1 ${hint}`}>
-                        Added to the part of a sale paid by credit or debit card.
-                    </p>
-                </div>
+                <TextField
+                    label="Sales tax (%)"
+                    inputMode="decimal"
+                    value={tax}
+                    onChange={setTax}
+                    placeholder={AsPercent(defaults.defaultSalesTaxRate)}
+                />
+                <TextField
+                    label="Card processing fee (%)"
+                    inputMode="decimal"
+                    value={fee}
+                    onChange={setFee}
+                    placeholder={AsPercent(defaults.defaultCcProcessingFeeRate)}
+                />
             </div>
             <p className="mt-3 text-sm text-zinc-600 dark:text-zinc-400">
                 Events already set up keep their own rates.

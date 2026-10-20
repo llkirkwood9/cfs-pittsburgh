@@ -59,6 +59,14 @@ const EditProductForm = ({
     const [notes, setNotes] = useState<string>(product.notes ?? "");
     const [isActive, setIsActive] = useState<boolean>(product.isActive ?? true);
     const [trackInventory, setTrackInventory] = useState<boolean>(product.trackInventory ?? false);
+    // Until it is ticked or unticked, a new product follows its category: mattresses and bases
+    // have a warranty.
+    const [warrantyChoice, setWarrantyChoice] = useState<boolean | null>(
+        product.hasWarranty ?? null
+    );
+    const hasWarranty =
+        warrantyChoice ?? (category === "Mattress" || category === "AdjustableBase");
+    const [warrantyLength, setWarrantyLength] = useState<string>(product.warrantyLength ?? "");
     const [saving, setSaving] = useState<boolean>(false);
     const [sale, setSale] = useState<SaleDraft>(
         ToSaleDraft(product.saleDiscountPercent, product.saleDiscountAmount)
@@ -263,6 +271,8 @@ const EditProductForm = ({
             notes: notes.trim(),
             isActive,
             trackInventory,
+            hasWarranty,
+            warrantyLength: warrantyLength.trim(),
             sortOrder: product.sortOrder ?? 0,
             saleDiscountPercent: itemSale.percent,
             saleDiscountAmount: itemSale.amount,
@@ -280,6 +290,7 @@ const EditProductForm = ({
                 })),
                 isActive: v.isActive ?? true,
                 excludeFromInventory: v.excludeFromInventory ?? false,
+                notes: (v.notes ?? "").trim() || null,
                 sortOrder: index + 1,
                 hasOwnSale: v.sale.mode !== "follow",
                 saleDiscountPercent: FromSaleDraft(v.sale).percent,
@@ -364,11 +375,6 @@ const EditProductForm = ({
                         />
                         <span className="text-sm">
                             <span className="font-medium">Track inventory</span>
-                            <span className="block text-xs text-zinc-500 dark:text-zinc-400">
-                                For items kept at the cart, such as pillows and protectors. Take
-                                With is only allowed while a size is in stock. Set the counts on the
-                                Inventory screen. A size can be left out below.
-                            </span>
                         </span>
                     </label>
 
@@ -381,21 +387,36 @@ const EditProductForm = ({
                         className="sm:col-span-2"
                     />
 
+                    {/* Decides whether the customer initials the warranty statement. */}
+                    <label className="flex min-h-[48px] cursor-pointer items-center gap-3 self-end rounded-xl bg-zinc-100 px-3 py-2 dark:bg-zinc-700">
+                        <input
+                            type="checkbox"
+                            checked={hasWarranty}
+                            onChange={(e) => setWarrantyChoice(e.target.checked)}
+                            className="h-5 w-5 accent-sky-600"
+                        />
+                        <span className="text-sm font-medium">Has a manufacturer warranty</span>
+                    </label>
+                    <TextField
+                        label="Warranty length"
+                        value={warrantyLength}
+                        onChange={setWarrantyLength}
+                        maxLength={60}
+                        placeholder="ex. 10 years"
+                        disabled={!hasWarranty}
+                    />
+
                     <TextField
                         label="Notes shown to the rep"
                         value={notes}
                         onChange={setNotes}
                         className="sm:col-span-2"
                         maxLength={500}
-                        placeholder="e.g. Floor model clearance"
+                        placeholder="ex. Sale, warranty info"
                     />
 
                     <div className="sm:col-span-2">
                         <SaleEditor label="Sale on every size" draft={sale} onChange={setSale} />
-                        <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                            Taken off when the item goes on an order; a size can set its own sale
-                            below. Items already on orders keep the price they were added at.
-                        </p>
                     </div>
                 </div>
 
@@ -413,10 +434,7 @@ const EditProductForm = ({
                     </div>
 
                     <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
-                        Leave a price blank to mark it Inquire - the rep will have to key a price in
-                        before that size can be sold. Use Include item to make a size a bundle, such
-                        as a mattress sold with an adjustable base: the included items print as
-                        their own rows on the sales sheet at no extra charge.
+                        Leave a price blank for Inquire.
                     </p>
 
                     <ul className="space-y-2">
@@ -461,6 +479,15 @@ const EditProductForm = ({
                                     <Icon icon="fa-solid fa-trash" />
                                 </button>
 
+                                <TextField
+                                    label="Note for the rep"
+                                    value={variant.notes ?? ""}
+                                    onChange={(value) => setVariant(index, { notes: value })}
+                                    className="col-span-full"
+                                    maxLength={300}
+                                    placeholder="ex. Not compressed"
+                                />
+
                                 <div className="col-span-full">
                                     <SaleEditor
                                         label="Sale for this size"
@@ -485,11 +512,6 @@ const EditProductForm = ({
                                         />
                                         <span className="text-sm">
                                             <span className="font-medium">Count in inventory</span>
-                                            <span className="block text-xs text-zinc-500 dark:text-zinc-400">
-                                                Untick for a size that isn&apos;t kept at the cart.
-                                                It won&apos;t be counted or shown on the Inventory
-                                                screen, and Take With isn&apos;t limited by stock.
-                                            </span>
                                         </span>
                                     </label>
                                 )}

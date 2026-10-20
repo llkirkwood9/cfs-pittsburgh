@@ -141,6 +141,18 @@ namespace api.Models
         public bool IncludesAdjustableBase { get; set; }
 
         /// <summary>
+        /// Snapshot of whether the product has a manufacturer warranty, which decides whether the
+        /// customer initials the warranty statement
+        /// </summary>
+        public bool HasWarranty { get; set; }
+
+        /// <summary>
+        /// Snapshot of how long the warranty lasts, e.g. "10 years"
+        /// </summary>
+        [MaxLength(60)]
+        public string? WarrantyLength { get; set; }
+
+        /// <summary>
         /// Snapshot of the delivery option's Show on sales sheet setting when the row was added,
         /// so changing the setting later never changes a printed sheet
         /// </summary>

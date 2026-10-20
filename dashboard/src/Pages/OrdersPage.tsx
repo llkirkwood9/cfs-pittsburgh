@@ -45,6 +45,23 @@ const statusLabels: Record<OrderStatus, string> = {
 };
 
 /**
+ * A line over the list: how many orders it holds, what they come to and what is still owed.
+ * Voided orders are listed but not counted in the money.
+ */
+const Summary = (orders: OrderSummary[]): string => {
+    const live = orders.filter((o) => o.status !== "Voided");
+    const total = live.reduce((sum, o) => sum + (o.total ?? 0), 0);
+    const owed = live.reduce((sum, o) => sum + (o.balanceDue ?? 0), 0);
+    return [
+        `${orders.length} order${orders.length === 1 ? "" : "s"}`,
+        `${FormatCurrency(total)} total`,
+        owed > 0 ? `${FormatCurrency(owed)} still owed` : null,
+    ]
+        .filter(Boolean)
+        .join(" · ");
+};
+
+/**
  * Past orders. Everyone can look back over the event they are working and open any sales sheet
  * for reprinting; a manager or above can additionally search across every event in their territory
  * (a system admin or administrator, every territory).
@@ -241,6 +258,10 @@ const OrdersPage = () => {
                 />
             </form>
 
+            {!loading && scope && orders.length > 0 && (
+                <p className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">{Summary(orders)}</p>
+            )}
+
             {loading ? (
                 <ListSkeleton rows={6} />
             ) : !scope ? (
@@ -296,8 +317,8 @@ const OrdersPage = () => {
                                         </span>
                                         {order.cfsRepName && <span>{order.cfsRepName}</span>}
                                         <span>
-                                            {order.lineCount ?? 0} item
-                                            {(order.lineCount ?? 0) === 1 ? "" : "s"}
+                                            {order.itemCount ?? 0} item
+                                            {(order.itemCount ?? 0) === 1 ? "" : "s"}
                                         </span>
                                         {order.completedAt && (
                                             <span>{FormatTime(order.completedAt)}</span>

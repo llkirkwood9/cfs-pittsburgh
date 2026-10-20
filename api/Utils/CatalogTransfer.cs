@@ -122,6 +122,8 @@ namespace api.Utils
                     SortOrder = p.SortOrder,
                     IsActive = p.IsActive,
                     TrackInventory = p.TrackInventory,
+                    HasWarranty = p.HasWarranty,
+                    WarrantyLength = p.WarrantyLength,
                     SaleDiscountPercent = p.SaleDiscountPercent,
                     SaleDiscountAmount = p.SaleDiscountAmount,
                     Variants = p.Variants
@@ -134,6 +136,7 @@ namespace api.Utils
                             Price = v.Price,
                             IsActive = v.IsActive,
                             ExcludeFromInventory = v.ExcludeFromInventory ? true : null,
+                            Notes = v.Notes,
                             HasOwnSale = v.HasOwnSale,
                             SaleDiscountPercent = v.SaleDiscountPercent,
                             SaleDiscountAmount = v.SaleDiscountAmount,
@@ -479,6 +482,9 @@ namespace api.Utils
             product.SortOrder = dto.SortOrder ?? 0;
             product.IsActive = dto.IsActive ?? true;
             product.TrackInventory = dto.TrackInventory ?? false;
+            // A file from before warranties were recorded goes by category.
+            product.HasWarranty = dto.HasWarranty ?? ProductController.WarrantyByDefault(product.Category);
+            product.WarrantyLength = ProductController.CleanWarrantyLength(dto.WarrantyLength);
             (product.SaleDiscountPercent, product.SaleDiscountAmount) =
                 ProductController.CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount);
 
@@ -528,6 +534,7 @@ namespace api.Utils
                 variant.SortOrder = index + 1;
                 variant.IsActive = v.IsActive ?? true;
                 variant.ExcludeFromInventory = v.ExcludeFromInventory ?? false;
+                variant.Notes = ProductController.CleanSizeNotes(v.Notes);
                 variant.HasOwnSale = v.HasOwnSale ?? false;
                 (variant.SaleDiscountPercent, variant.SaleDiscountAmount) = variant.HasOwnSale
                     ? ProductController.CleanSale(v.SaleDiscountPercent, v.SaleDiscountAmount)

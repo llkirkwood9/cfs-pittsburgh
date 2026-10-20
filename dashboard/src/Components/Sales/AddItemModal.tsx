@@ -12,6 +12,7 @@ import {
     ParseMoney,
     TakeWithBlocked,
     VariantLabel,
+    WarrantyText,
 } from "../../Lib/ModelHelpers";
 import {
     ApplyDiscount,
@@ -596,6 +597,11 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                             <Icon icon="fa-solid fa-circle-info" /> {selected.notes}
                         </p>
                     )}
+                    {WarrantyText(selected) && (
+                        <p className="flex items-center gap-2 text-sm font-medium text-sky-800 dark:text-sky-300">
+                            <Icon icon="fa-solid fa-shield-halved" /> {WarrantyText(selected)}
+                        </p>
+                    )}
 
                     <div>
                         <div className="mb-2 flex items-center justify-between gap-2">
@@ -668,6 +674,13 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                             ))}
                         </div>
                     </div>
+
+                    {/* The picked size's own note, such as a longer wait for a special order. */}
+                    {variant?.notes && (
+                        <p className="rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
+                            <Icon icon="fa-solid fa-circle-info" /> {variant.notes}
+                        </p>
+                    )}
 
                     {(selected.options ?? [])
                         .filter((o) => (o.choices ?? []).length > 0)
@@ -810,10 +823,6 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                     </span>
                                 </p>
                             )}
-                            <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                                Need a second service, such as White Glove plus Haul Away? Add the
-                                item, then use Add service on the line.
-                            </p>
                         </div>
                     )}
 
@@ -912,7 +921,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                         label="Note (optional)"
                         value={itemNotes}
                         onChange={setItemNotes}
-                        placeholder="e.g. Floor model - small scuff on the corner"
+                        placeholder="ex. Floor model"
                         maxLength={500}
                     />
                 </div>

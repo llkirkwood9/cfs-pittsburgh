@@ -287,10 +287,6 @@ const DeliveryOptionList = ({
                             />
                             <span className="text-sm">
                                 <span className="font-medium">Show on sales sheet</span>
-                                <span className="block text-xs text-zinc-500 dark:text-zinc-400">
-                                    When off, the row stays on the order but is left off the printed
-                                    sheet. A row with a charge always prints.
-                                </span>
                             </span>
                         </label>
 
@@ -310,10 +306,6 @@ const DeliveryOptionList = ({
                                 onChange={setSale}
                                 label="Sale on this option"
                             />
-                            <p className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-                                Taken off whenever this option is added to an order, until it is
-                                turned off. A product can set its own sale on it instead.
-                            </p>
                         </div>
                     </div>
                 </Modal>

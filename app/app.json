@@ -1,0 +1,71 @@
+{
+  "expo": {
+    "name": "CFS Sales",
+    "slug": "cfs-sales",
+    "orientation": "default",
+    "icon": "./assets/images/icon.png",
+    "scheme": "cfssales",
+    "userInterfaceStyle": "automatic",
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.cfsbeds.cfssales",
+      "infoPlist": {
+        "NSAppTransportSecurity": {
+          "NSAllowsArbitraryLoads": true
+        },
+        "NSLocalNetworkUsageDescription": "The app connects to the CFS server on this network."
+      },
+      "config": {
+        "usesNonExemptEncryption": false
+      }
+    },
+    "android": {
+      "package": "com.cfsbeds.cfssales",
+      "adaptiveIcon": {
+        "backgroundColor": "#18181B",
+        "foregroundImage": "./assets/images/android-icon-foreground.png",
+        "backgroundImage": "./assets/images/android-icon-background.png",
+        "monochromeImage": "./assets/images/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "single",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#18181B",
+          "image": "./assets/images/splash-icon.png",
+          "imageWidth": 120
+        }
+      ],
+      "expo-secure-store",
+      "expo-sharing",
+      "@react-native-community/datetimepicker",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "reactCompiler": true
+    },
+    "extra": {
+      "router": {},
+      "eas": {
+        "projectId": "b7f54244-fc7c-493f-b1bf-e99950358890"
+      }
+    },
+    "owner": "llkirkwood9"
+  }
+}

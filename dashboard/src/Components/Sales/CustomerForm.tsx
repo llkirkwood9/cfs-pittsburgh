@@ -98,7 +98,8 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
                     Customer billing name and address
                 </h3>
                 <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-2 xl:grid-cols-4">
-                    {field("Name", "billingName", { className: "col-span-2" })}
+                    {field("First name", "billingFirstName")}
+                    {field("Last name", "billingLastName")}
                     {field("Address", "billingAddress", { className: "col-span-2" })}
                     {field("Unit #", "billingUnit")}
                     {field("Floor", "billingFloor")}

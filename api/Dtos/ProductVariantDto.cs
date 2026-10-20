@@ -52,6 +52,11 @@ namespace api.Dtos
         public bool? ExcludeFromInventory { get; set; }
 
         /// <summary>
+        /// A note shown to the rep when this size is picked
+        /// </summary>
+        public string? Notes { get; set; }
+
+        /// <summary>
         /// Whether this size has its own sale rather than the product's
         /// </summary>
         public bool? HasOwnSale { get; set; }

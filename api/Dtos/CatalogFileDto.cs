@@ -160,6 +160,16 @@ namespace api.Dtos
         public bool? TrackInventory { get; set; }
 
         /// <summary>
+        /// Whether the product comes with a manufacturer warranty
+        /// </summary>
+        public bool? HasWarranty { get; set; }
+
+        /// <summary>
+        /// How long the warranty lasts, e.g. "10 years"
+        /// </summary>
+        public string? WarrantyLength { get; set; }
+
+        /// <summary>
         /// Sale on every size, as a percent
         /// </summary>
         public decimal? SaleDiscountPercent { get; set; }
@@ -214,6 +224,11 @@ namespace api.Dtos
         /// Whether the size is left out of a tracked product's inventory
         /// </summary>
         public bool? ExcludeFromInventory { get; set; }
+
+        /// <summary>
+        /// A note shown to the rep when this size is picked
+        /// </summary>
+        public string? Notes { get; set; }
 
         /// <summary>
         /// Whether the size has its own sale instead of the product's

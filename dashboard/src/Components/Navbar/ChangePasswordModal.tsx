@@ -122,8 +122,7 @@ const ChangePasswordModal = ({ onClose, forced = false }: Props) => {
                     autoComplete="new-password"
                 />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {policy ?? "At least 8 characters."} Forgotten your current password? Your
-                    manager can set a new one for you on the Crew screen.
+                    {policy ?? "At least 8 characters."} Forgot it? Your manager can reset it.
                 </p>
                 {/* Enter in any field submits. */}
                 <button type="submit" hidden />

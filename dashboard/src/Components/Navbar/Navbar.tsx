@@ -7,6 +7,8 @@ import ThemeToggle from "./ThemeToggle";
 import UserProfileDropdown from "./UserProfileDropdown";
 import { useAuth } from "../../Context/AuthContext";
 import { useSettings } from "../../Context/SettingsContext";
+import { useTerritory } from "../../Context/TerritoryContext";
+import { useCheckoutWaiting } from "../../Hooks/UseCheckoutWaiting";
 import type { UserRole } from "../../Models/User";
 
 type NavItem = {
@@ -51,6 +53,29 @@ const tabClass = (isActive: boolean) =>
     xl:gap-2 xl:px-3 xl:text-sm ${
         isActive ? "bg-white/15 text-white" : "text-zinc-300 hover:bg-white/10 hover:text-white"
     }`;
+
+/** A tab's icon, with a count over its corner when there is one - customers waiting at checkout. */
+const TabIcon = ({
+    icon,
+    className,
+    count = 0,
+}: {
+    icon: string;
+    className: string;
+    count?: number;
+}) => (
+    <span className="relative inline-flex">
+        <Icon icon={icon} className={className} />
+        {count > 0 && (
+            <span
+                aria-label={`${count} waiting`}
+                className="absolute -right-3 -top-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-amber-500 px-1 text-[10px] font-bold leading-none text-zinc-900"
+            >
+                {count > 99 ? "99+" : count}
+            </span>
+        )}
+    </span>
+);
 
 type MoreProps = {
     overflow: NavItem[];
@@ -135,6 +160,13 @@ const Navbar = () => {
     const { hasRole } = useAuth();
     const { settings } = useSettings();
     const visible = items.filter((item) => !item.roles || hasRole(...item.roles));
+    // With every territory in view there's no one checkout table to count.
+    const { territoryId, canSwitch } = useTerritory();
+    const waiting = useCheckoutWaiting(
+        hasRole("Checkout") && (territoryId != null || !canSwitch),
+        territoryId
+    );
+    const countFor = (item: NavItem) => (item.to === "/checkout" ? waiting : 0);
 
     const crowded = visible.length > MAX_TABS;
     const primary = crowded ? visible.slice(0, PRIMARY_TABS) : visible;
@@ -163,7 +195,11 @@ const Navbar = () => {
                                 to={item.to}
                                 className={({ isActive }) => tabClass(isActive)}
                             >
-                                <Icon icon={item.icon} className="text-base xl:text-sm" />
+                                <TabIcon
+                                    icon={item.icon}
+                                    className="text-base xl:text-sm"
+                                    count={countFor(item)}
+                                />
                                 {item.label}
                             </NavLink>
                         ))}
@@ -177,7 +213,11 @@ const Navbar = () => {
                                     `${tabClass(isActive)} hidden 2xl:flex`
                                 }
                             >
-                                <Icon icon={item.icon} className="text-base xl:text-sm" />
+                                <TabIcon
+                                    icon={item.icon}
+                                    className="text-base xl:text-sm"
+                                    count={countFor(item)}
+                                />
                                 {item.label}
                             </NavLink>
                         ))}
@@ -212,7 +252,7 @@ const Navbar = () => {
                         to={item.to}
                         className={({ isActive }) => tabClass(isActive)}
                     >
-                        <Icon icon={item.icon} className="text-base" />
+                        <TabIcon icon={item.icon} className="text-base" count={countFor(item)} />
                         {item.label}
                     </NavLink>
                 ))}

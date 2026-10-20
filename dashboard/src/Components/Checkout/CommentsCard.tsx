@@ -55,7 +55,7 @@ const CommentsCard = ({ order, readOnly = false, onSave }: Props) => {
                     onBlur={save}
                     rows={3}
                     maxLength={1000}
-                    placeholder="Anything the delivery crew needs to know - printed in the Comments box"
+                    placeholder="Anything the delivery crew needs to know"
                     className="w-full rounded-xl border border-zinc-300 bg-white p-3 text-base text-zinc-900
                         outline-hidden focus:border-sky-600 focus:ring-2 focus:ring-sky-600/30
                         dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"

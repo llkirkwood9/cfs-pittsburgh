@@ -49,10 +49,6 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         refresh();
     }, [refresh]);
 
-    useEffect(() => {
-        document.title = settings.appName;
-    }, [settings.appName]);
-
     const settingsFor = useCallback(
         async (id: number | null | undefined): Promise<GeneralSettings> => {
             if (id == null || id === territoryId) return settings;

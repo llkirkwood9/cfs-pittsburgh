@@ -3,7 +3,7 @@ import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import SignaturePad from "../Elements/SignaturePad";
 import { useLockBodyScroll } from "../../Hooks/UseLockBodyScroll";
-import { AddressLines, SortLinesForPrint } from "../../Lib/ModelHelpers";
+import { AddressLines, RequiredTerms, SortLinesForPrint } from "../../Lib/ModelHelpers";
 import TermText from "../Elements/TermText";
 import { useSettingsFor } from "../../Context/SettingsContext";
 import { Toast } from "../../Lib/Toast";
@@ -21,7 +21,7 @@ type InitialsKey =
     "customerInfoInitials" | "warrantyInitials" | "dropShipInitials" | "advisoryInitials";
 
 /** Which of the order's initials each statement takes, in signing order. */
-const steps: { term: SalesTermKey; key: InitialsKey }[] = [
+const allSteps: { term: SalesTermKey; key: InitialsKey }[] = [
     { term: "customerInfo", key: "customerInfoInitials" },
     { term: "warranty", key: "warrantyInitials" },
     { term: "dropShip", key: "dropShipInitials" },
@@ -156,9 +156,14 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
     );
     const [saving, setSaving] = useState<boolean>(false);
 
+    // Only the statements this order needs - a pillow taken home today skips the warranty, drop
+    // ship and details steps - then the signature.
+    const required = RequiredTerms(order);
+    const steps = allSteps.filter((s) => required.includes(s.term));
     const totalSteps = steps.length + 1;
     const isSignatureStep = step === steps.length;
-    const current = steps[Math.min(step, steps.length - 1)];
+    // With no statements to initial the sheet opens on the signature, and this is never shown.
+    const current = steps[Math.min(step, steps.length - 1)] ?? allSteps[allSteps.length - 1];
     const term = TermFor(settings.terms, current.term);
 
     const next = () => {
