@@ -60,6 +60,7 @@ Dockerfile                  The app image: dashboard build + API publish + ASP.N
 docker-compose.yml          The app image plus PostgreSQL, on port 8080
 docker-compose.coolify.yml  What Coolify runs in the cloud: the app, PostgreSQL and backups
 docker-compose.pi.yml       Includes docker-compose.yml, for Pis set up with this name
+docker/cloud/               cfs-restore.sh: restores a backup on the cloud server, in one command
 docker/pi/                  cfs.service, cfs-update.sh, cfs-backup.sh, cfs-reset-db.sh
 .github/workflows/
 ├── app-image.yml           Numbers and publishes the app image to ghcr.io on a push to main

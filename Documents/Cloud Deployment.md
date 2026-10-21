@@ -22,6 +22,7 @@ Coolify in `docker-compose.coolify.yml`:
 | --- | --- |
 | `docker-compose.coolify.yml` | What Coolify runs: the app, PostgreSQL, a backup before each deploy and one every night |
 | `.github/workflows/cloud-deploy.yml` | Builds the image on every push to `Cloud-Support`, then calls Coolify's deploy webhook |
+| `docker/cloud/cfs-restore.sh` | Restores a backup - the cloud's own or a Raspberry Pi's - in one command, on the server |
 
 The image is **built by GitHub Actions, never on the server** - Coolify only pulls it - so the
 server stays small and a deploy takes seconds.
@@ -294,6 +295,10 @@ that changes the app builds and deploys by itself.
 
 ## Step 7 - First sign-in
 
+> **Moving a Raspberry Pi's data to the cloud?** Do *Moving a cart's data to the cloud* (below)
+> now, instead of this step: the restore replaces the cloud's accounts with the Pi's, and you sign
+> in with those.
+
 Unless you set `SEED_ADMIN_PASSWORD`, find the first account's starting password: in Coolify, open
 the resource → **Logs** → the `app` service, and look for `Created the first account`.
 
@@ -400,57 +405,124 @@ To see the backups:
 ls -lt /opt/cfs/backups
 ```
 
-**Restoring** replaces everything in the database with a backup. The app is stopped while it runs,
-so do it outside an event. Set the file, then run the rest as they are:
+### Restoring a backup
+
+`cfs-restore` does the whole restore in one command. It's in the repository at
+`docker/cloud/cfs-restore.sh`; put it on the server once.
+
+**Install it (once).** On your computer, in a terminal (PowerShell on Windows), in your copy of the
+repository on the `Cloud-Support` branch - for example `C:\Workspace\CFS-cloud`:
 
 ```bash
-FILE=/opt/cfs/backups/cfs-20261101-031500.dump.gz
+scp docker/cloud/cfs-restore.sh root@203.0.113.10:/usr/local/bin/cfs-restore
 ```
 
 ```bash
-DB=$(docker ps -qf label=com.docker.compose.service=db) && APP=$(docker ps -qf label=com.docker.compose.service=app)
+ssh root@203.0.113.10 chmod +x /usr/local/bin/cfs-restore
+```
+
+**Restore.** On the server (`ssh root@203.0.113.10`), see which backups there are, then restore one
+by its name:
+
+```bash
+ls -lt /opt/cfs/backups
 ```
 
 ```bash
-docker stop $APP && docker exec $DB dropdb -U cfs --if-exists --force CfsFundraiser && docker exec $DB createdb -U cfs CfsFundraiser
+cfs-restore cfs-20261101-031500.dump.gz
 ```
 
-```bash
-gunzip -c $FILE | docker exec -i $DB pg_restore -U cfs -d CfsFundraiser --no-owner --no-privileges; docker start $APP
+`cfs-restore latest` restores the newest; a file somewhere else is given by its full path. It
+shows what it's about to restore and asks you to type `RESTORE`, then:
+
+1. backs up the database as it is now (so a wrong file can be undone with the backup it just made),
+2. stops the app,
+3. empties the database and loads the backup into it,
+4. starts the app again - which brings an older database up to date - and waits until it's healthy,
+5. and shows what's there now:
+
+```
+Restored. The database now has:
+  territories: Pittsburgh
+  events:      3
+  orders:      212
+  crew:        9
 ```
 
-`pg_restore` may print a few warnings; that's normal. The app brings the database up to date as it
-starts. **Try one restore** before you need it - before the server goes live is a good time.
+The app is offline for a minute or so, so do it outside an event. It takes either kind of backup:
+`.dump.gz` (from `cfs-backup.sh`, the nightly backups and the ones before each deploy) and
+`.sql.gz` (the plain `pg_dump` in the Raspberry Pi guide). **Try one restore** before you need it -
+before the server goes live is a good time.
 
 ## Moving a cart's data to the cloud
 
-To carry on from a Raspberry Pi's orders, events, crew and catalog:
+To carry on from a Raspberry Pi's orders, events, crew and catalog. Do it **before** setting up
+accounts and the catalog in the cloud (Step 7): the restore replaces everything in the cloud
+database - including the admin account you made there - with what was on the Pi.
 
-1. **On the Pi**, take a backup:
+**1. Take a backup on the Pi.** From your computer, sign in to the Pi and run the backup script:
 
-   ```bash
-   sudo bash /opt/cfs/docker/pi/cfs-backup.sh backup
-   ```
+```bash
+ssh cfs@cfs.local
+```
 
-2. **On your computer**, copy it off the Pi and onto the server (use the file name the backup
-   printed):
+```bash
+sudo bash /opt/cfs/docker/pi/cfs-backup.sh backup
+```
 
-   ```bash
-   scp cfs@cfs.local:/opt/cfs/backups/cfs-20261101-090000.dump.gz .
-   ```
+It prints the file it wrote, for example:
 
-   ```bash
-   scp cfs-20261101-090000.dump.gz root@203.0.113.10:/opt/cfs/backups/
-   ```
+```
+Wrote /opt/cfs/backups/cfs-20261101-090000.dump.gz (84K)
+```
 
-3. **In Coolify**, if the Pi still used PINs, set `ALLOW_LEGACY_PINS` to `true` and redeploy.
-4. **On the server**, restore it as in *Backups*, with
-   `FILE=/opt/cfs/backups/cfs-20261101-090000.dump.gz`.
+Note that name, then `exit` to leave the Pi. (If the Pi has no `cfs-backup.sh`, take the plain
+backup from the Raspberry Pi guide instead: it writes `~/cfs-backup-<date>.sql.gz` in the Pi
+user's home folder - use that path below.)
 
-Coming from a Pi that still used PINs, everything goes into a territory called **Pittsburgh**
-(rename it under **Territories**), and each person signs in once more with their old PIN as the
-password and is then asked to choose one. Once everyone has, set `ALLOW_LEGACY_PINS` back to
-`false` and redeploy.
+**2. Copy it from the Pi to your computer.** In a terminal on your computer (PowerShell on Windows),
+in any folder - the file lands in the folder you're in (`.`):
+
+```bash
+scp cfs@cfs.local:/opt/cfs/backups/cfs-20261101-090000.dump.gz .
+```
+
+**3. Copy it from your computer to the server**, into its backups folder:
+
+```bash
+scp cfs-20261101-090000.dump.gz root@203.0.113.10:/opt/cfs/backups/
+```
+
+**4. Let the Pi's crew sign in with their PINs.** A Pi set up from `main` still uses PINs. In Coolify,
+open the resource → **Environment Variables** → set `ALLOW_LEGACY_PINS` to `true` → **Save**, then
+**Redeploy** and wait for it to finish. (Skip this if the Pi already ran the `Cloud-Support`
+version with passwords.)
+
+**5. Restore it on the server.** Install `cfs-restore` if you haven't (*Restoring a backup*, above),
+then:
+
+```bash
+ssh root@203.0.113.10
+```
+
+```bash
+cfs-restore cfs-20261101-090000.dump.gz
+```
+
+Type `RESTORE` when asked. When it says `Restored`, the counts should match what the Pi had.
+
+**6. Sign in with the Pi's accounts.** Open `https://sales.example.com`. The accounts are now the
+Pi's: sign in as the Pi's `admin` (or any account) with its **old PIN** as the password, and you'll
+be asked to choose a real password straight away. `admin` is made the system admin if no account
+is one yet. Everything the Pi had is in a territory called **Pittsburgh** - rename it under
+**Territories** if it should be called something else - and everyone else does the same at their
+first sign-in.
+
+**7. Turn PIN sign-in off again** once everyone has chosen a password: set `ALLOW_LEGACY_PINS` back
+to `false` in Coolify and **Redeploy**.
+
+If something looks wrong, the restore's own safety backup is the newest file in
+`/opt/cfs/backups` from just before it: `cfs-restore` it to go back.
 
 ## Updating
 
