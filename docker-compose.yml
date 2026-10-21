@@ -35,8 +35,7 @@ services:
     restart: unless-stopped
 
   app:
-    # The published image by default - :cloud is this branch's, built by cloud-deploy.yml on every
-    # push to Cloud-Support; `docker compose up -d --build` builds it here from source instead (and
+    # The published image by default - :cloud is main's, built by cloud-deploy.yml on every push; `docker compose up -d --build` builds it here from source instead (and
     # tags the result with this same name).
     image: "${CFS_IMAGE:-ghcr.io/llkirkwood9/cfs-fundraiser:cloud}"
     build:

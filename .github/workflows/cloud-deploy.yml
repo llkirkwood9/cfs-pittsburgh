@@ -1,13 +1,13 @@
-# Builds this branch's app image and has Coolify deploy it to the cloud server.
+# Builds main's app image and has Coolify deploy it to the cloud server.
 #
-# 1. build: the image for x86 (the cloud server) and ARM (a Raspberry Pi on this branch), published
+# 1. build: the image for x86 (the cloud server) and ARM (a Raspberry Pi), published
 #    to this repository's container registry as :cloud, :cloud-<version> and :<commit>. Each build
 #    is versioned YYYY.MM.<build>, numbered from 1 each month, and tagged cloud-v<version>.
 # 2. deploy: calls the Coolify resource's deploy webhook. Coolify reads docker-compose.coolify.yml,
 #    backs up the database, pulls the new :cloud image and restarts the app; this job then follows
 #    the deployment until it finishes. Skipped (with a note) until the Coolify secrets are set.
 #
-# Runs on every push to Cloud-Support that touches the app or its compose file, and by hand from the
+# Runs on every push to main that touches the app or its compose file, and by hand from the
 # Actions tab - where "Build a new image" can be unticked to redeploy the current one.
 #
 # Repository settings (Settings -> Secrets and variables -> Actions), described in
@@ -19,7 +19,7 @@ name: Cloud deploy
 
 on:
   push:
-    branches: [Cloud-Support]
+    branches: [main]
     paths:
       - "api/**"
       - "dashboard/**"
@@ -40,7 +40,7 @@ concurrency:
 
 jobs:
   build:
-    if: github.ref == 'refs/heads/Cloud-Support' && (github.event_name == 'push' || inputs.build)
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || inputs.build)
     runs-on: ubuntu-latest
     permissions:
       contents: write # to tag the build with its version
@@ -93,7 +93,7 @@ jobs:
     needs: build
     # After a successful build, or straight away when the build was skipped on purpose.
     if: >-
-      always() && github.ref == 'refs/heads/Cloud-Support' &&
+      always() && github.ref == 'refs/heads/main' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
     permissions: {}

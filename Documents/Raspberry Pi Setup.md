@@ -18,7 +18,7 @@ itself and **PostgreSQL**, which has an ARM build and is light enough for a Pi 3
 | `docker-compose.pi.yml` | Simply includes `docker-compose.yml`; the boot script below uses this name |
 | `docker/pi/cfs-update.sh` | Pull the newest image and start everything |
 | `docker/pi/cfs.service` | Runs that script at every boot |
-| `.github/workflows/cloud-deploy.yml` | Builds the image for you whenever you push to `Cloud-Support` |
+| `.github/workflows/cloud-deploy.yml` | Builds the image for you whenever you push to `main` |
 
 On the Pi this uses roughly **175 MB of RAM** (about 135 MB for the app, 40 MB for PostgreSQL),
 which leaves plenty of room on a 1 GB board.
@@ -97,7 +97,7 @@ sudo mkdir -p /opt/cfs && sudo chown $USER:$USER /opt/cfs
 ```
 
 ```bash
-git clone -b Cloud-Support https://github.com/llkirkwood9/cfs-pittsburgh.git /opt/cfs
+git clone https://github.com/llkirkwood9/cfs-pittsburgh.git /opt/cfs
 ```
 
 If the repository is private, GitHub will ask for your username and a personal access token instead
@@ -146,7 +146,7 @@ Either way it has to be changed at the first sign-in; take the line back out aft
 The Pi doesn't build anything - it pulls a ready-made image. GitHub Actions builds it for you, for
 both ARM (the Pi) and x86:
 
-1. Push to the `Cloud-Support` branch. The **Cloud deploy** workflow starts automatically (you
+1. Push to the `main` branch. The **Cloud deploy** workflow starts automatically (you
    can also start it by hand under **Actions** → **Cloud deploy** → **Run workflow**). Its deploy
    step is for the cloud server and does nothing until one is set up, so the Pi doesn't need it.
 2. Watch it on GitHub under **Actions** → **Cloud deploy**. The first run takes roughly 10-15
@@ -263,7 +263,7 @@ hostname -I
 
 ## Day-to-day
 
-**Updating the app.** Push to `Cloud-Support`, wait for the Cloud deploy workflow's build to
+**Updating the app.** Push to `main`, wait for the Cloud deploy workflow's build to
 finish, then on the Pi:
 
 ```bash

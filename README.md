@@ -1,7 +1,7 @@
 # CFS Sales App
 
 Order-taking, checkout, inventory and reporting for CFS mattress fundraisers, across any number
-of territories. This is the `Cloud-Support` branch. It runs as the same two containers - the app
+of territories. It runs as the same two containers - the app
 and PostgreSQL - everywhere: on a DigitalOcean server managed by Coolify, with HTTPS, for the
 whole business (see [Documents/Cloud Deployment.md](Documents/Cloud%20Deployment.md)), or on a
 single box at the venue - a Docker host or a Raspberry Pi.
@@ -63,8 +63,7 @@ docker-compose.pi.yml       Includes docker-compose.yml, for Pis set up with thi
 docker/cloud/               cfs-restore.sh: restores a backup on the cloud server, in one command
 docker/pi/                  cfs.service, cfs-update.sh, cfs-backup.sh, cfs-reset-db.sh
 .github/workflows/
-├── app-image.yml           Numbers and publishes the app image to ghcr.io on a push to main
-├── cloud-deploy.yml        On a push to Cloud-Support: publishes the :cloud image, has Coolify deploy it
+├── cloud-deploy.yml        On a push to main: publishes the :cloud image, has Coolify deploy it
 └── app-release.yml         Builds the mobile app on a push to app-release (APK + TestFlight)
 .gitattributes              Keeps *.sh and Dockerfile at LF line endings
 
@@ -464,19 +463,12 @@ then by hand.
 
 ### The app image
 
-On this branch, [`.github/workflows/cloud-deploy.yml`](.github/workflows/cloud-deploy.yml) runs on
-every push to `Cloud-Support` that touches the app or its deployment files, or by hand from the
+[`.github/workflows/cloud-deploy.yml`](.github/workflows/cloud-deploy.yml) runs on
+every push to `main` that touches the app or its deployment files, or by hand from the
 Actions tab. It numbers the build from the `cloud-v*` tags, builds it for `linux/amd64` and
 `linux/arm64`, pushes it as `:cloud`, `:cloud-<version>` and `:<commit sha>`, then calls Coolify's
-deploy webhook (section *Cloud hosting*). Pis on this branch run `:cloud` too.
+deploy webhook (section *Cloud hosting*). Pis run `:cloud` too.
 
-On `main`, [`.github/workflows/app-image.yml`](.github/workflows/app-image.yml) runs on every push
-that touches `api/`, `dashboard/`, the `Dockerfile` or the workflow, or by hand. It:
-
-1. Numbers the build YYYY.MM.&lt;build&gt; (the first in October 2026 is `2026.10.1`) from the
-   existing `dashboard-v*` tags and pushes the tag `dashboard-v<version>`.
-2. Builds the image for `linux/amd64` and `linux/arm64`, with that version in the dashboard.
-3. Pushes it to `ghcr.io/llkirkwood9/cfs-fundraiser` as `:latest`, `:<version>` and `:<commit sha>`.
 
 To build and push one by hand instead:
 
@@ -574,8 +566,7 @@ along with building by hand with `eas build`.
 
 | Branch | What it's for |
 |---|---|
-| `main` | Day-to-day work. Every push that touches the API or dashboard publishes a new image. |
-| `Cloud-Support` | The cloud-hosted version, which adds territories, password sign-in and the Manager role, in the API, dashboard and app. Changes made on `main` are ported to it by hand, since the code differs. The app keeps the same bundle ID, so it replaces `main`'s app when this branch is released. |
+| `main` | Day-to-day work, and what the cloud runs. Every push that touches the API, dashboard or deployment files builds a new image and deploys it with Coolify. |
 | `app-release` | Release trigger only: push `main` to it to ship the app. Never commit to it directly. |
 
 For anything bigger than a small fix, work on a branch and open a pull request against `main`.

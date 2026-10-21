@@ -10,8 +10,8 @@ It's the same two containers a cart's Raspberry Pi runs - the app and **PostgreS
 Coolify in `docker-compose.coolify.yml`:
 
 ```
- push to Cloud-Support ─> GitHub Actions builds the image ─> ghcr.io
-                                   └─ deploy webhook ─> Coolify: backup, pull the image, restart
+ push to main ─> GitHub Actions builds the image ─> ghcr.io
+                          └─ deploy webhook ─> Coolify: backup, pull the image, restart
 
  tablets, phones ──HTTPS──> Coolify's proxy ──> app :8080 ──> PostgreSQL ──> /opt/cfs/backups
  sales.example.com          (certificate)       (API +        (cfs-pgdata     (before each deploy,
@@ -21,7 +21,7 @@ Coolify in `docker-compose.coolify.yml`:
 | File | What it is |
 | --- | --- |
 | `docker-compose.coolify.yml` | What Coolify runs: the app, PostgreSQL, a backup before each deploy and one every night |
-| `.github/workflows/cloud-deploy.yml` | Builds the image on every push to `Cloud-Support`, then calls Coolify's deploy webhook |
+| `.github/workflows/cloud-deploy.yml` | Builds the image on every push to `main`, then calls Coolify's deploy webhook |
 | `docker/cloud/cfs-restore.sh` | Restores a backup - the cloud's own or a Raspberry Pi's - in one command, on the server |
 
 The image is **built by GitHub Actions, never on the server** - Coolify only pulls it - so the
@@ -205,7 +205,7 @@ public instead: GitHub → your profile → **Packages** → `cfs-fundraiser` �
 **Change visibility** → Public - then no login is needed.)
 
 **b. Check the image exists.** On GitHub, **Actions** → **Cloud deploy** should show a green
-**build** for `Cloud-Support`. If it doesn't, click **Run workflow** (branch `Cloud-Support`) and
+**build** for `main`. If it doesn't, click **Run workflow** (branch `main`) and
 wait for the build (10-15 minutes the first time). Its deploy step does nothing yet; that's Step 6.
 
 **c. Connect GitHub.** **Sources** → **+ Add** → **GitHub App**, and follow Coolify's steps: it
@@ -217,7 +217,7 @@ resource → **Private Repository (with GitHub App)** → pick the app from (c) 
 
 | Setting | Value |
 | --- | --- |
-| Branch | `Cloud-Support` |
+| Branch | `main` |
 | Build Pack | **Docker Compose** |
 | Base Directory | `/` |
 | Docker Compose Location | `/docker-compose.coolify.yml` |
@@ -264,7 +264,7 @@ seconds while the certificate is fetched.
 ## Step 6 - Let GitHub Actions deploy every change
 
 The workflow is already in the repository (`.github/workflows/cloud-deploy.yml`). On every push to
-`Cloud-Support` it builds the image and then calls Coolify's deploy webhook. It only needs two
+`main` it builds the image and then calls Coolify's deploy webhook. It only needs two
 secrets:
 
 1. **Turn on Coolify's API.** **Settings** → **Advanced** → **API access**: **Enabled** → **Save**.
@@ -289,8 +289,8 @@ The deploy step of the workflow comes down to this:
 
 and then follows the deployment until Coolify reports it finished (or fails the run if it didn't).
 
-**Try it:** **Actions** → **Cloud deploy** → **Run workflow** → branch `Cloud-Support`, and untick
-**Build a new image** for a quick redeploy. From now on, every push or merge to `Cloud-Support`
+**Try it:** **Actions** → **Cloud deploy** → **Run workflow** → branch `main`, and untick
+**Build a new image** for a quick redeploy. From now on, every push or merge to `main`
 that changes the app builds and deploys by itself.
 
 ## Step 7 - First sign-in
@@ -412,7 +412,7 @@ ls -lt /opt/cfs/backups
 `docker/cloud/cfs-restore.sh`; put it on the server once.
 
 **Install it (once).** On your computer, in a terminal (PowerShell on Windows), in your copy of the
-repository on the `Cloud-Support` branch - for example `C:\Workspace\CFS-cloud`:
+repository on the `main` branch - for example `C:\Workspace\CFS-cloud`:
 
 ```bash
 scp docker/cloud/cfs-restore.sh root@203.0.113.10:/usr/local/bin/cfs-restore
@@ -494,9 +494,9 @@ scp cfs@cfs.local:/opt/cfs/backups/cfs-20261101-090000.dump.gz .
 scp cfs-20261101-090000.dump.gz root@203.0.113.10:/opt/cfs/backups/
 ```
 
-**4. Let the Pi's crew sign in with their PINs.** A Pi set up from `main` still uses PINs. In Coolify,
+**4. Let the Pi's crew sign in with their PINs.** A Pi set up before the cloud version still uses PINs. In Coolify,
 open the resource → **Environment Variables** → set `ALLOW_LEGACY_PINS` to `true` → **Save**, then
-**Redeploy** and wait for it to finish. (Skip this if the Pi already ran the `Cloud-Support`
+**Redeploy** and wait for it to finish. (Skip this if the Pi already ran the cloud
 version with passwords.)
 
 **5. Restore it on the server.** Install `cfs-restore` if you haven't (*Restoring a backup*, above),
@@ -527,7 +527,7 @@ If something looks wrong, the restore's own safety backup is the newest file in
 
 ## Updating
 
-Push (or merge) to `Cloud-Support`. GitHub Actions builds a new image and has Coolify deploy it,
+Push (or merge) to `main`. GitHub Actions builds a new image and has Coolify deploy it,
 with a backup first; follow it under **Actions** → **Cloud deploy** or on the resource's
 **Deployments** page in Coolify. The new version shows in the app's profile menu.
 
