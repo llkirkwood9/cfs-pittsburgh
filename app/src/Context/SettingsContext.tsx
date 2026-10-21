@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useRef, useState } f
 import type { ReactNode } from "react";
 import { useAuth } from "./AuthContext";
 import { useTerritory } from "./TerritoryContext";
-import { GetServerUrl, OnServerUrlChange } from "../Lib/Server";
+import { GetServerUrl } from "../Lib/Server";
 import { DefaultGeneralSettings } from "../Models/GeneralSettings";
 import type { GeneralSettings } from "../Models/GeneralSettings";
 import { GetGeneralSettings, GetPublicSettings } from "../Services/SettingsServices";
@@ -36,7 +36,7 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 
     const refresh = useCallback(async () => {
         cache.current.clear();
-        // Nothing to read until the device knows its server.
+        // Nothing to read from a build made without a server.
         if (!GetServerUrl()) return;
         if (!signedIn) {
             // Signed out, only the app name is public.
@@ -48,12 +48,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
         if (found) setSettings(found);
     }, [signedIn, territoryId]);
 
-    // Read again whenever the server address changes, too.
     useEffect(() => {
         refresh();
-        return OnServerUrlChange((url) => {
-            if (url) refresh();
-        });
     }, [refresh]);
 
     const settingsFor = useCallback(

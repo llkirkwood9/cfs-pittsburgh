@@ -47,9 +47,9 @@ How they fit together:
 
 In production the API serves the built dashboard itself, so a browser sees one origin and one
 port and there is no CORS to set up. In the cloud the same two containers run on one server,
-managed by Coolify, whose proxy puts HTTPS on the business's own domain. The mobile app talks to the same API: its server address is typed in
-on the sign-in screen (for example `sales.example.com`, or `http://192.168.1.50:8080` on a cart)
-and remembered on the device. In development the three run separately (API on 5046, dashboard on 3000, app in Expo).
+managed by Coolify, whose proxy puts HTTPS on the business's own domain. The mobile app talks to the same API at an address fixed when it is
+built: release builds use the live site (the `API_URL` repository secret), and a local copy uses
+`EXPO_PUBLIC_API_URL` in `app/.env` - a local API or the live site. In development the three run separately (API on 5046, dashboard on 3000, app in Expo).
 
 ---
 
@@ -353,8 +353,8 @@ cd app && npm install && npx expo start
 ```
 
 - Scan the QR code with Expo Go, or press `w` for a browser build.
-- On the sign-in screen, enter a server address the phone can reach: the API bound to
-  `0.0.0.0` (section 4) at `http://<your PC's IP>:5046`, or an image at `http://<IP>:8080`.
+- Copy `app/.env.example` to `app/.env` and set `EXPO_PUBLIC_API_URL` to a server the phone can
+  reach: the API bound to `0.0.0.0` (section 4) at `http://<your PC's IP>:5046`, or the live site.
 - The browser build runs on its own port; to sign in from it, run it on 8082 and let the API
   accept that origin:
 

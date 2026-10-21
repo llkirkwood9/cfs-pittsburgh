@@ -1,6 +1,6 @@
 import axios, { create, isAxiosError } from "axios";
 import { SetOnline } from "./Connection";
-import { GetServerUrl, OnServerUrlChange } from "./Server";
+import { GetServerUrl } from "./Server";
 import { GetItem, SetItem } from "./Storage";
 import type { AxiosRequestConfig } from "axios";
 import type { AuthResponse } from "../Models/AuthResponse";
@@ -20,16 +20,11 @@ const TERRITORY_HEADER = "X-Territory-Id";
 /** Where the refresh token is kept: the phone's secure storage (Keychain / Keystore). */
 const REFRESH_TOKEN_KEY = "cfs.refreshToken";
 
-// The app has no page origin to be relative to, so every call goes to the server address set on
-// the sign-in screen and remembered on the device.
+// The app has no page origin to be relative to, so every call goes to the server it was built for.
 const api = create({
     baseURL: GetServerUrl() ?? "",
     headers: { "Content-Type": "application/json" },
     timeout: 30000,
-});
-
-OnServerUrlChange((url) => {
-    api.defaults.baseURL = url ?? "";
 });
 
 // The access token lives only in memory and lasts minutes; the long-lived part is the refresh
@@ -167,8 +162,6 @@ export const endSession = async (): Promise<void> => {
 };
 
 api.interceptors.request.use((config) => {
-    // Read the address on every call, so a change on the sign-in screen applies at once.
-    config.baseURL = GetServerUrl() ?? "";
     config.headers["X-CFS-Client"] = CLIENT;
     if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
     if (territoryId != null) config.headers[TERRITORY_HEADER] = String(territoryId);

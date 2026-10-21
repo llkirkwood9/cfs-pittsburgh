@@ -2,8 +2,9 @@
 
 The dashboard as a native app for iPhone, iPad and Android phones and tablets, built with Expo
 (SDK 57), React Native and Expo Router, styled with NativeWind so it looks like the dashboard.
-It talks to the same API: the server address is entered on the sign-in screen and remembered on
-the device. Sign-in is a username and password; the session's refresh token is kept in the iOS
+It talks to the same API, at the address in `EXPO_PUBLIC_API_URL`: from `app/.env` when run
+locally (a local API or the live site - copy `.env.example`), and from the `API_URL` repository
+secret in release builds, which always talk to the live site. Sign-in is a username and password; the session's refresh token is kept in the iOS
 Keychain / Android Keystore (`expo-secure-store`) and sent as an `X-Refresh-Token` header, since
 the app has no browser cookies (see the README's *Security*).
 

@@ -316,8 +316,9 @@ own password straight away. Then:
 
 If you set `SEED_ADMIN_PASSWORD`, clear it in Coolify now.
 
-**The mobile app** signs in to the same place: type `sales.example.com` as the server address on
-its sign-in screen (it adds `https://` to a domain name by itself).
+**The mobile app** signs in to the same place. Its release builds are made for this address: set
+the `API_URL` repository secret to `https://sales.example.com` (see Documents/Mobile App Guide.md,
+section 6).
 
 ## Step 8 - Email receipts and reports through SMTP2GO
 

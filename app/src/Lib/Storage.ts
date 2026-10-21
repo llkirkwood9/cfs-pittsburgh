@@ -1,7 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 
 /**
- * Small key/value storage for the device. Sign-in tokens and the server address live in the
+ * Small key/value storage for the device. Sign-in tokens live in the
  * platform's secure store (Keychain on iOS, Keystore-backed on Android). Everything is also kept
  * in memory once loaded, so code that needs a value right now - the API client adding the token to
  * a request - never has to wait on the store.
@@ -9,13 +9,7 @@ import * as SecureStore from "expo-secure-store";
 const cache = new Map<string, string | null>();
 
 /** The keys the app reads before the first screen draws. */
-const PRELOADED = [
-    "cfs.serverUrl",
-    "cfs.refreshToken",
-    "cfs.lastUsername",
-    "cfs.territory",
-    "theme",
-] as const;
+const PRELOADED = ["cfs.refreshToken", "cfs.lastUsername", "cfs.territory", "theme"] as const;
 
 /**
  * Reads every key the app needs at start-up into memory. Call once before rendering.
@@ -47,6 +41,7 @@ export const GetItem = (key: string): string | null => cache.get(key) ?? null;
  */
 export const SetItem = (key: string, value: string | null): void => {
     cache.set(key, value);
-    const write = value === null ? SecureStore.deleteItemAsync(key) : SecureStore.setItemAsync(key, value);
+    const write =
+        value === null ? SecureStore.deleteItemAsync(key) : SecureStore.setItemAsync(key, value);
     write.catch(() => undefined);
 };
