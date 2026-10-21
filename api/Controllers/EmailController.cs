@@ -79,7 +79,7 @@ namespace api.Controllers
                     .Include(o => o.Event)
                     .Include(o => o.Lines)
                     .FirstOrDefaultAsync(o => o.Id == orderId);
-                if (order == null)
+                if (order == null || !CanSee(order.Event))
                     return NotFound(new { error = "Order not found." });
                 if (order.Status != OrderStatus.Completed)
                     return BadRequest(new { error = "Only a completed sale has a receipt to send." });
@@ -94,8 +94,10 @@ namespace api.Controllers
                 if (problem != null)
                     return problem;
 
-                var settings = await SettingsStore.LoadAsync(DB);
-                var (savedSubject, savedBody) = await SettingsController.LoadReceiptEmailAsync(DB);
+                // The wording and business details are the order's territory's; the sender is the app.
+                var territoryId = order.Event!.TerritoryId;
+                var settings = await SettingsStore.LoadAsync(DB, territoryId);
+                var (savedSubject, savedBody) = await SettingsController.LoadReceiptEmailAsync(DB, territoryId);
                 var (subject, html, text) = EmailTemplates.ReceiptMessage(order, order.Event, settings, savedBody, savedSubject);
                 var attachment = ($"CFS-Receipt-{order.OrderNumber}.pdf", "application/pdf", pdf!);
                 var failure = await TrySendAsync(() => email.SendAsync(recipients, subject, html, text, [attachment], fromName: settings.AppName));
@@ -107,8 +109,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = $"The receipt couldn't be sent: {e.Message}", exception = e.Message });
+                return ServerError("The receipt couldn't be sent.", e);
             }
         }
 
@@ -128,13 +129,13 @@ namespace api.Controllers
         {
             try
             {
-                if (!IsInRole(UserRole.Admin))
-                    return StatusCode(403, new { error = "Only an administrator may email an event report." });
+                if (!IsAtLeast(UserRole.Manager))
+                    return Forbidden("Only a manager, administrator or system admin may email an event report.");
                 if (!email.IsConfigured)
                     return BadRequest(new { error = NotConfigured });
 
                 var saleEvent = await DB.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == eventId);
-                if (saleEvent == null)
+                if (saleEvent == null || !CanSee(saleEvent))
                     return NotFound(new { error = "Event not found." });
 
                 if (!EmailService.TryParseRecipients(request.To, out var recipients))
@@ -152,9 +153,9 @@ namespace api.Controllers
 
                 // Described from the database, matching what the sheets page puts in the PDF.
                 var salesSheets = await DB.Orders.CountAsync(o => o.EventId == eventId && o.Status == OrderStatus.Completed);
-                var hasInventory = (await InventoryController.LoadItemsAsync(DB, eventId, null)).Count > 0;
+                var hasInventory = (await InventoryController.LoadItemsAsync(DB, saleEvent.TerritoryId, eventId, null)).Count > 0;
 
-                var settings = await SettingsStore.LoadAsync(DB);
+                var settings = await SettingsStore.LoadAsync(DB, saleEvent.TerritoryId);
                 var (subject, html, text) = EmailTemplates.ReportMessage(saleEvent, salesSheets, hasInventory, message, GetCurrentUserName(), settings.AppName);
                 var name = $"{EmailTemplates.Slug(saleEvent.Organization, "event")}-{saleEvent.EventDate:yyyy-MM-dd}-sheets.pdf";
                 var failure = await TrySendAsync(() => email.SendAsync(recipients, subject, html, text, [(name, "application/pdf", pdf!)], fromName: settings.AppName));
@@ -166,8 +167,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = $"The report couldn't be sent: {e.Message}", exception = e.Message });
+                return ServerError("The report couldn't be sent.", e);
             }
         }
 

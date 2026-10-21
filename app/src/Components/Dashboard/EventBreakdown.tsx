@@ -51,7 +51,15 @@ const EventBreakdown = ({ events, onSelect }: Props) => {
                         >
                             <View className="min-w-[192px] flex-1">
                                 <View className="flex-row flex-wrap items-center gap-2">
-                                    <Text className="font-semibold">{event.organization}</Text>
+                                    <Text className="font-semibold">
+                                        {event.organization}
+                                        {event.territoryName && (
+                                            <Text className="font-normal text-zinc-500 dark:text-zinc-400">
+                                                {" "}
+                                                · {event.territoryName}
+                                            </Text>
+                                        )}
+                                    </Text>
                                     {event.isActive && (
                                         <View className="rounded-full bg-green-100 px-2 py-0.5 dark:bg-green-900/50">
                                             <Text className="text-xs font-semibold text-green-800 dark:text-green-300">

@@ -1,8 +1,8 @@
 # Builds the mobile app on EAS (Expo's build service) whenever the app-release branch is pushed:
 # an Android APK attached to a new GitHub release, and an iOS build sent on to TestFlight. Can also
 # be started by hand from the Actions tab. Each release is versioned YYYY.MM.<build>, numbered
-# from 1 each month and tagged app-v<version>. Needs the EXPO_TOKEN secret and the one-time setup
-# in Documents/Mobile App Guide.md (sections 5 and 6).
+# from 1 each month and tagged app-v<version>. Needs the EXPO_TOKEN and API_URL (the live site the
+# app talks to) secrets and the one-time setup in Documents/Mobile App Guide.md (sections 5 and 6).
 name: App release
 
 on:
@@ -68,12 +68,20 @@ jobs:
 
       - run: npm ci
 
-      # app.config.js reads the version from here; EAS uploads it with the rest of the app.
-      - name: Set the version
+      # app.config.js reads the version from version.json, and the bundler the server's address
+      # from .env.production; EAS uploads both with the rest of the app. The address is the API_URL
+      # secret, so it stays out of the repository.
+      - name: Set the version and server
         env:
           VERSION: ${{ needs.version.outputs.version }}
+          API_URL: ${{ secrets.API_URL }}
         run: |
+          if [ -z "$API_URL" ]; then
+            echo "::error::Set the API_URL secret (the live site, e.g. https://sales.example.com) first."
+            exit 1
+          fi
           echo "{ \"version\": \"$VERSION\" }" > version.json
+          echo "EXPO_PUBLIC_API_URL=$API_URL" > .env.production
 
       # The build runs on EAS; this waits for it and keeps the details of the finished build.
       - name: Build the APK
@@ -117,12 +125,20 @@ jobs:
 
       - run: npm ci
 
-      # app.config.js reads the version from here; EAS uploads it with the rest of the app.
-      - name: Set the version
+      # app.config.js reads the version from version.json, and the bundler the server's address
+      # from .env.production; EAS uploads both with the rest of the app. The address is the API_URL
+      # secret, so it stays out of the repository.
+      - name: Set the version and server
         env:
           VERSION: ${{ needs.version.outputs.version }}
+          API_URL: ${{ secrets.API_URL }}
         run: |
+          if [ -z "$API_URL" ]; then
+            echo "::error::Set the API_URL secret (the live site, e.g. https://sales.example.com) first."
+            exit 1
+          fi
           echo "{ \"version\": \"$VERSION\" }" > version.json
+          echo "EXPO_PUBLIC_API_URL=$API_URL" > .env.production
 
       # Built on EAS's Macs and submitted to App Store Connect when it finishes; TestFlight
       # testers get it once Apple has processed it. The Apple Team ID lets EAS sign in with the

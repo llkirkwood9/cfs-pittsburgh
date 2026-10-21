@@ -3,6 +3,9 @@ import type { OrderStatus } from "./Order";
 export type OrderSummary = {
     id?: number;
     eventId?: number;
+    /** The territory of the event it was taken at. */
+    territoryId?: number | null;
+    territoryName?: string | null;
     orderNumber?: number;
     eventOrganization?: string | null;
     eventDate?: string | null;

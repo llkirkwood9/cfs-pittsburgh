@@ -14,6 +14,16 @@ namespace api.Models
         public int Id { get; set; }
 
         /// <summary>
+        /// The territory running the event. Only that territory's crew sees it.
+        /// </summary>
+        public int TerritoryId { get; set; }
+
+        /// <summary>
+        /// Navigation to the territory
+        /// </summary>
+        public Territory? Territory { get; set; }
+
+        /// <summary>
         /// Organization running the fundraiser, e.g. "Hampton Band". Printed at the top of the
         /// stat sheet and copied onto each order's Organization cell.
         /// </summary>

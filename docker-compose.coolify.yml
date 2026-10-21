@@ -1,0 +1,132 @@
+# CFS Fundraiser in the cloud, deployed by Coolify (Documents/Cloud Deployment.md). The same two
+# containers as docker-compose.yml on a Pi - the app and PostgreSQL - plus two small backup helpers.
+# Coolify's proxy puts HTTPS on the app's domain (set on the resource's Domains, with :8080 on the
+# end so it reaches the app's port), so nothing here publishes a port.
+#
+# Coolify reads this file from the repository at every deploy:
+#   - SERVICE_PASSWORD_* values are made up by Coolify on the first deploy and kept.
+#   - Every other ${VARIABLE} appears under the resource's Environment Variables, with the default
+#     after :- ; ${VARIABLE:?} ones must be filled in before it will deploy.
+#   - exclude_from_hc is Coolify's: the one-off backup is left out of the resource's health.
+#
+# .github/workflows/cloud-deploy.yml builds the image and then calls Coolify's deploy webhook;
+# pull_policy: always makes each deploy fetch the newest :cloud image.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: CfsFundraiser
+      POSTGRES_USER: cfs
+      POSTGRES_PASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+    volumes:
+      # Every order lives here; it survives deploys, restarts and image updates.
+      - cfs-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cfs -d CfsFundraiser"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    restart: unless-stopped
+
+  # A copy of the database just before each deploy starts the app - a new version can change the
+  # database as it starts. Runs, writes one backup and exits.
+  backup-before-deploy:
+    image: postgres:16-alpine
+    exclude_from_hc: true
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: cfs
+      PGDATABASE: CfsFundraiser
+      PGPASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      TZ: ${TZ:-America/New_York}
+    volumes:
+      - /opt/cfs/backups:/backups
+    # A failed backup is reported in this container's log but doesn't stop the app from starting.
+    command:
+      - sh
+      - -c
+      - |
+        f=/backups/cfs-$$(date +%Y%m%d-%H%M%S)-deploy.dump.gz
+        if pg_dump --format=custom | gzip > "$$f.partial"; then mv "$$f.partial" "$$f"; echo "Wrote $$f"
+        else rm -f "$$f.partial"; echo "The backup before this deploy failed."; fi
+    restart: "no"
+
+  app:
+    image: ${CFS_IMAGE:-ghcr.io/llkirkwood9/cfs-fundraiser:cloud}
+    pull_policy: always
+    depends_on:
+      db:
+        condition: service_healthy
+      backup-before-deploy:
+        condition: service_completed_successfully
+    environment:
+      ConnectionStrings__DefaultConnection: "Host=db;Port=5432;Database=CfsFundraiser;Username=cfs;Password=${SERVICE_PASSWORD_POSTGRES}"
+      # The key that signs sign-ins: 64 random characters, made up by Coolify.
+      Jwt__Key: ${SERVICE_PASSWORD_64_JWT}
+      # true starts with an empty catalog; bring the real one in with Restore catalog.
+      Seed__Skip: ${SKIP_SEED_DATA:-true}
+      # The first account's starting password; blank writes a random one to the app's log.
+      Seed__AdminPassword: ${SEED_ADMIN_PASSWORD:-}
+      # Coolify's proxy is the one hop in front: believe the visitor's address and HTTPS from it.
+      ForwardedHeaders__Enabled: "true"
+      ForwardedHeaders__ForwardLimit: "1"
+      Auth__SecureCookies: "true"
+      # true lets an account from before passwords sign in once with its old PIN (moving a Pi's
+      # data across); false for everything else.
+      Auth__AllowLegacyPins: ${ALLOW_LEGACY_PINS:-false}
+      # Email receipts and reports (SMTP2GO on port 2525 - DigitalOcean blocks 25, 465 and 587).
+      Email__Host: ${EMAIL_HOST:-}
+      Email__Port: ${EMAIL_PORT:-2525}
+      Email__Security: ${EMAIL_SECURITY:-StartTls}
+      Email__Username: ${EMAIL_USERNAME:-}
+      Email__Password: ${EMAIL_PASSWORD:-}
+      Email__From: ${EMAIL_FROM:-}
+      Email__FromName: ${EMAIL_FROM_NAME:-}
+      Email__ReplyTo: ${EMAIL_REPLY_TO:-}
+    restart: unless-stopped
+
+  # A backup every night at CFS_BACKUP_TIME, keeping the newest CFS_BACKUP_KEEP. Also takes one on
+  # demand: docker exec $(docker ps -qf label=com.docker.compose.service=backup) cfs-backup
+  backup:
+    image: postgres:16-alpine
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGUSER: cfs
+      PGDATABASE: CfsFundraiser
+      PGPASSWORD: ${SERVICE_PASSWORD_POSTGRES}
+      TZ: ${TZ:-America/New_York}
+      CFS_BACKUP_TIME: ${CFS_BACKUP_TIME:-03:15}
+      CFS_BACKUP_KEEP: ${CFS_BACKUP_KEEP:-30}
+    volumes:
+      - /opt/cfs/backups:/backups
+    command:
+      - sh
+      - -c
+      - |
+        cat > /usr/local/bin/cfs-backup <<'END'
+        #!/bin/sh
+        f=/backups/cfs-$$(date +%Y%m%d-%H%M%S).dump.gz
+        if pg_dump --format=custom | gzip > "$$f.partial"; then mv "$$f.partial" "$$f"; echo "Wrote $$f"
+        else rm -f "$$f.partial"; echo "The backup failed." >&2; exit 1; fi
+        ls -1t /backups/cfs-*.dump.gz | tail -n +$$((CFS_BACKUP_KEEP + 1)) | while read -r old; do rm -f "$$old"; echo "Removed $$old"; done
+        END
+        chmod +x /usr/local/bin/cfs-backup
+        echo "Backing up every night at $$CFS_BACKUP_TIME ($$TZ), keeping $$CFS_BACKUP_KEEP."
+        while true; do
+          now=$$(date +%s)
+          next=$$(date -d "$$(date +%Y-%m-%d) $$CFS_BACKUP_TIME" +%s)
+          [ "$$next" -le "$$now" ] && next=$$((next + 86400))
+          sleep $$((next - now))
+          cfs-backup
+        done
+    restart: unless-stopped
+
+volumes:
+  cfs-pgdata:

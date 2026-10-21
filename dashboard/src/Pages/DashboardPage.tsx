@@ -7,9 +7,11 @@ import EventBreakdown from "../Components/Dashboard/EventBreakdown";
 import SalesByHourChart from "../Components/Dashboard/SalesByHourChart";
 import SalesStars from "../Components/Dashboard/SalesStars";
 import StockWatch from "../Components/Dashboard/StockWatch";
+import TerritoryComparison from "../Components/Dashboard/TerritoryComparison";
 import StatCard from "../Components/Elements/StatCard";
 import TabButton from "../Components/Elements/TabButton";
 import { useAuth } from "../Context/AuthContext";
+import { useTerritory } from "../Context/TerritoryContext";
 import { EventsForFilter, FormatCurrency, IsPastEvent } from "../Lib/ModelHelpers";
 import { IsOnline } from "../Lib/Connection";
 import type { DashboardStats, ProductTally } from "../Models/DashboardStats";
@@ -67,10 +69,14 @@ const ProductRanking = ({
 /**
  * The event's stat sheet, live, or an overview of every event with each one's figures side by
  * side. Only completed sales feed the money figures; work still on the floor or at the checkout
- * table is shown separately so nobody counts it twice.
+ * table is shown separately so nobody counts it twice. It covers the
+ * territory picked in the menu bar; a system admin or administrator viewing every territory also gets
+ * them side by side.
  */
 const DashboardPage = () => {
     const { user } = useAuth();
+    const { canSwitch, territoryId: territoryInView, territoryName } = useTerritory();
+    const viewingAll = canSwitch && territoryInView == null;
 
     const [events, setEvents] = useState<Event[]>([]);
     const [scope, setScope] = useState<"event" | "all">("event");
@@ -84,11 +90,7 @@ const DashboardPage = () => {
      */
     const show = useCallback(async (nextScope: "event" | "all", id: number | null) => {
         const result =
-            nextScope === "all"
-                ? await GetStatsForAllEvents()
-                : id
-                  ? await GetStatsForEvent(id)
-                  : null;
+            nextScope === "all" ? await GetStatsForAllEvents() : id ? await GetStatsForEvent(id) : null;
         // Keep the last figures up while the server cannot be reached, rather than showing zeros.
         if (!result && !IsOnline()) return;
         setScope(nextScope);
@@ -164,7 +166,11 @@ const DashboardPage = () => {
         <div className="mx-auto max-w-(--breakpoint-2xl) p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h1 className="text-xl font-bold">
-                    {scope === "all" ? "All events" : stats?.organization}
+                    {scope === "all"
+                        ? viewingAll
+                            ? "All events in every territory"
+                            : `All ${territoryName ? `${territoryName} ` : ""}events`
+                        : stats?.organization}
                 </h1>
                 <Button
                     text="Refresh"
@@ -173,6 +179,8 @@ const DashboardPage = () => {
                     className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                 />
             </div>
+
+            {viewingAll && <TerritoryComparison pollMs={POLL_MS} />}
 
             <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1">
                 <TabButton
@@ -183,7 +191,11 @@ const DashboardPage = () => {
                 {events.map((event) => (
                     <TabButton
                         key={event.id}
-                        text={event.organization ?? ""}
+                        text={
+                            viewingAll && event.territoryName
+                                ? `${event.organization ?? ""} · ${event.territoryName}`
+                                : (event.organization ?? "")
+                        }
                         tag={IsPastEvent(event) ? "Past" : undefined}
                         active={scope === "event" && event.id === eventId}
                         onClick={() => event.id && switchEvent(event.id)}

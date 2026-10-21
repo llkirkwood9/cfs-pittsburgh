@@ -1,12 +1,13 @@
 using System.Text.Json;
 using api.Models;
 using api.Services;
+using api.Utils;
 using Microsoft.EntityFrameworkCore;
 
 namespace api.Data
 {
     /// <summary>
-    /// Loads the starting catalog, delivery options, crew accounts and opening event from
+    /// Loads the starting territory, catalog, delivery options, crew accounts and opening event from
     /// CatalogSeed.json. Runs on every startup but only fills gaps, so an event in progress is
     /// never overwritten. With Seed:Skip set (SKIP_SEED_DATA in the Docker .env) only the first
     /// sign-in account is created, and only into an empty database - nothing else is loaded, so
@@ -20,29 +21,34 @@ namespace api.Data
         /// Seeds anything that is missing.
         /// </summary>
         /// <param name="db">EF context</param>
-        /// <param name="tokenService">Used to hash the seeded PINs</param>
+        /// <param name="tokenService">Used to hash the first account's password</param>
+        /// <param name="initialPassword">The first account's password (Seed:AdminPassword); when
+        /// blank a random one is made and returned so it can be written to the log once</param>
         /// <param name="accountsOnly">Skip the catalog, delivery options and opening event; still
         /// create the first sign-in account when there are no accounts at all, so nobody is
         /// locked out of a new database</param>
-        public static async Task SeedAsync(ApplicationDbContext db, TokenService tokenService, bool accountsOnly = false)
+        /// <returns>The generated password when one was made, otherwise null.</returns>
+        public static async Task<string?> SeedAsync(
+            ApplicationDbContext db, TokenService tokenService, string? initialPassword, bool accountsOnly = false)
         {
             var path = Path.Combine(AppContext.BaseDirectory, "Data", "CatalogSeed.json");
             if (!File.Exists(path))
-                return;
+                return null;
 
             await using var stream = File.OpenRead(path);
             var seed = await JsonSerializer.DeserializeAsync<SeedFile>(stream, JsonOptions);
             if (seed == null)
-                return;
+                return null;
 
-            await SeedUsersAsync(db, tokenService, seed);
+            var generated = await SeedUsersAsync(db, tokenService, seed, initialPassword);
             if (accountsOnly)
-                return;
+                return generated;
 
             await SeedEventAsync(db, seed);
             var deliveryByName = await SeedDeliveryOptionsAsync(db, seed);
             var created = await SeedProductsAsync(db, seed, deliveryByName);
             await SeedBundlesAsync(db, created);
+            return generated;
         }
 
         /// <summary>
@@ -87,38 +93,75 @@ namespace api.Data
         #region Private Methods
 
         /// <summary>
-        /// Creates the pre-provisioned crew accounts when none exist.
+        /// Creates the pre-provisioned accounts when none exist. They are company-wide (system admin or
+        /// administrator), all share the one starting password, and each has to choose their own
+        /// at first sign-in.
         /// </summary>
         /// <param name="db">EF context</param>
-        /// <param name="tokenService">PIN hashing</param>
+        /// <param name="tokenService">Password hashing</param>
         /// <param name="seed">Parsed seed file</param>
-        private static async Task SeedUsersAsync(ApplicationDbContext db, TokenService tokenService, SeedFile seed)
+        /// <param name="initialPassword">The configured starting password, or blank to make one</param>
+        /// <returns>The generated password when one was made, otherwise null.</returns>
+        private static async Task<string?> SeedUsersAsync(
+            ApplicationDbContext db, TokenService tokenService, SeedFile seed, string? initialPassword)
         {
             if (await db.Users.AnyAsync() || seed.Users == null)
-                return;
+                return null;
+
+            var generated = string.IsNullOrWhiteSpace(initialPassword) ? TokenService.GeneratePassword() : null;
+            var password = generated ?? initialPassword!;
 
             foreach (var u in seed.Users)
             {
-                if (string.IsNullOrWhiteSpace(u.Username) || string.IsNullOrWhiteSpace(u.Pin))
+                if (string.IsNullOrWhiteSpace(u.Username))
                     continue;
 
-                var salt = tokenService.CreateSalt();
-                db.Users.Add(new User
+                // Anyone below administrator would need a territory, which a new database doesn't have yet.
+                var role = Enum.TryParse<UserRole>(u.Role, true, out var parsed) && parsed is UserRole.SystemAdmin or UserRole.Admin
+                    ? parsed
+                    : UserRole.Admin;
+
+                var user = new User
                 {
                     Name = u.Name ?? u.Username,
                     Username = u.Username,
-                    PinSalt = salt,
-                    PinHash = tokenService.HashPin(u.Pin, salt),
-                    Role = Enum.TryParse<UserRole>(u.Role, true, out var role) ? role : UserRole.Sales,
+                    Role = role,
                     IsActive = true,
-                });
+                };
+                Passwords.Set(tokenService, user, password, mustChange: true);
+                db.Users.Add(user);
             }
 
             await db.SaveChangesAsync();
+            return generated;
         }
 
         /// <summary>
-        /// Creates an opening event so the floor app has somewhere to write orders.
+        /// The territory the opening event goes in: the first one there is, or a new one named in
+        /// the seed file.
+        /// </summary>
+        /// <param name="db">EF context</param>
+        /// <param name="seed">Parsed seed file</param>
+        /// <returns>The territory id.</returns>
+        private static async Task<int> SeedTerritoryAsync(ApplicationDbContext db, SeedFile seed)
+        {
+            var existing = await db.Territories.OrderBy(t => t.Id).Select(t => (int?)t.Id).FirstOrDefaultAsync();
+            if (existing != null)
+                return existing.Value;
+
+            var territory = new Territory
+            {
+                Name = string.IsNullOrWhiteSpace(seed.Territory) ? "Pittsburgh" : seed.Territory.Trim(),
+                IsActive = true,
+            };
+            db.Territories.Add(territory);
+            await db.SaveChangesAsync();
+            return territory.Id;
+        }
+
+        /// <summary>
+        /// Creates an opening event, in the first territory, so the floor app has somewhere to write
+        /// orders.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <param name="seed">Parsed seed file</param>
@@ -127,8 +170,11 @@ namespace api.Data
             if (await db.Events.AnyAsync() || seed.Event == null)
                 return;
 
+            var territoryId = await SeedTerritoryAsync(db, seed);
+
             db.Events.Add(new Event
             {
+                TerritoryId = territoryId,
                 Organization = seed.Event.Organization ?? "New Fundraiser",
                 CartName = seed.Event.CartName,
                 EventDate = DateTime.Today,
@@ -335,6 +381,9 @@ namespace api.Data
             /// <summary>Opening event.</summary>
             public SeedEvent? Event { get; set; }
 
+            /// <summary>Name of the first territory, used when the database has none.</summary>
+            public string? Territory { get; set; }
+
             /// <summary>Pre-provisioned crew accounts.</summary>
             public List<SeedUser>? Users { get; set; }
         }
@@ -472,9 +521,6 @@ namespace api.Data
 
             /// <summary>Login handle.</summary>
             public string? Username { get; set; }
-
-            /// <summary>Starting PIN.</summary>
-            public string? Pin { get; set; }
 
             /// <summary>Role name.</summary>
             public string? Role { get; set; }

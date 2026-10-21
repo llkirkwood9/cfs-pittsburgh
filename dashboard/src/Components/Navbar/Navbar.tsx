@@ -2,10 +2,12 @@ import { useEffect, useRef, useState } from "react";
 import { NavLink, useLocation } from "react-router-dom";
 import Icon from "../Elements/Icon";
 import SizeGuideButton from "./SizeGuideButton";
+import TerritoryPicker from "./TerritoryPicker";
 import ThemeToggle from "./ThemeToggle";
 import UserProfileDropdown from "./UserProfileDropdown";
 import { useAuth } from "../../Context/AuthContext";
 import { useSettings } from "../../Context/SettingsContext";
+import { useTerritory } from "../../Context/TerritoryContext";
 import { useCheckoutWaiting } from "../../Hooks/UseCheckoutWaiting";
 import type { UserRole } from "../../Models/User";
 
@@ -29,10 +31,16 @@ const items: NavItem[] = [
         icon: "fa-solid fa-boxes-stacked",
         roles: ["Checkout"],
     },
-    { to: "/catalog", label: "Catalog", icon: "fa-solid fa-tags", roles: ["Admin"] },
-    { to: "/events", label: "Events", icon: "fa-solid fa-calendar-days", roles: ["Admin"] },
-    { to: "/crew", label: "Crew", icon: "fa-solid fa-users", roles: ["Admin"] },
-    { to: "/settings", label: "Settings", icon: "fa-solid fa-gear", roles: ["Admin"] },
+    { to: "/catalog", label: "Catalog", icon: "fa-solid fa-tags", roles: ["Manager"] },
+    { to: "/events", label: "Events", icon: "fa-solid fa-calendar-days", roles: ["Manager"] },
+    { to: "/crew", label: "Crew", icon: "fa-solid fa-users", roles: ["Manager"] },
+    { to: "/settings", label: "Settings", icon: "fa-solid fa-gear", roles: ["Manager"] },
+    {
+        to: "/territories",
+        label: "Territories",
+        icon: "fa-solid fa-map-location-dot",
+        roles: ["Admin"],
+    },
 ];
 
 /** A bar holds at most this many tabs; past that the last slot becomes More. */
@@ -152,7 +160,12 @@ const Navbar = () => {
     const { hasRole } = useAuth();
     const { settings } = useSettings();
     const visible = items.filter((item) => !item.roles || hasRole(...item.roles));
-    const waiting = useCheckoutWaiting(hasRole("Checkout"));
+    // With every territory in view there's no one checkout table to count.
+    const { territoryId, canSwitch } = useTerritory();
+    const waiting = useCheckoutWaiting(
+        hasRole("Checkout") && (territoryId != null || !canSwitch),
+        territoryId
+    );
     const countFor = (item: NavItem) => (item.to === "/checkout" ? waiting : 0);
 
     const crowded = visible.length > MAX_TABS;
@@ -165,10 +178,10 @@ const Navbar = () => {
                 <div className="mx-auto flex h-16 max-w-(--breakpoint-2xl) items-center gap-2 px-3">
                     <div className="flex shrink-0 items-center gap-2 text-white">
                         <Icon icon="fa-solid fa-bed" className="text-xl text-sky-400" />
-                        {/* An administrator's full row of tabs needs the room until the widest screens. */}
+                        {/* A manager's or administrator's full row of tabs, with the territory picker, needs the room. */}
                         <span
                             className={`hidden max-w-56 truncate whitespace-nowrap text-base font-bold tracking-tight ${
-                                crowded ? "2xl:block" : "xl:block"
+                                crowded ? "min-[1800px]:block" : "xl:block"
                             }`}
                         >
                             {settings.appName}
@@ -191,12 +204,14 @@ const Navbar = () => {
                             </NavLink>
                         ))}
 
-                        {/* From a small laptop up there is room for every tab, so More goes away. */}
+                        {/* On a wide screen there is room for every tab, so More goes away. */}
                         {overflow.map((item) => (
                             <NavLink
                                 key={item.to}
                                 to={item.to}
-                                className={({ isActive }) => `${tabClass(isActive)} hidden lg:flex`}
+                                className={({ isActive }) =>
+                                    `${tabClass(isActive)} hidden 2xl:flex`
+                                }
                             >
                                 <TabIcon
                                     icon={item.icon}
@@ -207,11 +222,16 @@ const Navbar = () => {
                             </NavLink>
                         ))}
                         {crowded && (
-                            <MoreMenu overflow={overflow} placement="below" className="lg:hidden" />
+                            <MoreMenu
+                                overflow={overflow}
+                                placement="below"
+                                className="2xl:hidden"
+                            />
                         )}
                     </nav>
 
                     <div className="ml-auto flex shrink-0 items-center gap-1">
+                        <TerritoryPicker />
                         <SizeGuideButton />
                         <ThemeToggle />
                         <UserProfileDropdown />

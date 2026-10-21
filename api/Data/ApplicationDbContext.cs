@@ -81,14 +81,29 @@ namespace api.Data
         public DbSet<ProductOptionChoice> ProductOptionChoices => Set<ProductOptionChoice>();
 
         /// <summary>
-        /// Stock per size and combination of counted choices
-        /// </summary>
-        public DbSet<ChoiceStock> ChoiceStocks => Set<ChoiceStock>();
-
-        /// <summary>
         /// Settings an administrator can change from the dashboard
         /// </summary>
         public DbSet<AppSetting> AppSettings => Set<AppSetting>();
+
+        /// <summary>
+        /// Sales territories
+        /// </summary>
+        public DbSet<Territory> Territories => Set<Territory>();
+
+        /// <summary>
+        /// On-hand counts, per territory and size
+        /// </summary>
+        public DbSet<InventoryStock> InventoryStocks => Set<InventoryStock>();
+
+        /// <summary>
+        /// Settings a territory has changed from the company-wide value
+        /// </summary>
+        public DbSet<TerritorySetting> TerritorySettings => Set<TerritorySetting>();
+
+        /// <summary>
+        /// Signed-in devices, by hashed refresh token
+        /// </summary>
+        public DbSet<UserSession> UserSessions => Set<UserSession>();
 
         #endregion
 
@@ -110,14 +125,32 @@ namespace api.Data
                 property.SetColumnType("numeric(18,4)");
             }
 
+            modelBuilder.Entity<Territory>(entity =>
+            {
+                entity.HasIndex(t => t.Name).IsUnique();
+            });
+
             modelBuilder.Entity<Event>(entity =>
             {
                 entity.HasIndex(e => e.EventDate);
+                entity.HasIndex(e => new { e.TerritoryId, e.IsActive });
+
+                // A territory with events can't be deleted - it's deactivated instead.
+                entity.HasOne(e => e.Territory)
+                    .WithMany()
+                    .HasForeignKey(e => e.TerritoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
 
             modelBuilder.Entity<Product>(entity =>
             {
                 entity.HasIndex(p => new { p.Category, p.SortOrder });
+                entity.HasIndex(p => p.TerritoryId);
+
+                entity.HasOne(p => p.Territory)
+                    .WithMany()
+                    .HasForeignKey(p => p.TerritoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasMany(p => p.Variants)
                     .WithOne(v => v.Product)
@@ -145,16 +178,6 @@ namespace api.Data
                     .OnDelete(DeleteBehavior.Cascade);
             });
 
-            modelBuilder.Entity<ChoiceStock>(entity =>
-            {
-                entity.HasIndex(s => new { s.ProductVariantId, s.StockKey }).IsUnique();
-
-                entity.HasOne(s => s.ProductVariant)
-                    .WithMany(v => v.ChoiceStocks)
-                    .HasForeignKey(s => s.ProductVariantId)
-                    .OnDelete(DeleteBehavior.Cascade);
-            });
-
             modelBuilder.Entity<ProductVariantComponent>(entity =>
             {
                 entity.HasIndex(c => new { c.BundleVariantId, c.ComponentVariantId }).IsUnique();
@@ -171,6 +194,58 @@ namespace api.Data
                     .WithMany()
                     .HasForeignKey(c => c.ComponentVariantId)
                     .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<DeliveryOption>(entity =>
+            {
+                entity.HasOne(d => d.Territory)
+                    .WithMany()
+                    .HasForeignKey(d => d.TerritoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<FinanceOption>(entity =>
+            {
+                entity.HasOne(f => f.Territory)
+                    .WithMany()
+                    .HasForeignKey(f => f.TerritoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<InventoryStock>(entity =>
+            {
+                entity.HasIndex(s => new { s.TerritoryId, s.ProductVariantId, s.StockKey }).IsUnique();
+
+                entity.HasOne(s => s.ProductVariant)
+                    .WithMany(v => v.Stock)
+                    .HasForeignKey(s => s.ProductVariantId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(s => s.Territory)
+                    .WithMany()
+                    .HasForeignKey(s => s.TerritoryId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<TerritorySetting>(entity =>
+            {
+                entity.HasIndex(s => new { s.TerritoryId, s.Key }).IsUnique();
+
+                entity.HasOne(s => s.Territory)
+                    .WithMany()
+                    .HasForeignKey(s => s.TerritoryId)
+                    .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            modelBuilder.Entity<UserSession>(entity =>
+            {
+                entity.HasIndex(s => s.TokenHash).IsUnique();
+                entity.HasIndex(s => s.UserId);
+
+                entity.HasOne(s => s.User)
+                    .WithMany()
+                    .HasForeignKey(s => s.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
             });
 
             modelBuilder.Entity<ProductDeliveryOption>(entity =>
@@ -236,6 +311,7 @@ namespace api.Data
             {
                 entity.HasIndex(a => new { a.ProductVariantId, a.CreatedAt });
                 entity.HasIndex(a => a.EventId);
+                entity.HasIndex(a => new { a.TerritoryId, a.ProductVariantId });
 
                 entity.HasOne(a => a.ProductVariant)
                     .WithMany()
@@ -258,6 +334,11 @@ namespace api.Data
             modelBuilder.Entity<User>(entity =>
             {
                 entity.HasIndex(u => u.Username).IsUnique();
+
+                entity.HasOne(u => u.Territory)
+                    .WithMany()
+                    .HasForeignKey(u => u.TerritoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
             });
         }
 

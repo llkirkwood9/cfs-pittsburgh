@@ -16,6 +16,11 @@ namespace api.Dtos
         public string? Organization { get; set; }
 
         /// <summary>
+        /// The event's territory, when the overview covers every territory
+        /// </summary>
+        public string? TerritoryName { get; set; }
+
+        /// <summary>
         /// Date of the event
         /// </summary>
         public DateTime? EventDate { get; set; }

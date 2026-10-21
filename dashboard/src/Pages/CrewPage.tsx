@@ -7,28 +7,47 @@ import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "../Context/AuthContext";
+import { useTerritory } from "../Context/TerritoryContext";
 import { FormatDateTime, FormatElapsed } from "../Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
-import { UserRoleLabels } from "../Models/User";
+import { IsCompanyWide, UserRoleLabels } from "../Models/User";
 import type { User, UserRole } from "../Models/User";
 import { AddUser, DeleteUser, GetUsers, UpdateUser } from "../Services/UserServices";
 
-const roles: UserRole[] = ["Sales", "Checkout", "SalesCheckout", "Admin", "SystemAdmin"];
+const roles: UserRole[] = ["Sales", "Checkout", "SalesCheckout", "Manager", "Admin", "SystemAdmin"];
 
 const roleBlurb: Record<UserRole, string> = {
     Sales: "Takes orders on the floor",
     Checkout: "Takes payment and prints receipts",
     SalesCheckout: "Both tables, without the admin screens",
-    Admin: "Everything, plus catalog and crew",
+    Manager: "Runs one territory: its crew, events, catalog items and settings",
+    Admin: "Every territory, plus territories and global catalog",
     SystemAdmin: "Everything, plus permanent deletes",
+};
+
+/** System Admins and administrators work across every territory; every other role belongs to one. */
+const needsTerritory = (role: UserRole) => !IsCompanyWide(role);
+
+/**
+ * A random password for a new account or a reset, to hand to the crew member. They choose their
+ * own at their first sign-in.
+ * @returns 16 characters, avoiding ones that are easy to misread.
+ */
+const MakePassword = (): string => {
+    const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
+    const bytes = new Uint32Array(16);
+    crypto.getRandomValues(bytes);
+    return Array.from(bytes, (b) => chars[b % chars.length]).join("");
 };
 
 /**
  * Crew administration. Accounts are created here; there is no self-service signup, which keeps
- * a shared cart tablet from becoming a way in.
+ * a shared cart tablet from becoming a way in. Managers look after the crew of their own
+ * territory; system admins and administrators everyone, in the territory picked in the menu bar.
  */
 const CrewPage = () => {
     const { user } = useAuth();
+    const { territories, territoryId: territoryInView } = useTerritory();
 
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -36,14 +55,17 @@ const CrewPage = () => {
     const [deactivating, setDeactivating] = useState<User | null>(null);
     const [removing, setRemoving] = useState<User | null>(null);
     const isSystemAdmin = user?.role === "SystemAdmin";
+    const companyWide = IsCompanyWide(user?.role);
     const [saving, setSaving] = useState<boolean>(false);
 
     const [name, setName] = useState<string>("");
     const [username, setUsername] = useState<string>("");
     const [email, setEmail] = useState<string>("");
     const [role, setRole] = useState<UserRole>("Sales");
-    const [pin, setPin] = useState<string>("");
+    const [password, setPassword] = useState<string>("");
+    const [territoryId, setTerritoryId] = useState<number | null>(null);
     const [isActive, setIsActive] = useState<boolean>(true);
+    const [unlock, setUnlock] = useState<boolean>(false);
 
     const load = async () => {
         setLoading(true);
@@ -57,6 +79,27 @@ const CrewPage = () => {
 
     if (!user) return <Navigate to="/unauthorized" replace />;
 
+    // Matches the API: system admins manage everyone, administrators everyone but system admins, managers only
+    // the Sales and Checkout crew of their own territory (and themselves, for their details).
+    const canManage = (crew: User): boolean => {
+        if (isSystemAdmin) return true;
+        if (user.role === "Admin") return crew.role !== "SystemAdmin";
+        if (crew.id === user.id) return true;
+        return (
+            crew.territoryId === user.territoryId &&
+            (crew.role === "Sales" || crew.role === "Checkout" || crew.role === "SalesCheckout")
+        );
+    };
+
+    // The roles this user can give: never above their own, and a manager can't make managers.
+    const assignable = roles.filter((r) => {
+        if (r === "SystemAdmin") return isSystemAdmin;
+        if (r === "Admin") return companyWide;
+        if (r === "Manager") return companyWide;
+        return true;
+    });
+    const activeTerritories = territories.filter((t) => t.isActive !== false);
+
     const open = (crew: User) => {
         setEditing(crew);
         setName(crew.name ?? "");
@@ -64,18 +107,24 @@ const CrewPage = () => {
         setEmail(crew.email ?? "");
         setRole(crew.role ?? "Sales");
         setIsActive(crew.isActive ?? true);
-        setPin("");
+        setTerritoryId(crew.territoryId ?? territoryInView ?? user?.territoryId ?? null);
+        setUnlock(false);
+        // A new account gets a ready-made password to hand over; an existing one keeps its own
+        // unless a new one is entered.
+        setPassword(crew.id ? "" : MakePassword());
     };
 
     const handleSave = async () => {
         if (!name.trim()) return Toast.Warning("Enter the crew member's name.");
         if (!username.trim()) return Toast.Warning("Enter a username.");
 
-        if (!editing?.id && pin.trim().length < 4)
-            return Toast.Warning("Set a PIN of at least 4 digits.");
+        if (!editing?.id && !password) return Toast.Warning("Set a starting password.");
 
-        if (pin.trim() && !/^\d{4,12}$/.test(pin.trim()))
-            return Toast.Warning("The PIN must be 4 to 12 digits.");
+        if (password && password.length < 8)
+            return Toast.Warning("The password must be at least 8 characters.");
+
+        if (companyWide && needsTerritory(role) && territoryId == null)
+            return Toast.Warning("Pick the territory this person works in.");
 
         const payload: User = {
             id: editing?.id,
@@ -83,8 +132,14 @@ const CrewPage = () => {
             username: username.trim(),
             email: email.trim(),
             role,
+            territoryId: needsTerritory(role)
+                ? companyWide
+                    ? territoryId
+                    : user?.territoryId
+                : null,
             isActive,
-            pin: pin.trim() || undefined,
+            password: password || undefined,
+            isLockedOut: unlock ? false : undefined,
         };
 
         setSaving(true);
@@ -93,7 +148,11 @@ const CrewPage = () => {
 
         if (!saved) return;
 
-        Toast.Success(`${saved.name} saved.`);
+        Toast.Success(
+            password
+                ? `${saved.name} saved. Give them the password - they'll choose their own when they sign in.`
+                : `${saved.name} saved.`
+        );
         setEditing(null);
         await load();
     };
@@ -143,6 +202,12 @@ const CrewPage = () => {
                 />
             </div>
 
+            {users.length === 0 && (
+                <p className="py-8 text-center text-sm text-zinc-500 dark:text-zinc-400">
+                    No crew here yet. Click Add crew to set someone up.
+                </p>
+            )}
+
             <ul className="space-y-2">
                 {users.map((crew) => (
                     <li
@@ -157,10 +222,25 @@ const CrewPage = () => {
                                         Inactive
                                     </span>
                                 )}
+                                {crew.isLockedOut && (
+                                    <span className="ml-2 rounded-sm bg-red-100 px-1.5 py-0.5 text-xs font-semibold text-red-800 dark:bg-red-950/50 dark:text-red-300">
+                                        Locked out
+                                    </span>
+                                )}
+                                {crew.isActive && crew.mustChangePassword && (
+                                    <span className="ml-2 rounded-sm bg-amber-100 px-1.5 py-0.5 text-xs font-semibold text-amber-900 dark:bg-amber-950/50 dark:text-amber-200">
+                                        New password pending
+                                    </span>
+                                )}
                             </p>
                             <p className="text-xs text-zinc-500 dark:text-zinc-400">
                                 {crew.username} &middot;{" "}
                                 {crew.role ? UserRoleLabels[crew.role] : ""}
+                                {crew.territoryName
+                                    ? ` · ${crew.territoryName}`
+                                    : crew.role && !needsTerritory(crew.role)
+                                      ? " · All territories"
+                                      : ""}
                                 {crew.email ? ` · ${crew.email}` : ""}
                             </p>
                             {/* Sign-in times are only sent to a system admin. */}
@@ -182,7 +262,7 @@ const CrewPage = () => {
                         </div>
 
                         {/* An administrator can see a system admin's account but not change it. */}
-                        {(isSystemAdmin || crew.role !== "SystemAdmin") && (
+                        {canManage(crew) && (
                             <Button
                                 text="Edit"
                                 icon="fa-solid fa-pen"
@@ -202,19 +282,17 @@ const CrewPage = () => {
                                 <Icon icon="fa-solid fa-trash" />
                             </button>
                         )}
-                        {crew.isActive &&
-                            crew.id !== user.id &&
-                            (isSystemAdmin || crew.role !== "SystemAdmin") && (
-                                <button
-                                    type="button"
-                                    onClick={() => setDeactivating(crew)}
-                                    aria-label="Deactivate account"
-                                    className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
+                        {crew.isActive && crew.id !== user.id && canManage(crew) && (
+                            <button
+                                type="button"
+                                onClick={() => setDeactivating(crew)}
+                                aria-label="Deactivate account"
+                                className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
                                     hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
-                                >
-                                    <Icon icon="fa-solid fa-user-slash" />
-                                </button>
-                            )}
+                            >
+                                <Icon icon="fa-solid fa-user-slash" />
+                            </button>
+                        )}
                     </li>
                 ))}
             </ul>
@@ -255,13 +333,63 @@ const CrewPage = () => {
                             inputMode="email"
                             maxLength={200}
                         />
-                        <TextField
-                            label={editing.id ? "New PIN (leave blank to keep)" : "PIN"}
-                            value={pin}
-                            onChange={setPin}
-                            inputMode="numeric"
-                            maxLength={12}
-                        />
+                        <div className="flex flex-col gap-1">
+                            <div className="flex items-end gap-2">
+                                <TextField
+                                    label={
+                                        editing.id
+                                            ? "New password (leave blank to keep)"
+                                            : "Starting password"
+                                    }
+                                    value={password}
+                                    onChange={setPassword}
+                                    maxLength={128}
+                                    autoComplete="off"
+                                    className="min-w-0 flex-1"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setPassword(MakePassword())}
+                                    title="Make a random password"
+                                    aria-label="Make a random password"
+                                    className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-zinc-100
+                                        text-zinc-700 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-600"
+                                >
+                                    <Icon icon="fa-solid fa-dice" />
+                                </button>
+                            </div>
+                            {password && editing.id !== user.id && (
+                                <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                                    They&apos;ll be asked to choose their own at sign-in.
+                                </p>
+                            )}
+                        </div>
+
+                        {companyWide && needsTerritory(role) && (
+                            <label className="flex flex-col gap-1 sm:col-span-2">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                    Territory
+                                </span>
+                                <select
+                                    value={territoryId ?? ""}
+                                    disabled={editing.id === user.id}
+                                    onChange={(e) =>
+                                        setTerritoryId(
+                                            e.target.value ? Number(e.target.value) : null
+                                        )
+                                    }
+                                    className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base
+                                        dark:border-zinc-600 dark:bg-zinc-800 dark:scheme-dark"
+                                >
+                                    <option value="">Pick a territory...</option>
+                                    {activeTerritories.map((t) => (
+                                        <option key={t.id} value={t.id}>
+                                            {t.name}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        )}
 
                         <div className="sm:col-span-2">
                             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
@@ -273,29 +401,27 @@ const CrewPage = () => {
                                 </p>
                             )}
                             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                {roles
-                                    .filter((r) => r !== "SystemAdmin" || isSystemAdmin)
-                                    .map((r) => (
-                                        <button
-                                            key={r}
-                                            type="button"
-                                            disabled={editing.id === user.id}
-                                            onClick={() => setRole(r)}
-                                            className={`flex min-h-[60px] flex-col items-start justify-center rounded-xl px-3 py-2
+                                {(editing.id === user.id ? [role] : assignable).map((r) => (
+                                    <button
+                                        key={r}
+                                        type="button"
+                                        disabled={editing.id === user.id}
+                                        onClick={() => setRole(r)}
+                                        className={`flex min-h-[60px] flex-col items-start justify-center rounded-xl px-3 py-2
                                             text-left transition-colors ${
                                                 role === r
                                                     ? "bg-sky-700 text-white dark:bg-sky-600"
                                                     : "bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-600"
                                             }`}
-                                        >
-                                            <span className="text-sm font-semibold">
-                                                {UserRoleLabels[r]}
-                                            </span>
-                                            <span className="text-[11px] opacity-80">
-                                                {roleBlurb[r]}
-                                            </span>
-                                        </button>
-                                    ))}
+                                    >
+                                        <span className="text-sm font-semibold">
+                                            {UserRoleLabels[r]}
+                                        </span>
+                                        <span className="text-[11px] opacity-80">
+                                            {roleBlurb[r]}
+                                        </span>
+                                    </button>
+                                ))}
                             </div>
                         </div>
 
@@ -308,6 +434,20 @@ const CrewPage = () => {
                             />
                             <span className="text-sm font-medium">Can sign in</span>
                         </label>
+
+                        {editing.isLockedOut && (
+                            <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-red-50 px-3 sm:col-span-2 dark:bg-red-950/40">
+                                <input
+                                    type="checkbox"
+                                    checked={unlock}
+                                    onChange={(e) => setUnlock(e.target.checked)}
+                                    className="h-5 w-5 accent-sky-600"
+                                />
+                                <span className="text-sm font-medium">
+                                    Unlock - they entered the wrong password too many times
+                                </span>
+                            </label>
+                        )}
                     </div>
                 </Modal>
             )}

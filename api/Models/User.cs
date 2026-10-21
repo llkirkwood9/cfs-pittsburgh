@@ -3,8 +3,8 @@ using System.ComponentModel.DataAnnotations;
 namespace api.Models
 {
     /// <summary>
-    /// A crew member who signs in on a tablet. Accounts are pre-provisioned by an admin;
-    /// there is no self-service signup.
+    /// A crew member who signs in with a username and password. Accounts are created by an
+    /// system admin, administrator or territory manager; there is no self-service signup.
     /// </summary>
     public class User
     {
@@ -20,7 +20,7 @@ namespace api.Models
         public string Name { get; set; } = string.Empty;
 
         /// <summary>
-        /// Short login handle typed on the sign-in screen
+        /// Login handle typed on the sign-in screen
         /// </summary>
         [MaxLength(50)]
         public string Username { get; set; } = string.Empty;
@@ -32,13 +32,42 @@ namespace api.Models
         public string? Email { get; set; }
 
         /// <summary>
-        /// Salted hash of the numeric PIN
+        /// The password hash (ASP.NET Core Identity's PBKDF2 format). Null for an account that
+        /// still only has a PIN from before passwords.
+        /// </summary>
+        [MaxLength(300)]
+        public string? PasswordHash { get; set; }
+
+        /// <summary>
+        /// The user must choose a new password before doing anything else - after an
+        /// administrator set it for them, or when they signed in with an old PIN.
+        /// </summary>
+        public bool MustChangePassword { get; set; }
+
+        /// <summary>
+        /// When the password was last set (UTC). Sessions opened before then are ended.
+        /// </summary>
+        public DateTime? PasswordChangedAt { get; set; }
+
+        /// <summary>
+        /// Wrong passwords in a row; reset by a successful sign-in
+        /// </summary>
+        public int FailedLoginCount { get; set; }
+
+        /// <summary>
+        /// Signing in is refused until this time (UTC) after too many wrong passwords
+        /// </summary>
+        public DateTime? LockoutUntil { get; set; }
+
+        /// <summary>
+        /// Salted hash of the PIN used before passwords. Kept only so an existing account can sign
+        /// in once and choose a password; cleared as soon as it does.
         /// </summary>
         [MaxLength(200)]
         public string PinHash { get; set; } = string.Empty;
 
         /// <summary>
-        /// Per-user salt for the PIN hash
+        /// Per-user salt for the old PIN hash
         /// </summary>
         [MaxLength(200)]
         public string PinSalt { get; set; } = string.Empty;
@@ -49,23 +78,23 @@ namespace api.Models
         public UserRole Role { get; set; } = UserRole.Sales;
 
         /// <summary>
+        /// The territory a manager or crew member works in. Null for system admins and administrators,
+        /// who work across every territory.
+        /// </summary>
+        public int? TerritoryId { get; set; }
+
+        /// <summary>
+        /// Navigation to the territory
+        /// </summary>
+        public Territory? Territory { get; set; }
+
+        /// <summary>
         /// Inactive users cannot sign in
         /// </summary>
         public bool IsActive { get; set; } = true;
 
         /// <summary>
-        /// Opaque refresh token issued at login
-        /// </summary>
-        [MaxLength(200)]
-        public string? RefreshToken { get; set; }
-
-        /// <summary>
-        /// Expiry of the current refresh token
-        /// </summary>
-        public DateTime? RefreshTokenExpiry { get; set; }
-
-        /// <summary>
-        /// When the user last signed in with their PIN (UTC). Null until their first sign-in.
+        /// When the user last signed in with their password (UTC). Null until their first sign-in.
         /// </summary>
         public DateTime? LastLoginAt { get; set; }
 

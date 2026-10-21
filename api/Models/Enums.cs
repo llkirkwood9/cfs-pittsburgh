@@ -109,7 +109,7 @@ namespace api.Models
         /// <summary>Checkout table. Takes payment, prints receipts.</summary>
         Checkout = 1,
 
-        /// <summary>Full access including catalog and event administration.</summary>
+        /// <summary>Full access across every territory, including territories and the global catalog.</summary>
         Admin = 2,
 
         /// <summary>
@@ -123,6 +123,12 @@ namespace api.Models
         /// accounts and catalog items. Only a system admin can create or change another system admin.
         /// </summary>
         SystemAdmin = 4,
+
+        /// <summary>
+        /// Runs one territory: its events, its crew below manager, its own catalog items (not the
+        /// global ones) and its settings, plus everything sales and checkout can do there.
+        /// </summary>
+        Manager = 5,
     }
 
     /// <summary>

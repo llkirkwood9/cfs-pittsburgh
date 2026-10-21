@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import TextField from "../Elements/TextField";
-import { useSettings } from "../../Context/SettingsContext";
+import { useSettingsFor } from "../../Context/SettingsContext";
 import {
     FinancingText,
     FormatCurrency,
@@ -44,13 +44,13 @@ const methods: { key: PaymentMethod; label: string; icon: string }[] = [
  * the sales sheet's comments.
  */
 const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Props) => {
-    const { settings } = useSettings();
-    const allowOther = settings.allowOtherFinanceType;
+    // The finance options and Other setting of the territory the order was taken in.
+    const allowOther = useSettingsFor(order.territoryId).allowOtherFinanceType;
     const [financeOptions, setFinanceOptions] = useState<FinanceOption[]>([]);
 
     useEffect(() => {
-        GetFinanceOptions().then(setFinanceOptions);
-    }, []);
+        GetFinanceOptions(false, order.territoryId).then(setFinanceOptions);
+    }, [order.territoryId]);
     // Cash is the default. It carries no card fee, so the selection shown always matches the
     // total shown; an order already switched to card reopens on card.
     const [method, setMethod] = useState<PaymentMethod>(

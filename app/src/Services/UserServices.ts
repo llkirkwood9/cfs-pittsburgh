@@ -58,7 +58,7 @@ export const GetReps = async (): Promise<string[]> => {
 //**************************************//
 
 /**
- * Updates a crew account. The PIN only changes when one is supplied.
+ * Updates a crew account. The password only changes when one is supplied, and a locked account is unlocked by sending isLockedOut: false.
  * @param userData The fields to change, including the id.
  * @returns The updated user, or null on failure.
  */

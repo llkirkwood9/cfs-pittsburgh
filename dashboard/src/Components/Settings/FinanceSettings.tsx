@@ -1,16 +1,17 @@
 import { useEffect, useState } from "react";
 import SettingsCard from "./SettingsCard";
-import { useSettings } from "../../Context/SettingsContext";
+import { useSettingsScope } from "./SettingsScope";
 import { Toast } from "../../Lib/Toast";
 import { DefaultGeneralSettings } from "../../Models/GeneralSettings";
 import { SaveGeneralSettings } from "../../Services/SettingsServices";
 
 /**
  * Whether checkout's financing type list ends with Other, for typing in a kind of financing that
- * isn't one of the financing options. The options themselves are kept in the Catalog.
+ * isn't one of the financing options. The options themselves are kept in the Catalog. A
+ * territory follows the company's choice until it saves its own.
  */
 const FinanceSettings = () => {
-    const { settings, apply } = useSettings();
+    const { settings, apply, territoryId } = useSettingsScope();
     const defaults = settings.defaults ?? DefaultGeneralSettings;
 
     const [allowOther, setAllowOther] = useState<boolean>(settings.allowOtherFinanceType);
@@ -25,7 +26,7 @@ const FinanceSettings = () => {
 
     const save = async (value: boolean) => {
         setSaving(true);
-        const result = await SaveGeneralSettings({ allowOtherFinanceType: value });
+        const result = await SaveGeneralSettings({ allowOtherFinanceType: value }, territoryId);
         setSaving(false);
         if (!result) return false;
         apply(result);
@@ -54,7 +55,11 @@ const FinanceSettings = () => {
                     ? undefined
                     : async () => {
                           if (await save(defaults.allowOtherFinanceType))
-                              Toast.Success("Financing settings are back to the default.");
+                              Toast.Success(
+                                  territoryId == null
+                                      ? "Financing settings are back to the default."
+                                      : "Financing settings now follow the company's."
+                              );
                       }
             }
         >

@@ -5,7 +5,7 @@ import SignaturePad from "../Elements/SignaturePad";
 import { useLockBodyScroll } from "../../Hooks/UseLockBodyScroll";
 import { AddressLines, RequiredTerms, SortLinesForPrint } from "../../Lib/ModelHelpers";
 import TermText from "../Elements/TermText";
-import { useSettings } from "../../Context/SettingsContext";
+import { useSettingsFor } from "../../Context/SettingsContext";
 import { Toast } from "../../Lib/Toast";
 import { TermFor } from "../../Models/GeneralSettings";
 import type { SalesTermKey } from "../../Models/GeneralSettings";
@@ -139,8 +139,9 @@ const DetailsSummary = ({ order }: { order: Order }) => {
  */
 const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
     useLockBodyScroll();
-    // The same wording the sales sheet prints beside each set of initials, set under Settings.
-    const { settings } = useSettings();
+    // The same wording the sales sheet prints beside each set of initials, set under Settings for
+    // the territory the sale is being taken in.
+    const settings = useSettingsFor(order.territoryId);
 
     const [step, setStep] = useState<number>(0);
     const [initials, setInitials] = useState<Record<string, string>>({

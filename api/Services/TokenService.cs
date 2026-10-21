@@ -3,13 +3,15 @@ using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
 using api.Models;
+using Microsoft.AspNetCore.Identity;
 using Microsoft.IdentityModel.Tokens;
 
 namespace api.Services
 {
     /// <summary>
-    /// Issues short-lived JWT access tokens and long-lived opaque refresh tokens,
-    /// and hashes the numeric PINs used to sign in on the floor tablets.
+    /// Issues short-lived JWT access tokens and long-lived opaque refresh tokens, and hashes
+    /// passwords. Refresh tokens are only ever stored as a SHA-256 hash. The old PIN hashing is
+    /// kept solely to let an account from before passwords sign in once and choose a password.
     /// </summary>
     public class TokenService(IConfiguration config)
     {
@@ -20,12 +22,18 @@ namespace api.Services
         /// </summary>
         private readonly IConfiguration _config = config;
 
+        /// <summary>
+        /// PBKDF2 with HMAC-SHA512 and a per-password salt, in ASP.NET Core Identity's versioned
+        /// format, so a stronger setting later rehashes passwords as people sign in.
+        /// </summary>
+        private readonly PasswordHasher<User> _hasher = new();
+
         #endregion
 
         #region Public Methods
 
         /// <summary>
-        /// Builds a signed access token carrying the user id, name and role.
+        /// Builds a signed access token carrying the user id, name, role and territory.
         /// </summary>
         /// <param name="user">User signing in</param>
         /// <returns>The encoded JWT.</returns>
@@ -43,79 +51,47 @@ namespace api.Services
                 new(ClaimTypes.Role, user.Role.ToString()),
             };
 
-            if (!string.IsNullOrWhiteSpace(user.Email))
-                claims.Add(new Claim(ClaimTypes.Email, user.Email));
-
-            var minutes = int.TryParse(_config["Jwt:ExpiresInMinutes"], out var parsed) ? parsed : 720;
+            if (user.TerritoryId != null)
+                claims.Add(new Claim("territory", user.TerritoryId.Value.ToString()));
 
             var token = new JwtSecurityToken(
                 issuer: _config["Jwt:Issuer"],
                 audience: _config["Jwt:Audience"],
                 claims: claims,
-                expires: DateTime.UtcNow.AddMinutes(minutes),
+                expires: DateTime.UtcNow.AddMinutes(AccessTokenMinutes()),
                 signingCredentials: credentials);
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
         /// <summary>
-        /// Generates a 64 byte opaque refresh token.
+        /// How long an access token lasts. Short, because it can't be revoked; the refresh cookie
+        /// renews it quietly, and a deactivated account stops working at its next request anyway.
         /// </summary>
-        /// <returns>Base64 encoded refresh token.</returns>
+        /// <returns>Minutes.</returns>
+        public int AccessTokenMinutes()
+        {
+            var minutes = int.TryParse(_config["Jwt:AccessTokenMinutes"], out var parsed) ? parsed : 15;
+            return Math.Clamp(minutes, 1, 60);
+        }
+
+        /// <summary>
+        /// Generates a 64 byte opaque refresh token, URL-safe so it travels cleanly in a cookie.
+        /// </summary>
+        /// <returns>The token.</returns>
         public string CreateRefreshToken()
         {
-            var bytes = RandomNumberGenerator.GetBytes(64);
-            return Convert.ToBase64String(bytes);
+            return Base64UrlEncoder.Encode(RandomNumberGenerator.GetBytes(64));
         }
 
         /// <summary>
-        /// Generates a random salt for PIN hashing.
+        /// The SHA-256 of a refresh token, which is all the database keeps.
         /// </summary>
-        /// <returns>Base64 encoded salt.</returns>
-        public string CreateSalt()
+        /// <param name="token">The refresh token</param>
+        /// <returns>Lower-case hex.</returns>
+        public static string HashRefreshToken(string token)
         {
-            return Convert.ToBase64String(RandomNumberGenerator.GetBytes(16));
-        }
-
-        /// <summary>
-        /// Hashes a PIN with the supplied salt using PBKDF2.
-        /// </summary>
-        /// <param name="pin">Plain text PIN</param>
-        /// <param name="salt">Base64 salt</param>
-        /// <returns>Base64 encoded hash.</returns>
-        public string HashPin(string pin, string salt)
-        {
-            var saltBytes = Convert.FromBase64String(salt);
-            var hash = Rfc2898DeriveBytes.Pbkdf2(
-                Encoding.UTF8.GetBytes(pin),
-                saltBytes,
-                100_000,
-                HashAlgorithmName.SHA256,
-                32);
-
-            return Convert.ToBase64String(hash);
-        }
-
-        /// <summary>
-        /// Constant-time comparison of a supplied PIN against a stored hash.
-        /// </summary>
-        /// <param name="pin">Plain text PIN</param>
-        /// <param name="salt">Base64 salt</param>
-        /// <param name="expectedHash">Stored hash</param>
-        /// <returns>True when the PIN matches.</returns>
-        public bool VerifyPin(string pin, string salt, string expectedHash)
-        {
-            try
-            {
-                var actual = HashPin(pin, salt);
-                return CryptographicOperations.FixedTimeEquals(
-                    Convert.FromBase64String(actual),
-                    Convert.FromBase64String(expectedHash));
-            }
-            catch
-            {
-                return false;
-            }
+            return Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes(token)));
         }
 
         /// <summary>
@@ -125,7 +101,81 @@ namespace api.Services
         public DateTime GetRefreshTokenExpiry()
         {
             var days = int.TryParse(_config["Jwt:RefreshTokenDays"], out var parsed) ? parsed : 7;
-            return DateTime.UtcNow.AddDays(days);
+            return DateTime.UtcNow.AddDays(Math.Clamp(days, 1, 30));
+        }
+
+        /// <summary>
+        /// Hashes a password for storing.
+        /// </summary>
+        /// <param name="user">The account (part of Identity's hashing API; not mixed into the hash)</param>
+        /// <param name="password">Plain text password</param>
+        /// <returns>The hash.</returns>
+        public string HashPassword(User user, string password)
+        {
+            return _hasher.HashPassword(user, password);
+        }
+
+        /// <summary>
+        /// Checks a password against the account's hash.
+        /// </summary>
+        /// <param name="user">The account</param>
+        /// <param name="password">Plain text password</param>
+        /// <param name="rehash">Set when the hash was made with older settings and should be replaced</param>
+        /// <returns>True when the password matches.</returns>
+        public bool VerifyPassword(User user, string password, out bool rehash)
+        {
+            rehash = false;
+            if (string.IsNullOrEmpty(user.PasswordHash))
+                return false;
+
+            var result = _hasher.VerifyHashedPassword(user, user.PasswordHash, password);
+            rehash = result == PasswordVerificationResult.SuccessRehashNeeded;
+            return result != PasswordVerificationResult.Failed;
+        }
+
+        /// <summary>
+        /// Constant-time check of a PIN against an account's old PIN hash, for an account that has
+        /// not chosen a password yet.
+        /// </summary>
+        /// <param name="pin">What was typed</param>
+        /// <param name="salt">Base64 salt</param>
+        /// <param name="expectedHash">Stored hash</param>
+        /// <returns>True when it matches.</returns>
+        public bool VerifyLegacyPin(string pin, string salt, string expectedHash)
+        {
+            if (string.IsNullOrEmpty(salt) || string.IsNullOrEmpty(expectedHash))
+                return false;
+
+            try
+            {
+                var actual = Rfc2898DeriveBytes.Pbkdf2(
+                    Encoding.UTF8.GetBytes(pin),
+                    Convert.FromBase64String(salt),
+                    100_000,
+                    HashAlgorithmName.SHA256,
+                    32);
+
+                return CryptographicOperations.FixedTimeEquals(actual, Convert.FromBase64String(expectedHash));
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// A random password for a first sign-in, e.g. the seeded system admin's when none is configured:
+        /// 20 characters from an alphabet without look-alikes.
+        /// </summary>
+        /// <returns>The password.</returns>
+        public static string GeneratePassword()
+        {
+            const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+            return string.Create(20, alphabet, (span, chars) =>
+            {
+                for (var i = 0; i < span.Length; i++)
+                    span[i] = chars[RandomNumberGenerator.GetInt32(chars.Length)];
+            });
         }
 
         /// <summary>

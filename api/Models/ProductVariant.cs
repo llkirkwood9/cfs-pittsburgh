@@ -54,10 +54,9 @@ namespace api.Models
         public bool IsActive { get; set; } = true;
 
         /// <summary>
-        /// Units of this size on hand at the cart. Only meaningful when the product tracks
-        /// inventory; Take With sales draw it down when the order is completed.
+        /// Units on hand in each territory, for tracked products
         /// </summary>
-        public int QuantityOnHand { get; set; }
+        public List<InventoryStock> Stock { get; set; } = new();
 
         /// <summary>
         /// Leaves this size out of the product's inventory: it is not counted, does not appear on
@@ -88,12 +87,6 @@ namespace api.Models
         /// is no percent
         /// </summary>
         public decimal? SaleDiscountAmount { get; set; }
-
-        /// <summary>
-        /// Units on hand for each combination of counted choices, for products whose selections
-        /// count stock separately
-        /// </summary>
-        public List<ChoiceStock> ChoiceStocks { get; set; } = new();
 
         /// <summary>
         /// Other catalog items that come with this one at no extra charge, e.g. the adjustable

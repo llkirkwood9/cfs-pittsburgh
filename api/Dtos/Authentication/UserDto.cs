@@ -1,8 +1,8 @@
 namespace api.Dtos.Authentication
 {
     /// <summary>
-    /// Crew account. The PIN is write-only: it is accepted on create and update but never
-    /// returned.
+    /// Crew account. The password is write-only: it is accepted when an account is created or
+    /// reset, never returned.
     /// </summary>
     public class UserDto
     {
@@ -27,9 +27,19 @@ namespace api.Dtos.Authentication
         public string? Email { get; set; }
 
         /// <summary>
-        /// Sales, Checkout or Admin
+        /// Sales, Checkout, SalesCheckout, Manager, Admin or System Admin
         /// </summary>
         public string? Role { get; set; }
+
+        /// <summary>
+        /// The territory a manager or crew member works in; null for system admins and administrators
+        /// </summary>
+        public int? TerritoryId { get; set; }
+
+        /// <summary>
+        /// The territory's name, for display
+        /// </summary>
+        public string? TerritoryName { get; set; }
 
         /// <summary>
         /// Whether the account may sign in
@@ -37,12 +47,23 @@ namespace api.Dtos.Authentication
         public bool? IsActive { get; set; }
 
         /// <summary>
-        /// Numeric PIN, accepted on write only and never returned
+        /// A new password, accepted on write only and never returned. Set by a system admin,
+        /// administrator or manager, it must be changed at the next sign-in.
         /// </summary>
-        public string? Pin { get; set; }
+        public string? Password { get; set; }
 
         /// <summary>
-        /// When the user last signed in (UTC). Read-only, and only sent to a system admin.
+        /// Whether the user has to choose a new password before carrying on
+        /// </summary>
+        public bool? MustChangePassword { get; set; }
+
+        /// <summary>
+        /// Whether the account is locked after too many wrong passwords (crew screen only)
+        /// </summary>
+        public bool? IsLockedOut { get; set; }
+
+        /// <summary>
+        /// When they last signed in (UTC). Only sent to a system admin.
         /// </summary>
         public DateTime? LastLoginAt { get; set; }
     }

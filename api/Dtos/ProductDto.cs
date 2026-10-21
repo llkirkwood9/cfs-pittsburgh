@@ -12,6 +12,21 @@ namespace api.Dtos
         public int? Id { get; set; }
 
         /// <summary>
+        /// The territory this product belongs to; null for a global product offered everywhere
+        /// </summary>
+        public int? TerritoryId { get; set; }
+
+        /// <summary>
+        /// The territory's name (returned, not saved)
+        /// </summary>
+        public string? TerritoryName { get; set; }
+
+        /// <summary>
+        /// Whether the signed-in user may change it (returned, not saved) - a manager can't change global ones
+        /// </summary>
+        public bool? CanEdit { get; set; }
+
+        /// <summary>
         /// Model name as written in the Description column
         /// </summary>
         public string? Name { get; set; }

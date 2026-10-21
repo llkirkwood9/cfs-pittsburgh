@@ -41,7 +41,8 @@ namespace api.Dtos
         public bool? IsActive { get; set; }
 
         /// <summary>
-        /// Units on hand. Read-only here; counts are changed through the inventory endpoints.
+        /// Units on hand in the territory being worked; null when viewing every territory. Read-only
+        /// here; counts are changed through the inventory endpoints.
         /// </summary>
         public int? QuantityOnHand { get; set; }
 

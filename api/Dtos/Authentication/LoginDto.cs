@@ -1,18 +1,19 @@
 namespace api.Dtos.Authentication
 {
     /// <summary>
-    /// Sign-in request from the tablet keypad.
+    /// Sign-in request.
     /// </summary>
     public class LoginDto
     {
         /// <summary>
-        /// Login handle typed on the sign-in screen
+        /// Login handle
         /// </summary>
         public string? Username { get; set; }
 
         /// <summary>
-        /// Numeric PIN
+        /// Password. An account from before passwords may give its old PIN here once, and must
+        /// then choose a password.
         /// </summary>
-        public string? Pin { get; set; }
+        public string? Password { get; set; }
     }
 }

@@ -18,7 +18,7 @@ itself and **PostgreSQL**, which has an ARM build and is light enough for a Pi 3
 | `docker-compose.pi.yml` | Simply includes `docker-compose.yml`; the boot script below uses this name |
 | `docker/pi/cfs-update.sh` | Pull the newest image and start everything |
 | `docker/pi/cfs.service` | Runs that script at every boot |
-| `.github/workflows/app-image.yml` | Builds the image for you whenever you push to `main` |
+| `.github/workflows/cloud-deploy.yml` | Builds the image for you whenever you push to `Cloud-Support` |
 
 On the Pi this uses roughly **175 MB of RAM** (about 135 MB for the app, 40 MB for PostgreSQL),
 which leaves plenty of room on a 1 GB board.
@@ -97,7 +97,7 @@ sudo mkdir -p /opt/cfs && sudo chown $USER:$USER /opt/cfs
 ```
 
 ```bash
-git clone https://github.com/llkirkwood9/cfs-pittsburgh.git /opt/cfs
+git clone -b Cloud-Support https://github.com/llkirkwood9/cfs-pittsburgh.git /opt/cfs
 ```
 
 If the repository is private, GitHub will ask for your username and a personal access token instead
@@ -109,7 +109,7 @@ The stack reads two secrets from `/opt/cfs/.env`. Generate them on the Pi and wr
 go:
 
 ```bash
-printf 'CFS_IMAGE=ghcr.io/llkirkwood9/cfs-fundraiser:latest\nPOSTGRES_PASSWORD=%s\nJWT_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -base64 48 | tr -d '\n/+=')" > /opt/cfs/.env
+printf 'CFS_IMAGE=ghcr.io/llkirkwood9/cfs-fundraiser:cloud\nPOSTGRES_PASSWORD=%s\nJWT_KEY=%s\n' "$(openssl rand -hex 24)" "$(openssl rand -base64 48 | tr -d '\n/+=')" > /opt/cfs/.env
 ```
 
 ```bash
@@ -129,19 +129,31 @@ echo 'SKIP_SEED_DATA=true' >> /opt/cfs/.env
 ```
 
 You can add it later too; it takes effect at the next restart and leaves everything already in the
-database alone. Either way, a brand-new database still gets one account to sign in with -
-`admin`, PIN `1234` - so change that PIN as soon as you sign in.
+database alone. Either way, a brand-new database still gets one account to sign in with, `admin`.
+
+**Optional - choose the first password.** That first account's starting password is random and
+written to the app's log when it is created (Step 7 shows where). To pick it yourself instead, add
+it to the file before the first start:
+
+```bash
+echo 'SEED_ADMIN_PASSWORD=pick-something-long' >> /opt/cfs/.env
+```
+
+Either way it has to be changed at the first sign-in; take the line back out afterwards.
 
 ## Step 6 - Publish the app image
 
 The Pi doesn't build anything - it pulls a ready-made image. GitHub Actions builds it for you, for
 both ARM (the Pi) and x86:
 
-1. Push this branch to `main`. The **App image** workflow starts automatically.
-2. Watch it on GitHub under **Actions** → **App image**. The first run takes roughly 10-15 minutes.
-3. When it finishes, the image exists at `ghcr.io/llkirkwood9/cfs-fundraiser:latest`, and also
-   under its version, e.g. `:2026.10.1` (the year, the month, and which build of the month it is).
-   The dashboard's profile menu shows the version a Pi is running.
+1. Push to the `Cloud-Support` branch. The **Cloud deploy** workflow starts automatically (you
+   can also start it by hand under **Actions** → **Cloud deploy** → **Run workflow**). Its deploy
+   step is for the cloud server and does nothing until one is set up, so the Pi doesn't need it.
+2. Watch it on GitHub under **Actions** → **Cloud deploy**. The first run takes roughly 10-15
+   minutes.
+3. When it finishes, the image exists at `ghcr.io/llkirkwood9/cfs-fundraiser:cloud`, and also
+   under its version, e.g. `:cloud-2026.10.1` (the year, the month, and which build of the month it
+   is). The dashboard's profile menu shows the version a Pi is running.
 
 **Let the Pi read it.** Packages start out private, so do one of these:
 
@@ -158,7 +170,7 @@ both ARM (the Pi) and x86:
 
 > **Prefer to build it yourself?** On a computer with Docker Desktop:
 > ```bash
-> docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/llkirkwood9/cfs-fundraiser:latest --push .
+> docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/llkirkwood9/cfs-fundraiser:cloud --push .
 > ```
 
 ## Step 7 - First run
@@ -184,12 +196,24 @@ Press `Ctrl+C` to stop watching. Both containers should say `healthy`:
 docker compose ps
 ```
 
-Now open `http://cfs.local:8080` (or `http://<the Pi's IP>:8080`) from any device on the network and
-sign in as **admin / 1234**. That first account is made the **System Admin** automatically, the one
-role that can permanently delete events, orders and crew.
+Unless you set `SEED_ADMIN_PASSWORD`, find the first account's starting password in the log:
 
-> **Change that PIN straight away**: tap your initials in the top-right corner, then **Change PIN**.
-> Then add accounts for the rest of the team under **Crew**.
+```bash
+docker compose logs app | grep "Created the first account"
+```
+
+Now open `http://cfs.local:8080` (or `http://<the Pi's IP>:8080`) from any device on the network and
+sign in as **admin** with that password. That first account is made the **System Admin**
+automatically, the one role that can permanently delete events, orders and crew.
+
+> **You'll be asked to choose your own password straight away.** Then, under **Territories**,
+> rename the first territory to where this cart works, and add accounts for the rest of the team
+> under **Crew** - each one gets a starting password to pass on, and chooses their own at their
+> first sign-in.
+
+> **Updating a Pi that used PINs?** Everything already on it goes into a territory called
+> Pittsburgh (rename it under **Territories**). Each person signs in once more with their old PIN
+> in the password box and is then asked to choose a password.
 
 ## Step 8 - Start it automatically at boot
 
@@ -239,7 +263,8 @@ hostname -I
 
 ## Day-to-day
 
-**Updating the app.** Push to `main`, wait for the App image workflow to finish, then on the Pi:
+**Updating the app.** Push to `Cloud-Support`, wait for the Cloud deploy workflow's build to
+finish, then on the Pi:
 
 ```bash
 sudo systemctl restart cfs.service
@@ -483,6 +508,10 @@ docker inspect --format '{{index .Config.Image}} {{.Created}}' cfs-app
 ## A note on security
 
 This runs plain HTTP on your local network, which is fine for a cart on an event Wi-Fi. Don't
-forward port 8080 through a router to the internet: there's no HTTPS and the sign-in is a short
-PIN. If you ever need it reachable from outside the venue, put it behind a VPN or a reverse proxy
-with a certificate.
+forward port 8080 through a router to the internet: there's no HTTPS. If you need it reachable
+from outside the venue, run it in the cloud instead (*Cloud Deployment.md* - the same two
+containers, run by Coolify with HTTPS in front), or put the Pi behind a VPN.
+
+The app still guards itself: passwords of at least 8 characters, a 15-minute lockout after 5
+wrong ones, short-lived sign-ins kept only in the tablet's memory, and a session cookie the page
+can't read.

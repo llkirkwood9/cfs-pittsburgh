@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import TextField from "../Elements/TextField";
 import SettingsCard from "./SettingsCard";
-import { useSettings } from "../../Context/SettingsContext";
+import { useSettingsScope } from "./SettingsScope";
 import { FormatCurrency } from "../../Lib/ModelHelpers";
 import { Toast } from "../../Lib/Toast";
 import { DefaultGeneralSettings } from "../../Models/GeneralSettings";
@@ -20,7 +20,7 @@ const ParseAmount = (value: string): number => Number(value.replace(/[$,\s]/g, "
  * is "running low" on the dashboard and the Inventory screen.
  */
 const DashboardSettings = () => {
-    const { settings, apply } = useSettings();
+    const { settings, apply, territoryId } = useSettingsScope();
     const defaults = settings.defaults ?? DefaultGeneralSettings;
 
     const [firstAt, setFirstAt] = useState<string>(String(settings.starsFirstAt));
@@ -57,7 +57,7 @@ const DashboardSettings = () => {
         lowStockAt: number;
     }) => {
         setSaving(true);
-        const result = await SaveGeneralSettings(values);
+        const result = await SaveGeneralSettings(values, territoryId);
         setSaving(false);
         if (!result) return false;
         apply(result);

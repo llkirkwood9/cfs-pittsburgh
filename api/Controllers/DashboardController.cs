@@ -13,7 +13,8 @@ namespace api.Controllers
     /// <summary>
     /// The School Stat Sheet, computed live. Only completed orders feed the money figures;
     /// drafts and voided orders are reported separately so the floor can see work in progress
-    /// without it inflating the day's numbers.
+    /// without it inflating the day's numbers. Figures cover the territory being viewed; system admins
+    /// and administrators can also view every territory together, or compare them side by side.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -39,7 +40,7 @@ namespace api.Controllers
             try
             {
                 var saleEvent = await DB.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == eventId);
-                if (saleEvent == null)
+                if (saleEvent == null || !CanSee(saleEvent))
                     return NotFound(new { error = "Event not found." });
 
                 var stats = await BuildStatsAsync(DB, o => o.EventId == eventId);
@@ -51,13 +52,14 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while getting the stats.", exception = e.Message });
+                return ServerError("Internal error occurred while getting the stats.", e);
             }
         }
 
         /// <summary>
-        /// Stat sheet figures across every event, with each event's headline figures alongside.
+        /// Stat sheet figures across every event in the territory being viewed, or across every
+        /// territory for a system admin or administrator viewing them all, with each event's
+        /// headline figures alongside.
         /// </summary>
         /// <returns>The computed stat sheet.</returns>
         [HttpGet("stats/all")]
@@ -66,21 +68,38 @@ namespace api.Controllers
         {
             try
             {
-                var orders = await LoadOrdersAsync(DB, o => true);
-                var events = await DB.Events.AsNoTracking().ToListAsync();
+                var territoryId = Scope.TerritoryId;
+
+                var orders = await DB.Orders
+                    .Where(o => territoryId == null || o.Event!.TerritoryId == territoryId)
+                    .Include(o => o.Lines)
+                    .Include(o => o.Payments)
+                    .AsNoTracking()
+                    .ToListAsync();
+                var events = await DB.Events
+                    .Where(e => territoryId == null || e.TerritoryId == territoryId)
+                    .Include(e => e.Territory)
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                static List<Order> Completed(IEnumerable<Order> list) =>
+                    list.Where(o => o.Status == OrderStatus.Completed).ToList();
 
                 // Every item sold, ranked, rather than an event's top 15.
-                var stats = ComputeStats(orders, topProducts: null);
+                var stats = Build(Completed(orders), orders, topProducts: null);
                 stats.Events = events
                     .OrderByDescending(e => e.EventDate)
                     .ThenByDescending(e => e.Id)
                     .Select(e =>
                     {
-                        var figures = ComputeStats(orders.Where(o => o.EventId == e.Id).ToList());
+                        var mine = orders.Where(o => o.EventId == e.Id).ToList();
+                        var figures = Build(Completed(mine), mine);
                         return new EventTallyDto
                         {
                             EventId = e.Id,
                             Organization = e.Organization,
+                            // Only needed to tell events apart when every territory is in view.
+                            TerritoryName = territoryId == null ? e.Territory?.Name : null,
                             EventDate = e.EventDate,
                             IsActive = e.IsActive,
                             CompletedOrderCount = figures.CompletedOrderCount ?? 0,
@@ -91,14 +110,85 @@ namespace api.Controllers
                         };
                     })
                     .ToList();
-                stats.WorstProducts = await WorstSellersAsync(DB, orders);
+                stats.WorstProducts = await WorstSellersAsync(DB, orders, territoryId);
 
                 return Ok(stats);
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while getting the stats.", exception = e.Message });
+                return ServerError("Internal error occurred while getting the stats.", e);
+            }
+        }
+
+        /// <summary>
+        /// Every territory side by side: the headline figures from each one's completed sales
+        /// between two dates. System Admins and administrators only.
+        /// </summary>
+        /// <param name="from">First day to include; leave out for no lower limit</param>
+        /// <param name="to">Last day to include; leave out for no upper limit</param>
+        /// <returns>One row per territory, biggest total first.</returns>
+        [HttpGet("stats/territories")]
+        [Authorize(AuthenticationSchemes = "Bearer")]
+        public async Task<IActionResult> GetTerritoryComparison([FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
+        {
+            try
+            {
+                if (!Scope.IsCompanyWide)
+                    return Forbidden("Only a system admin or administrator may compare territories.");
+
+                var start = from?.Date;
+                var end = to?.Date.AddDays(1);
+
+                var orders = await DB.Orders
+                    .Where(o => o.Status == OrderStatus.Completed
+                                && (start == null || o.SaleDate >= start)
+                                && (end == null || o.SaleDate < end))
+                    .Include(o => o.Event)
+                    .Include(o => o.Lines)
+                    .AsNoTracking()
+                    .ToListAsync();
+
+                var territories = await DB.Territories.AsNoTracking().OrderBy(t => t.Name).ToListAsync();
+                var activeEvents = await DB.Events.AsNoTracking()
+                    .Where(e => e.IsActive)
+                    .Select(e => new { e.TerritoryId, e.Organization })
+                    .ToListAsync();
+                var activeByTerritory = activeEvents
+                    .GroupBy(e => e.TerritoryId)
+                    .ToDictionary(g => g.Key, g => g.First().Organization);
+
+                var rows = territories
+                    .Select(t =>
+                    {
+                        var mine = orders.Where(o => o.Event!.TerritoryId == t.Id).ToList();
+                        var stats = Build(mine, []);
+                        return new TerritoryStatsDto
+                        {
+                            TerritoryId = t.Id,
+                            TerritoryName = t.Name,
+                            IsActive = t.IsActive,
+                            ActiveEvent = activeByTerritory.GetValueOrDefault(t.Id),
+                            EventCount = mine.Select(o => o.EventId).Distinct().Count(),
+                            CompletedOrderCount = stats.CompletedOrderCount,
+                            TotalSales = stats.TotalSales,
+                            NetSales = stats.NetSales,
+                            AverageSale = stats.AverageSale,
+                            MattressCount = stats.MattressCount,
+                            AdjustableBaseCount = stats.AdjustableBaseCount,
+                            OutstandingBalance = stats.OutstandingBalance,
+                        };
+                    })
+                    // A switched-off territory with nothing in the dates is just clutter.
+                    .Where(r => r.IsActive == true || r.CompletedOrderCount > 0)
+                    .OrderByDescending(r => r.TotalSales)
+                    .ThenBy(r => r.TerritoryName)
+                    .ToList();
+
+                return Ok(rows);
+            }
+            catch (Exception e)
+            {
+                return ServerError("Internal error occurred while comparing territories.", e);
             }
         }
 
@@ -114,8 +204,11 @@ namespace api.Controllers
         /// <returns>The computed stat sheet.</returns>
         private static async Task<DashboardStatsDto> BuildStatsAsync(
             ApplicationDbContext db,
-            System.Linq.Expressions.Expression<Func<Order, bool>> filter) =>
-            ComputeStats(await LoadOrdersAsync(db, filter));
+            System.Linq.Expressions.Expression<Func<Order, bool>> filter)
+        {
+            var orders = await LoadOrdersAsync(db, filter);
+            return Build(orders.Where(o => o.Status == OrderStatus.Completed).ToList(), orders);
+        }
 
         /// <summary>
         /// The products in the catalog that have sold the fewest units in completed sales, fewest
@@ -124,16 +217,20 @@ namespace api.Controllers
         /// </summary>
         /// <param name="db">EF context</param>
         /// <param name="orders">The orders to report on, with their lines</param>
+        /// <param name="territoryId">The territory in view, whose own products are listed with the
+        /// company-wide ones; null for every product</param>
         /// <param name="count">How many to list</param>
         /// <returns>The worst sellers.</returns>
         private static async Task<List<ProductTallyDto>> WorstSellersAsync(
             ApplicationDbContext db,
             List<Order> orders,
+            int? territoryId,
             int count = 10)
         {
             var products = await db.Products
                 .AsNoTracking()
                 .Where(p => p.IsActive)
+                .Where(p => territoryId == null || p.TerritoryId == null || p.TerritoryId == territoryId)
                 .Select(p => new { p.Id, p.Name, p.Brand, p.Category, VariantIds = p.Variants.Select(v => v.Id).ToList() })
                 .ToListAsync();
 
@@ -183,15 +280,14 @@ namespace api.Controllers
                 .ToListAsync();
 
         /// <summary>
-        /// Computes the stat sheet over a set of orders already loaded with their lines and
-        /// payments.
+        /// Computes the stat sheet from orders already loaded.
         /// </summary>
-        /// <param name="orders">The orders to report on</param>
+        /// <param name="completed">Completed orders, with lines (and payments, for the payment totals)</param>
+        /// <param name="orders">Every order in range, for the work-in-progress counts</param>
         /// <param name="topProducts">How many best sellers to list; null lists every item sold</param>
         /// <returns>The computed stat sheet.</returns>
-        private static DashboardStatsDto ComputeStats(List<Order> orders, int? topProducts = 15)
+        private static DashboardStatsDto Build(List<Order> completed, List<Order> orders, int? topProducts = 15)
         {
-            var completed = orders.Where(o => o.Status == OrderStatus.Completed).ToList();
             var lines = completed.SelectMany(o => o.Lines).ToList();
             var payments = completed.SelectMany(o => o.Payments).ToList();
 

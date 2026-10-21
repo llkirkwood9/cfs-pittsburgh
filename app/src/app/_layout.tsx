@@ -10,6 +10,7 @@ import ConnectionBanner from "../Components/Elements/ConnectionBanner";
 import ToastHost from "../Components/Elements/ToastHost";
 import { AuthProvider } from "../Context/AuthContext";
 import { SettingsProvider } from "../Context/SettingsContext";
+import { TerritoryProvider } from "../Context/TerritoryContext";
 import { ApplyStoredTheme, useTheme } from "../Hooks/UseTheme";
 import { LoadStorage } from "../Lib/Storage";
 
@@ -37,9 +38,11 @@ export default function RootLayout() {
     return (
         <GestureHandlerRootView style={{ flex: 1 }}>
             <AuthProvider>
-                <SettingsProvider>
-                    <Shell />
-                </SettingsProvider>
+                <TerritoryProvider>
+                    <SettingsProvider>
+                        <Shell />
+                    </SettingsProvider>
+                </TerritoryProvider>
             </AuthProvider>
         </GestureHandlerRootView>
     );

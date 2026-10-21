@@ -1,6 +1,7 @@
 import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import SizeGuideButton from "./SizeGuideButton";
+import TerritoryPicker from "./TerritoryPicker";
 import ThemeToggle from "./ThemeToggle";
 import UserProfileDropdown from "./UserProfileDropdown";
 import Icon from "../Elements/Icon";
@@ -10,8 +11,8 @@ import { useSettings } from "../../Context/SettingsContext";
 
 /**
  * The dashboard's menu bar, minus its tabs - the native tab bar has those. It keeps the app name
- * and the things every screen needs within a thumb's reach: the size chart, the theme and who is
- * signed in. Each tab's screen draws it across its top.
+ * and the things every screen needs within a thumb's reach: the territory in view, the size chart,
+ * the theme and who is signed in. Each tab's screen draws it across its top.
  */
 const Navbar = () => {
     const { settings } = useSettings();
@@ -26,6 +27,7 @@ const Navbar = () => {
                 <Text className="flex-1 text-base font-bold tracking-tight text-white" numberOfLines={1}>
                     {settings.appName}
                 </Text>
+                <TerritoryPicker />
                 <SizeGuideButton />
                 <ThemeToggle />
                 <UserProfileDropdown />

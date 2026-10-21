@@ -28,12 +28,16 @@ export const AddFinanceOption = async (option: FinanceOption): Promise<FinanceOp
 /**
  * Lists the finance options.
  * @param includeInactive Pass true from the catalog screen.
+ * @param territoryId List for this territory (such as an order's) instead of the one in view.
  * @returns Options in display order, or an empty list on failure.
  */
-export const GetFinanceOptions = async (includeInactive = false): Promise<FinanceOption[]> => {
+export const GetFinanceOptions = async (
+    includeInactive = false,
+    territoryId?: number | null
+): Promise<FinanceOption[]> => {
     try {
         const response = await api.get<FinanceOption[]>("/api/FinanceOption/financeoptions", {
-            params: { includeInactive },
+            params: territoryId == null ? { includeInactive } : { includeInactive, territoryId },
         });
         return response.data;
     } catch (error) {
@@ -66,9 +70,9 @@ export const UpdateFinanceOption = async (option: FinanceOption): Promise<Financ
 //************************************//
 
 /**
- * Puts the finance options in a new order.
- * @param ids Every option id, in the order checkout should list them.
- * @returns The options in their new order, or null on failure.
+ * Puts one list of finance options - the global ones, or one territory's own - in a new order.
+ * @param ids Every option id of that list, in the order checkout should list them.
+ * @returns The options as the catalog lists them, or null on failure.
  */
 export const ReorderFinanceOptions = async (ids: number[]): Promise<FinanceOption[] | null> => {
     try {

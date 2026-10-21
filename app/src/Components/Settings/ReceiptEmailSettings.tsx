@@ -1,13 +1,13 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import SettingsCard from "./SettingsCard";
+import { useSettingsScope } from "./SettingsScope";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Grid from "../Elements/Grid";
 import HtmlPreview from "../Elements/HtmlPreview";
 import Icon from "../Elements/Icon";
 import ListSkeleton from "../Elements/ListSkeleton";
 import Text from "../Elements/Text";
-import { useSettings } from "../../Context/SettingsContext";
 import { useTheme } from "../../Hooks/UseTheme";
 import { cx } from "../../Lib/ClassNames";
 import { FormatDateTime } from "../../Lib/ModelHelpers";
@@ -40,7 +40,7 @@ type Props = {
  * preview for a sample order.
  */
 const ReceiptEmailSettings = ({ onLayout }: Props) => {
-    const { settings: general } = useSettings();
+    const { settings: general, territoryId } = useSettingsScope();
     const { isDark } = useTheme();
     const [saved, setSaved] = useState<ReceiptEmail | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
@@ -59,14 +59,14 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
 
     useEffect(() => {
         const load = async () => {
-            const found = await GetReceiptEmailSettings();
+            const found = await GetReceiptEmailSettings(territoryId);
             setSaved(found);
             setSubject(found?.subject ?? "");
             setBody(found?.body ?? "");
             setLoading(false);
         };
         load();
-    }, []);
+    }, [territoryId]);
 
     // Refresh the preview once typing pauses, or when the business details change. A newer
     // request supersedes an older one.
@@ -74,14 +74,14 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
         if (loading) return;
         let current = true;
         const timer = setTimeout(async () => {
-            const result = await PreviewReceiptEmail(subject, body);
+            const result = await PreviewReceiptEmail(subject, body, territoryId);
             if (current && result) setPreview(result);
         }, PREVIEW_DELAY_MS);
         return () => {
             current = false;
             clearTimeout(timer);
         };
-    }, [subject, body, loading, general.companyName, general.customerServicePhone]);
+    }, [subject, body, loading, territoryId, general.companyName, general.customerServicePhone]);
 
     if (loading) {
         return (
@@ -121,7 +121,7 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
 
     const save = async (nextSubject: string, nextBody: string) => {
         setSaving(true);
-        const result = await SaveReceiptEmailSettings(nextSubject, nextBody);
+        const result = await SaveReceiptEmailSettings(nextSubject, nextBody, territoryId);
         setSaving(false);
         if (!result) return false;
         setSaved(result);

@@ -1,14 +1,21 @@
-import { useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import Icon from "../Components/Elements/Icon";
+import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Page from "../Components/Elements/Page";
+import SelectField from "../Components/Elements/SelectField";
 import Text from "../Components/Elements/Text";
 import BusinessDetailsSettings from "../Components/Settings/BusinessDetailsSettings";
 import DashboardSettings from "../Components/Settings/DashboardSettings";
 import FinanceSettings from "../Components/Settings/FinanceSettings";
 import NewEventSettings from "../Components/Settings/NewEventSettings";
 import ReceiptEmailSettings from "../Components/Settings/ReceiptEmailSettings";
+import { SettingsScopeContext } from "../Components/Settings/SettingsScope";
 import TermsSettings from "../Components/Settings/TermsSettings";
+import { useSettings } from "../Context/SettingsContext";
+import { useTerritory } from "../Context/TerritoryContext";
+import type { GeneralSettings } from "../Models/GeneralSettings";
+import { GetGeneralSettings } from "../Services/SettingsServices";
 
 const sections = [
     { id: "business", label: "Business details", icon: "fa-solid fa-building" },
@@ -20,11 +27,42 @@ const sections = [
 ];
 
 /**
- * Settings an administrator changes for everyone: the business details printed on sheets and
- * emails, the terms customers initial, the receipt email's wording, the finance options, new
- * events' rates and the dashboard's levels. Each card saves on its own.
+ * Settings: the business details printed on sheets and emails, the terms customers initial, the
+ * receipt email's wording, the finance options, new events' rates and the dashboard's levels.
+ * System Admins and administrators set the company-wide values; each territory can change any of
+ * them for itself (its manager can too), and anything it leaves alone follows the company. Each
+ * card saves on its own.
  */
 const SettingsPage = () => {
+    const { refresh: refreshInView } = useSettings();
+    const { territories, territoryId: territoryInView, canSwitch, territoryName } = useTerritory();
+
+    // System Admins and administrators start on the territory in view, or the company-wide settings
+    // when viewing every territory; a manager only ever edits their own territory's.
+    const [scopeId, setScopeId] = useState<number | null>(territoryInView);
+    const [settings, setSettings] = useState<GeneralSettings | null>(null);
+
+    const load = useCallback(async (id: number | null) => {
+        setSettings(null);
+        setSettings(await GetGeneralSettings(id));
+    }, []);
+
+    useEffect(() => {
+        load(scopeId);
+    }, [scopeId, load]);
+
+    const apply = (next: GeneralSettings) => {
+        setSettings(next);
+        // Whatever is on screen elsewhere picks the change up too.
+        refreshInView();
+    };
+
+    const scopeName =
+        scopeId == null
+            ? "Company-wide"
+            : (territories.find((t) => t.id === scopeId)?.name ?? territoryName);
+    const active = territories.filter((t) => t.isActive !== false);
+
     const scrollRef = useRef<ScrollView>(null);
     // Where each card starts within the list of cards, and where that list starts on the page.
     const positions = useRef<Record<string, number>>({});
@@ -43,8 +81,22 @@ const SettingsPage = () => {
     return (
         <Page edges={["left", "right"]} scrollRef={scrollRef}>
             <View className="mx-auto w-full max-w-6xl">
+                {canSwitch && (
+                    <SelectField<number | null>
+                        label="Editing"
+                        value={scopeId}
+                        options={[
+                            { value: null, label: "Company-wide settings" },
+                            ...active.map((t) => ({ value: t.id ?? null, label: t.name ?? "" })),
+                        ]}
+                        onChange={setScopeId}
+                        className="mb-3"
+                    />
+                )}
                 <Text className="mb-3 text-sm text-zinc-600 dark:text-zinc-400">
-                    These apply to everyone using the app. Each section saves on its own.
+                    {scopeId == null
+                        ? "These apply in every territory, except where a territory has set its own."
+                        : `These apply in ${scopeName}. Anything not changed here follows the company-wide settings.`}
                 </Text>
 
                 <View
@@ -67,14 +119,27 @@ const SettingsPage = () => {
                     ))}
                 </View>
 
-                <View className="gap-4" onLayout={(e) => (listTop.current = e.nativeEvent.layout.y)}>
-                    <BusinessDetailsSettings onLayout={place} />
-                    <TermsSettings onLayout={place} />
-                    <ReceiptEmailSettings onLayout={place} />
-                    <FinanceSettings onLayout={place} />
-                    <NewEventSettings onLayout={place} />
-                    <DashboardSettings onLayout={place} />
-                </View>
+                {settings == null ? (
+                    <ListSkeleton rows={6} />
+                ) : (
+                    // Keyed so switching scope starts every card afresh with that scope's values.
+                    <SettingsScopeContext.Provider
+                        key={scopeId ?? "company"}
+                        value={{ territoryId: scopeId, scopeName, settings, apply }}
+                    >
+                        <View
+                            className="gap-4"
+                            onLayout={(e) => (listTop.current = e.nativeEvent.layout.y)}
+                        >
+                            <BusinessDetailsSettings onLayout={place} />
+                            <TermsSettings onLayout={place} />
+                            <ReceiptEmailSettings onLayout={place} />
+                            <FinanceSettings onLayout={place} />
+                            <NewEventSettings onLayout={place} />
+                            <DashboardSettings onLayout={place} />
+                        </View>
+                    </SettingsScopeContext.Provider>
+                )}
             </View>
         </Page>
     );

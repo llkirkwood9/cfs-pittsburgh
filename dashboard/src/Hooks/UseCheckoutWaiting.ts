@@ -11,10 +11,12 @@ const POLL_MS = 20000;
  * How many orders are waiting at the checkout table for the active event, for a badge on the
  * Checkout tab. Read while the page is in view, so a hidden tab doesn't keep asking the server,
  * and again whenever this device changes the queue.
- * @param enabled False for anyone who doesn't work the checkout table.
+ * @param enabled False for anyone who doesn't work the checkout table, or with no one territory in
+ * view.
+ * @param territoryId The territory in view; the count is read again when it changes.
  * @returns The number waiting; 0 when none, or when there is no active event.
  */
-export const useCheckoutWaiting = (enabled: boolean): number => {
+export const useCheckoutWaiting = (enabled: boolean, territoryId: number | null): number => {
     const [waiting, setWaiting] = useState<number>(0);
 
     useEffect(() => {
@@ -57,7 +59,7 @@ export const useCheckoutWaiting = (enabled: boolean): number => {
             clearInterval(timer);
             document.removeEventListener("visibilitychange", read);
         };
-    }, [enabled]);
+    }, [enabled, territoryId]);
 
     return enabled ? waiting : 0;
 };

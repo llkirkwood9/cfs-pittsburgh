@@ -7,6 +7,9 @@ export type OrderStatus = "Draft" | "AwaitingCheckout" | "Completed" | "Voided";
 export type Order = {
     id?: number;
     eventId?: number;
+    /** The territory of the event it was taken at; its settings print on the sheet. */
+    territoryId?: number | null;
+    territoryName?: string | null;
     orderNumber?: number;
     status?: OrderStatus;
     draftLabel?: string | null;

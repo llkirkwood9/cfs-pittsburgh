@@ -10,6 +10,8 @@ type Props = {
     disabled?: boolean;
     maxLength?: number;
     autoFocus?: boolean;
+    /** Lets password managers recognise the field, e.g. "username" or "current-password". */
+    autoComplete?: string;
 };
 
 /**
@@ -28,6 +30,7 @@ const TextField = ({
     disabled = false,
     maxLength,
     autoFocus = false,
+    autoComplete,
 }: Props) => {
     return (
         <label className={`flex flex-col gap-1 ${className}`}>
@@ -44,6 +47,7 @@ const TextField = ({
                 disabled={disabled}
                 maxLength={maxLength}
                 autoFocus={autoFocus}
+                autoComplete={autoComplete}
                 className="min-h-[48px] w-full rounded-xl border border-zinc-300 bg-white px-3 text-base
                     text-zinc-900 outline-hidden transition-colors
                     focus:border-sky-600 focus:ring-2 focus:ring-sky-600/30

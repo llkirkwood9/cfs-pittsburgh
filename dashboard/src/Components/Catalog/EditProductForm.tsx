@@ -1,5 +1,6 @@
 import { useState } from "react";
 import BundlePickerModal from "./BundlePickerModal";
+import { FitsTerritory, ScopeField } from "./CatalogScope";
 import type { BundlePick } from "./BundlePickerModal";
 import OptionsEditor, { FromDraftOptions, OptionsProblem, ToDraftOptions } from "./OptionsEditor";
 import type { DraftOption } from "./OptionsEditor";
@@ -16,6 +17,7 @@ import type { DeliveryOption } from "../../Models/DeliveryOption";
 import type { Product, ProductCategory } from "../../Models/Product";
 import type { ProductDeliveryOption } from "../../Models/ProductDeliveryOption";
 import type { ProductVariant } from "../../Models/ProductVariant";
+import type { Territory } from "../../Models/Territory";
 
 type Props = {
     product: Product;
@@ -24,14 +26,20 @@ type Props = {
     deliveryOptions: DeliveryOption[];
     onSave: (product: Product) => Promise<void>;
     onClose: () => void;
+    territories: Territory[];
+    /** System Admins and administrators choose where an item is sold; managers' items stay in their territory. */
+    canChooseTerritory: boolean;
+    /** The manager's own territory, shown when they can't choose. */
+    ownTerritoryName?: string | null;
 };
 
 type DraftVariant = ProductVariant & { priceText: string; sale: SaleDraft };
 
 /**
- * Full product editor: name, brand, category, every priced size/configuration row, and which
- * delivery services are offered with what price. This is what makes delivery types differ from
- * one mattress to the next.
+ * Full product editor: name, brand, category, where it's sold, every priced size/configuration
+ * row, and which delivery services are offered with what price. This is what makes delivery
+ * types differ from one mattress to the next. A territory's item can include and offer global
+ * things and its territory's own; a global item only global ones.
  */
 const EditProductForm = ({
     product,
@@ -40,7 +48,11 @@ const EditProductForm = ({
     deliveryOptions,
     onSave,
     onClose,
+    territories,
+    canChooseTerritory,
+    ownTerritoryName,
 }: Props) => {
+    const [territoryId, setTerritoryId] = useState<number | null>(product.territoryId ?? null);
     const [name, setName] = useState<string>(product.name ?? "");
     const [brand, setBrand] = useState<string>(product.brand ?? "");
     const [category, setCategory] = useState<ProductCategory>(product.category ?? "Misc");
@@ -211,10 +223,29 @@ const EditProductForm = ({
             rows.map((row) => ({ ...row, isDefault: row.deliveryOptionId === deliveryOptionId }))
         );
 
+    // Only what can be sold alongside it where it's sold.
+    const usableOptions = deliveryOptions.filter((o) => FitsTerritory(o.territoryId, territoryId));
+    const usableCatalog = catalog.filter((p) => FitsTerritory(p.territoryId, territoryId));
+
     const handleSave = async () => {
         if (!name.trim()) return Toast.Warning("Give the product a name.");
         if (variants.some((v) => !(v.size ?? "").trim()))
             return Toast.Warning("Every size row needs a size.");
+
+        const strayOption = delivery.find(
+            (d) => !usableOptions.some((o) => o.id === d.deliveryOptionId)
+        );
+        if (strayOption && deliveryOptions.some((o) => o.id === strayOption.deliveryOptionId))
+            return Toast.Warning(
+                `${strayOption.name} isn't offered where this item is sold. Untick it or choose another territory.`
+            );
+        const strayComponent = variants
+            .flatMap((v) => v.components ?? [])
+            .find((c) => !usableCatalog.some((p) => p.id === c.productId));
+        if (strayComponent && catalog.some((p) => p.id === strayComponent.productId))
+            return Toast.Warning(
+                `${strayComponent.productName} isn't sold where this item is. Take it out of the bundle or choose another territory.`
+            );
 
         const saleProblem = SaleProblem(sale);
         if (saleProblem) return Toast.Warning(saleProblem);
@@ -233,6 +264,7 @@ const EditProductForm = ({
         setSaving(true);
         await onSave({
             id: product.id,
+            territoryId,
             name: name.trim(),
             brand: brand.trim(),
             category,
@@ -345,6 +377,15 @@ const EditProductForm = ({
                             <span className="font-medium">Track inventory</span>
                         </span>
                     </label>
+
+                    <ScopeField
+                        value={territoryId}
+                        onChange={setTerritoryId}
+                        territories={territories}
+                        canChoose={canChooseTerritory}
+                        fixedName={ownTerritoryName}
+                        className="sm:col-span-2"
+                    />
 
                     {/* Decides whether the customer initials the warranty statement. */}
                     <label className="flex min-h-[48px] cursor-pointer items-center gap-3 self-end rounded-xl bg-zinc-100 px-3 py-2 dark:bg-zinc-700">
@@ -520,7 +561,7 @@ const EditProductForm = ({
 
                 {bundlingIndex !== null && (
                     <BundlePickerModal
-                        catalog={catalog}
+                        catalog={usableCatalog}
                         excludeProductId={product.id}
                         size={variants[bundlingIndex]?.size}
                         configuration={variants[bundlingIndex]?.configuration}
@@ -534,7 +575,12 @@ const EditProductForm = ({
                         Delivery options for this product
                     </h3>
                     <ul className="space-y-2">
-                        {deliveryOptions.map((option) => {
+                        {usableOptions.length === 0 && (
+                            <li className="text-sm text-zinc-500 dark:text-zinc-400">
+                                No delivery options are offered where this item is sold yet.
+                            </li>
+                        )}
+                        {usableOptions.map((option) => {
                             const selected = delivery.find((d) => d.deliveryOptionId === option.id);
 
                             return (

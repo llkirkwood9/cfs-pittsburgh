@@ -4,7 +4,7 @@ import type { Ref } from "react";
 import { Text, View } from "react-native";
 import { Blank, Cell, FieldLabel, Row, SheetText } from "./SheetTable";
 import { RenderTermText } from "../Elements/TermText";
-import { useSettings } from "../../Context/SettingsContext";
+import { useSettingsFor } from "../../Context/SettingsContext";
 import {
     FinancingComments,
     FormatCurrency,
@@ -72,7 +72,8 @@ const COLUMNS = {
  * and past that the PDF scales the page down.
  */
 const ReceiptSheet = ({ order, sheetRef }: Props) => {
-    const { settings } = useSettings();
+    // The business details of the territory the sale was taken in.
+    const settings = useSettingsFor(order.territoryId);
     // A completed sale shows the wording the customer initialled; anything else, today's.
     const terms: SalesTerm[] = order.terms?.length ? order.terms : settings.terms;
     const term = (key: SalesTermKey) => TermFor(terms, key);

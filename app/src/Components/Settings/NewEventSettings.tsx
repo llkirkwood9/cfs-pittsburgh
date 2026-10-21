@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import SettingsCard from "./SettingsCard";
+import { useSettingsScope } from "./SettingsScope";
 import Grid from "../Elements/Grid";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
-import { useSettings } from "../../Context/SettingsContext";
 import { Toast } from "../../Lib/Toast";
 import { DefaultGeneralSettings } from "../../Models/GeneralSettings";
 import { SaveGeneralSettings } from "../../Services/SettingsServices";
@@ -26,7 +26,7 @@ type Props = {
  * changed on the Events screen; these just save typing them in every time.
  */
 const NewEventSettings = ({ onLayout }: Props) => {
-    const { settings, apply } = useSettings();
+    const { settings, apply, territoryId } = useSettingsScope();
     const defaults = settings.defaults ?? DefaultGeneralSettings;
 
     const [tax, setTax] = useState<string>(AsPercent(settings.defaultSalesTaxRate));
@@ -55,7 +55,7 @@ const NewEventSettings = ({ onLayout }: Props) => {
         defaultCcProcessingFeeRate: number;
     }) => {
         setSaving(true);
-        const result = await SaveGeneralSettings(values);
+        const result = await SaveGeneralSettings(values, territoryId);
         setSaving(false);
         if (!result) return false;
         apply(result);

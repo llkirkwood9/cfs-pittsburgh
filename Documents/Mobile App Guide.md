@@ -32,9 +32,10 @@ npm install
 
 ### Start a server the phone can reach
 
-The app signs in to whatever server address you type on its sign-in screen. Use one of these:
+The app talks to the server set by `EXPO_PUBLIC_API_URL` in `app/.env` (not committed). Copy
+`app/.env.example` to `app/.env` and set it to one of these:
 
-- **The cart's Pi or a venue server:** `http://<its IP>:8080`. No changes are needed on the server.
+- **The live site:** its `https://` address. Nothing to start.
 - **The API on your PC:** a phone can't reach `localhost`, so the API has to listen on the
   network. Start it with:
 
@@ -42,12 +43,11 @@ The app signs in to whatever server address you type on its sign-in screen. Use 
   cd api && dotnet run --launch-profile http --urls http://0.0.0.0:5046
   ```
 
-  Then use `http://<your PC's IP>:5046` as the server address. Find the IP with `ipconfig`
+  Then set `EXPO_PUBLIC_API_URL=http://<your PC's IP>:5046`. Find the IP with `ipconfig`
   (Windows) or `ipconfig getifaddr en0` (Mac). Allow the Windows firewall prompt for private
   networks.
 
-Plain `http://` is allowed, because the cart's server is on the local network without a
-certificate. iOS allows it through the App Transport Security settings in `app.json`, and Android
+Plain `http://` is allowed, so a phone can reach the API on your PC without a certificate. iOS allows it through the App Transport Security settings in `app.json`, and Android
 through `usesCleartextTraffic`.
 
 ### Start the app
@@ -61,13 +61,11 @@ npx expo start
 ```
 
 Scan the QR code with the camera (iOS) or with Expo Go (Android). The app opens on the sign-in
-screen:
+screen; sign in with a username and password as usual. The first account, `admin`, is described
+in the README (section 4, *First sign-in*).
 
-1. Type the server address, e.g. `192.168.1.20:5046` (`http://` is added for you), and tap
-   **Connect**. The app checks the server's `/health` and remembers the address on the device.
-2. Sign in with a username and PIN as usual. The seeded accounts are listed in the README.
-
-To use a different server later, sign out and tap **Change** beside the server address.
+To use a different server, change `app/.env` and restart `npx expo start` (press `Ctrl+C`, then
+run it again with `--clear` so the new address is bundled). Sign-in checks the address is set.
 
 Edits to the code reload on the phone as you save. Shake the device, or press `m` in the
 terminal, for the developer menu.
@@ -83,7 +81,7 @@ cd api && Cors__AllowedOrigins__0=http://localhost:3000 Cors__AllowedOrigins__1=
 ```
 
 In PowerShell, set `$env:Cors__AllowedOrigins__0` and `$env:Cors__AllowedOrigins__1` first.
-Then sign in with `localhost:5046` as the server address.
+Then set `EXPO_PUBLIC_API_URL=http://localhost:5046` in `app/.env` and sign in.
 
 ---
 
@@ -155,8 +153,12 @@ Once a development build is installed, `npx expo start` serves it in place of Ex
 
 ### What to try on a device
 
-- Sign in against the server, then sign out and back in. The server address should be
-  remembered.
+- Sign in against the server, then sign out and back in. Close the app completely and open it again: it should still be signed in (the
+  session is kept in the Keychain / Keystore). An account with a new or reset password is asked
+  to choose its own before anything else.
+- **Territories** (as an admin): switch territory in the menu bar, and pick **All territories**.
+  Sell, Checkout and the stock counts should ask for one territory; the Dashboard should show the
+  territories side by side.
 - **Sell:** start an order, add items, and send it to checkout.
 - **Lists:** tapping a row opens it (an order item's editor, a product, an event, a crew
   member, an order's sales sheet, a size's count). Swiping a row to the left uncovers its other
@@ -168,7 +170,8 @@ Once a development build is installed, `npx expo start` serves it in place of Ex
 - **Sales sheet:** print it to an AirPrint or Android print-service printer, and **Email** a
   completed one. The emailed PDF should match the printed sheet. **Email report** on an event's
   sheets should do the same for the whole stack.
-- **Orders**, **Dashboard** and **More** (Inventory, Catalog, Events, Crew, Settings), in light
+- **Orders**, **Dashboard** and **More** (Inventory, Catalog, Events, Crew, Settings,
+  Territories), in light
   and dark mode, on a phone and on a tablet, in both orientations.
 - **Refresh on return:** change something on another device (send an order to checkout, add a
   product), then switch back to the tab. It should show the change without pulling down.
@@ -329,7 +332,9 @@ It can also be started by hand: **Actions → App release → Run workflow**.
 3. Make an Expo access token: on <https://expo.dev>, **Account settings → Access tokens → Create
    token**.
 4. Add it to the GitHub repository as a secret: **Settings → Secrets and variables → Actions → New
-   repository secret**, named `EXPO_TOKEN`.
+   repository secret**, named `EXPO_TOKEN`. Add a second secret, `API_URL`, holding the live
+   site's address (e.g. `https://sales.example.com`): release builds talk only to it, and the
+   workflow stops if it isn't set.
 5. Create the branch and push it:
 
    ```bash
@@ -358,6 +363,6 @@ the number after it.
 
 On each Android phone or tablet, open the repository's **Releases** page, download the newest
 `.apk` and open it. The first time, Android asks to allow installs from the browser or Files app.
-A new release installs over the old one and keeps the saved server address. If the repository is
+A new release installs over the old one and keeps the device signed in. If the repository is
 private, people need access to it on GitHub to download from Releases; otherwise share the APK
 another way, such as the link on the build's page on expo.dev.

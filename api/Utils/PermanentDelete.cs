@@ -97,6 +97,7 @@ namespace api.Utils
                     .SetProperty(a => a.UserId, (int?)null)
                     .SetProperty(a => a.UserName, (string?)null));
 
+            await db.UserSessions.Where(us => us.UserId == id).ExecuteDeleteAsync();
             await db.Users.Where(u => u.Id == id).ExecuteDeleteAsync();
             await transaction.CommitAsync();
         }
@@ -104,7 +105,7 @@ namespace api.Utils
         /// <summary>
         /// Deletes a product and all its sizes. Past sales keep the item exactly as it was printed
         /// but lose the link to the catalog; bundles that included it lose that item; its inventory
-        /// history goes with it.
+        /// history and stock counts in every territory go with it.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <param name="productId">Product to delete</param>
@@ -126,6 +127,7 @@ namespace api.Utils
                 .ExecuteDeleteAsync();
 
             await db.InventoryAdjustments.Where(a => variantIds.Contains(a.ProductVariantId)).ExecuteDeleteAsync();
+            await db.InventoryStocks.Where(st => variantIds.Contains(st.ProductVariantId)).ExecuteDeleteAsync();
             await db.ProductDeliveryOptions.Where(d => d.ProductId == productId).ExecuteDeleteAsync();
             await db.ProductVariants.Where(v => v.ProductId == productId).ExecuteDeleteAsync();
             await db.Products.Where(p => p.Id == productId).ExecuteDeleteAsync();
@@ -155,9 +157,9 @@ namespace api.Utils
 
         /// <summary>
         /// Clears the whole catalog: every product and delivery option, sold or not, with their
-        /// sizes, selections, bundles, stock counts and inventory history. Past sales keep every
-        /// line as printed but lose the links. Joins the caller's transaction when there is one,
-        /// so a restore can clear and refill the catalog in one go.
+        /// sizes, selections, bundles, stock counts and inventory history, in every territory. Past
+        /// sales keep every line as printed but lose the links. Joins the caller's transaction when
+        /// there is one, so a restore can clear and refill the catalog in one go.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <returns>How many products and delivery options were deleted.</returns>
@@ -176,7 +178,7 @@ namespace api.Utils
 
             await db.ProductVariantComponents.ExecuteDeleteAsync();
             await db.InventoryAdjustments.ExecuteDeleteAsync();
-            await db.ChoiceStocks.ExecuteDeleteAsync();
+            await db.InventoryStocks.ExecuteDeleteAsync();
             await db.ProductDeliveryOptions.ExecuteDeleteAsync();
             await db.ProductOptionChoices.ExecuteDeleteAsync();
             await db.ProductOptions.ExecuteDeleteAsync();

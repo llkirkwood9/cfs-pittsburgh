@@ -162,7 +162,7 @@ const InventoryCountPage = () => {
                 <Icon icon="fa-solid fa-calendar-xmark" className="text-3xl text-zinc-400" />
                 <h1 className="mt-3 text-xl font-bold">No active event</h1>
                 <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                    An administrator can activate one under Events.
+                    A manager can activate one under Events.
                 </p>
                 <Button
                     text="Back to inventory"
@@ -326,7 +326,7 @@ const InventoryCountPage = () => {
                         (differences.length
                             ? ` ${differences.length} differ from what the app expected and will be updated to match the shelf.`
                             : " Everything matches what the app expected.") +
-                        (hasRole("Admin")
+                        (hasRole("Manager")
                             ? " The count prints on the event's Accessory Inventory Sheet."
                             : "")
                     }

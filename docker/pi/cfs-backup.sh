@@ -8,31 +8,39 @@
 #   sudo /opt/cfs/docker/pi/cfs-backup.sh restore /opt/cfs/backups/cfs-20260923-101500.dump.gz
 #
 # Backups are custom-format pg_dump files, gzipped. Restoring replaces everything in the database.
+#
+# COMPOSE_FILE in .env names other compose files than docker-compose.pi.yml, and CFS_BACKUP_KEEP
+# there sets how many backups are kept. (The cloud's backups are made by docker-compose.coolify.yml.)
 set -euo pipefail
 
 CFS_DIR="${CFS_DIR:-/opt/cfs}"
-COMPOSE_FILE="$CFS_DIR/docker-compose.pi.yml"
+
+usage() { sed -n '2,15p' "$0"; }
+
+cd "$CFS_DIR" || { echo "No $CFS_DIR - clone the repository there first." >&2; exit 1; }
+
+# One setting from .env. The file isn't sourced: a line such as EMAIL_FROM_NAME=Custom Fundraising
+# Solutions is fine for Docker Compose but not for the shell.
+env_value() {
+    [ -f "$CFS_DIR/.env" ] || return 0
+    sed -n "s/^$1=//p" "$CFS_DIR/.env" | tail -1 | tr -d "\"'\r"
+}
+
+# The Pi runs docker-compose.pi.yml unless .env names other files.
+COMPOSE_FILE="${COMPOSE_FILE:-$(env_value COMPOSE_FILE)}"
+export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.pi.yml}"
 BACKUP_DIR="${CFS_BACKUP_DIR:-$CFS_DIR/backups}"
 
 DB_NAME="${POSTGRES_DB:-CfsFundraiser}"
 DB_USER="${POSTGRES_USER:-cfs}"
+PGPASSWORD="$(env_value POSTGRES_PASSWORD)"
+PGPASSWORD="${PGPASSWORD:-Change_Me_2026}"
 
 # A card fills up quietly, so only the most recent few are kept.
-KEEP="${CFS_BACKUP_KEEP:-10}"
+KEEP="${CFS_BACKUP_KEEP:-$(env_value CFS_BACKUP_KEEP)}"
+KEEP="${KEEP:-10}"
 
-usage() { sed -n '2,12p' "$0"; }
-
-cd "$CFS_DIR" || { echo "No $CFS_DIR - clone the repository there first." >&2; exit 1; }
-
-if [ -f "$CFS_DIR/.env" ]; then
-    set -a
-    # shellcheck disable=SC1091
-    . "$CFS_DIR/.env"
-    set +a
-fi
-PGPASSWORD="${POSTGRES_PASSWORD:-Change_Me_2026}"
-
-compose() { docker compose -f "$COMPOSE_FILE" "$@"; }
+compose() { docker compose "$@"; }
 
 wait_for_db() {
     for _ in $(seq 1 30); do
@@ -75,7 +83,7 @@ do_backup() {
         if [ -n "$old" ]; then
             echo "Removing backups older than the newest $KEEP:"
             echo "$old" | sed 's/^/  /'
-            echo "$old" | xargs -r rm -f
+            echo "$old" | while IFS= read -r stale; do rm -f "$stale"; done
         fi
     fi
 }
@@ -109,18 +117,29 @@ do_restore() {
     compose stop app
     wait_for_db
 
+    # Into an empty database, so a backup from an older version restores cleanly too; the app
+    # brings it up to date as it starts.
+    echo "Emptying $DB_NAME..."
+    compose exec -T -e PGPASSWORD="$PGPASSWORD" db dropdb -U "$DB_USER" --if-exists --force "$DB_NAME"
+    compose exec -T -e PGPASSWORD="$PGPASSWORD" db createdb -U "$DB_USER" "$DB_NAME"
+
     echo "Restoring..."
-    # --clean --if-exists drops what is there as it goes; the exit code is ignored because
-    # pg_restore warns about objects it could not drop on an empty database.
+    # The exit code is ignored because pg_restore also counts harmless warnings.
     gunzip -c "$source" \
         | compose exec -T -e PGPASSWORD="$PGPASSWORD" db \
-            pg_restore -U "$DB_USER" -d "$DB_NAME" --clean --if-exists --no-owner --no-privileges \
+            pg_restore -U "$DB_USER" -d "$DB_NAME" --no-owner --no-privileges \
         || echo "pg_restore reported warnings - check the output above."
 
     echo "Starting the app..."
     compose up -d app
 
-    echo "Done. The app is at http://$(hostname -I | awk '{print $1}'):8080"
+    local domain
+    domain="$(env_value CFS_DOMAIN)"
+    if [ -n "$domain" ]; then
+        echo "Done. The app is at https://$domain"
+    else
+        echo "Done. The app is at http://$(hostname -I | awk '{print $1}'):8080"
+    fi
 }
 
 ASSUME_YES=no

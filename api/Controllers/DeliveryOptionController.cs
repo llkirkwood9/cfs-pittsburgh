@@ -13,6 +13,8 @@ namespace api.Controllers
     /// <summary>
     /// The catalog of delivery methods and in-home services. Products opt into these
     /// individually, so what is offered on a Purple need not match what is offered on a Langley.
+    /// Like products, an option is either global (every territory) or one territory's own; a
+    /// manager changes only their territory's.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -24,10 +26,17 @@ namespace api.Controllers
         TokenService tokenService)
         : BasicController(db, httpClientFactory, config, logger, tokenService)
     {
+        #region Private Fields
+
+        private const string GlobalReadOnly = "Global delivery options can only be changed by a system admin or administrator.";
+
+        #endregion
+
         #region POST Methods
 
         /// <summary>
-        /// Adds a delivery option.
+        /// Adds a delivery option - to the manager's territory, or for a system admin or administrator
+        /// either globally or to a territory they pick.
         /// </summary>
         /// <param name="request">Delivery option fields</param>
         /// <returns>The created option.</returns>
@@ -37,18 +46,24 @@ namespace api.Controllers
         {
             try
             {
+                if (!IsAtLeast(UserRole.Manager))
+                    return Forbidden("Only a manager, administrator or system admin may change the catalog.");
+
                 if (string.IsNullOrWhiteSpace(request.Name))
-                    return BadRequest(new { error = "Missing parameter." });
+                    return BadRequest(new { error = "Enter a name." });
 
-                var optionName = request.Name.Trim().ToLower();
-                if (await DB.DeliveryOptions.AnyAsync(d => d.Name.ToLower() == optionName))
-                    return BadRequest(new { error = "A delivery option with that name already exists." });
-
-                if (request.Name.Length > 100)
+                if (request.Name.Trim().Length > 100)
                     return BadRequest(new { error = "Invalid parameter." });
 
-                if (request.Price is < 0)
-                    return BadRequest(new { error = "The price cannot be negative." });
+                if (request.Price is < 0 or > 100_000)
+                    return BadRequest(new { error = "The price must be between $0 and $100,000." });
+
+                var (territoryId, problem) = await CatalogTerritoryAsync(request.TerritoryId);
+                if (problem != null)
+                    return problem;
+
+                if (await NameClashesAsync(request.Name, territoryId, null))
+                    return BadRequest(new { error = "A delivery option with that name already exists." });
 
                 var saleProblem = SaleProblem(request);
                 if (saleProblem != null)
@@ -56,14 +71,17 @@ namespace api.Controllers
 
                 var option = new DeliveryOption
                 {
-                    Name = request.Name,
+                    Name = request.Name.Trim(),
+                    TerritoryId = territoryId,
                     Price = request.Price ?? 0m,
                     IsTaxable = request.IsTaxable ?? true,
                     IsTakeWith = request.IsTakeWith ?? false,
                     // Take With defaults to hidden: the item's own Take With column already says it.
                     ShowOnSalesSheet = request.ShowOnSalesSheet ?? !(request.IsTakeWith ?? false),
-                    // A new option goes to the end of the list unless a place is given.
-                    SortOrder = request.SortOrder ?? (await DB.DeliveryOptions.MaxAsync(d => (int?)d.SortOrder) ?? 0) + 1,
+                    // A new option goes to the end of its list - global, or its territory's own -
+                    // unless a place is given.
+                    SortOrder = request.SortOrder
+                                ?? (await DB.DeliveryOptions.Where(d => d.TerritoryId == territoryId).MaxAsync(d => (int?)d.SortOrder) ?? 0) + 1,
                     IsActive = request.IsActive ?? true,
                 };
                 (option.SaleDiscountPercent, option.SaleDiscountAmount) =
@@ -72,12 +90,11 @@ namespace api.Controllers
                 DB.DeliveryOptions.Add(option);
                 await DB.SaveChangesAsync();
 
-                return Ok(ToDto(option));
+                return Ok(await LoadDtoAsync(option.Id));
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while adding the delivery option.", exception = e.Message });
+                return ServerError("Internal error occurred while adding the delivery option.", e);
             }
         }
 
@@ -86,7 +103,8 @@ namespace api.Controllers
         #region GET Methods
 
         /// <summary>
-        /// Lists the delivery options.
+        /// Lists the delivery options for the territory being worked - global ones and its own - or
+        /// every option for a system admin or administrator viewing every territory.
         /// </summary>
         /// <param name="includeInactive">Pass true from the admin screen</param>
         /// <returns>Delivery options in display order.</returns>
@@ -96,22 +114,11 @@ namespace api.Controllers
         {
             try
             {
-                var query = DB.DeliveryOptions.AsNoTracking().AsQueryable();
-
-                if (!includeInactive)
-                    query = query.Where(d => d.IsActive);
-
-                var options = await query
-                    .OrderBy(d => d.SortOrder)
-                    .ThenBy(d => d.Name)
-                    .ToListAsync();
-
-                return Ok(options.Select(ToDto).ToList());
+                return Ok(await ListAsync(Scope.TerritoryId, includeInactive));
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while getting delivery options.", exception = e.Message });
+                return ServerError("Internal error occurred while getting delivery options.", e);
             }
         }
 
@@ -120,34 +127,44 @@ namespace api.Controllers
         #region PUT Methods
 
         /// <summary>
-        /// Puts the delivery options in a new order - the order the sales floor offers them in.
+        /// Puts one list of delivery options - the global ones, or a territory's own - in a new
+        /// order, the order the sales floor offers them in.
         /// </summary>
-        /// <param name="ids">Every option id, archived ones included, in the new order</param>
-        /// <returns>Every option in its new order.</returns>
+        /// <param name="ids">Every option id in that list, archived ones included, in the new order</param>
+        /// <returns>The options in view, in their new order.</returns>
         [HttpPut("deliveryoptions/order")]
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> ReorderDeliveryOptions([FromBody] List<int> ids)
         {
             try
             {
-                if (!IsInRole(UserRole.Admin))
-                    return StatusCode(403, new { error = "Only an administrator may change the delivery options." });
+                if (!IsAtLeast(UserRole.Manager))
+                    return Forbidden("Only a manager, administrator or system admin may change the catalog.");
 
-                var options = await DB.DeliveryOptions.ToListAsync();
-                if (ids.Count != options.Count || ids.Distinct().Count() != ids.Count || options.Any(o => !ids.Contains(o.Id)))
+                if (ids.Count == 0 || ids.Distinct().Count() != ids.Count)
+                    return BadRequest(new { error = "Invalid parameter." });
+
+                var first = await DB.DeliveryOptions.FindAsync(ids[0]);
+                if (first == null)
                     return BadRequest(new { error = "The list has changed. Refresh and try again." });
 
-                foreach (var option in options)
+                var group = await DB.DeliveryOptions.Where(d => d.TerritoryId == first.TerritoryId).ToListAsync();
+                if (group.Count != ids.Count || group.Any(o => !ids.Contains(o.Id)))
+                    return BadRequest(new { error = "The list has changed. Refresh and try again." });
+
+                if (!CanEditCatalog(first.TerritoryId))
+                    return Forbidden(GlobalReadOnly);
+
+                foreach (var option in group)
                     option.SortOrder = ids.IndexOf(option.Id) + 1;
 
                 await DB.SaveChangesAsync();
 
-                return Ok(options.OrderBy(o => o.SortOrder).Select(ToDto).ToList());
+                return Ok(await ListAsync(Scope.TerritoryId, includeInactive: true));
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while reordering the delivery options.", exception = e.Message });
+                return ServerError("Internal error occurred while reordering the delivery options.", e);
             }
         }
 
@@ -156,7 +173,8 @@ namespace api.Controllers
         #region PATCH Methods
 
         /// <summary>
-        /// Updates a delivery option.
+        /// Updates a delivery option. A system admin or administrator may also move it between global and
+        /// a territory.
         /// </summary>
         /// <param name="request">Fields to change, including the id</param>
         /// <returns>The updated option.</returns>
@@ -166,27 +184,45 @@ namespace api.Controllers
         {
             try
             {
+                if (!IsAtLeast(UserRole.Manager))
+                    return Forbidden("Only a manager, administrator or system admin may change the catalog.");
+
                 if (request.Id == null)
                     return BadRequest(new { error = "Missing parameter." });
 
                 var option = await DB.DeliveryOptions.FindAsync(request.Id.Value);
-                if (option == null)
+                if (option == null || !InCatalog(option.TerritoryId, Scope.IsCompanyWide ? null : Scope.HomeTerritoryId))
                     return NotFound(new { error = "Delivery option not found." });
+
+                if (!CanEditCatalog(option.TerritoryId))
+                    return Forbidden(GlobalReadOnly);
+
+                if (Scope.IsCompanyWide && request.Name != null && request.TerritoryId != option.TerritoryId)
+                {
+                    // The edit form always sends the name and the territory, null meaning global; a
+                    // partial update without a name leaves the territory alone.
+                    var (territoryId, problem) = await CatalogTerritoryAsync(request.TerritoryId);
+                    if (problem != null)
+                        return problem;
+                    if (territoryId != null && await DB.ProductDeliveryOptions.AnyAsync(p => p.DeliveryOptionId == option.Id
+                            && (p.Product!.TerritoryId == null || p.Product.TerritoryId != territoryId)))
+                        return BadRequest(new { error = "Products outside that territory still offer this option. Take it off them first." });
+                    option.TerritoryId = territoryId;
+                }
 
                 if (request.Name != null)
                 {
-                    if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 100)
+                    if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 100)
                         return BadRequest(new { error = "Invalid parameter." });
 
-                    var renameTo = request.Name.Trim().ToLower();
-                    if (await DB.DeliveryOptions.AnyAsync(d => d.Name.ToLower() == renameTo && d.Id != option.Id))
+                    if (await NameClashesAsync(request.Name, option.TerritoryId, option.Id))
                         return BadRequest(new { error = "A delivery option with that name already exists." });
 
-                    option.Name = request.Name;
+                    option.Name = request.Name.Trim();
                 }
 
-                if (request.Price is < 0)
-                    return BadRequest(new { error = "The price cannot be negative." });
+                if (request.Price is < 0 or > 100_000)
+                    return BadRequest(new { error = "The price must be between $0 and $100,000." });
 
                 if (request.Price != null)
                     option.Price = request.Price.Value;
@@ -217,12 +253,11 @@ namespace api.Controllers
 
                 await DB.SaveChangesAsync();
 
-                return Ok(ToDto(option));
+                return Ok(await LoadDtoAsync(option.Id));
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while updating the delivery option.", exception = e.Message });
+                return ServerError("Internal error occurred while updating the delivery option.", e);
             }
         }
 
@@ -231,9 +266,11 @@ namespace api.Controllers
         #region DELETE Methods
 
         /// <summary>
-        /// Removes a delivery option, or deactivates it when it already appears on an order.
+        /// Removes a delivery option, or deactivates it when it already appears on an order. A system admin
+        /// can delete one that has been used; past sales keep the shipping row as printed.
         /// </summary>
         /// <param name="id">Delivery option id</param>
+        /// <param name="permanent">True to delete even a used option (system admin only)</param>
         /// <returns>200, with a flag saying whether the row was archived instead of deleted.</returns>
         [HttpDelete("deliveryoption/{id}")]
         [Authorize(AuthenticationSchemes = "Bearer")]
@@ -241,23 +278,24 @@ namespace api.Controllers
         {
             try
             {
-                // A system admin can delete an option that has been used; past sales keep the shipping
-                // row as printed.
+                if (!IsAtLeast(UserRole.Manager))
+                    return Forbidden("Only a manager, administrator or system admin may change the catalog.");
+
+                var option = await DB.DeliveryOptions.FindAsync(id);
+                if (option == null || !InCatalog(option.TerritoryId, Scope.IsCompanyWide ? null : Scope.HomeTerritoryId))
+                    return NotFound(new { error = "Delivery option not found." });
+
+                if (!CanEditCatalog(option.TerritoryId))
+                    return Forbidden(GlobalReadOnly);
+
                 if (permanent)
                 {
                     if (!IsSystemAdmin())
-                        return StatusCode(403, new { error = "Only a system admin can delete a delivery option permanently." });
-
-                    if (!await DB.DeliveryOptions.AnyAsync(d => d.Id == id))
-                        return NotFound(new { error = "Delivery option not found." });
+                        return Forbidden("Only a system admin can delete a delivery option permanently.");
 
                     await PermanentDelete.DeliveryOptionAsync(DB, id);
                     return Ok(new { archived = false });
                 }
-
-                var option = await DB.DeliveryOptions.FindAsync(id);
-                if (option == null)
-                    return NotFound(new { error = "Delivery option not found." });
 
                 if (await DB.OrderLines.AnyAsync(l => l.DeliveryOptionId == id))
                 {
@@ -273,8 +311,7 @@ namespace api.Controllers
             }
             catch (Exception e)
             {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while deleting the delivery option.", exception = e.Message });
+                return ServerError("Internal error occurred while deleting the delivery option.", e);
             }
         }
 
@@ -283,15 +320,62 @@ namespace api.Controllers
         #region Private Methods
 
         /// <summary>
+        /// The delivery options in view: global ones first, then each territory's own, each list
+        /// in its order.
+        /// </summary>
+        /// <param name="territoryId">The territory being worked, or null for every territory</param>
+        /// <param name="includeInactive">Whether archived options are included</param>
+        /// <returns>The options as DTOs.</returns>
+        private async Task<List<DeliveryOptionDto>> ListAsync(int? territoryId, bool includeInactive)
+        {
+            var query = DB.DeliveryOptions.Include(d => d.Territory).AsNoTracking()
+                .Where(d => territoryId == null || d.TerritoryId == null || d.TerritoryId == territoryId);
+
+            if (!includeInactive)
+                query = query.Where(d => d.IsActive);
+
+            var options = await query
+                .OrderBy(d => d.TerritoryId != null)
+                .ThenBy(d => d.Territory!.Name)
+                .ThenBy(d => d.SortOrder)
+                .ThenBy(d => d.Name)
+                .ToListAsync();
+
+            return options.Select(ToDto).ToList();
+        }
+
+        /// <summary>
+        /// Whether a name is already used by an option the same territory would see: a global
+        /// option's name has to be unique everywhere; a territory option's among the global ones
+        /// and that territory's own.
+        /// </summary>
+        private async Task<bool> NameClashesAsync(string name, int? territoryId, int? exceptId)
+        {
+            var lower = name.Trim().ToLower();
+            return await DB.DeliveryOptions.AnyAsync(d => d.Name.ToLower() == lower
+                                                          && d.Id != exceptId
+                                                          && (territoryId == null || d.TerritoryId == null || d.TerritoryId == territoryId));
+        }
+
+        private async Task<DeliveryOptionDto?> LoadDtoAsync(int id)
+        {
+            var option = await DB.DeliveryOptions.Include(d => d.Territory).AsNoTracking().FirstOrDefaultAsync(d => d.Id == id);
+            return option == null ? null : ToDto(option);
+        }
+
+        /// <summary>
         /// Maps a delivery option entity to its DTO.
         /// </summary>
-        /// <param name="option">Delivery option entity</param>
+        /// <param name="option">Delivery option entity, with Territory loaded</param>
         /// <returns>The mapped DTO.</returns>
-        private static DeliveryOptionDto ToDto(DeliveryOption option)
+        private DeliveryOptionDto ToDto(DeliveryOption option)
         {
             return new DeliveryOptionDto
             {
                 Id = option.Id,
+                TerritoryId = option.TerritoryId,
+                TerritoryName = option.Territory?.Name,
+                CanEdit = CanEditCatalog(option.TerritoryId),
                 Name = option.Name,
                 Price = option.Price,
                 IsTaxable = option.IsTaxable,

@@ -12,7 +12,7 @@ import {
 } from "../../Lib/ModelHelpers";
 import TermText from "../Elements/TermText";
 import { ChoicesText, LineDiscountText, LineHasDiscount } from "../../Lib/Pricing";
-import { useSettings } from "../../Context/SettingsContext";
+import { useSettingsFor } from "../../Context/SettingsContext";
 import { DefaultSalesTerms, TermFor } from "../../Models/GeneralSettings";
 import type { SalesTerm, SalesTermKey } from "../../Models/GeneralSettings";
 import type { Order, OrderStatus } from "../../Models/Order";
@@ -68,7 +68,8 @@ const label = "text-[8px] font-bold uppercase leading-none";
  * black on white with hard borders because it is photocopied and filed, not read on a screen.
  */
 const ReceiptSheet = ({ order }: Props) => {
-    const { settings } = useSettings();
+    // The business details of the territory the sale was taken in.
+    const settings = useSettingsFor(order.territoryId);
     // A completed sale shows the wording the customer initialled; anything else, today's.
     const terms: SalesTerm[] = order.terms?.length ? order.terms : settings.terms;
     const term = (key: SalesTermKey) => TermFor(terms, key);

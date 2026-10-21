@@ -1,5 +1,7 @@
 /** A delivery option in a catalog file. */
 export interface CatalogDeliveryOption {
+    /** The territory it belongs to, by name; blank when global. */
+    territory?: string | null;
     name?: string;
     price?: number;
     isTaxable?: boolean;
@@ -10,6 +12,8 @@ export interface CatalogDeliveryOption {
 
 /** An item a size includes, named rather than numbered. */
 export interface CatalogComponent {
+    /** The territory it belongs to, by name; blank when global. */
+    territory?: string | null;
     brand?: string;
     name?: string;
     size?: string;
@@ -40,6 +44,8 @@ export interface CatalogOption {
 
 /** A product in a catalog file. */
 export interface CatalogProduct {
+    /** The territory it belongs to, by name; blank when global. */
+    territory?: string | null;
     name?: string;
     brand?: string;
     category?: string;
@@ -62,7 +68,7 @@ export interface CatalogFile {
     deliveryOptions?: CatalogDeliveryOption[];
     products?: CatalogProduct[];
     /** Missing from files made before financing options were exported. */
-    financeOptions?: { name?: string; isActive?: boolean }[];
+    financeOptions?: { name?: string; isActive?: boolean; territory?: string | null }[];
 }
 
 /** How a catalog file is restored. */

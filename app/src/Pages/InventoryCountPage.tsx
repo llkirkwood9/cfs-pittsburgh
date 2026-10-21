@@ -337,7 +337,7 @@ const InventoryCountPage = () => {
                         (differences.length
                             ? ` ${differences.length} differ from what the app expected and will be updated to match the shelf.`
                             : " Everything matches what the app expected.") +
-                        (hasRole("Admin")
+                        (hasRole("Manager")
                             ? " The count prints on the event's Accessory Inventory Sheet."
                             : "")
                     }

@@ -4,7 +4,7 @@ import Icon from "../Elements/Icon";
 import TermText from "../Elements/TermText";
 import TextField from "../Elements/TextField";
 import SettingsCard from "./SettingsCard";
-import { useSettings } from "../../Context/SettingsContext";
+import { useSettingsScope } from "./SettingsScope";
 import { Toast } from "../../Lib/Toast";
 import { AskWhenOptions, DefaultSalesTerms } from "../../Models/GeneralSettings";
 import type { AskWhen, SalesTerm } from "../../Models/GeneralSettings";
@@ -32,7 +32,7 @@ const same = (a: SalesTerm[], b: SalesTerm[]) =>
  * its INITIAL line and shown, word for word, on the customer's initialling screen.
  */
 const TermsSettings = () => {
-    const { settings, apply } = useSettings();
+    const { settings, apply, territoryId } = useSettingsScope();
     const defaults = settings.defaults?.terms ?? DefaultSalesTerms;
 
     const [terms, setTerms] = useState<SalesTerm[]>(settings.terms);
@@ -51,14 +51,17 @@ const TermsSettings = () => {
 
     const save = async (next: SalesTerm[]) => {
         setSaving(true);
-        const result = await SaveGeneralSettings({
-            terms: next.map((t) => ({
-                ...t,
-                title: t.title.trim(),
-                heading: t.heading.trim(),
-                text: t.text.trim(),
-            })),
-        });
+        const result = await SaveGeneralSettings(
+            {
+                terms: next.map((t) => ({
+                    ...t,
+                    title: t.title.trim(),
+                    heading: t.heading.trim(),
+                    text: t.text.trim(),
+                })),
+            },
+            territoryId
+        );
         setSaving(false);
         if (!result) return false;
         apply(result);

@@ -2,6 +2,7 @@ import { createBrowserRouter } from "react-router-dom";
 import App from "../App";
 import HomeRedirect from "./HomeRedirect";
 import ProtectedRoute from "./ProtectedRoute";
+import RequireTerritory from "./RequireTerritory";
 import CatalogPage from "../Pages/CatalogPage";
 import CheckoutPage from "../Pages/CheckoutPage";
 import CrewPage from "../Pages/CrewPage";
@@ -18,6 +19,7 @@ import OrdersPage from "../Pages/OrdersPage";
 import ReceiptPage from "../Pages/ReceiptPage";
 import SalesPage from "../Pages/SalesPage";
 import SettingsPage from "../Pages/SettingsPage";
+import TerritoriesPage from "../Pages/TerritoriesPage";
 import UnauthorizedPage from "../Pages/UnauthorizedPage";
 
 export const router = createBrowserRouter([
@@ -31,7 +33,9 @@ export const router = createBrowserRouter([
                 path: "sales",
                 element: (
                     <ProtectedRoute roles={["Sales"]}>
-                        <SalesPage />
+                        <RequireTerritory purpose="take orders">
+                            <SalesPage />
+                        </RequireTerritory>
                     </ProtectedRoute>
                 ),
             },
@@ -39,7 +43,9 @@ export const router = createBrowserRouter([
                 path: "checkout",
                 element: (
                     <ProtectedRoute roles={["Checkout"]}>
-                        <CheckoutPage />
+                        <RequireTerritory purpose="work the checkout table">
+                            <CheckoutPage />
+                        </RequireTerritory>
                     </ProtectedRoute>
                 ),
             },
@@ -47,7 +53,9 @@ export const router = createBrowserRouter([
                 path: "checkout/:orderId",
                 element: (
                     <ProtectedRoute roles={["Checkout"]}>
-                        <CheckoutPage />
+                        <RequireTerritory purpose="work the checkout table">
+                            <CheckoutPage />
+                        </RequireTerritory>
                     </ProtectedRoute>
                 ),
             },
@@ -76,11 +84,13 @@ export const router = createBrowserRouter([
                 ),
             },
             {
-                // Checkout, Sales & Checkout and Admin keep the counts; floor-only reps do not.
+                // Checkout, Sales & Checkout and managers up keep the counts; floor-only reps do not.
                 path: "inventory",
                 element: (
                     <ProtectedRoute roles={["Checkout"]}>
-                        <InventoryPage />
+                        <RequireTerritory purpose="see and count stock">
+                            <InventoryPage />
+                        </RequireTerritory>
                     </ProtectedRoute>
                 ),
             },
@@ -88,14 +98,16 @@ export const router = createBrowserRouter([
                 path: "inventory/count/:phase",
                 element: (
                     <ProtectedRoute roles={["Checkout"]}>
-                        <InventoryCountPage />
+                        <RequireTerritory purpose="count stock">
+                            <InventoryCountPage />
+                        </RequireTerritory>
                     </ProtectedRoute>
                 ),
             },
             {
                 path: "catalog",
                 element: (
-                    <ProtectedRoute roles={["Admin"]}>
+                    <ProtectedRoute roles={["Manager"]}>
                         <CatalogPage />
                     </ProtectedRoute>
                 ),
@@ -103,7 +115,7 @@ export const router = createBrowserRouter([
             {
                 path: "events",
                 element: (
-                    <ProtectedRoute roles={["Admin"]}>
+                    <ProtectedRoute roles={["Manager"]}>
                         <EventsPage />
                     </ProtectedRoute>
                 ),
@@ -111,7 +123,7 @@ export const router = createBrowserRouter([
             {
                 path: "events/:eventId/close",
                 element: (
-                    <ProtectedRoute roles={["Admin"]}>
+                    <ProtectedRoute roles={["Manager"]}>
                         <EventCloseOutPage />
                     </ProtectedRoute>
                 ),
@@ -119,7 +131,7 @@ export const router = createBrowserRouter([
             {
                 path: "events/:eventId/sheets",
                 element: (
-                    <ProtectedRoute roles={["Admin"]}>
+                    <ProtectedRoute roles={["Manager"]}>
                         <EventSheetsPage />
                     </ProtectedRoute>
                 ),
@@ -127,7 +139,7 @@ export const router = createBrowserRouter([
             {
                 path: "crew",
                 element: (
-                    <ProtectedRoute roles={["Admin"]}>
+                    <ProtectedRoute roles={["Manager"]}>
                         <CrewPage />
                     </ProtectedRoute>
                 ),
@@ -135,8 +147,16 @@ export const router = createBrowserRouter([
             {
                 path: "settings",
                 element: (
-                    <ProtectedRoute roles={["Admin"]}>
+                    <ProtectedRoute roles={["Manager"]}>
                         <SettingsPage />
+                    </ProtectedRoute>
+                ),
+            },
+            {
+                path: "territories",
+                element: (
+                    <ProtectedRoute roles={["Admin"]}>
+                        <TerritoriesPage />
                     </ProtectedRoute>
                 ),
             },

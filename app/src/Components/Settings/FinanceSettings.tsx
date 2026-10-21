@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import SettingsCard from "./SettingsCard";
+import { useSettingsScope } from "./SettingsScope";
 import Checkbox from "../Elements/Checkbox";
-import { useSettings } from "../../Context/SettingsContext";
 import { Toast } from "../../Lib/Toast";
 import { DefaultGeneralSettings } from "../../Models/GeneralSettings";
 import { SaveGeneralSettings } from "../../Services/SettingsServices";
@@ -15,7 +15,7 @@ type Props = {
  * isn't one of the financing options. The options themselves are kept in the Catalog.
  */
 const FinanceSettings = ({ onLayout }: Props) => {
-    const { settings, apply } = useSettings();
+    const { settings, apply, territoryId } = useSettingsScope();
     const defaults = settings.defaults ?? DefaultGeneralSettings;
 
     const [allowOther, setAllowOther] = useState<boolean>(settings.allowOtherFinanceType);
@@ -30,7 +30,7 @@ const FinanceSettings = ({ onLayout }: Props) => {
 
     const save = async (value: boolean) => {
         setSaving(true);
-        const result = await SaveGeneralSettings({ allowOtherFinanceType: value });
+        const result = await SaveGeneralSettings({ allowOtherFinanceType: value }, territoryId);
         setSaving(false);
         if (!result) return false;
         apply(result);
@@ -59,7 +59,11 @@ const FinanceSettings = ({ onLayout }: Props) => {
                     ? undefined
                     : async () => {
                           if (await save(defaults.allowOtherFinanceType))
-                              Toast.Success("Financing settings are back to the default.");
+                              Toast.Success(
+                                  territoryId == null
+                                      ? "Financing settings are back to the default."
+                                      : "Financing settings now follow the company's."
+                              );
                       }
             }
             onLayout={onLayout}

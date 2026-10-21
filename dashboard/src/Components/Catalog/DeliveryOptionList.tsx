@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { ScopeBadge, ScopeField } from "./CatalogScope";
 import Button from "../Elements/Button";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Icon from "../Elements/Icon";
@@ -9,6 +10,7 @@ import { FormatCurrency, ParseMoney } from "../../Lib/ModelHelpers";
 import { CleanDiscount, DiscountText, HasDiscount } from "../../Lib/Pricing";
 import { Toast } from "../../Lib/Toast";
 import type { DeliveryOption } from "../../Models/DeliveryOption";
+import type { Territory } from "../../Models/Territory";
 
 type Props = {
     options: DeliveryOption[];
@@ -18,12 +20,20 @@ type Props = {
     onReorder: (ids: number[]) => Promise<void>;
     /** System Admin: deleting removes the option for good rather than archiving a used one. */
     permanentDelete?: boolean;
+    territories: Territory[];
+    /** System Admins and administrators choose where an option is offered; managers' stay in their territory. */
+    canChooseTerritory: boolean;
+    /** The manager's own territory, shown when they can't choose. */
+    ownTerritoryName?: string | null;
+    /** Where a new option goes by default: the territory in view, or global. */
+    defaultTerritoryId?: number | null;
 };
 
 /**
- * The shared catalog of delivery methods and in-home services. Products pick from this list, so
- * adding White Glove here makes it available to attach anywhere. The arrows set the order the
- * sales floor offers them in.
+ * The catalog of delivery methods and in-home services. Products pick from this list, so adding
+ * White Glove here makes it available to attach anywhere it's offered. Global options are offered
+ * in every territory; a territory can add its own, which only its items can offer. The arrows set
+ * the order the sales floor offers them in, within the global list and each territory's own.
  */
 const DeliveryOptionList = ({
     options,
@@ -31,6 +41,10 @@ const DeliveryOptionList = ({
     onDelete,
     onReorder,
     permanentDelete = false,
+    territories,
+    canChooseTerritory,
+    ownTerritoryName,
+    defaultTerritoryId = null,
 }: Props) => {
     const [editing, setEditing] = useState<DeliveryOption | null>(null);
     const [deleting, setDeleting] = useState<DeliveryOption | null>(null);
@@ -42,6 +56,7 @@ const DeliveryOptionList = ({
     const [isTakeWith, setIsTakeWith] = useState<boolean>(false);
     const [showOnSalesSheet, setShowOnSalesSheet] = useState<boolean>(true);
     const [isActive, setIsActive] = useState<boolean>(true);
+    const [territoryId, setTerritoryId] = useState<number | null>(null);
     const [sale, setSale] = useState<SaleDraft>({ mode: "none", text: "" });
 
     const open = (option: DeliveryOption) => {
@@ -52,6 +67,7 @@ const DeliveryOptionList = ({
         setIsTakeWith(option.isTakeWith ?? false);
         setShowOnSalesSheet(option.showOnSalesSheet ?? true);
         setIsActive(option.isActive ?? true);
+        setTerritoryId(option.id ? (option.territoryId ?? null) : defaultTerritoryId);
         setSale(ToSaleDraft(option.saleDiscountPercent, option.saleDiscountAmount));
     };
 
@@ -68,6 +84,7 @@ const DeliveryOptionList = ({
         setSaving(true);
         await onSave({
             id: editing?.id,
+            territoryId,
             name: name.trim(),
             price: parsed,
             isTaxable,
@@ -83,10 +100,16 @@ const DeliveryOptionList = ({
         setEditing(null);
     };
 
+    // Options of the same list (global, or one territory's own), which reorder among themselves.
+    const sameList = (a?: DeliveryOption, b?: DeliveryOption) =>
+        Boolean(a && b) && (a!.territoryId ?? null) === (b!.territoryId ?? null);
+
     const move = (index: number, by: number) => {
-        const ids = options.map((o) => o.id ?? 0);
-        const [id] = ids.splice(index, 1);
-        ids.splice(index + by, 0, id);
+        const group = options.filter((o) => sameList(o, options[index]));
+        const ids = group.map((o) => o.id ?? 0);
+        const at = ids.indexOf(options[index].id ?? 0);
+        const [id] = ids.splice(at, 1);
+        ids.splice(at + by, 0, id);
         onReorder(ids);
     };
 
@@ -111,7 +134,10 @@ const DeliveryOptionList = ({
                         className="flex flex-wrap items-center gap-3 rounded-xl bg-white p-3 shadow-xs dark:bg-zinc-800"
                     >
                         <div className="min-w-0 flex-1">
-                            <p className="font-semibold">{option.name}</p>
+                            <p className="font-semibold">
+                                {option.name}
+                                <ScopeBadge territoryName={option.territoryName} />
+                            </p>
                             <p className="flex flex-wrap gap-x-2 text-xs text-zinc-500 dark:text-zinc-400">
                                 <span>{FormatCurrency(option.price)}</span>
                                 {HasDiscount(
@@ -144,41 +170,53 @@ const DeliveryOptionList = ({
                             </p>
                         </div>
 
-                        <button
-                            type="button"
-                            onClick={() => move(index, -1)}
-                            disabled={index === 0}
-                            aria-label="Move up"
-                            className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100
-                                disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                        >
-                            <Icon icon="fa-solid fa-arrow-up" />
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => move(index, 1)}
-                            disabled={index === options.length - 1}
-                            aria-label="Move down"
-                            className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100
-                                disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
-                        >
-                            <Icon icon="fa-solid fa-arrow-down" />
-                        </button>
-                        <Button
-                            text="Edit"
-                            icon="fa-solid fa-pen"
-                            onClick={() => open(option)}
-                            className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
-                        />
-                        <button
-                            type="button"
-                            onClick={() => setDeleting(option)}
-                            aria-label="Delete option"
-                            className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
-                                hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
-                        >
-                            <Icon icon="fa-solid fa-trash" />
-                        </button>
+                        {option.canEdit === false ? (
+                            <span
+                                className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400"
+                                title="Global options are set by a system admin or administrator"
+                            >
+                                <Icon icon="fa-solid fa-lock" />
+                                Set company-wide
+                            </span>
+                        ) : (
+                            <>
+                                <button
+                                    type="button"
+                                    onClick={() => move(index, -1)}
+                                    disabled={!sameList(options[index - 1], option)}
+                                    aria-label="Move up"
+                                    className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100
+                                        disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                                >
+                                    <Icon icon="fa-solid fa-arrow-up" />
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => move(index, 1)}
+                                    disabled={!sameList(options[index + 1], option)}
+                                    aria-label="Move down"
+                                    className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100
+                                        disabled:opacity-30 dark:text-zinc-300 dark:hover:bg-zinc-700"
+                                >
+                                    <Icon icon="fa-solid fa-arrow-down" />
+                                </button>
+                                <Button
+                                    text="Edit"
+                                    icon="fa-solid fa-pen"
+                                    onClick={() => open(option)}
+                                    className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
+                                />
+                                <button
+                                    type="button"
+                                    onClick={() => setDeleting(option)}
+                                    aria-label="Delete option"
+                                    className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
+                                        hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
+                                >
+                                    <Icon icon="fa-solid fa-trash" />
+                                </button>
+                            </>
+                        )}
                     </li>
                 ))}
             </ul>
@@ -204,6 +242,14 @@ const DeliveryOptionList = ({
                     }
                 >
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                        <ScopeField
+                            value={territoryId}
+                            onChange={setTerritoryId}
+                            territories={territories}
+                            canChoose={canChooseTerritory}
+                            fixedName={ownTerritoryName}
+                            className="sm:col-span-2"
+                        />
                         <TextField label="Name" value={name} onChange={setName} maxLength={100} />
                         <TextField
                             label="Price"

@@ -1,7 +1,5 @@
 using System.Text.Json;
-using api.Data;
 using api.Models;
-using Microsoft.EntityFrameworkCore;
 
 namespace api.Utils
 {
@@ -17,9 +15,9 @@ namespace api.Utils
     public record LineChoice(int OptionId, string Option, int ChoiceId, string Choice, decimal? PriceAdjustment);
 
     /// <summary>
-    /// Selections (such as Color), the stock kept for each combination of counted choices, and
-    /// catalog sales. Stock with no counted selections stays on the size itself
-    /// (ProductVariant.QuantityOnHand) under the empty key; anything else lives in ChoiceStocks.
+    /// Selections (such as Color), the keys for stock kept per combination of counted choices,
+    /// and catalog sales. Stock itself is per territory, in InventoryStocks (see InventoryRules):
+    /// a size with no counted selections uses the empty key.
     /// </summary>
     public static class Choices
     {
@@ -176,54 +174,6 @@ namespace api.Utils
         /// </summary>
         public static string Describe(IEnumerable<LineChoice> chosen) =>
             string.Join(", ", chosen.Select(c => $"{c.Option}: {c.Choice}"));
-
-        #endregion
-
-        #region Stock
-
-        /// <summary>
-        /// Units on hand of a size in one combination of counted choices.
-        /// </summary>
-        /// <param name="db">EF context</param>
-        /// <param name="variant">The size</param>
-        /// <param name="key">The stock key; empty for stock kept per size</param>
-        /// <returns>The count.</returns>
-        public static async Task<int> OnHandAsync(ApplicationDbContext db, ProductVariant variant, string key)
-        {
-            if (string.IsNullOrEmpty(key))
-                return variant.QuantityOnHand;
-            var row = db.ChoiceStocks.Local.FirstOrDefault(s => s.ProductVariantId == variant.Id && s.StockKey == key)
-                      ?? await db.ChoiceStocks.AsNoTracking().FirstOrDefaultAsync(s => s.ProductVariantId == variant.Id && s.StockKey == key);
-            return row?.QuantityOnHand ?? 0;
-        }
-
-        /// <summary>
-        /// Changes the units on hand of a size in one combination, creating its row if needed.
-        /// The caller records the adjustment and saves.
-        /// </summary>
-        /// <param name="db">EF context</param>
-        /// <param name="variant">The size, tracked</param>
-        /// <param name="key">The stock key; empty for stock kept per size</param>
-        /// <param name="change">Units to add (negative to take away)</param>
-        /// <returns>The count afterwards.</returns>
-        public static async Task<int> ChangeAsync(ApplicationDbContext db, ProductVariant variant, string key, int change)
-        {
-            if (string.IsNullOrEmpty(key))
-            {
-                variant.QuantityOnHand += change;
-                return variant.QuantityOnHand;
-            }
-
-            var row = db.ChoiceStocks.Local.FirstOrDefault(s => s.ProductVariantId == variant.Id && s.StockKey == key)
-                      ?? await db.ChoiceStocks.FirstOrDefaultAsync(s => s.ProductVariantId == variant.Id && s.StockKey == key);
-            if (row == null)
-            {
-                row = new ChoiceStock { ProductVariantId = variant.Id, StockKey = key };
-                db.ChoiceStocks.Add(row);
-            }
-            row.QuantityOnHand += change;
-            return row.QuantityOnHand;
-        }
 
         #endregion
 

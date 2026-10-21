@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import ChangePinModal from "./ChangePinModal";
+import ChangePasswordModal from "./ChangePasswordModal";
 import Icon from "../Elements/Icon";
 import { useAuth } from "../../Context/AuthContext";
 import { DASHBOARD_VERSION } from "../../Lib/Version";
@@ -13,7 +13,7 @@ import { UserRoleLabels } from "../../Models/User";
 const UserProfileDropdown = () => {
     const { user, logout } = useAuth();
     const [open, setOpen] = useState<boolean>(false);
-    const [changingPin, setChangingPin] = useState<boolean>(false);
+    const [changingPassword, setChangingPassword] = useState<boolean>(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const navigate = useNavigate();
 
@@ -64,7 +64,8 @@ const UserProfileDropdown = () => {
                             {user?.name}
                         </p>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                            {user?.role ? UserRoleLabels[user.role] : ""} &middot; v
+                            {user?.role ? UserRoleLabels[user.role] : ""}
+                            {user?.territoryName ? ` · ${user.territoryName}` : ""} &middot; v
                             {DASHBOARD_VERSION}
                         </p>
                     </div>
@@ -72,14 +73,14 @@ const UserProfileDropdown = () => {
                         type="button"
                         onClick={() => {
                             setOpen(false);
-                            setChangingPin(true);
+                            setChangingPassword(true);
                         }}
                         className="mt-1 flex min-h-[44px] w-full items-center gap-2 rounded-lg px-3 text-left
                             text-sm font-medium text-zinc-800 hover:bg-zinc-100
                             dark:text-zinc-100 dark:hover:bg-zinc-700"
                     >
                         <Icon icon="fa-solid fa-key" />
-                        Change PIN
+                        Change password
                     </button>
                     <button
                         type="button"
@@ -93,7 +94,7 @@ const UserProfileDropdown = () => {
                     </button>
                 </div>
             )}
-            {changingPin && <ChangePinModal onClose={() => setChangingPin(false)} />}
+            {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
         </div>
     );
 };

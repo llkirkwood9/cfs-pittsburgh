@@ -6,7 +6,7 @@ import Icon from "../Components/Elements/Icon";
 import Page from "../Components/Elements/Page";
 import SizeGuideModal from "../Components/Elements/SizeGuideModal";
 import Text from "../Components/Elements/Text";
-import ChangePinModal from "../Components/Navbar/ChangePinModal";
+import ChangePasswordModal from "../Components/Navbar/ChangePasswordModal";
 import { useAuth } from "../Context/AuthContext";
 import { useTheme } from "../Hooks/UseTheme";
 import type { Theme } from "../Hooks/UseTheme";
@@ -31,10 +31,16 @@ const items: MenuItem[] = [
         icon: "fa-solid fa-boxes-stacked",
         roles: ["Checkout"],
     },
-    { href: "/more/catalog", label: "Catalog", icon: "fa-solid fa-tags", roles: ["Admin"] },
-    { href: "/more/events", label: "Events", icon: "fa-solid fa-calendar-days", roles: ["Admin"] },
-    { href: "/more/crew", label: "Crew", icon: "fa-solid fa-users", roles: ["Admin"] },
-    { href: "/more/settings", label: "Settings", icon: "fa-solid fa-gear", roles: ["Admin"] },
+    { href: "/more/catalog", label: "Catalog", icon: "fa-solid fa-tags", roles: ["Manager"] },
+    { href: "/more/events", label: "Events", icon: "fa-solid fa-calendar-days", roles: ["Manager"] },
+    { href: "/more/crew", label: "Crew", icon: "fa-solid fa-users", roles: ["Manager"] },
+    { href: "/more/settings", label: "Settings", icon: "fa-solid fa-gear", roles: ["Manager"] },
+    {
+        href: "/more/territories",
+        label: "Territories",
+        icon: "fa-solid fa-map-location-dot",
+        roles: ["Admin"],
+    },
 ];
 
 const themes: { value: Theme; label: string; icon: string }[] = [
@@ -102,13 +108,13 @@ const Group = ({ title, children }: { title?: string; children: React.ReactNode 
 /**
  * The More tab: the screens that don't fit on the tab bar, for the roles that use them, and the
  * things the dashboard keeps in its menu bar - the size chart, the theme, the signed-in crew
- * member, their PIN and signing out.
+ * member, their password and signing out.
  */
 const MorePage = () => {
     const { user, hasRole, logout } = useAuth();
     const { theme, setTheme } = useTheme();
     const [showSizes, setShowSizes] = useState<boolean>(false);
-    const [changingPin, setChangingPin] = useState<boolean>(false);
+    const [changingPassword, setChangingPassword] = useState<boolean>(false);
 
     const visible = items.filter((item) => !item.roles || hasRole(...item.roles));
 
@@ -135,6 +141,7 @@ const MorePage = () => {
                         <Text className="text-lg font-bold">{user?.name}</Text>
                         <Text className="text-sm text-zinc-500 dark:text-zinc-400">
                             {user?.role ? UserRoleLabels[user.role] : ""}
+                            {user?.territoryName ? ` · ${user.territoryName}` : ""}
                         </Text>
                     </View>
                 </View>
@@ -195,8 +202,8 @@ const MorePage = () => {
                 <Group title="Account">
                     <Row
                         icon="fa-solid fa-key"
-                        label="Change PIN"
-                        onPress={() => setChangingPin(true)}
+                        label="Change password"
+                        onPress={() => setChangingPassword(true)}
                     />
                     <Row
                         icon="fa-solid fa-right-from-bracket"
@@ -214,7 +221,7 @@ const MorePage = () => {
             </View>
 
             {showSizes && <SizeGuideModal onClose={() => setShowSizes(false)} />}
-            {changingPin && <ChangePinModal onClose={() => setChangingPin(false)} />}
+            {changingPassword && <ChangePasswordModal onClose={() => setChangingPassword(false)} />}
         </Page>
     );
 };

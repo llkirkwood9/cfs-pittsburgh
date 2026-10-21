@@ -52,6 +52,17 @@ namespace api.Models
         public bool IsActive { get; set; } = true;
 
         /// <summary>
+        /// The territory this delivery option belongs to, or null for a global delivery option offered in every
+        /// territory. Only system admins and administrators change global ones.
+        /// </summary>
+        public int? TerritoryId { get; set; }
+
+        /// <summary>
+        /// Navigation to the territory
+        /// </summary>
+        public Territory? Territory { get; set; }
+
+        /// <summary>
         /// A sale on this delivery option, taken off whenever it is added to an order, as a percent off
         /// </summary>
         public decimal? SaleDiscountPercent { get; set; }

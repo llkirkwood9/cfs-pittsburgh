@@ -11,6 +11,16 @@ namespace api.Dtos
         public int? Id { get; set; }
 
         /// <summary>
+        /// The territory running the event; defaults to the territory being worked
+        /// </summary>
+        public int? TerritoryId { get; set; }
+
+        /// <summary>
+        /// The territory's name (returned, not saved)
+        /// </summary>
+        public string? TerritoryName { get; set; }
+
+        /// <summary>
         /// Organization running the fundraiser; the event's name
         /// </summary>
         public string? Organization { get; set; }

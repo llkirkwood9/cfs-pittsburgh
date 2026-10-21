@@ -12,9 +12,11 @@ namespace api.Utils
     public class CatalogImportException(string message) : Exception(message);
 
     /// <summary>
-    /// Saves the catalog to a file and restores it again. Products are matched by brand and name,
-    /// sizes by size and configuration, and delivery options, selections and choices by name, so a
-    /// restore keeps the ids - and so the stock counts and past sales - of anything it matches.
+    /// Saves the catalog to a file and restores it again. Products are matched by territory, brand
+    /// and name, sizes by size and configuration, and delivery options (within their territory),
+    /// selections and choices by name, so a restore keeps the ids - and so the stock counts and
+    /// past sales - of anything it matches. Territories are matched by name; an item whose
+    /// territory isn't here comes in as a global one, with a warning.
     /// A restore either brings matching items in line with the file and adds the rest, leaving
     /// anything not in the file alone, or clears the catalog first and rebuilds it from the file.
     /// </summary>
@@ -53,6 +55,7 @@ namespace api.Utils
         {
             var deliveryOptions = await db.DeliveryOptions
                 .AsNoTracking()
+                .Include(d => d.Territory)
                 .OrderBy(d => d.SortOrder)
                 .ThenBy(d => d.Name)
                 .ThenBy(d => d.Id)
@@ -60,16 +63,21 @@ namespace api.Utils
 
             var financeOptions = await db.FinanceOptions
                 .AsNoTracking()
-                .OrderBy(f => f.SortOrder)
+                .Include(f => f.Territory)
+                .OrderBy(f => f.TerritoryId != null)
+                .ThenBy(f => f.Territory!.Name)
+                .ThenBy(f => f.SortOrder)
                 .ThenBy(f => f.Name)
                 .ToListAsync();
 
             var products = await db.Products
                 .AsNoTracking()
+                .Include(p => p.Territory)
                 .Include(p => p.Variants)
                 .ThenInclude(v => v.Components)
                 .ThenInclude(c => c.ComponentVariant)
                 .ThenInclude(cv => cv!.Product)
+                .ThenInclude(cp => cp!.Territory)
                 .Include(p => p.DeliveryOptions)
                 .ThenInclude(d => d.DeliveryOption)
                 .Include(p => p.Options)
@@ -90,6 +98,7 @@ namespace api.Utils
                 {
                     Name = f.Name,
                     IsActive = f.IsActive,
+                    Territory = f.Territory?.Name,
                 }).ToList(),
                 DeliveryOptions = deliveryOptions.Select(d => new CatalogDeliveryOptionDto
                 {
@@ -99,11 +108,13 @@ namespace api.Utils
                     IsTakeWith = d.IsTakeWith,
                     ShowOnSalesSheet = d.ShowOnSalesSheet,
                     IsActive = d.IsActive,
+                    Territory = d.Territory?.Name,
                     SaleDiscountPercent = d.SaleDiscountPercent,
                     SaleDiscountAmount = d.SaleDiscountAmount,
                 }).ToList(),
                 Products = products.Select(p => new CatalogProductDto
                 {
+                    Territory = p.Territory?.Name,
                     Name = p.Name,
                     Brand = p.Brand,
                     Category = p.Category.ToString(),
@@ -135,7 +146,8 @@ namespace api.Utils
                                     .Where(c => c.ComponentVariant?.Product != null)
                                     .Select(c => new CatalogComponentDto
                                     {
-                                        Brand = c.ComponentVariant!.Product!.Brand,
+                                        Territory = c.ComponentVariant!.Product!.Territory?.Name,
+                                        Brand = c.ComponentVariant.Product.Brand,
                                         Name = c.ComponentVariant.Product.Name,
                                         Size = c.ComponentVariant.Size,
                                         Configuration = c.ComponentVariant.Configuration,
@@ -201,11 +213,12 @@ namespace api.Utils
             if (replace)
                 (result.ProductsRemoved, result.DeliveryOptionsRemoved) = await PermanentDelete.CatalogAsync(db);
 
-            var deliveryOptions = await ImportDeliveryOptionsAsync(db, file.DeliveryOptions ?? [], result);
+            var territories = await db.Territories.AsNoTracking().ToListAsync();
+            var deliveryOptions = await ImportDeliveryOptionsAsync(db, file.DeliveryOptions ?? [], territories, result);
 
             // A file from before financing options were exported has none, and leaves them alone.
             if (file.FinanceOptions != null)
-                await ImportFinanceOptionsAsync(db, file.FinanceOptions, replace, result);
+                await ImportFinanceOptionsAsync(db, file.FinanceOptions, replace, territories, result);
 
             var existing = await db.Products
                 .Include(p => p.Variants)
@@ -223,8 +236,9 @@ namespace api.Utils
             var imported = new List<Restored>();
             foreach (var dto in file.Products ?? [])
             {
+                var territoryId = TerritoryFor(territories, dto.Territory, result);
                 var product = unmatched
-                    .Where(p => Same(p.Brand, dto.Brand) && Same(p.Name, dto.Name))
+                    .Where(p => p.TerritoryId == territoryId && Same(p.Brand, dto.Brand) && Same(p.Name, dto.Name))
                     .OrderByDescending(p => p.IsActive == (dto.IsActive ?? true))
                     .ThenBy(p => p.Id)
                     .FirstOrDefault();
@@ -241,6 +255,7 @@ namespace api.Utils
                     result.ProductsUpdated++;
                 }
 
+                product.TerritoryId = territoryId;
                 var variants = await ApplyProductAsync(db, product, dto, deliveryOptions, result);
                 imported.Add(new Restored(dto, product, variants));
             }
@@ -248,7 +263,7 @@ namespace api.Utils
             await db.SaveChangesAsync();
 
             // Bundles last, once every product they can name is in place.
-            ApplyBundles(existing.Concat(imported.Select(i => i.Product)).Distinct().ToList(), imported, result);
+            ApplyBundles(existing.Concat(imported.Select(i => i.Product)).Distinct().ToList(), imported, territories, result);
             await db.SaveChangesAsync();
 
             await transaction.CommitAsync();
@@ -280,7 +295,7 @@ namespace api.Utils
 
             if (financeOptions.Any(f => (f.Name?.Trim().Length ?? 0) is 0 or > 100))
                 return "Every financing option needs a name of up to 100 characters.";
-            var repeated = financeOptions.GroupBy(f => Key(f.Name)).FirstOrDefault(g => g.Count() > 1);
+            var repeated = financeOptions.GroupBy(f => (Key(f.Territory), Key(f.Name))).FirstOrDefault(g => g.Count() > 1);
             if (repeated != null)
                 return $"The financing option \"{repeated.First().Name!.Trim()}\" is in the file more than once.";
 
@@ -333,24 +348,33 @@ namespace api.Utils
         }
 
         /// <summary>
-        /// Brings the delivery options list in line with the file: a match by name is updated and
-        /// anything new is added. Options not in the file are left as they are.
+        /// Brings the delivery options list in line with the file: a match by territory and name
+        /// is updated and anything new is added. Options not in the file are left as they are.
         /// </summary>
-        /// <returns>Every delivery option, by name.</returns>
-        private static async Task<Dictionary<string, DeliveryOption>> ImportDeliveryOptionsAsync(
-            ApplicationDbContext db, List<CatalogDeliveryOptionDto> options, CatalogImportResultDto result)
+        /// <returns>Every delivery option.</returns>
+        private static async Task<List<DeliveryOption>> ImportDeliveryOptionsAsync(
+            ApplicationDbContext db, List<CatalogDeliveryOptionDto> options, List<Territory> territories, CatalogImportResultDto result)
         {
             var all = await db.DeliveryOptions.OrderBy(d => d.Id).ToListAsync();
             var unmatched = all.ToList();
 
             foreach (var (dto, index) in options.Select((d, i) => (d, i)))
             {
+                var territoryId = TerritoryFor(territories, dto.Territory, result);
                 var option = unmatched
-                    .Where(d => Same(d.Name, dto.Name))
+                    .Where(d => d.TerritoryId == territoryId && Same(d.Name, dto.Name))
                     .OrderByDescending(d => d.IsActive == (dto.IsActive ?? true))
                     .FirstOrDefault();
                 if (option == null)
                 {
+                    // A name can't repeat among the options any one territory sees: a global one
+                    // against any territory's, or two in the same territory.
+                    if (all.Any(d => Same(d.Name, dto.Name) && (territoryId == null || d.TerritoryId == null || d.TerritoryId == territoryId)))
+                    {
+                        result.Warnings.Add($"The delivery option \"{dto.Name!.Trim()}\" has the same name as one already offered alongside it, so it was left out.");
+                        continue;
+                    }
+
                     option = new DeliveryOption();
                     db.DeliveryOptions.Add(option);
                     all.Add(option);
@@ -362,6 +386,7 @@ namespace api.Utils
                     result.DeliveryOptionsUpdated++;
                 }
 
+                option.TerritoryId = territoryId;
                 option.Name = dto.Name!.Trim();
                 option.Price = dto.Price ?? 0;
                 option.IsTaxable = dto.IsTaxable ?? true;
@@ -374,34 +399,49 @@ namespace api.Utils
             }
 
             await db.SaveChangesAsync();
-
-            var byName = new Dictionary<string, DeliveryOption>();
-            foreach (var option in all.OrderByDescending(d => d.IsActive))
-                byName.TryAdd(Key(option.Name), option);
-            return byName;
+            return all;
         }
 
         /// <summary>
-        /// Brings the financing options in line with the file, in the file's order: a match by name
-        /// is updated and anything new is added. A clear and replace deletes the rest first;
-        /// otherwise options not in the file are kept, after the file's ones. Sales record the
-        /// option by name, so deleting one never changes a past sale.
+        /// Brings the financing options in line with the file, in the file's order within each list
+        /// (global, or a territory's own): a match by territory and name is updated and anything new
+        /// is added. A clear and replace deletes every territory's first; otherwise options not in
+        /// the file are kept, after the file's ones in their list. Sales record the option by name,
+        /// so deleting one never changes a past sale.
         /// </summary>
         private static async Task ImportFinanceOptionsAsync(
-            ApplicationDbContext db, List<CatalogFinanceOptionDto> options, bool replace, CatalogImportResultDto result)
+            ApplicationDbContext db, List<CatalogFinanceOptionDto> options, bool replace,
+            List<Territory> territories, CatalogImportResultDto result)
         {
             if (replace)
                 result.FinanceOptionsRemoved = await db.FinanceOptions.ExecuteDeleteAsync();
 
-            var unmatched = await db.FinanceOptions.OrderBy(f => f.SortOrder).ThenBy(f => f.Name).ToListAsync();
-            var next = 1;
+            var all = await db.FinanceOptions.OrderBy(f => f.SortOrder).ThenBy(f => f.Name).ToListAsync();
+            var unmatched = all.ToList();
+            var next = new Dictionary<int, int>();
+            int NextIn(int? territoryId)
+            {
+                var key = territoryId ?? 0;
+                next[key] = next.GetValueOrDefault(key) + 1;
+                return next[key];
+            }
+
             foreach (var dto in options)
             {
-                var option = unmatched.FirstOrDefault(f => Same(f.Name, dto.Name));
+                var territoryId = TerritoryFor(territories, dto.Territory, result);
+                var option = unmatched.FirstOrDefault(f => f.TerritoryId == territoryId && Same(f.Name, dto.Name));
                 if (option == null)
                 {
-                    option = new FinanceOption();
+                    // A name can't repeat among the options any one territory sees.
+                    if (all.Any(f => Same(f.Name, dto.Name) && (territoryId == null || f.TerritoryId == null || f.TerritoryId == territoryId)))
+                    {
+                        result.Warnings.Add($"The financing option \"{dto.Name!.Trim()}\" has the same name as one already offered alongside it, so it was left out.");
+                        continue;
+                    }
+
+                    option = new FinanceOption { TerritoryId = territoryId };
                     db.FinanceOptions.Add(option);
+                    all.Add(option);
                     result.FinanceOptionsAdded++;
                 }
                 else
@@ -412,11 +452,11 @@ namespace api.Utils
 
                 option.Name = dto.Name!.Trim();
                 option.IsActive = dto.IsActive ?? true;
-                option.SortOrder = next++;
+                option.SortOrder = NextIn(territoryId);
             }
 
             foreach (var kept in unmatched)
-                kept.SortOrder = next++;
+                kept.SortOrder = NextIn(kept.TerritoryId);
 
             await db.SaveChangesAsync();
         }
@@ -430,7 +470,7 @@ namespace api.Utils
             ApplicationDbContext db,
             Product product,
             CatalogProductDto dto,
-            Dictionary<string, DeliveryOption> deliveryOptions,
+            List<DeliveryOption> deliveryOptions,
             CatalogImportResultDto result)
         {
             var label = Label(dto);
@@ -505,14 +545,21 @@ namespace api.Utils
                 variant.Components.Clear();
             }
 
-            // Delivery choices, by name.
+            // Delivery choices, by name: the product's own territory's first, then global ones.
             db.ProductDeliveryOptions.RemoveRange(product.DeliveryOptions);
             product.DeliveryOptions.Clear();
             foreach (var d in dto.DeliveryOptions ?? [])
             {
-                if (!deliveryOptions.TryGetValue(Key(d.Name), out var option))
+                var option = deliveryOptions
+                    .Where(o => Same(o.Name, d.Name) && (o.TerritoryId == null || o.TerritoryId == product.TerritoryId))
+                    .OrderByDescending(o => o.TerritoryId != null)
+                    .ThenByDescending(o => o.IsActive)
+                    .FirstOrDefault();
+                if (option == null)
                 {
-                    result.Warnings.Add($"{label} offers \"{d.Name}\", which isn't in the delivery options list, so it was left off.");
+                    result.Warnings.Add(deliveryOptions.Any(o => Same(o.Name, d.Name))
+                        ? $"{label} offers \"{d.Name}\", which isn't available where it's sold, so it was left off."
+                        : $"{label} offers \"{d.Name}\", which isn't in the delivery options list, so it was left off.");
                     continue;
                 }
                 if (product.DeliveryOptions.Any(x => x.DeliveryOption == option))
@@ -545,7 +592,7 @@ namespace api.Utils
         /// configuration among everything now in the catalog; one that can't be found, is the
         /// product itself, or is a bundle in its own right is left out with a warning.
         /// </summary>
-        private static void ApplyBundles(List<Product> catalog, List<Restored> imported, CatalogImportResultDto result)
+        private static void ApplyBundles(List<Product> catalog, List<Restored> imported, List<Territory> territories, CatalogImportResultDto result)
         {
             foreach (var (dto, product, variants) in imported)
             {
@@ -558,9 +605,14 @@ namespace api.Utils
 
                     foreach (var c in v.Includes)
                     {
-                        var target = catalog
-                            .Where(p => Same(p.Brand, c.Brand) && Same(p.Name, c.Name))
-                            .OrderByDescending(p => p.IsActive)
+                        // Only global items and the bundle's own territory's can be included; the
+                        // territory the file names comes first.
+                        var named = territories.FirstOrDefault(t => Same(t.Name, c.Territory))?.Id;
+                        var candidates = catalog.Where(p => Same(p.Brand, c.Brand) && Same(p.Name, c.Name)).ToList();
+                        var target = candidates
+                            .Where(p => p.TerritoryId == null || p.TerritoryId == product.TerritoryId)
+                            .OrderByDescending(p => p.TerritoryId == named)
+                            .ThenByDescending(p => p.IsActive)
                             .ThenBy(p => p.Id)
                             .SelectMany(p => p.Variants
                                 .Where(x => Same(x.Size, c.Size) && Same(x.Configuration, c.Configuration))
@@ -570,7 +622,9 @@ namespace api.Utils
                         var name = $"{c.Brand} {c.Name} - {SizeLabel(c.Size, c.Configuration)}".Trim();
                         if (target == null)
                         {
-                            result.Warnings.Add($"{label} includes {name}, which isn't in the catalog, so it was left out.");
+                            result.Warnings.Add(candidates.Count > 0
+                                ? $"{label} includes {name}, which isn't sold where it is, so it was left out."
+                                : $"{label} includes {name}, which isn't in the catalog, so it was left out.");
                             continue;
                         }
                         if (product.Variants.Contains(target))
@@ -645,6 +699,22 @@ namespace api.Utils
                     }).ToList(),
                 };
             }).ToList();
+        }
+
+        /// <summary>
+        /// The territory an item in the file belongs to: the one with that name, or global when
+        /// the file names none - or names one that isn't here, which is noted once per name.
+        /// </summary>
+        private static int? TerritoryFor(List<Territory> territories, string? name, CatalogImportResultDto result)
+        {
+            if (string.IsNullOrWhiteSpace(name))
+                return null;
+
+            var territory = territories.FirstOrDefault(t => Same(t.Name, name));
+            var warning = $"There's no territory named {name.Trim()} here, so its items came in as global items.";
+            if (territory == null && !result.Warnings.Contains(warning))
+                result.Warnings.Add(warning);
+            return territory?.Id;
         }
 
         /// <summary>A product's name for messages, e.g. "Helix Midnight Luxe".</summary>

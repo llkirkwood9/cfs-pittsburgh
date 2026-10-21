@@ -95,37 +95,4 @@ namespace api.Models
         /// </summary>
         public bool IsActive { get; set; } = true;
     }
-
-    /// <summary>
-    /// Units on hand of one size in one combination of counted choices, e.g. Queen in Gray. A
-    /// size's stock with no counted selections stays on the size itself.
-    /// </summary>
-    public class ChoiceStock
-    {
-        /// <summary>
-        /// Primary Key
-        /// </summary>
-        public int Id { get; set; }
-
-        /// <summary>
-        /// The size
-        /// </summary>
-        public int ProductVariantId { get; set; }
-
-        /// <summary>
-        /// Navigation to the size
-        /// </summary>
-        public ProductVariant? ProductVariant { get; set; }
-
-        /// <summary>
-        /// Which combination of choices, e.g. "5:12|6:31" (selection:choice, by selection id)
-        /// </summary>
-        [MaxLength(200)]
-        public string StockKey { get; set; } = string.Empty;
-
-        /// <summary>
-        /// Units on hand
-        /// </summary>
-        public int QuantityOnHand { get; set; }
-    }
 }

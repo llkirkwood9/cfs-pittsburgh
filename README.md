@@ -1,6 +1,10 @@
 # CFS Sales App
 
-Order-taking, checkout, inventory and reporting for CFS mattress fundraisers.
+Order-taking, checkout, inventory and reporting for CFS mattress fundraisers, across any number
+of territories. This is the `Cloud-Support` branch. It runs as the same two containers - the app
+and PostgreSQL - everywhere: on a DigitalOcean server managed by Coolify, with HTTPS, for the
+whole business (see [Documents/Cloud Deployment.md](Documents/Cloud%20Deployment.md)), or on a
+single box at the venue - a Docker host or a Raspberry Pi.
 
 **Contents**
 
@@ -24,14 +28,14 @@ Order-taking, checkout, inventory and reporting for CFS mattress fundraisers.
 
 | Component | Folder | Technology | What it is |
 |---|---|---|---|
-| **API** | [`api/`](api) | ASP.NET Core 10 (net10.0), EF Core, Npgsql | Every rule and every number: orders, pricing, catalog, inventory, events, crew, settings, email. JWT sign-in with a username and PIN. |
+| **API** | [`api/`](api) | ASP.NET Core 10 (net10.0), EF Core, Npgsql | Every rule and every number: orders, pricing, catalog, inventory, events, crew, settings, email, territories. Password sign-in, with short-lived JWTs and per-device sessions. |
 | **Database** | (container) | PostgreSQL 16 | One database, `CfsFundraiser`. The API creates and migrates its tables and seeds the catalog itself. |
 | **Dashboard** | [`dashboard/`](dashboard) | Vite, React 19, TypeScript, Tailwind CSS 4 | The web app the crew uses on the cart's tablets and any browser. |
 | **Mobile app** | [`app/`](app) | Expo SDK 57, React Native 0.86, Expo Router, NativeWind 4 | The dashboard's screens as a native app for iPhone, iPad and Android. |
-| **App image** | [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml) | Docker (amd64 and arm64) | The API with the built dashboard inside it, on port 8080, beside a PostgreSQL container. |
+| **App image** | [`Dockerfile`](Dockerfile), [`docker-compose.yml`](docker-compose.yml), [`docker-compose.coolify.yml`](docker-compose.coolify.yml) | Docker (amd64 and arm64), Coolify | The API with the built dashboard inside it, on port 8080, beside a PostgreSQL container. In the cloud, Coolify runs them and adds HTTPS in front. |
 | **Raspberry Pi scripts** | [`docker/pi/`](docker/pi) | bash, systemd | Start at boot, update, back up, restore and reset a Pi that runs the image at an event. |
-| **CI/CD** | [`.github/workflows/`](.github/workflows) | GitHub Actions, EAS | Publishes the app image to ghcr.io, and builds and ships the mobile app. |
-| **Documents** | [`Documents/`](Documents) | Word, Markdown | The user guide for the crew, the Raspberry Pi setup and the mobile app guide. |
+| **CI/CD** | [`.github/workflows/`](.github/workflows) | GitHub Actions, EAS | Publishes the app image to ghcr.io and has Coolify deploy it to the cloud, and builds and ships the mobile app. |
+| **Documents** | [`Documents/`](Documents) | Word, Markdown | The user guide for the crew, cloud deployment, the Raspberry Pi setup and the mobile app guide. |
 
 How they fit together:
 
@@ -42,9 +46,10 @@ How they fit together:
 ```
 
 In production the API serves the built dashboard itself, so a browser sees one origin and one
-port and there is no CORS to set up. The mobile app talks to the same API: its server address is
-typed in on the sign-in screen (for example `http://192.168.1.50:8080`) and remembered on the
-device. In development the three run separately (API on 5046, dashboard on 3000, app in Expo).
+port and there is no CORS to set up. In the cloud the same two containers run on one server,
+managed by Coolify, whose proxy puts HTTPS on the business's own domain. The mobile app talks to the same API at an address fixed when it is
+built: release builds use the live site (the `API_URL` repository secret), and a local copy uses
+`EXPO_PUBLIC_API_URL` in `app/.env` - a local API or the live site. In development the three run separately (API on 5046, dashboard on 3000, app in Expo).
 
 ---
 
@@ -53,10 +58,13 @@ device. In development the three run separately (API on 5046, dashboard on 3000,
 ```
 Dockerfile                  The app image: dashboard build + API publish + ASP.NET runtime
 docker-compose.yml          The app image plus PostgreSQL, on port 8080
+docker-compose.coolify.yml  What Coolify runs in the cloud: the app, PostgreSQL and backups
 docker-compose.pi.yml       Includes docker-compose.yml, for Pis set up with this name
+docker/cloud/               cfs-restore.sh: restores a backup on the cloud server, in one command
 docker/pi/                  cfs.service, cfs-update.sh, cfs-backup.sh, cfs-reset-db.sh
 .github/workflows/
 ├── app-image.yml           Numbers and publishes the app image to ghcr.io on a push to main
+├── cloud-deploy.yml        On a push to Cloud-Support: publishes the :cloud image, has Coolify deploy it
 └── app-release.yml         Builds the mobile app on a push to app-release (APK + TestFlight)
 .gitattributes              Keeps *.sh and Dockerfile at LF line endings
 
@@ -65,8 +73,9 @@ api/                        ASP.NET Core 10 Web API
 ├── Dtos/                   Request/response shapes; EF models are never exposed directly
 ├── Models/                 EF entities
 ├── Data/                   ApplicationDbContext, its design-time factory, SeedData, CatalogSeed.json
-├── Services/               TokenService (JWT, refresh tokens, PIN hashing), EmailService (SMTP)
-├── Utils/                  BasicController, OrderCalculator, LineOrder, Choices, CatalogTransfer,
+├── Services/               TokenService (JWT, sessions, password hashing), EmailService (SMTP)
+├── Utils/                  BasicController, AccessScope (who may see what), PasswordPolicy,
+│                           OrderCalculator, LineOrder, Choices, CatalogTransfer,
 │                           InventoryRules, PermanentDelete, SettingsStore, EmailTemplates, TraceControl
 ├── Migrations/             EF Core migrations for PostgreSQL
 ├── Program.cs              Configuration, auth, CORS, migrations and seeding, SPA hosting
@@ -78,13 +87,13 @@ dashboard/                  Vite + React 19 + TypeScript SPA, styled with Tailwi
 └── src/
     ├── Components/         Elements (Button, Icon, Modal, TextField, ...), Navbar, Sales,
     │                       Checkout, Catalog, ... including the customer-facing screens
-    ├── Context/            AuthContext (sign-in, roles), SettingsContext
+    ├── Context/            AuthContext (sign-in, roles), TerritoryContext, SettingsContext
     ├── Hooks/              UseTheme, UseLockBodyScroll
     ├── Lib/                api.ts (axios + token refresh), ErrorHandler, Toast, ModelHelpers,
     │                       Pricing, SheetPdf (print/email PDFs), Version, ...
     ├── Models/             One type per DTO
     ├── Pages/              One per route
-    ├── Routes/             Routes.tsx, ProtectedRoute.tsx, HomeRedirect.tsx
+    ├── Routes/             Routes.tsx, ProtectedRoute.tsx, RequireTerritory.tsx, HomeRedirect.tsx
     └── Services/           One file per API controller
 
 app/                        Expo + React Native app; see app/README.md
@@ -97,6 +106,7 @@ app/                        Expo + React Native app; see app/README.md
 
 Documents/
 ├── CFS Sales App User Guide.docx   For the crew: every screen, by role
+├── Cloud Deployment.md             The cloud server with Coolify: domain, deploys, email, backups
 ├── Mobile App Guide.md             Running, testing, building and releasing the app
 └── Raspberry Pi Setup.md           Running the image on a Pi at an event, email, troubleshooting
 ```
@@ -139,16 +149,11 @@ git clone https://github.com/llkirkwood9/cfs-pittsburgh.git
 
    and open `http://localhost:3000`.
 
-4. **Sign in** with one of the seeded accounts:
-
-   | Username | PIN | Role |
-   |---|---|---|
-   | `admin` | `1234` | Admin |
-   | `sales` | `1111` | Sales |
-   | `checkout` | `2222` | Checkout |
-
-   **Change these before the app goes anywhere near a real event** (`/crew`), and set your own
-   `Jwt:Key` (section 8).
+4. **Sign in** as `admin`, a system admin. Its starting password is `Seed:AdminPassword` from
+   `api/appsettings.local.json` if you set one before the first start, or else the random one in
+   the API's log (`Created the first account`). You choose your own straight away; then add
+   territories and crew on `/territories` and `/crew`. Set your own `Jwt:Key` before the app goes
+   anywhere real (section 8).
 
 Or skip the separate pieces and run what production runs:
 
@@ -173,7 +178,7 @@ cd api && dotnet run --launch-profile http
 
 - Listens on `http://localhost:5046` (the `https` profile adds `https://localhost:7277`).
 - On start it waits for the database, applies any pending migrations, and seeds the catalog,
-  delivery options, a sample event and the three sign-ins from `Data/CatalogSeed.json` and
+  delivery options, a sample event and the first `admin` account from `Data/CatalogSeed.json` and
   `Data/SeedData.cs`. The seed fills in whatever is missing on every start; `Seed:Skip` turns it
   off (section 8).
 - In Development the OpenAPI document is at `http://localhost:5046/openapi/v1.json`.
@@ -205,19 +210,67 @@ The design-time factory (`Data/ApplicationDbContextFactory.cs`) points at the lo
 set `CFS_POSTGRES_CONNECTION` to use another server. Migrations run by themselves when the API
 next starts, here and in the image.
 
-**Auth and roles.** Sign-in is a username and a numeric PIN; the API issues a JWT bearer access
-token and an opaque refresh token. There is no self-service signup: an admin creates accounts on
-`/crew`. Roles:
+**Auth and roles.** Sign-in is a username and a password; there is no self-service signup, and
+accounts are made on `/crew`. The business is split into **territories**; every event, its crew,
+its stock and any catalog items of its own belong to one. Roles, lowest first:
 
-| Role | Can use |
-|---|---|
-| Sales | The sales floor |
-| Checkout | The checkout table and inventory |
-| SalesCheckout | Both of the above |
-| Admin | Everything, including the catalog, events, crew and settings |
-| SystemAdmin | Everything an Admin can, plus permanent deletes and catalog export/restore |
+| Role | Territories | Can use |
+|---|---|---|
+| Sales | own | The sales floor |
+| Checkout | own | The checkout table and inventory |
+| SalesCheckout | own | Both of the above |
+| Manager | own | Everything in their territory: its crew (Sales and Checkout roles), events, settings and its own catalog items |
+| Admin | all | Everything, in every territory, including global catalog items and the Territories screen |
+| SystemAdmin | all | Everything an Admin can, plus permanent deletes and catalog export/restore |
 
-Orders, the sales sheet and the stat-sheet dashboard are open to every role.
+Orders, the sales sheet and the stat-sheet dashboard are open to every role, for their own
+territory. Admins and system admins pick the territory in view (or All territories) in the menu
+bar; it travels with each request as an `X-Territory-Id` header. The API enforces all of this on
+every request (`Utils/AccessScope.cs`); the dashboard and app only hide what a role can't use.
+
+**First sign-in.** An empty database gets one account, `admin`, made a system admin. Its starting
+password is `SEED_ADMIN_PASSWORD` from the `.env` (`Seed:AdminPassword` locally) or, when that is
+blank, a random one written once to the API's log (`Created the first account. Username: admin
+Temporary password: ...`). Either way it has to be changed at the first sign-in.
+
+**Upgrading from PINs.** A database from before passwords keeps working. The migration puts every
+existing event, Sales / Checkout account and stock count into a first territory, **Pittsburgh**
+(rename it on the Territories screen). Each person signs in once more with their old PIN as the
+password and is then made to choose a real one. `Auth:AllowLegacyPins=false` turns the one-time
+PIN sign-in off; then a manager sets a starting password for each account on the Crew screen.
+
+**Security**
+
+- **Passwords.** At least 8 characters (up to 128), not a commonly used one, and not containing
+  the username or name; hashed with ASP.NET Core Identity's PBKDF2 hasher. A password set by a
+  manager or above - a new account or a reset - has to be changed at the next sign-in. Five wrong
+  passwords in a row lock the account for 15 minutes (`Auth:MaxFailedAttempts`,
+  `Auth:LockoutMinutes`); a manager can unlock it sooner on the Crew screen.
+- **Sessions.** Signing in returns a 15-minute access token (`Jwt:AccessTokenMinutes`, up to 60),
+  kept only in memory, and a refresh token for this device. Each renewal replaces the refresh
+  token, and only a SHA-256 of it is stored (`UserSessions`). Renewing, changing a password and
+  signing out need an `X-CFS-Client` header, which another site can't send:
+  - The **dashboard** (`X-CFS-Client: dashboard`) gets the refresh token as an httpOnly,
+    SameSite=Strict cookie scoped to `/api/auth`, never readable by script.
+  - The **app** (`X-CFS-Client: app`) has no cookies to rely on, so the API returns the refresh
+    token in the response body instead. The app keeps it in the iOS Keychain / Android Keystore
+    (`expo-secure-store`) and sends it back as an `X-Refresh-Token` header.
+- Changing a password signs out every other device; switching an account or a territory off signs
+  its people out at their next request. **Every request is checked against the database**
+  (`AccessScopeMiddleware`), so a switched-off account or a changed role takes effect at once.
+- **Rate limits.** Sign-in, renewal and sign-out: 30 a minute per address, on top of the
+  per-account lockout. Everything else: 120 per 10 seconds per user.
+- **Headers.** A Content-Security-Policy (same-origin scripts only), `X-Content-Type-Options`,
+  `X-Frame-Options`, `Referrer-Policy`, `Permissions-Policy`, `Cross-Origin-Opener-Policy`, and
+  HSTS outside development.
+- **Errors.** A 500 says what failed but not why; the exception text is only returned in
+  Development.
+- **Configuration.** Outside Development the API refuses to start without a real `Jwt:Key` (32+
+  characters, not the placeholder) and a connection string.
+- **Behind a proxy** - Coolify's, in the cloud - the API reads `X-Forwarded-For` /
+  `X-Forwarded-Proto`, believing only the hop the proxy added (`ForwardedHeaders:ForwardLimit`).
+  `docker-compose.yml` turns this off, because on a Pi nothing sits in front of the app;
+  `docker-compose.coolify.yml` turns it on, and publishes no port of its own.
 
 ---
 
@@ -286,7 +339,9 @@ properly.
 
 Expo SDK 57 + React Native 0.86 + Expo Router in [`app/`](app), styled with NativeWind 4 so it
 looks like the dashboard. Every dashboard screen is there, on a native tab bar (Sell, Checkout,
-Orders, Dashboard, and More for Inventory, Catalog, Events, Crew and Settings). Sheets print and
+Orders, Dashboard, and More for Inventory, Catalog, Events, Crew, Settings and Territories), with
+the same territory picker in the menu bar. Sign-in is the same username and password; the app
+keeps its session in the device's secure storage (section 4, *Security*). Sheets print and
 email as the same picture-per-page PDF the dashboard makes. Each screen reads its data again,
 quietly, whenever it comes back into view (`Hooks/UseRefreshOnFocus.ts`) - every one but Settings,
 so a half-typed change there isn't lost.
@@ -298,8 +353,8 @@ cd app && npm install && npx expo start
 ```
 
 - Scan the QR code with Expo Go, or press `w` for a browser build.
-- On the sign-in screen, enter a server address the phone can reach: the API bound to
-  `0.0.0.0` (section 4) at `http://<your PC's IP>:5046`, or an image at `http://<IP>:8080`.
+- Copy `app/.env.example` to `app/.env` and set `EXPO_PUBLIC_API_URL` to a server the phone can
+  reach: the API bound to `0.0.0.0` (section 4) at `http://<your PC's IP>:5046`, or the live site.
 - The browser build runs on its own port; to sign in from it, run it on 8082 and let the API
   accept that origin:
 
@@ -344,7 +399,12 @@ then environment variables, where `:` becomes `__` (`Jwt__Key`, `Cors__AllowedOr
 |---|---|---|
 | `ConnectionStrings:DefaultConnection` | the development container | PostgreSQL connection string |
 | `Jwt:Key` | a placeholder | Signing key, at least 32 characters. **Replace it** anywhere real. |
-| `Jwt:ExpiresInMinutes`, `Jwt:RefreshTokenDays` | 720, 7 | Token lifetimes |
+| `Jwt:AccessTokenMinutes`, `Jwt:RefreshTokenDays` | 15, 7 | Access token lifetime (up to 60 minutes), and how long a device stays signed in unused (1-30 days) |
+| `Auth:MaxFailedAttempts`, `Auth:LockoutMinutes` | 5, 15 | Wrong passwords in a row before an account is locked, and for how long |
+| `Auth:AllowLegacyPins` | `true` | Lets an account from before passwords sign in once with its old PIN, then choose a password |
+| `Auth:SecureCookies` | blank (follows the request) | Whether the dashboard's session cookie is HTTPS-only. Blank makes it secure over HTTPS and still work on a cart's plain-HTTP network; `true` or `false` forces it |
+| `ForwardedHeaders:Enabled`, `ForwardLimit` | `true`, 1 | Read the client's address from a proxy in front (Coolify's, in the cloud); off in `docker-compose.yml` |
+| `Seed:AdminPassword` | blank | The first `admin` account's starting password; blank writes a random one to the log |
 | `Seed:Skip` | `false` | `true` starts without the sample catalog, delivery options and event. The first `admin` account is still created when there are no accounts at all, so a new database is never locked. |
 | `Email:Host`, `Port`, `Security`, `Username`, `Password`, `From`, `FromName`, `ReplyTo` | off | SMTP for emailed receipts and reports. With no host, email is off and the dashboard says so. |
 | `Cors:AllowedOrigins` | `http://localhost:3000`, `http://127.0.0.1:3000` | Browser origins allowed to call the API in development |
@@ -356,8 +416,15 @@ then environment variables, where `:` becomes `__` (`Jwt__Key`, `Cors__AllowedOr
 |---|---|---|
 | `POSTGRES_PASSWORD` | yes | The database password, for both containers |
 | `JWT_KEY` | yes | `Jwt__Key` |
-| `CFS_IMAGE` | no | The image to run (default `ghcr.io/llkirkwood9/cfs-fundraiser:latest`) |
+| `CFS_IMAGE` | no | The image to run (default `ghcr.io/llkirkwood9/cfs-fundraiser:cloud` on this branch) |
+| `CFS_BACKUP_KEEP` | no | How many backups `cfs-backup.sh` keeps (10) |
+
+In the cloud the same settings are **Environment Variables** on the Coolify resource, read by
+`docker-compose.coolify.yml`; Coolify makes up the database password and `Jwt__Key` itself. That
+file also has `ALLOW_LEGACY_PINS` (`Auth__AllowLegacyPins`, `false` by default there) and the
+nightly backup's `TZ`, `CFS_BACKUP_TIME` and `CFS_BACKUP_KEEP`, and email defaults to port 2525.
 | `SKIP_SEED_DATA` | no | `Seed__Skip` |
+| `SEED_ADMIN_PASSWORD` | no | `Seed__AdminPassword` |
 | `EMAIL_HOST`, `EMAIL_PORT` (587), `EMAIL_SECURITY` (StartTls), `EMAIL_USERNAME`, `EMAIL_PASSWORD`, `EMAIL_FROM` | for email | `Email__*` |
 | `EMAIL_FROM_NAME` | no | Overrides the sender name, which is otherwise the app name from Settings |
 | `EMAIL_REPLY_TO` | no | Where customers' replies go, when the sending address isn't read |
@@ -370,8 +437,9 @@ the `EMAIL_*` settings change. [`Documents/Raspberry Pi Setup.md`](Documents/Ras
 walks through it.
 
 **Settings in the app.** Business details, the sales sheet terms, the receipt email's wording,
-financing, new-event rates and dashboard thresholds are set by an admin on `/settings` and stored
-in the `AppSettings` table, not in config files (section 12).
+financing, new-event rates and dashboard thresholds are set on `/settings` - company-wide by an
+admin, or per territory - and stored in the `AppSettings` and `TerritorySettings` tables, not in
+config files (section 12).
 
 ---
 
@@ -396,9 +464,14 @@ then by hand.
 
 ### The app image
 
-[`.github/workflows/app-image.yml`](.github/workflows/app-image.yml) runs on every push to `main`
-that touches `api/`, `dashboard/`, the `Dockerfile` or the workflow, or by hand from the Actions
-tab. It:
+On this branch, [`.github/workflows/cloud-deploy.yml`](.github/workflows/cloud-deploy.yml) runs on
+every push to `Cloud-Support` that touches the app or its deployment files, or by hand from the
+Actions tab. It numbers the build from the `cloud-v*` tags, builds it for `linux/amd64` and
+`linux/arm64`, pushes it as `:cloud`, `:cloud-<version>` and `:<commit sha>`, then calls Coolify's
+deploy webhook (section *Cloud hosting*). Pis on this branch run `:cloud` too.
+
+On `main`, [`.github/workflows/app-image.yml`](.github/workflows/app-image.yml) runs on every push
+that touches `api/`, `dashboard/`, the `Dockerfile` or the workflow, or by hand. It:
 
 1. Numbers the build YYYY.MM.&lt;build&gt; (the first in October 2026 is `2026.10.1`) from the
    existing `dashboard-v*` tags and pushes the tag `dashboard-v<version>`.
@@ -408,7 +481,7 @@ tab. It:
 To build and push one by hand instead:
 
 ```bash
-docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/<owner>/cfs-fundraiser:latest --push .
+docker buildx build --platform linux/amd64,linux/arm64 -t ghcr.io/<owner>/cfs-fundraiser:cloud --push .
 ```
 
 ### Running the image anywhere
@@ -454,8 +527,23 @@ carries on unchanged.
 
 ### Cloud hosting
 
-Hosting in the cloud, with territories, lives on the `Cloud-Support` branch; see
-`Documents/Cloud Deployment.md` on that branch.
+One DigitalOcean server (2 vCPUs, 2 GB - Coolify's minimum) runs **Coolify**, a free, open-source
+control panel, which runs [`docker-compose.coolify.yml`](docker-compose.coolify.yml): the same app
+and PostgreSQL as a Pi, a backup before each deploy and one every night into `/opt/cfs/backups`.
+Coolify's proxy puts HTTPS on the business's domain (Let's Encrypt), and its dashboard shows the
+logs and deployments. The domain's records are in Squarespace.
+
+`cloud-deploy.yml` builds the image on GitHub, never on the server, and then calls the Coolify
+resource's deploy webhook (secrets `COOLIFY_WEBHOOK` and `COOLIFY_TOKEN`) and follows the
+deployment until it finishes. Coolify reads the compose file from the repository, pulls the new
+`:cloud` image (`pull_policy: always`) and restarts the app. Without those secrets the deploy step
+just says so.
+
+[`Documents/Cloud Deployment.md`](Documents/Cloud%20Deployment.md) is the step-by-step guide:
+sizing, the server and its firewall, installing Coolify, the Squarespace DNS records, creating the
+resource, the GitHub settings, the first sign-in, email through SMTP2GO (on port 2525, since
+DigitalOcean blocks the usual mail ports), backups and restoring, moving a cart's data across,
+updating, rolling back and troubleshooting. The mobile app connects to the same domain.
 
 ### The mobile app
 
@@ -487,7 +575,7 @@ along with building by hand with `eas build`.
 | Branch | What it's for |
 |---|---|
 | `main` | Day-to-day work. Every push that touches the API or dashboard publishes a new image. |
-| `Cloud-Support` | The cloud-hosted version, which adds territories. API and dashboard changes made on `main` are ported to it by hand, since the code differs; the mobile app lives on `main` only. |
+| `Cloud-Support` | The cloud-hosted version, which adds territories, password sign-in and the Manager role, in the API, dashboard and app. Changes made on `main` are ported to it by hand, since the code differs. The app keeps the same bundle ID, so it replaces `main`'s app when this branch is released. |
 | `app-release` | Release trigger only: push `main` to it to ship the app. Never commit to it directly. |
 
 For anything bigger than a small fix, work on a branch and open a pull request against `main`.
@@ -524,7 +612,9 @@ For anything bigger than a small fix, work on a branch and open a pull request a
 
 - Every controller inherits `BasicController`, with primary-constructor dependency injection.
 - Every action is wrapped in its own try/catch that traces the error and returns
-  `{ error, exception }`.
+  `ServerError(...)`: `{ error }`, plus `exception` in Development only.
+- Access checks go through `Scope`, `IsAtLeast`, `CanSee` and `CanEditCatalog` on
+  `BasicController`.
 - Actions are grouped in `#region POST/GET/PATCH/DELETE Methods`.
 - Validation is done by hand at the top of each mutating action.
 - DTO properties are all nullable, and EF models are never returned.
@@ -535,7 +625,8 @@ For anything bigger than a small fix, work on a branch and open a pull request a
 - PascalCase folders and filenames.
 - One service file per controller, with POST/GET/PATCH/DELETE banner comments. Services never
   throw: they call `HandleAxiosError` and return a safe default.
-- All HTTP goes through `Lib/api.ts` (bearer token plus a queued refresh interceptor).
+- All HTTP goes through `Lib/api.ts` (an in-memory bearer token, the client and territory
+  headers, and a shared session-renewal interceptor).
 - Tailwind utilities only, with an explicit `dark:` variant on every colour. No component library.
 - Icons only through the local `Icon` wrapper; feedback only through `Toast`.
 - Tablet first: controls are at least 48px tall, inputs are 16px so iPad Safari doesn't zoom on
@@ -557,6 +648,25 @@ For anything bigger than a small fix, work on a branch and open a pull request a
 
 The [user guide](Documents/CFS%20Sales%20App%20User%20Guide.docx) is the crew's version of this.
 Routes are the dashboard's; the app has the same screens.
+
+**Territories and roles**
+- The business is split into **territories** (Pittsburgh, Cleveland, ...). Every event belongs to
+  one, and so do its crew, its stock and any catalog items of its own. Each territory has one
+  active event at a time.
+- **System admins** and **administrators** work across every territory. The territory picker in
+  the menu bar chooses which one the screens show - or **All territories**. Selling, checkout and
+  stock counts need a single territory, so those screens ask for one when All is picked.
+- Everyone else belongs to one territory and only sees its events, orders, stock and settings. A
+  **manager** runs a territory: its crew, events, own catalog items and settings.
+
+| | Sales / Checkout | Sales & Checkout | Manager | Admin | System Admin |
+|---|---|---|---|---|---|
+| Territories | own | own | own | all | all |
+| Sell / checkout | one each | both | both | both | both |
+| Events, crew, settings | - | - | own territory | everything | everything |
+| Catalog | - | - | own territory's items | global and territory items | global and territory items |
+| Territories screen | - | - | - | yes | yes |
+| Permanent deletes, catalog files | - | - | - | - | yes |
 
 **Sales floor** (`/sales`, Sales role)
 - A rep holds as many drafts open at once as they have customers, each a tab across the top. Every
@@ -619,7 +729,8 @@ Routes are the dashboard's; the app has the same screens.
 - Every order for the event, filterable by status and searchable by customer, rep or order number,
   with a line above the list giving how many it shows, what they come to and what is still owed
   (voided orders aren't counted in the money).
-- An admin also gets **All events** and a per-event picker, and can **Reopen** a completed order -
+- A manager or above also gets **All events** and a per-event picker for their territory (an
+  admin: the territory in view, or every territory), and can **Reopen** a completed order -
   to the checkout table to fix a payment, initials or signature, or to the floor to change what was
   sold.
 
@@ -630,6 +741,9 @@ Routes are the dashboard's; the app has the same screens.
 - **All events** gives an overview of every event with each one's figures side by side, and the
   worst sellers: the catalog's products that have sold the fewest, including any never sold. Only
   completed sales feed the money figures; drafts and voided orders are reported separately.
+- With **All territories** picked, admins also get **Territories side by side**: each territory's
+  completed sales, total and net, average sale, mattresses and bases, and what is still owed, for
+  today, 7 days, 30 days, this year or all time. Tapping a territory switches to it.
 
 **Inventory** (`/inventory`, Checkout role)
 - On-hand stock for the accessories kept at the cart (products marked Track inventory), by size
@@ -638,33 +752,56 @@ Routes are the dashboard's; the app has the same screens.
 - **Start** and **end counts** (`/inventory/count/:phase`): checkout counts the shelf before the
   doors open and after they close; the counts feed the Accessory Inventory Sheet.
 
-**Admin** (Admin role)
+**Management** (Manager and up)
 - `/catalog` - products, sizes and prices, bundles, delivery options and their prices per product,
   sales (per product, per size and per delivery option), a note for the rep on the product and on
   each size (shown in Add item), selections, Track inventory, warranty
   (whether a product has one, and its length, shown in Add item), financing
   options, and the order the floor offers delivery and financing in. System admins can **Export
-  catalog** and **Restore catalog** as a JSON file (section 13).
-- `/events` - each event's organization, sales tax rate, card processing fee and order numbers, and
-  which one is active. **Close out** (`/events/:id/close`) lists what to check before the cart
-  packs up - orders still open, balances owed, stock counts - then closes the event. An admin can
+  catalog** and **Restore catalog** as a JSON file (section 13). An item, delivery option or
+  financing option is either **global** (sold in every territory) or one territory's own. Only
+  admins change global ones; a manager adds and edits their territory's. A territory's item can
+  include and offer global things and its own territory's; a global item only global ones.
+- `/events` - each event's territory, organization, sales tax rate, card processing fee and order numbers, and
+  which one is active in its territory. An event with no orders yet can move to another
+  territory. **Close out** (`/events/:id/close`) lists what to check before the cart
+  packs up - orders still open, balances owed, stock counts - then closes the event. An admin or
+  system admin can
   clear the open orders from there, one at a time (a button on the dashboard, a swipe in the app)
   or all at once: a draft with nothing paid is discarded, anything at checkout or with a payment
   is voided.
   **Sales sheets** (`/events/:id/sheets`) shows the filled-in Fundraiser Stat Sheet and every
   completed sheet, to print as one PDF, download as CSV, or email (with the accessory inventory
   sheet) to up to 10 addresses.
-- `/crew` - accounts, PINs and roles.
+- `/crew` - accounts, roles, territories, starting passwords and unlocking. A manager looks after
+  their territory's Sales and Checkout crew.
+- `/territories` (admins) - add, rename, switch off (which signs the territory's crew out and
+  closes its active event) or delete an empty territory.
 - `/settings` - business details (company name, customer service number, app name), the sales
   sheet terms the customer initials and when each is asked, the receipt email's subject and wording (with `{Placeholders}`
   and a live preview), whether financing allows Other, the rates a new event starts with (7% and
-  2%), and the dashboard's star and running-low levels. Stored in `AppSettings`, one row per
-  setting that differs from its default. `GET /api/settings/general` is open (the sign-in screen
-  needs the app name); everything else is admin-only.
+  2%), and the dashboard's star and running-low levels. Admins edit the **company-wide** settings
+  or pick a territory to set its own; a territory follows the company for anything it hasn't
+  changed, and **Follow company settings** on a card puts it back. Managers edit their own
+  territory's. The app name is the same everywhere. Sales sheets, receipts and emails use the
+  settings of the territory the sale was taken in. Stored in `AppSettings` (company-wide) and
+  `TerritorySettings`, one row per setting that differs. `GET /api/settings/public` is open (the
+  sign-in screen needs the app name); everything else needs a signed-in user.
 
 ---
 
 ## 13. How the domain is modelled
+
+**Territories partition the business.** `Territory` has a name and an on/off switch. `Event`
+always has a territory; `User` has one unless they're an admin or system admin; `Product`,
+`DeliveryOption` and `FinanceOption` have one or none (none = global). `AccessScope` turns the
+signed-in user plus the `X-Territory-Id` header into the one territory (or none = all) every query
+filters by.
+
+**Stock is counted per territory.** `InventoryStock` holds one row per territory and size (or size
+and combination of counted choices), so a global pillow can have 12 on the Pittsburgh cart and 3
+in Cleveland. Sales draw from, and reopened or voided sales go back to, the territory of the event
+the sale was taken at; each `InventoryAdjustment` records its territory.
 
 **A product owns its prices.** `Product` (model name, brand, category) has many `ProductVariant`
 rows, each a size plus an optional configuration - `Queen / Mattress Only`, `Queen / Hi-Rise`,
@@ -716,9 +853,10 @@ picks the one in force.
 **Selections.** `ProductOption` (e.g. Color) has `ProductOptionChoice` rows (Gray, White), each
 with an optional price change. The picks are stored on the line as JSON (`ChoicesJson`) and printed
 after the description. When a selection **counts stock**, each size keeps a count per combination
-of counted choices in `ChoiceStocks`, keyed by a `StockKey` such as `3:12|4:20` (option id : choice
-id, ordered by option); the empty key means the size's own `QuantityOnHand`. `Utils/Choices.cs`
-resolves picks, builds keys and reads and changes counts.
+of counted choices, in each territory: `InventoryStocks` rows carry a `StockKey` such as
+`3:12|4:20` (option id : choice id, ordered by option), and the empty key is the size's own count.
+`Utils/Choices.cs` resolves picks and builds keys; `Utils/InventoryRules.cs` reads and changes the
+counts.
 
 **Inventory.** Only products marked Track inventory are counted, and each size can be left out
 (a size not kept at the cart): it isn't counted and can't be sold as Take With, nor can a bundle
@@ -727,15 +865,18 @@ that includes it. `Utils/InventoryRules.cs` enforces it.
 **Catalog files.** `GET /api/catalog/export` and `POST /api/catalog/import` (system admins only)
 save and restore the catalog as JSON (`"format": "cfs-catalog", "version": 1`) - every product
 setting, size (with its note and sale), bundle, selection, delivery and financing option, but no
-stock counts - with no database ids: products are matched by brand and name, sizes by size and configuration, and everything else
-by name, so a matched item keeps its stock counts and past sales. `mode: "update"` brings matches
+stock counts - with no database ids: products are matched by territory, brand and name, sizes by
+size and configuration, and everything else by name, so a matched item keeps its stock counts and
+past sales. Each item, delivery option and financing option names its territory (blank when
+global); on restore it goes to the territory with that name, or comes in as global with a warning
+when there isn't one. Replacing clears every territory's items. `mode: "update"` brings matches
 in line and adds the rest; `mode: "replace"` runs `PermanentDelete.CatalogAsync` first. The file is
 checked in full and the restore runs in one transaction, so a bad file changes nothing.
 `Utils/CatalogTransfer.cs` does the work.
 
 **An event is named by its organization**, e.g. "New York Marching Band", which heads the stat sheet and is
-copied onto each order. Only one event is active at a time, and new orders can only be taken while
-one is.
+copied onto each order. Each territory has one active event at a time, and new orders can only be
+taken while one is.
 
 **Rates are snapshots too.** Each order stores the tax rate and card fee rate it was written under,
 so changing an event's rate only affects orders from then on.
@@ -767,7 +908,7 @@ numbers because neither does arithmetic.
 ```
 Draft ──Complete──> AwaitingCheckout ──Complete sale──> Completed
   ^                        │                               │
-  └────── Send back ───────┘          Reopen (admin) <─────┘
+  └────── Send back ───────┘        Reopen (manager) <─────┘
                                       Void ──> Voided (kept, excluded from totals)
 ```
 

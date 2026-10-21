@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
+import type { FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
@@ -8,76 +9,57 @@ import { useSettings } from "../Context/SettingsContext";
 import { HomePathForRole } from "../Lib/RoleRoutes";
 import { Toast } from "../Lib/Toast";
 
-const keys = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "clear", "0", "back"];
-
 /**
- * Sign-in screen. The PIN goes in through an on-screen keypad rather than the tablet keyboard,
- * which is faster on a cart and keeps the soft keyboard from covering the form.
+ * Sign-in screen: username and password. Too many wrong passwords lock the account for a while,
+ * and someone signing in for the first time - or with a password a manager set for them - is
+ * asked to choose their own straight afterwards.
  */
 const LoginPage = () => {
     const { user, loading, login } = useAuth();
     const { settings } = useSettings();
     const navigate = useNavigate();
 
-    // Read straight out of storage as the initial value rather than syncing it in an effect,
-    // so the field is already filled on the very first paint.
-    const [username, setUsername] = useState<string>(
-        () => localStorage.getItem("cfs.lastUsername") ?? ""
-    );
-    const [pin, setPin] = useState<string>("");
+    // Only the username is remembered on the device, never the password.
+    const [username, setUsername] = useState<string>(() => {
+        try {
+            return localStorage.getItem("cfs.lastUsername") ?? "";
+        } catch {
+            return "";
+        }
+    });
+    const [password, setPassword] = useState<string>("");
+    const [showPassword, setShowPassword] = useState<boolean>(false);
     const [submitting, setSubmitting] = useState<boolean>(false);
-
-    // On a laptop at the checkout table the PIN can be typed: digits and Backspace work the
-    // keypad, and Enter signs in. Typing in the username box is left alone apart from Enter.
-    useEffect(() => {
-        const onKey = (e: KeyboardEvent) => {
-            if (e.ctrlKey || e.metaKey || e.altKey) return;
-            const inField = e.target instanceof HTMLInputElement;
-
-            if (e.key === "Enter") {
-                e.preventDefault();
-                if (pin.length >= 4) document.getElementById("cfs-sign-in")?.click();
-                else if (inField) (e.target as HTMLInputElement).blur();
-                return;
-            }
-            if (inField) return;
-            if (/^[0-9]$/.test(e.key))
-                setPin((value) => (value.length >= 12 ? value : value + e.key));
-            else if (e.key === "Backspace") setPin((value) => value.slice(0, -1));
-            else if (e.key === "Escape") setPin("");
-        };
-        window.addEventListener("keydown", onKey);
-        return () => window.removeEventListener("keydown", onKey);
-    }, [pin]);
 
     if (!loading && user) return <Navigate to={HomePathForRole(user.role)} replace />;
 
-    const press = (key: string) => {
-        if (key === "clear") return setPin("");
-        if (key === "back") return setPin((value) => value.slice(0, -1));
-        if (pin.length >= 12) return;
-        setPin((value) => value + key);
-    };
-
-    const handleSubmit = async () => {
+    const handleSubmit = async (e?: FormEvent) => {
+        e?.preventDefault();
         if (!username.trim()) return Toast.Warning("Enter your username.");
-        if (pin.length < 4) return Toast.Warning("Enter your PIN.");
+        if (!password) return Toast.Warning("Enter your password.");
 
         setSubmitting(true);
-        const signedIn = await login(username.trim(), pin);
+        const signedIn = await login(username.trim(), password);
         setSubmitting(false);
 
         if (signedIn) {
-            localStorage.setItem("cfs.lastUsername", username.trim());
+            try {
+                localStorage.setItem("cfs.lastUsername", username.trim());
+            } catch {
+                // Private browsing: just don't remember it.
+            }
             navigate(HomePathForRole(signedIn.role), { replace: true });
         } else {
-            setPin("");
+            setPassword("");
         }
     };
 
     return (
         <div className="flex min-h-screen items-center justify-center bg-zinc-900 p-4">
-            <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-zinc-800">
+            <form
+                onSubmit={handleSubmit}
+                className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl dark:bg-zinc-800"
+            >
                 <div className="mb-6 flex flex-col items-center gap-2">
                     <Icon
                         icon="fa-solid fa-bed"
@@ -94,61 +76,44 @@ const LoginPage = () => {
                     onChange={setUsername}
                     className="mb-4"
                     maxLength={50}
+                    autoComplete="username"
+                    autoFocus={!username}
                 />
 
-                <div className="mb-3">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                        PIN
-                    </span>
-                    <div
-                        className="mt-1 flex min-h-[48px] items-center justify-center gap-3 rounded-xl
-                        border border-zinc-300 bg-zinc-50 dark:border-zinc-600 dark:bg-zinc-900"
+                <div className="relative mb-6">
+                    <TextField
+                        label="Password"
+                        value={password}
+                        onChange={setPassword}
+                        type={showPassword ? "text" : "password"}
+                        maxLength={128}
+                        autoComplete="current-password"
+                        autoFocus={Boolean(username)}
+                    />
+                    <button
+                        type="button"
+                        onClick={() => setShowPassword((v) => !v)}
+                        aria-label={showPassword ? "Hide password" : "Show password"}
+                        className="absolute bottom-0 right-0 flex h-12 w-12 items-center justify-center
+                            text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-100"
                     >
-                        {pin.length === 0 ? (
-                            <span className="text-sm text-zinc-400">Enter your PIN</span>
-                        ) : (
-                            pin
-                                .split("")
-                                .map((_, index) => (
-                                    <span
-                                        key={index}
-                                        className="h-3 w-3 rounded-full bg-sky-600 dark:bg-sky-400"
-                                    />
-                                ))
-                        )}
-                    </div>
-                </div>
-
-                <div className="mb-4 grid grid-cols-3 gap-2">
-                    {keys.map((key) => (
-                        <button
-                            key={key}
-                            type="button"
-                            onClick={() => press(key)}
-                            className="flex h-14 items-center justify-center rounded-xl bg-zinc-100 text-xl
-                                font-semibold text-zinc-800 transition-colors active:scale-[0.97]
-                                hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-600"
-                        >
-                            {key === "clear" ? (
-                                <span className="text-sm">Clear</span>
-                            ) : key === "back" ? (
-                                <Icon icon="fa-solid fa-delete-left" className="text-lg" />
-                            ) : (
-                                key
-                            )}
-                        </button>
-                    ))}
+                        <Icon icon={showPassword ? "fa-solid fa-eye-slash" : "fa-solid fa-eye"} />
+                    </button>
                 </div>
 
                 <Button
                     id="cfs-sign-in"
+                    type="submit"
                     text="Sign in"
                     icon="fa-solid fa-right-to-bracket"
-                    onClick={handleSubmit}
                     loading={submitting}
                     className="w-full"
                 />
-            </div>
+
+                <p className="mt-4 text-center text-xs text-zinc-500 dark:text-zinc-400">
+                    Forgotten your password? Ask your manager to set a new one.
+                </p>
+            </form>
         </div>
     );
 };

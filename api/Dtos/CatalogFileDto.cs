@@ -1,8 +1,9 @@
 namespace api.Dtos
 {
     /// <summary>
-    /// The catalog as a file a system admin can download and restore: every product with its sizes,
-    /// prices, sales, selections, bundles and delivery choices, plus the delivery options list.
+    /// The catalog as a file a system admin can download and restore: every product - global and every
+    /// territory's - with its sizes, prices, sales, selections, bundles and delivery choices, plus
+    /// the delivery options list. Territories are named, not numbered.
     /// Nothing refers to a database id - products are matched by brand and name, sizes by size
     /// and configuration, and delivery options, selections and choices by name - so a file from
     /// one installation can be restored into another.
@@ -55,6 +56,11 @@ namespace api.Dtos
         /// Whether checkout offers it
         /// </summary>
         public bool? IsActive { get; set; }
+
+        /// <summary>
+        /// The territory it belongs to, by name; blank for a global one
+        /// </summary>
+        public string? Territory { get; set; }
     }
 
     /// <summary>
@@ -93,6 +99,11 @@ namespace api.Dtos
         public bool? IsActive { get; set; }
 
         /// <summary>
+        /// The territory it belongs to, by name; blank for a global one
+        /// </summary>
+        public string? Territory { get; set; }
+
+        /// <summary>
         /// A sale on the option, as a percent off
         /// </summary>
         public decimal? SaleDiscountPercent { get; set; }
@@ -112,6 +123,11 @@ namespace api.Dtos
         /// Model name
         /// </summary>
         public string? Name { get; set; }
+
+        /// <summary>
+        /// The territory it belongs to, by name; blank for a global one
+        /// </summary>
+        public string? Territory { get; set; }
 
         /// <summary>
         /// Brand
@@ -244,6 +260,11 @@ namespace api.Dtos
         /// The included product's brand
         /// </summary>
         public string? Brand { get; set; }
+
+        /// <summary>
+        /// The territory it belongs to, by name; blank for a global one
+        /// </summary>
+        public string? Territory { get; set; }
 
         /// <summary>
         /// The included product's name

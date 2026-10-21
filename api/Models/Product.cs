@@ -47,6 +47,17 @@ namespace api.Models
         public bool IsActive { get; set; } = true;
 
         /// <summary>
+        /// The territory this product belongs to, or null for a global product offered in every
+        /// territory. Only system admins and administrators change global ones.
+        /// </summary>
+        public int? TerritoryId { get; set; }
+
+        /// <summary>
+        /// Navigation to the territory
+        /// </summary>
+        public Territory? Territory { get; set; }
+
+        /// <summary>
         /// Whether on-hand stock is counted for this product. Accessories kept at the cart, such
         /// as pillows and protectors, are tracked; mattresses are always shipped and are not.
         /// </summary>
