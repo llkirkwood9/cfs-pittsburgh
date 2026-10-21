@@ -1,7 +1,7 @@
 /** A kind of financing a customer can choose at checkout, kept in the catalog. */
 export type FinanceOption = {
     id?: number;
-    /** The territory it belongs to; null for a global option offered everywhere. */
+    /** The territory whose catalog it's in - every territory has its own. */
     territoryId?: number | null;
     territoryName?: string | null;
     /** Whether the signed-in user may change it. */

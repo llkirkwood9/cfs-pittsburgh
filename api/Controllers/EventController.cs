@@ -61,9 +61,12 @@ namespace api.Controllers
                     return BadRequest(new { error = "The card processing fee rate must be between 0 and 1." });
 
                 var scope = Scope;
-                var territoryId = scope.IsCompanyWide ? request.TerritoryId ?? scope.TerritoryId : scope.HomeTerritoryId;
+                var territoryId = request.TerritoryId ?? scope.TerritoryId;
                 if (territoryId == null)
                     return BadRequest(new { error = "Pick the territory this event is in." });
+
+                if (!scope.CanSee(territoryId))
+                    return Forbidden("You can only add events to your own territories.");
 
                 if (!await DB.Territories.AnyAsync(t => t.Id == territoryId && t.IsActive))
                     return BadRequest(new { error = "That territory doesn't exist or is switched off." });
@@ -113,11 +116,11 @@ namespace api.Controllers
         {
             try
             {
-                var territoryId = Scope.TerritoryId;
+                var visible = Scope.VisibleTerritoryIds;
                 var events = await DB.Events
                     .Include(e => e.Territory)
                     .AsNoTracking()
-                    .Where(e => territoryId == null || e.TerritoryId == territoryId)
+                    .Where(e => visible == null || visible.Contains(e.TerritoryId))
                     .OrderByDescending(e => e.EventDate)
                     .ThenByDescending(e => e.Id)
                     .ToListAsync();
@@ -231,8 +234,8 @@ namespace api.Controllers
 
                 if (request.TerritoryId != null && request.TerritoryId != found.TerritoryId)
                 {
-                    if (!Scope.IsCompanyWide)
-                        return Forbidden("Only a system admin or administrator can move an event to another territory.");
+                    if (!Scope.CanSee(request.TerritoryId))
+                        return Forbidden("You can only move an event to one of your own territories.");
                     if (await DB.Orders.AnyAsync(o => o.EventId == found.Id))
                         return BadRequest(new { error = "This event has orders, so it stays in its territory." });
                     if (!await DB.Territories.AnyAsync(t => t.Id == request.TerritoryId && t.IsActive))

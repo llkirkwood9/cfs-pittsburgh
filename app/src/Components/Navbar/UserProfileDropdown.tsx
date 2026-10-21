@@ -51,7 +51,12 @@ const UserProfileDropdown = () => {
                     <View className="border-b border-zinc-200 pb-3 dark:border-zinc-700">
                         <Text className="text-sm text-zinc-500 dark:text-zinc-400">
                             {user?.role ? UserRoleLabels[user.role] : ""}
-                            {user?.territoryName ? ` · ${user.territoryName}` : ""} · v{APP_VERSION}
+                            {user?.territoryNames?.length
+                                ? ` · ${user.territoryNames.join(", ")}`
+                                : user?.territoryName
+                                  ? ` · ${user.territoryName}`
+                                  : ""}{" "}
+                            · v{APP_VERSION}
                         </Text>
                         <Text className="text-xs text-zinc-500 dark:text-zinc-400" numberOfLines={1}>
                             Server: {GetServerUrl()}

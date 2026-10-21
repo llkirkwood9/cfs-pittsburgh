@@ -16,8 +16,9 @@ import {
 } from "../Services/TerritoryServices";
 
 /**
- * Territories, for system admins and administrators. Each one has its own crew, events, stock, catalog
- * items and settings; managers look after a single territory. A territory can be renamed or
+ * Territories, for system admins and administrators. Each one has its own crew, events, stock,
+ * catalog and settings; managers and crew can belong to more than one. A new territory's catalog
+ * starts empty or as a copy of another's. A territory can be renamed or
  * switched off at any time, and deleted while nothing belongs to it yet.
  */
 const TerritoriesPage = () => {
@@ -26,6 +27,8 @@ const TerritoriesPage = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [editing, setEditing] = useState<Territory | null>(null);
     const [name, setName] = useState<string>("");
+    // A new territory's catalog: empty, or a copy of another territory's.
+    const [copyFrom, setCopyFrom] = useState<number | null>(null);
     const [saving, setSaving] = useState<boolean>(false);
     const [switchingOff, setSwitchingOff] = useState<Territory | null>(null);
     const [deleting, setDeleting] = useState<Territory | null>(null);
@@ -47,6 +50,7 @@ const TerritoriesPage = () => {
     const open = (territory: Territory) => {
         setEditing(territory);
         setName(territory.name ?? "");
+        setCopyFrom(null);
     };
 
     const handleSave = async () => {
@@ -55,11 +59,15 @@ const TerritoriesPage = () => {
         setSaving(true);
         const saved = editing?.id
             ? await UpdateTerritory({ id: editing.id, name: name.trim() })
-            : await AddTerritory(name.trim());
+            : await AddTerritory(name.trim(), copyFrom);
         setSaving(false);
 
         if (!saved) return;
-        Toast.Success(`${saved.name} saved.`);
+        Toast.Success(
+            !editing?.id && copyFrom != null
+                ? `${saved.name} added, with ${saved.productCount ?? 0} products copied into its catalog.`
+                : `${saved.name} saved.`
+        );
         setEditing(null);
         await afterChange();
     };
@@ -101,9 +109,9 @@ const TerritoriesPage = () => {
                 />
             </div>
             <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
-                Each territory has its own crew, events, stock and settings, and can add catalog
-                items of its own alongside the global ones. System Admins and administrators work
-                across all of them; pick one from the menu bar to work in it.
+                Each territory has its own crew, events, catalog, stock and settings. System Admins
+                and administrators work across all of them, and managers and crew can belong to more
+                than one; pick one from the menu bar to work in it.
             </p>
 
             {territories.length === 0 && (
@@ -222,10 +230,36 @@ const TerritoriesPage = () => {
                         autoFocus
                     />
                     {!editing.id && (
-                        <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-                            A new territory starts with the company-wide settings and the global
-                            catalog. Add its manager and crew on the Crew screen.
-                        </p>
+                        <>
+                            <label className="mt-3 flex flex-col gap-1">
+                                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                    Catalog
+                                </span>
+                                <select
+                                    value={copyFrom ?? ""}
+                                    onChange={(e) =>
+                                        setCopyFrom(e.target.value ? Number(e.target.value) : null)
+                                    }
+                                    className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base
+                                        dark:border-zinc-600 dark:bg-zinc-800 dark:scheme-dark"
+                                >
+                                    <option value="">Start with an empty catalog</option>
+                                    {territories
+                                        .filter((t) => t.isActive !== false)
+                                        .map((t) => (
+                                            <option key={t.id} value={t.id}>
+                                                Copy {t.name}&apos;s catalog
+                                            </option>
+                                        ))}
+                                </select>
+                            </label>
+                            <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+                                Each territory has its own catalog. A copy brings every product with
+                                its sizes, prices and sales, and the delivery and financing options -
+                                but not stock, which starts at zero. It starts with the company-wide
+                                settings; add its manager and crew on the Crew screen.
+                            </p>
+                        </>
                     )}
                 </Modal>
             )}

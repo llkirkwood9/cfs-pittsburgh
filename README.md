@@ -210,21 +210,23 @@ set `CFS_POSTGRES_CONNECTION` to use another server. Migrations run by themselve
 next starts, here and in the image.
 
 **Auth and roles.** Sign-in is a username and a password; there is no self-service signup, and
-accounts are made on `/crew`. The business is split into **territories**; every event, its crew,
-its stock and any catalog items of its own belong to one. Roles, lowest first:
+accounts are made on `/crew`. The business is split into **territories**; every event, its stock
+and its catalog belong to one, and everyone below administrator belongs to one or more (a rep who
+sells in two territories belongs to both). Roles, lowest first:
 
 | Role | Territories | Can use |
 |---|---|---|
-| Sales | own | The sales floor |
-| Checkout | own | The checkout table and inventory |
-| SalesCheckout | own | Both of the above |
-| Manager | own | Everything in their territory: its crew (Sales and Checkout roles), events, settings and its own catalog items |
-| Admin | all | Everything, in every territory, including global catalog items and the Territories screen |
+| Sales | theirs | The sales floor |
+| Checkout | theirs | The checkout table and inventory |
+| SalesCheckout | theirs | Both of the above |
+| Manager | theirs | Everything in their territories: crew (Sales and Checkout roles), events, settings and catalog |
+| Admin | all | Everything, in every territory, including the Territories screen |
 | SystemAdmin | all | Everything an Admin can, plus permanent deletes and catalog export/restore |
 
 Orders, the sales sheet and the stat-sheet dashboard are open to every role, for their own
-territory. Admins and system admins pick the territory in view (or All territories) in the menu
-bar; it travels with each request as an `X-Territory-Id` header. The API enforces all of this on
+territories. Anyone with more than one territory (admins and system admins have every one) picks
+the territory in view in the menu bar - or all of theirs; it travels with each request as an
+`X-Territory-Id` header. The API enforces all of this on
 every request (`Utils/AccessScope.cs`); the dashboard and app only hide what a role can't use.
 
 **First sign-in.** An empty database gets one account, `admin`, made a system admin. Its starting
@@ -642,20 +644,20 @@ Routes are the dashboard's; the app has the same screens.
 
 **Territories and roles**
 - The business is split into **territories** (Pittsburgh, Cleveland, ...). Every event belongs to
-  one, and so do its crew, its stock and any catalog items of its own. Each territory has one
+  one, and so do its stock and its **catalog** - each territory has its own. Each territory has one
   active event at a time.
-- **System admins** and **administrators** work across every territory. The territory picker in
-  the menu bar chooses which one the screens show - or **All territories**. Selling, checkout and
-  stock counts need a single territory, so those screens ask for one when All is picked.
-- Everyone else belongs to one territory and only sees its events, orders, stock and settings. A
-  **manager** runs a territory: its crew, events, own catalog items and settings.
+- **System admins** and **administrators** work across every territory. Everyone else belongs to
+  one or more and only sees theirs. Anyone with more than one picks which the screens show from the
+  menu bar - or **All territories** (**All my territories**). Selling, checkout, stock counts and
+  the catalog need a single territory, so those screens ask for one when All is picked.
+- A **manager** runs their territories: crew, events, catalog and settings.
 
 | | Sales / Checkout | Sales & Checkout | Manager | Admin | System Admin |
 |---|---|---|---|---|---|
-| Territories | own | own | own | all | all |
+| Territories | theirs | theirs | theirs | all | all |
 | Sell / checkout | one each | both | both | both | both |
-| Events, crew, settings | - | - | own territory | everything | everything |
-| Catalog | - | - | own territory's items | global and territory items | global and territory items |
+| Events, crew, settings | - | - | their territories | everything | everything |
+| Catalog | - | - | their territories' | every territory's | every territory's |
 | Territories screen | - | - | - | yes | yes |
 | Permanent deletes, catalog files | - | - | - | - | yes |
 
@@ -732,7 +734,8 @@ Routes are the dashboard's; the app has the same screens.
 - **All events** gives an overview of every event with each one's figures side by side, and the
   worst sellers: the catalog's products that have sold the fewest, including any never sold. Only
   completed sales feed the money figures; drafts and voided orders are reported separately.
-- With **All territories** picked, admins also get **Territories side by side**: each territory's
+- With more than one territory in view, each event says which it's in, and **Territories side by
+  side** shows each territory's
   completed sales, total and net, average sale, mattresses and bases, and what is still owed, for
   today, 7 days, 30 days, this year or all time. Tapping a territory switches to it.
 
@@ -749,32 +752,35 @@ Routes are the dashboard's; the app has the same screens.
   each size (shown in Add item), selections, Track inventory, warranty
   (whether a product has one, and its length, shown in Add item), financing
   options, and the order the floor offers delivery and financing in. System admins can **Export
-  catalog** and **Restore catalog** as a JSON file (section 13). An item, delivery option or
-  financing option is either **global** (sold in every territory) or one territory's own. Only
-  admins change global ones; a manager adds and edits their territory's. A territory's item can
-  include and offer global things and its own territory's; a global item only global ones.
+  catalog** and **Restore catalog** as a JSON file (section 13). Each territory has its **own
+  catalog** - products, delivery options and financing options - so an item only includes and
+  offers things from its own territory's. Someone with more than one territory can start a new
+  product as a **copy of one from another territory's catalog** (the delivery options it offers are
+  matched by name, or copied too; bundled items that territory doesn't sell are left out).
 - `/events` - each event's territory, organization, sales tax rate, card processing fee and order numbers, and
   which one is active in its territory. An event with no orders yet can move to another
   territory. **Close out** (`/events/:id/close`) lists what to check before the cart
-  packs up - orders still open, balances owed, stock counts - then closes the event. An admin or
-  system admin can
-  clear the open orders from there, one at a time (a button on the dashboard, a swipe in the app)
+  packs up - orders still open, balances owed, stock counts - then closes the event. A manager or
+  above can clear the open orders from there, one at a time (a button on the dashboard, a swipe in
+  the app)
   or all at once: a draft with nothing paid is discarded, anything at checkout or with a payment
   is voided.
   **Sales sheets** (`/events/:id/sheets`) shows the filled-in Fundraiser Stat Sheet and every
   completed sheet, to print as one PDF, download as CSV, or email (with the accessory inventory
   sheet) to up to 10 addresses.
-- `/crew` - accounts, roles, territories, starting passwords and unlocking. A manager looks after
-  their territory's Sales and Checkout crew.
-- `/territories` (admins) - add, rename, switch off (which signs the territory's crew out and
-  closes its active event) or delete an empty territory.
+- `/crew` - accounts, roles, territories (one or more each), starting passwords and unlocking. A
+  manager looks after their territories' Sales and Checkout crew, and only adds or removes their
+  own territories - any others the person works in stay.
+- `/territories` (admins) - add (with an empty catalog, or a copy of another territory's: every
+  product, delivery and financing option, but no stock), rename, switch off (which signs out the
+  crew who have no other territory and closes its active event) or delete an empty territory.
 - `/settings` - business details (company name, customer service number, app name), the sales
   sheet terms the customer initials and when each is asked, the receipt email's subject and wording (with `{Placeholders}`
   and a live preview), whether financing allows Other, the rates a new event starts with (7% and
   2%), and the dashboard's star and running-low levels. Admins edit the **company-wide** settings
   or pick a territory to set its own; a territory follows the company for anything it hasn't
   changed, and **Follow company settings** on a card puts it back. Managers edit their own
-  territory's. The app name is the same everywhere. Sales sheets, receipts and emails use the
+  territories'. The app name is the same everywhere. Sales sheets, receipts and emails use the
   settings of the territory the sale was taken in. Stored in `AppSettings` (company-wide) and
   `TerritorySettings`, one row per setting that differs. `GET /api/settings/public` is open (the
   sign-in screen needs the app name); everything else needs a signed-in user.
@@ -783,15 +789,23 @@ Routes are the dashboard's; the app has the same screens.
 
 ## 13. How the domain is modelled
 
-**Territories partition the business.** `Territory` has a name and an on/off switch. `Event`
-always has a territory; `User` has one unless they're an admin or system admin; `Product`,
-`DeliveryOption` and `FinanceOption` have one or none (none = global). `AccessScope` turns the
-signed-in user plus the `X-Territory-Id` header into the one territory (or none = all) every query
-filters by.
+**Territories partition the business.** `Territory` has a name and an on/off switch. `Event`,
+`Product`, `DeliveryOption` and `FinanceOption` always belong to one: each territory has its own
+catalog. A manager or crew member belongs to one or more through `UserTerritories`; admins and
+system admins to none, meaning all. `AccessScope` turns the signed-in user plus the
+`X-Territory-Id` header into the one territory in view, or the list every query filters by when
+all of theirs are (null for an admin viewing every territory).
+
+**Copying catalogs.** `Utils/CatalogCopy.cs` copies a whole catalog into a new territory, or one
+product into another territory's catalog - sizes, prices, sales, selections, bundles and delivery
+choices, never stock. A database from before every territory had its own catalog had **global**
+items: at start-up `CatalogCopy.SplitGlobalItemsAsync` gives every territory but the first its own
+copy of each, moves that territory's stock counts, stock history and past sales onto its copies
+(remapping the selection ids in stock keys), and then leaves the originals with the first
+territory. It does nothing once no global items are left.
 
 **Stock is counted per territory.** `InventoryStock` holds one row per territory and size (or size
-and combination of counted choices), so a global pillow can have 12 on the Pittsburgh cart and 3
-in Cleveland. Sales draw from, and reopened or voided sales go back to, the territory of the event
+and combination of counted choices), so Pittsburgh's pillows and Cleveland's are counted apart. Sales draw from, and reopened or voided sales go back to, the territory of the event
 the sale was taken at; each `InventoryAdjustment` records its territory.
 
 **A product owns its prices.** `Product` (model name, brand, category) has many `ProductVariant`
@@ -858,9 +872,9 @@ save and restore the catalog as JSON (`"format": "cfs-catalog", "version": 1`) -
 setting, size (with its note and sale), bundle, selection, delivery and financing option, but no
 stock counts - with no database ids: products are matched by territory, brand and name, sizes by
 size and configuration, and everything else by name, so a matched item keeps its stock counts and
-past sales. Each item, delivery option and financing option names its territory (blank when
-global); on restore it goes to the territory with that name, or comes in as global with a warning
-when there isn't one. Replacing clears every territory's items. `mode: "update"` brings matches
+past sales. Each item, delivery option and financing option names its territory; on restore it
+goes to the territory with that name, or into the territory in view (or the first), with a
+warning, when the file names none that's here - as an older file's global items do. Replacing clears every territory's items. `mode: "update"` brings matches
 in line and adds the rest; `mode: "replace"` runs `PermanentDelete.CatalogAsync` first. The file is
 checked in full and the restore runs in one transaction, so a bad file changes nothing.
 `Utils/CatalogTransfer.cs` does the work.

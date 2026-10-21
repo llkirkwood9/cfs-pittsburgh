@@ -19,7 +19,6 @@ import {
 } from "../Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
 import type { Event } from "../Models/Event";
-import { IsCompanyWide } from "../Models/User";
 import { AddEvent, DeleteEvent, GetEvents, UpdateEvent } from "../Services/EventServices";
 
 /**
@@ -30,9 +29,10 @@ import { AddEvent, DeleteEvent, GetEvents, UpdateEvent } from "../Services/Event
 const EventsPage = () => {
     const { user } = useAuth();
     const { settingsFor } = useSettings();
-    const { territories, territoryId: territoryInView } = useTerritory();
+    const { territories, territoryId: territoryInView, canSwitch } = useTerritory();
     const navigate = useNavigate();
-    const companyWide = IsCompanyWide(user?.role);
+    // Anyone with more than one territory chooses which an event is in.
+    const companyWide = canSwitch;
 
     const [events, setEvents] = useState<Event[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
@@ -74,7 +74,7 @@ const EventsPage = () => {
         setFeePercent(String(Number(((event.ccProcessingFeeRate ?? 0.02) * 100).toFixed(4))));
         setNextOrderNumber(String(event.nextOrderNumber ?? 1001));
         setIsActive(event.isActive ?? true);
-        setTerritoryId(event.territoryId ?? territoryInView ?? user?.territoryId ?? null);
+        setTerritoryId(event.territoryId ?? territoryInView ?? user?.territoryIds?.[0] ?? null);
     };
 
     // A new event's rates come from its territory's settings.
@@ -94,7 +94,7 @@ const EventsPage = () => {
             (b.eventDate ?? "").localeCompare(a.eventDate ?? "")
         )[0];
         const nextNumber = Math.max(1001, ...events.map((e) => e.nextOrderNumber ?? 0));
-        const territory = territoryInView ?? user?.territoryId ?? null;
+        const territory = territoryInView ?? user?.territoryIds?.[0] ?? null;
         const defaults = await settingsFor(territory);
         return {
             territoryId: territory ?? undefined,

@@ -220,12 +220,12 @@ const ImportCatalogModal = ({ onClose, onRestored }: Props) => {
                 {choice(
                     "update",
                     "Update the catalog from this file",
-                    "Products in the file that are already in the catalog (same territory, brand and name) are changed to match it - sizes, prices, sales, selections, bundles and delivery. Anything new is added, each in the territory with the same name, and financing options are matched by territory and name. Products, delivery options and financing options that aren't in the file are left as they are, and stock counts are kept."
+                    "Products in the file that are already in the catalog (same territory, brand and name) are changed to match it - sizes, prices, sales, selections, bundles and delivery. Anything new is added, each in the territory with the same name (or this territory, when the file names none that's here), and financing options are matched by territory and name. Products, delivery options and financing options that aren't in the file are left as they are, and stock counts are kept."
                 )}
                 {choice(
                     "replace",
                     "Clear the catalog and replace it",
-                    "Every product and delivery option, global and in every territory, is deleted for good - including ones that have been sold - with their stock counts and inventory history, and so are the financing options when the file has them. Then the catalog is rebuilt from the file. Past sales sheets still print exactly as they were sold."
+                    "Every product and delivery option, in every territory's catalog, is deleted for good - including ones that have been sold - with their stock counts and inventory history, and so are the financing options when the file has them. Then the catalog is rebuilt from the file. Past sales sheets still print exactly as they were sold."
                 )}
             </View>
 

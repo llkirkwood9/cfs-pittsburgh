@@ -105,6 +105,11 @@ namespace api.Data
         /// </summary>
         public DbSet<UserSession> UserSessions => Set<UserSession>();
 
+        /// <summary>
+        /// Which territories each manager and crew member belongs to
+        /// </summary>
+        public DbSet<UserTerritory> UserTerritories => Set<UserTerritory>();
+
         #endregion
 
         #region Public Methods
@@ -334,10 +339,21 @@ namespace api.Data
             modelBuilder.Entity<User>(entity =>
             {
                 entity.HasIndex(u => u.Username).IsUnique();
+            });
 
-                entity.HasOne(u => u.Territory)
+            modelBuilder.Entity<UserTerritory>(entity =>
+            {
+                entity.HasKey(ut => new { ut.UserId, ut.TerritoryId });
+                entity.HasIndex(ut => ut.TerritoryId);
+
+                entity.HasOne(ut => ut.User)
+                    .WithMany(u => u.Territories)
+                    .HasForeignKey(ut => ut.UserId)
+                    .OnDelete(DeleteBehavior.Cascade);
+
+                entity.HasOne(ut => ut.Territory)
                     .WithMany()
-                    .HasForeignKey(u => u.TerritoryId)
+                    .HasForeignKey(ut => ut.TerritoryId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
         }

@@ -247,6 +247,7 @@ const OrdersPage = () => {
                         <TabButton
                             key={event.id}
                             text={event.organization ?? ""}
+                            subtext={showTerritory ? (event.territoryName ?? undefined) : undefined}
                             tag={IsPastEvent(event) ? "Past" : undefined}
                             active={scope?.kind === "event" && scope.eventId === event.id}
                             onClick={() => event.id && switchScope({ kind: "event", eventId: event.id })}

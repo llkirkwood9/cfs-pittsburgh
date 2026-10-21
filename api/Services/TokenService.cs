@@ -33,7 +33,8 @@ namespace api.Services
         #region Public Methods
 
         /// <summary>
-        /// Builds a signed access token carrying the user id, name, role and territory.
+        /// Builds a signed access token carrying the user id, name and role. Territories aren't in it:
+        /// they're read from the database on every request.
         /// </summary>
         /// <param name="user">User signing in</param>
         /// <returns>The encoded JWT.</returns>
@@ -51,8 +52,6 @@ namespace api.Services
                 new(ClaimTypes.Role, user.Role.ToString()),
             };
 
-            if (user.TerritoryId != null)
-                claims.Add(new Claim("territory", user.TerritoryId.Value.ToString()));
 
             var token = new JwtSecurityToken(
                 issuer: _config["Jwt:Issuer"],

@@ -28,7 +28,7 @@ namespace api.Controllers
     {
         #region Private Fields
 
-        private const string GlobalReadOnly = "Global delivery options can only be changed by a system admin or administrator.";
+        private const string NotYourCatalog = "You can only change the catalog of your own territories.";
 
         #endregion
 
@@ -103,8 +103,8 @@ namespace api.Controllers
         #region GET Methods
 
         /// <summary>
-        /// Lists the delivery options for the territory being worked - global ones and its own - or
-        /// every option for a system admin or administrator viewing every territory.
+        /// Lists the delivery options of the territory being worked - or of all the user's
+        /// territories, each naming its own, when none is picked.
         /// </summary>
         /// <param name="includeInactive">Pass true from the admin screen</param>
         /// <returns>Delivery options in display order.</returns>
@@ -114,7 +114,7 @@ namespace api.Controllers
         {
             try
             {
-                return Ok(await ListAsync(Scope.TerritoryId, includeInactive));
+                return Ok(await ListAsync(includeInactive));
             }
             catch (Exception e)
             {
@@ -127,8 +127,8 @@ namespace api.Controllers
         #region PUT Methods
 
         /// <summary>
-        /// Puts one list of delivery options - the global ones, or a territory's own - in a new
-        /// order, the order the sales floor offers them in.
+        /// Puts one territory's delivery options in a new order, the order the sales floor offers
+        /// them in.
         /// </summary>
         /// <param name="ids">Every option id in that list, archived ones included, in the new order</param>
         /// <returns>The options in view, in their new order.</returns>
@@ -153,14 +153,14 @@ namespace api.Controllers
                     return BadRequest(new { error = "The list has changed. Refresh and try again." });
 
                 if (!CanEditCatalog(first.TerritoryId))
-                    return Forbidden(GlobalReadOnly);
+                    return Forbidden(NotYourCatalog);
 
                 foreach (var option in group)
                     option.SortOrder = ids.IndexOf(option.Id) + 1;
 
                 await DB.SaveChangesAsync();
 
-                return Ok(await ListAsync(Scope.TerritoryId, includeInactive: true));
+                return Ok(await ListAsync(includeInactive: true));
             }
             catch (Exception e)
             {
@@ -173,8 +173,7 @@ namespace api.Controllers
         #region PATCH Methods
 
         /// <summary>
-        /// Updates a delivery option. A system admin or administrator may also move it between global and
-        /// a territory.
+        /// Updates a delivery option. It stays in its territory's catalog.
         /// </summary>
         /// <param name="request">Fields to change, including the id</param>
         /// <returns>The updated option.</returns>
@@ -191,24 +190,11 @@ namespace api.Controllers
                     return BadRequest(new { error = "Missing parameter." });
 
                 var option = await DB.DeliveryOptions.FindAsync(request.Id.Value);
-                if (option == null || !InCatalog(option.TerritoryId, Scope.IsCompanyWide ? null : Scope.HomeTerritoryId))
+                if (option == null || !Scope.CanSee(option.TerritoryId))
                     return NotFound(new { error = "Delivery option not found." });
 
                 if (!CanEditCatalog(option.TerritoryId))
-                    return Forbidden(GlobalReadOnly);
-
-                if (Scope.IsCompanyWide && request.Name != null && request.TerritoryId != option.TerritoryId)
-                {
-                    // The edit form always sends the name and the territory, null meaning global; a
-                    // partial update without a name leaves the territory alone.
-                    var (territoryId, problem) = await CatalogTerritoryAsync(request.TerritoryId);
-                    if (problem != null)
-                        return problem;
-                    if (territoryId != null && await DB.ProductDeliveryOptions.AnyAsync(p => p.DeliveryOptionId == option.Id
-                            && (p.Product!.TerritoryId == null || p.Product.TerritoryId != territoryId)))
-                        return BadRequest(new { error = "Products outside that territory still offer this option. Take it off them first." });
-                    option.TerritoryId = territoryId;
-                }
+                    return Forbidden(NotYourCatalog);
 
                 if (request.Name != null)
                 {
@@ -282,11 +268,11 @@ namespace api.Controllers
                     return Forbidden("Only a manager, administrator or system admin may change the catalog.");
 
                 var option = await DB.DeliveryOptions.FindAsync(id);
-                if (option == null || !InCatalog(option.TerritoryId, Scope.IsCompanyWide ? null : Scope.HomeTerritoryId))
+                if (option == null || !Scope.CanSee(option.TerritoryId))
                     return NotFound(new { error = "Delivery option not found." });
 
                 if (!CanEditCatalog(option.TerritoryId))
-                    return Forbidden(GlobalReadOnly);
+                    return Forbidden(NotYourCatalog);
 
                 if (permanent)
                 {
@@ -320,23 +306,22 @@ namespace api.Controllers
         #region Private Methods
 
         /// <summary>
-        /// The delivery options in view: global ones first, then each territory's own, each list
-        /// in its order.
+        /// The delivery options in view: the territory being worked's, or all the user's
+        /// territories', each territory's in its order.
         /// </summary>
-        /// <param name="territoryId">The territory being worked, or null for every territory</param>
         /// <param name="includeInactive">Whether archived options are included</param>
         /// <returns>The options as DTOs.</returns>
-        private async Task<List<DeliveryOptionDto>> ListAsync(int? territoryId, bool includeInactive)
+        private async Task<List<DeliveryOptionDto>> ListAsync(bool includeInactive)
         {
+            var visible = Scope.VisibleTerritoryIds;
             var query = DB.DeliveryOptions.Include(d => d.Territory).AsNoTracking()
-                .Where(d => territoryId == null || d.TerritoryId == null || d.TerritoryId == territoryId);
+                .Where(d => d.TerritoryId != null && (visible == null || visible.Contains(d.TerritoryId.Value)));
 
             if (!includeInactive)
                 query = query.Where(d => d.IsActive);
 
             var options = await query
-                .OrderBy(d => d.TerritoryId != null)
-                .ThenBy(d => d.Territory!.Name)
+                .OrderBy(d => d.Territory!.Name)
                 .ThenBy(d => d.SortOrder)
                 .ThenBy(d => d.Name)
                 .ToListAsync();
@@ -345,16 +330,14 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// Whether a name is already used by an option the same territory would see: a global
-        /// option's name has to be unique everywhere; a territory option's among the global ones
-        /// and that territory's own.
+        /// Whether a name is already used by another option in the same territory's catalog.
         /// </summary>
         private async Task<bool> NameClashesAsync(string name, int? territoryId, int? exceptId)
         {
             var lower = name.Trim().ToLower();
             return await DB.DeliveryOptions.AnyAsync(d => d.Name.ToLower() == lower
                                                           && d.Id != exceptId
-                                                          && (territoryId == null || d.TerritoryId == null || d.TerritoryId == territoryId));
+                                                          && d.TerritoryId == territoryId);
         }
 
         private async Task<DeliveryOptionDto?> LoadDtoAsync(int id)

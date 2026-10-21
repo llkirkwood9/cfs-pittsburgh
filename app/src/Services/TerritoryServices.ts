@@ -9,11 +9,19 @@ import type { Territory } from "../Models/Territory";
 /**
  * Creates a territory. System Admins and administrators only.
  * @param name Its name.
+ * @param copyCatalogFromTerritoryId Another territory whose catalog it starts with a copy of; leave
+ * out for an empty catalog.
  * @returns The new territory, or null on failure.
  */
-export const AddTerritory = async (name: string): Promise<Territory | null> => {
+export const AddTerritory = async (
+    name: string,
+    copyCatalogFromTerritoryId?: number | null
+): Promise<Territory | null> => {
     try {
-        const response = await api.post<Territory>("/api/Territory/territory", { name });
+        const response = await api.post<Territory>("/api/Territory/territory", {
+            name,
+            copyCatalogFromTerritoryId: copyCatalogFromTerritoryId ?? undefined,
+        });
         return response.data;
     } catch (error) {
         HandleAxiosError(error);

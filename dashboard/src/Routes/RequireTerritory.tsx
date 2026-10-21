@@ -9,11 +9,11 @@ type Props = {
 };
 
 /**
- * For screens that work in one territory at a time - selling, checkout, stock counts. Crew are
- * always in their own; a system admin or administrator viewing every territory is asked to pick one.
+ * For screens that work in one territory at a time - selling, checkout, stock counts, the catalog.
+ * Someone with one territory is always in it; anyone viewing all of theirs is asked to pick one.
  */
 const RequireTerritory = ({ children, purpose }: Props) => {
-    const { territoryId, territories, canSwitch, setTerritoryId } = useTerritory();
+    const { territoryId, territories, canSwitch, allLabel, setTerritoryId } = useTerritory();
 
     if (territoryId != null || !canSwitch) return <>{children}</>;
 
@@ -28,7 +28,7 @@ const RequireTerritory = ({ children, purpose }: Props) => {
                 />
                 <h1 className="mb-1 text-lg font-bold">Pick a territory</h1>
                 <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
-                    You&apos;re viewing every territory. To {purpose}, choose which territory
+                    You&apos;re viewing {allLabel.toLowerCase()}. To {purpose}, choose which territory
                     you&apos;re working in - you can switch any time from the menu bar.
                 </p>
                 {active.length === 0 ? (

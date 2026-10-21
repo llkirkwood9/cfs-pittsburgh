@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { View } from "react-native";
-import { ScopeBadge, ScopeField } from "./CatalogScope";
 import Button from "../Elements/Button";
 import Checkbox from "../Elements/Checkbox";
 import ConfirmationModal from "../Elements/ConfirmationModal";
@@ -12,131 +11,48 @@ import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
 import { Toast } from "../../Lib/Toast";
 import type { FinanceOption } from "../../Models/FinanceOption";
-import type { Territory } from "../../Models/Territory";
 
 type Props = {
     options: FinanceOption[];
     onSave: (option: FinanceOption) => Promise<void>;
     onDelete: (id: number) => Promise<void>;
-    /** Every option id of one list (global, or one territory's own) in the new order. */
+    /** Every option id in the new order. */
     onReorder: (ids: number[]) => Promise<void>;
-    territories: Territory[];
-    /** System Admins and administrators choose where an option is offered; managers' stay in their territory. */
-    canChooseTerritory: boolean;
-    /** The manager's own territory, shown when they can't choose. */
-    ownTerritoryName?: string | null;
-    /** Where a new option goes by default: the territory in view, or global. */
-    defaultTerritoryId?: number | null;
 };
 
 /**
  * The kinds of financing a customer can choose at checkout, such as "12 months no interest", in
  * the order checkout lists them. Whether checkout may also pick Other and type one in is set
- * under Settings. Global options are offered in every territory, first; a territory can add its
- * own, which come after them. Each list keeps its own order.
+ * under Settings.
  */
-const FinanceOptionList = ({
-    options,
-    onSave,
-    onDelete,
-    onReorder,
-    territories,
-    canChooseTerritory,
-    ownTerritoryName,
-    defaultTerritoryId = null,
-}: Props) => {
+const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
     const [editing, setEditing] = useState<FinanceOption | null>(null);
     const [deleting, setDeleting] = useState<FinanceOption | null>(null);
     const [saving, setSaving] = useState<boolean>(false);
 
     const [name, setName] = useState<string>("");
     const [isActive, setIsActive] = useState<boolean>(true);
-    const [territoryId, setTerritoryId] = useState<number | null>(null);
 
     const open = (option: FinanceOption) => {
         setEditing(option);
         setName(option.name ?? "");
         setIsActive(option.isActive ?? true);
-        setTerritoryId(option.id ? (option.territoryId ?? null) : defaultTerritoryId);
     };
 
     const handleSave = async () => {
         if (!name.trim()) return Toast.Warning("Give the option a name.");
 
         setSaving(true);
-        await onSave({ id: editing?.id, territoryId, name: name.trim(), isActive });
+        await onSave({ id: editing?.id, name: name.trim(), isActive });
         setSaving(false);
         setEditing(null);
     };
 
-    // The global options first, then each territory's own: each list reorders among itself.
-    const groups: FinanceOption[][] = [];
-    for (const option of options) {
-        const group = groups.find((g) => (g[0].territoryId ?? null) === (option.territoryId ?? null));
-        if (group) group.push(option);
-        else groups.push([option]);
-    }
-
-    const move = (group: FinanceOption[], index: number, by: number) => {
-        const ids = group.map((o) => o.id ?? 0);
+    const move = (index: number, by: number) => {
+        const ids = options.map((o) => o.id ?? 0);
         const [id] = ids.splice(index, 1);
         ids.splice(index + by, 0, id);
         onReorder(ids);
-    };
-
-    const renderOption = (option: FinanceOption, group: FinanceOption[], index: number) => {
-        const editable = option.canEdit !== false;
-        return (
-            <SwipeRow
-                onPress={editable ? () => open(option) : undefined}
-                actions={
-                    editable
-                        ? [
-                              {
-                                  label: "Delete",
-                                  icon: "fa-solid fa-trash",
-                                  tone: "danger",
-                                  onPress: () => setDeleting(option),
-                              },
-                          ]
-                        : []
-                }
-                accessibilityOnlyActions={
-                    editable
-                        ? [
-                              ...(index > 0
-                                  ? [{ label: "Move up", onPress: () => move(group, index, -1) }]
-                                  : []),
-                              ...(index < group.length - 1
-                                  ? [{ label: "Move down", onPress: () => move(group, index, 1) }]
-                                  : []),
-                          ]
-                        : []
-                }
-                accessibilityLabel={option.name ?? ""}
-                className="flex-row items-center gap-3 p-3"
-            >
-                <View className="min-w-0 flex-1">
-                    <View className="flex-row flex-wrap items-center gap-2">
-                        <Text className="font-semibold">{option.name}</Text>
-                        <ScopeBadge territoryName={option.territoryName} />
-                    </View>
-                    {!option.isActive && (
-                        <Text className="text-xs font-semibold text-amber-700 dark:text-amber-400">
-                            Not offered at checkout
-                        </Text>
-                    )}
-                </View>
-                {editable ? (
-                    <Icon icon="fa-solid fa-chevron-right" className="text-xs text-zinc-400" />
-                ) : (
-                    <View className="flex-row items-center gap-1.5">
-                        <Icon icon="fa-solid fa-lock" className="text-xs text-zinc-500 dark:text-zinc-400" />
-                        <Text className="text-xs text-zinc-500 dark:text-zinc-400">Set company-wide</Text>
-                    </View>
-                )}
-            </SwipeRow>
-        );
     };
 
     return (
@@ -159,28 +75,42 @@ const FinanceOptionList = ({
                 </View>
             )}
 
-            <View className="gap-4">
-                {groups.map((group) => {
-                    // Global options are set company-wide; a manager sees them but can't change them.
-                    const locked = group.every((o) => o.canEdit === false);
-                    return (
-                        <View key={group[0].territoryId ?? "global"} className="gap-2">
-                            {groups.length > 1 && (
-                                <Text className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                                    {group[0].territoryName ?? "Global"}
+            <SortableList
+                data={options}
+                keyExtractor={(option) => String(option.id)}
+                onReorder={(reordered) => onReorder(reordered.map((o) => o.id ?? 0))}
+                renderItem={(option, index) => (
+                    <SwipeRow
+                        onPress={() => open(option)}
+                        actions={[
+                            {
+                                label: "Delete",
+                                icon: "fa-solid fa-trash",
+                                tone: "danger",
+                                onPress: () => setDeleting(option),
+                            },
+                        ]}
+                        accessibilityOnlyActions={[
+                            ...(index > 0 ? [{ label: "Move up", onPress: () => move(index, -1) }] : []),
+                            ...(index < options.length - 1
+                                ? [{ label: "Move down", onPress: () => move(index, 1) }]
+                                : []),
+                        ]}
+                        accessibilityLabel={option.name ?? ""}
+                        className="flex-row items-center gap-3 p-3"
+                    >
+                        <View className="min-w-0 flex-1">
+                            <Text className="font-semibold">{option.name}</Text>
+                            {!option.isActive && (
+                                <Text className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+                                    Not offered at checkout
                                 </Text>
                             )}
-                            <SortableList
-                                data={group}
-                                enabled={!locked}
-                                keyExtractor={(option) => String(option.id)}
-                                onReorder={(reordered) => onReorder(reordered.map((o) => o.id ?? 0))}
-                                renderItem={(option, index) => renderOption(option, group, index)}
-                            />
                         </View>
-                    );
-                })}
-            </View>
+                        <Icon icon="fa-solid fa-chevron-right" className="text-xs text-zinc-400" />
+                    </SwipeRow>
+                )}
+            />
 
             {editing && (
                 <Modal
@@ -203,13 +133,6 @@ const FinanceOptionList = ({
                     }
                 >
                     <View className="gap-3">
-                        <ScopeField
-                            value={territoryId}
-                            onChange={setTerritoryId}
-                            territories={territories}
-                            canChoose={canChooseTerritory}
-                            fixedName={ownTerritoryName}
-                        />
                         <TextField
                             label="Name"
                             value={name}

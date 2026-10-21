@@ -321,8 +321,8 @@ namespace api.Controllers
         {
             var scope = Scope;
 
-            // Crew always work in their own territory's settings.
-            var resolved = scope.IsCompanyWide ? territoryId : territoryId ?? scope.HomeTerritoryId;
+            // Crew work in the settings of the territory in view (their only one, or the one picked).
+            var resolved = scope.IsCompanyWide ? territoryId : territoryId ?? scope.TerritoryId;
 
             if (resolved == null)
             {

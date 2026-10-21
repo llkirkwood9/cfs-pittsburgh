@@ -12,8 +12,8 @@ namespace api.Controllers
 {
     /// <summary>
     /// Crew accounts. System Admins and administrators manage everyone (only a system admin touches a system admin);
-    /// a territory manager manages the sales and checkout crew in their own territory. Every role
-    /// below administrator belongs to exactly one territory.
+    /// a territory manager manages the sales and checkout crew in their own territories. Every role
+    /// below administrator belongs to one or more territories.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -62,7 +62,8 @@ namespace api.Controllers
                     return BadRequest(new { error = "That username is already taken." });
 
                 var role = Enum.TryParse<UserRole>(request.Role, true, out var parsed) ? parsed : UserRole.Sales;
-                var (territoryId, problem) = await CheckRoleAndTerritoryAsync(role, request.TerritoryId ?? Scope.TerritoryId);
+                var requested = RequestedTerritories(request) ?? (Scope.TerritoryId is { } inView ? [inView] : null);
+                var (territoryIds, problem) = await CheckRoleAndTerritoriesAsync(role, requested, []);
                 if (problem != null)
                     return problem;
 
@@ -72,7 +73,7 @@ namespace api.Controllers
                     Username = username,
                     Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
                     Role = role,
-                    TerritoryId = territoryId,
+                    Territories = territoryIds.Select(t => new UserTerritory { TerritoryId = t }).ToList(),
                     IsActive = request.IsActive ?? true,
                 };
 
@@ -85,7 +86,7 @@ namespace api.Controllers
 
                 DB.Users.Add(user);
                 await DB.SaveChangesAsync();
-                await DB.Entry(user).Reference(u => u.Territory).LoadAsync();
+                await LoadTerritoriesAsync(user);
 
                 Trace(TraceEventType.Information, $"{GetCurrentUserName()} added {user.Username} ({user.Role}).");
                 return Ok(UserMapper.ToDto(user, IsSystemAdmin()));
@@ -101,9 +102,9 @@ namespace api.Controllers
         #region GET Methods
 
         /// <summary>
-        /// Lists the crew accounts the signed-in user manages or works alongside: everyone for an
-        /// system admin or administrator (or one territory's when they've picked one), a manager's own
-        /// territory for a manager.
+        /// Lists the crew accounts the signed-in user manages or works alongside: everyone for a
+        /// system admin or administrator, everyone in a manager's territories for a manager - or one
+        /// territory's, when one is picked in the menu bar.
         /// </summary>
         /// <returns>Users by name.</returns>
         [HttpGet("users")]
@@ -115,10 +116,11 @@ namespace api.Controllers
                 if (!IsAtLeast(UserRole.Manager))
                     return Forbidden(ManagersOnly);
 
-                var scope = Scope;
-                var query = DB.Users.Include(u => u.Territory).AsNoTracking().AsQueryable();
-                if (scope.TerritoryId != null)
-                    query = query.Where(u => u.TerritoryId == scope.TerritoryId);
+                var visible = Scope.VisibleTerritoryIds;
+                var query = DB.Users
+                    .Include(u => u.Territories).ThenInclude(t => t.Territory)
+                    .AsNoTracking()
+                    .Where(u => visible == null || u.Territories.Any(t => visible.Contains(t.TerritoryId)));
 
                 var users = await query.OrderBy(u => u.Name).ToListAsync();
 
@@ -144,17 +146,20 @@ namespace api.Controllers
         {
             try
             {
-                var territoryId = Scope.TerritoryId;
+                var territories = Scope.VisibleTerritoryIds;
                 if (eventId != null)
                 {
                     var saleEvent = await DB.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == eventId.Value);
                     if (!CanSee(saleEvent))
                         return NotFound(new { error = "Event not found." });
-                    territoryId = saleEvent!.TerritoryId;
+                    territories = [saleEvent!.TerritoryId];
                 }
 
                 var names = await DB.Users
-                    .Where(u => u.IsActive && (territoryId == null || u.TerritoryId == territoryId || u.TerritoryId == null))
+                    .Where(u => u.IsActive
+                                && (territories == null
+                                    || !u.Territories.Any()
+                                    || u.Territories.Any(t => territories.Contains(t.TerritoryId))))
                     .OrderBy(u => u.Name)
                     .Select(u => u.Name)
                     .ToListAsync();
@@ -189,7 +194,9 @@ namespace api.Controllers
                 if (request.Id == null)
                     return BadRequest(new { error = "Missing parameter." });
 
-                var user = await DB.Users.Include(u => u.Territory).FirstOrDefaultAsync(u => u.Id == request.Id.Value);
+                var user = await DB.Users
+                    .Include(u => u.Territories).ThenInclude(t => t.Territory)
+                    .FirstOrDefaultAsync(u => u.Id == request.Id.Value);
                 if (user == null)
                     return NotFound(new { error = "User not found." });
                 if (!CanManage(user))
@@ -197,19 +204,23 @@ namespace api.Controllers
 
                 var self = user.Id == GetCurrentUserId();
                 var role = !string.IsNullOrWhiteSpace(request.Role) && Enum.TryParse<UserRole>(request.Role, true, out var r) ? r : user.Role;
-                var territoryChange = request.TerritoryId != null && request.TerritoryId != user.TerritoryId;
+                var current = user.Territories.Select(t => t.TerritoryId).ToList();
+                var requested = RequestedTerritories(request);
+                var territoryChange = requested != null && !requested.ToHashSet().SetEquals(current);
 
                 if (role != user.Role || territoryChange)
                 {
                     if (self)
-                        return BadRequest(new { error = "You cannot change your own role or territory." });
+                        return BadRequest(new { error = "You cannot change your own role or territories." });
 
-                    var (territoryId, problem) = await CheckRoleAndTerritoryAsync(role, request.TerritoryId ?? user.TerritoryId);
+                    var (territoryIds, problem) = await CheckRoleAndTerritoriesAsync(role, requested ?? current, current);
                     if (problem != null)
                         return problem;
 
                     user.Role = role;
-                    user.TerritoryId = territoryId;
+                    user.Territories.RemoveAll(t => !territoryIds.Contains(t.TerritoryId));
+                    foreach (var id in territoryIds.Where(id => !current.Contains(id)))
+                        user.Territories.Add(new UserTerritory { TerritoryId = id });
                 }
 
                 if (!string.IsNullOrWhiteSpace(request.Username) && request.Username.Trim() != user.Username)
@@ -268,7 +279,7 @@ namespace api.Controllers
                     await DB.UserSessions.Where(s => s.UserId == user.Id).ExecuteDeleteAsync();
 
                 await DB.SaveChangesAsync();
-                await DB.Entry(user).Reference(u => u.Territory).LoadAsync();
+                await LoadTerritoriesAsync(user);
 
                 Trace(TraceEventType.Information, $"{GetCurrentUserName()} updated {user.Username}.");
                 return Ok(UserMapper.ToDto(user, IsSystemAdmin()));
@@ -302,7 +313,7 @@ namespace api.Controllers
                 if (permanent && !IsSystemAdmin())
                     return Forbidden("Only a system admin can delete an account permanently.");
 
-                var user = await DB.Users.FindAsync(id);
+                var user = await DB.Users.Include(u => u.Territories).FirstOrDefaultAsync(u => u.Id == id);
                 if (user == null)
                     return NotFound(new { error = "User not found." });
 
@@ -336,7 +347,8 @@ namespace api.Controllers
 
         /// <summary>
         /// Whether the signed-in user may change this account: a system admin anyone; an administrator
-        /// anyone but a system admin; a manager only crew below manager in their own territory.
+        /// anyone but a system admin; a manager only crew below manager who work in one of the
+        /// manager's territories.
         /// </summary>
         private bool CanManage(User user)
         {
@@ -346,49 +358,80 @@ namespace api.Controllers
             if (scope.Role == UserRole.Admin)
                 return user.Role != UserRole.SystemAdmin;
             return scope.Role == UserRole.Manager
-                   && user.TerritoryId == scope.HomeTerritoryId
+                   && user.Territories.Any(t => scope.MemberTerritoryIds.Contains(t.TerritoryId))
                    && AccessScope.Rank(user.Role) < AccessScope.Rank(UserRole.Manager);
         }
 
         private static string CannotManage(User user) =>
             user.Role == UserRole.SystemAdmin
                 ? "Only a system admin can change a system admin's account."
-                : "A manager can only change the sales and checkout crew in their own territory.";
+                : "A manager can only change the sales and checkout crew in their own territories.";
 
         /// <summary>
-        /// Checks the signed-in user may give this role, and works out the territory that goes with
-        /// it: none for system admins and administrators, an active territory for everyone else - for a
-        /// manager's crew, always the manager's own.
+        /// The territories a request asks for: TerritoryIds, or the single TerritoryId an older app
+        /// sends. Null when it names none.
         /// </summary>
-        /// <returns>The territory to store, or the response to return instead.</returns>
-        private async Task<(int? TerritoryId, IActionResult? Problem)> CheckRoleAndTerritoryAsync(UserRole role, int? territoryId)
+        private static List<int>? RequestedTerritories(UserDto request) =>
+            request.TerritoryIds?.Distinct().ToList()
+            ?? (request.TerritoryId is { } one ? [one] : null);
+
+        /// <summary>
+        /// Checks the signed-in user may give this role, and works out the territories that go with
+        /// it: none for system admins and administrators, one or more active territories for everyone
+        /// else. A manager only adds or removes their own territories; any others the person already
+        /// works in stay as they are.
+        /// </summary>
+        /// <param name="role">The role being given</param>
+        /// <param name="requested">The territories asked for, or null for none</param>
+        /// <param name="current">The territories the person is in now (empty for a new account)</param>
+        /// <returns>The territories to store, or the response to return instead.</returns>
+        private async Task<(List<int> TerritoryIds, IActionResult? Problem)> CheckRoleAndTerritoriesAsync(
+            UserRole role, List<int>? requested, List<int> current)
         {
             var scope = Scope;
 
             if (role == UserRole.SystemAdmin && scope.Role != UserRole.SystemAdmin)
-                return (null, Forbidden("Only a system admin can make someone a system admin."));
+                return ([], Forbidden("Only a system admin can make someone a system admin."));
+
+            if (!AccessScope.NeedsTerritory(role))
+                return ([], null);
+
+            requested ??= [];
 
             if (scope.Role == UserRole.Manager)
             {
                 if (AccessScope.Rank(role) >= AccessScope.Rank(UserRole.Manager))
-                    return (null, Forbidden("A manager can only give the Sales, Checkout or Sales & Checkout roles."));
+                    return ([], Forbidden("A manager can only give the Sales, Checkout or Sales & Checkout roles."));
 
-                if (territoryId != null && territoryId != scope.HomeTerritoryId)
-                    return (null, Forbidden("A manager can only look after people in their own territory."));
+                var own = scope.MemberTerritoryIds;
+                if (requested.Any(t => !own.Contains(t) && !current.Contains(t)))
+                    return ([], Forbidden("A manager can only add people to their own territories."));
 
-                return (scope.HomeTerritoryId, null);
+                // The manager's territories as asked; anyone else's left alone.
+                requested = current.Where(t => !own.Contains(t))
+                    .Concat(requested.Where(own.Contains))
+                    .Distinct()
+                    .ToList();
             }
 
-            if (!AccessScope.NeedsTerritory(role))
-                return (null, null);
+            if (requested.Count == 0)
+                return ([], BadRequest(new { error = "Pick at least one territory this person works in." }));
 
-            if (territoryId == null)
-                return (null, BadRequest(new { error = "Pick the territory this person works in." }));
+            // New territories must be switched on; one the person is already in may stay even if it's off.
+            var added = requested.Where(t => !current.Contains(t)).ToList();
+            var activeCount = await DB.Territories.CountAsync(t => added.Contains(t.Id) && t.IsActive);
+            if (activeCount != added.Count)
+                return ([], BadRequest(new { error = "That territory doesn't exist or is switched off." }));
 
-            if (!await DB.Territories.AnyAsync(t => t.Id == territoryId && t.IsActive))
-                return (null, BadRequest(new { error = "That territory doesn't exist or is switched off." }));
+            return (requested, null);
+        }
 
-            return (territoryId, null);
+        /// <summary>
+        /// Loads a user's territories and their names, for the reply.
+        /// </summary>
+        private async Task LoadTerritoriesAsync(User user)
+        {
+            await DB.Entry(user).Collection(u => u.Territories).Query().Include(t => t.Territory).LoadAsync();
         }
 
         #endregion

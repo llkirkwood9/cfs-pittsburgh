@@ -11,11 +11,14 @@ namespace api.Utils
         /// <summary>
         /// Maps a user entity to its DTO.
         /// </summary>
-        /// <param name="user">User entity, with Territory loaded when its name is wanted</param>
+        /// <param name="user">User entity, with Territories and their Territory loaded</param>
         /// <param name="includeLastLogin">Whether to include the last sign-in time (system admins only)</param>
         /// <returns>The mapped DTO.</returns>
         public static UserDto ToDto(User user, bool includeLastLogin = false)
         {
+            var territories = user.Territories
+                .OrderBy(t => t.Territory?.Name ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                .ToList();
             return new UserDto
             {
                 Id = user.Id,
@@ -23,8 +26,10 @@ namespace api.Utils
                 Username = user.Username,
                 Email = user.Email,
                 Role = user.Role.ToString(),
-                TerritoryId = user.TerritoryId,
-                TerritoryName = user.Territory?.Name,
+                TerritoryIds = territories.Select(t => t.TerritoryId).ToList(),
+                TerritoryNames = territories.Select(t => t.Territory?.Name ?? string.Empty).ToList(),
+                TerritoryId = territories.FirstOrDefault()?.TerritoryId,
+                TerritoryName = territories.FirstOrDefault()?.Territory?.Name,
                 IsActive = user.IsActive,
                 // Someone still on their old PIN has to choose a password at their next sign-in too.
                 MustChangePassword = user.MustChangePassword || user.PasswordHash == null,

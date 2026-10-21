@@ -156,9 +156,11 @@ Once a development build is installed, `npx expo start` serves it in place of Ex
 - Sign in against the server, then sign out and back in. Close the app completely and open it again: it should still be signed in (the
   session is kept in the Keychain / Keystore). An account with a new or reset password is asked
   to choose its own before anything else.
-- **Territories** (as an admin): switch territory in the menu bar, and pick **All territories**.
-  Sell, Checkout and the stock counts should ask for one territory; the Dashboard should show the
-  territories side by side.
+- **Territories** (as an admin, or someone in more than one territory): switch territory in the
+  menu bar, and pick **All territories** / **All my territories**. Sell, Checkout, the stock counts
+  and the Catalog should ask for one territory; the Dashboard should show the territories side by
+  side, and Orders the territory under each event. In the Catalog, **New product** should offer to
+  copy an item from another territory.
 - **Sell:** start an order, add items, and send it to checkout.
 - **Lists:** tapping a row opens it (an order item's editor, a product, an event, a crew
   member, an order's sales sheet, a size's count). Swiping a row to the left uncovers its other

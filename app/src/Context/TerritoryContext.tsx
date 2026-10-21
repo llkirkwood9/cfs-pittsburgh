@@ -10,15 +10,17 @@ import { GetTerritories } from "../Services/TerritoryServices";
 const STORAGE_KEY = "cfs.territory";
 
 type TerritoryContextValue = {
-    /** Territories the user can pick from (system admins and administrators), or just their own. */
+    /** Territories the user can pick from: every one for system admins and administrators, their own for everyone else. */
     territories: Territory[];
-    /** The territory being worked in; null when a system admin or administrator is viewing them all. */
+    /** The territory being worked in; null when all of the user's territories are in view. */
     territoryId: number | null;
-    /** Its name, or "All territories". */
+    /** Its name, or "All territories" / "All my territories". */
     territoryName: string;
-    /** System Admins and administrators can switch territory; everyone else is fixed to their own. */
+    /** Anyone with more than one territory can switch between them, or view them all. */
     canSwitch: boolean;
-    /** Switch the territory in view (system admins and administrators). */
+    /** What viewing them all is called: "All territories", or "All my territories". */
+    allLabel: string;
+    /** Switch the territory in view. */
     setTerritoryId: (id: number | null) => void;
     /** Read the list again, after one is added or renamed. */
     reload: () => Promise<void>;
@@ -32,10 +34,10 @@ const readStored = (): number | null => {
 };
 
 /**
- * Which territory the app is showing, as on the dashboard. Crew always see their own. System
- * Admins and administrators pick one from the menu bar - or All territories - and every request
- * carries the choice, so lists, the dashboard and the settings follow it. The choice is
- * remembered on the device.
+ * Which territory the app is showing, as on the dashboard. Someone in one territory always sees
+ * it. Anyone with more - system admins and administrators have every territory - picks one from
+ * the menu bar, or all of theirs, and every request carries the choice, so lists, the dashboard
+ * and the settings follow it. The choice is remembered on the device.
  */
 export const TerritoryProvider = ({ children }: { children: ReactNode }) => {
     const { user } = useAuth();
@@ -55,30 +57,36 @@ export const TerritoryProvider = ({ children }: { children: ReactNode }) => {
         reload();
     }, [reload]);
 
-    // A remembered territory that has since been switched off or deleted falls back to all.
-    useEffect(() => {
-        if (!companyWide || selected == null || territories.length === 0) return;
-        if (!territories.some((t) => t.id === selected && t.isActive !== false)) setSelected(null);
-    }, [companyWide, selected, territories]);
+    const own = user?.territoryIds ?? (user?.territoryId != null ? [user.territoryId] : []);
+    const canSwitch = companyWide || own.length > 1;
 
-    const territoryId = companyWide ? selected : (user?.territoryId ?? null);
+    // A remembered territory that has since been switched off, deleted, or isn't theirs falls
+    // back to all of theirs.
+    useEffect(() => {
+        if (!canSwitch || selected == null || territories.length === 0) return;
+        if (!territories.some((t) => t.id === selected && t.isActive !== false)) setSelected(null);
+    }, [canSwitch, selected, territories]);
+
+    const territoryId = canSwitch ? selected : (own[0] ?? null);
 
     // Set synchronously during render, so the requests children make on this render already
     // carry it.
-    setTerritoryHeader(companyWide ? selected : null);
+    setTerritoryHeader(canSwitch ? selected : null);
 
     const setTerritoryId = useCallback((id: number | null) => {
         setSelected(id);
         SetItem(STORAGE_KEY, id == null ? null : String(id));
     }, []);
 
+    const allLabel = companyWide ? "All territories" : "All my territories";
     const territoryName = useMemo(() => {
-        if (territoryId == null) return companyWide ? "All territories" : "";
+        if (territoryId == null) return canSwitch ? allLabel : "";
+        const index = user?.territoryIds?.indexOf(territoryId) ?? -1;
         return (
             territories.find((t) => t.id === territoryId)?.name ??
-            (territoryId === user?.territoryId ? (user?.territoryName ?? "") : "")
+            (index >= 0 ? (user?.territoryNames?.[index] ?? "") : (user?.territoryName ?? ""))
         );
-    }, [territoryId, territories, companyWide, user]);
+    }, [territoryId, territories, canSwitch, allLabel, user]);
 
     return (
         <TerritoryContext.Provider
@@ -86,7 +94,8 @@ export const TerritoryProvider = ({ children }: { children: ReactNode }) => {
                 territories,
                 territoryId,
                 territoryName,
-                canSwitch: companyWide,
+                canSwitch,
+                allLabel,
                 setTerritoryId,
                 reload,
             }}

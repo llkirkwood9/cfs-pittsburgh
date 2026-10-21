@@ -2,11 +2,12 @@ import Icon from "../Elements/Icon";
 import { useTerritory } from "../../Context/TerritoryContext";
 
 /**
- * The territory in view, in the menu bar. System Admins and administrators switch between territories -
- * or all of them - here; everyone else just sees which territory they're in.
+ * The territory in view, in the menu bar. Anyone with more than one territory - system admins and
+ * administrators have every one - switches between them, or all of theirs, here; someone in one
+ * territory just sees which it is.
  */
 const TerritoryPicker = () => {
-    const { territories, territoryId, territoryName, canSwitch, setTerritoryId } = useTerritory();
+    const { territories, territoryId, territoryName, canSwitch, allLabel, setTerritoryId } = useTerritory();
 
     if (!canSwitch) {
         if (!territoryName) return null;
@@ -38,7 +39,7 @@ const TerritoryPicker = () => {
                     font-medium text-white outline-hidden hover:bg-white/15 focus:ring-2 focus:ring-sky-500
                     sm:max-w-52 [&>option]:text-zinc-900"
             >
-                <option value="">All territories</option>
+                <option value="">{allLabel}</option>
                 {active.map((t) => (
                     <option key={t.id} value={t.id}>
                         {t.name}

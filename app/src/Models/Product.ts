@@ -14,10 +14,10 @@ export type ProductCategory =
 
 export type Product = {
     id?: number;
-    /** The territory it's sold in; null for a global item sold everywhere. */
+    /** The territory whose catalog it's in - every territory has its own. */
     territoryId?: number | null;
     territoryName?: string | null;
-    /** Whether the signed-in user may change it - a manager can't change global items. */
+    /** Whether the signed-in user may change it. */
     canEdit?: boolean;
     name?: string;
     brand?: string;
@@ -38,4 +38,11 @@ export type Product = {
     options?: ProductOption[];
     variants?: ProductVariant[];
     deliveryOptions?: ProductDeliveryOption[];
+};
+
+/** A product copied from another territory's catalog. */
+export type ProductCopyResult = {
+    product?: Product | null;
+    /** Delivery options added along with it, and bundled items left out. */
+    notes?: string[];
 };

@@ -96,4 +96,20 @@ namespace api.Dtos
         /// </summary>
         public List<ProductDeliveryOptionDto>? DeliveryOptions { get; set; }
     }
+
+    /// <summary>
+    /// A product copied from another territory's catalog, and what the copy changed.
+    /// </summary>
+    public class ProductCopyResultDto
+    {
+        /// <summary>
+        /// The new product, in the territory it was copied into
+        /// </summary>
+        public ProductDto? Product { get; set; }
+
+        /// <summary>
+        /// Delivery options added along with it, and bundled items left out
+        /// </summary>
+        public List<string> Notes { get; set; } = new();
+    }
 }

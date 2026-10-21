@@ -9,13 +9,15 @@ type Props = {
     badge?: number;
     /** A short word shown in a small pill after the text, e.g. "Past". */
     tag?: string;
+    /** Small text under the label, e.g. the territory an event is in. */
+    subtext?: string;
     className?: string;
 };
 
 /**
  * Segmented-control style tab, used for the draft switcher and the catalog category filter.
  */
-const TabButton = ({ text, active, onClick, badge, tag, className = "" }: Props) => {
+const TabButton = ({ text, active, onClick, badge, tag, subtext, className = "" }: Props) => {
     return (
         <Pressable
             onPress={onClick}
@@ -29,14 +31,26 @@ const TabButton = ({ text, active, onClick, badge, tag, className = "" }: Props)
                 className
             )}
         >
-            <Text
-                className={cx(
-                    "text-sm font-semibold",
-                    active ? "text-white" : "text-zinc-700 dark:text-zinc-200"
-                )}
-            >
-                {text}
-            </Text>
+            <View className={subtext ? "py-1" : undefined}>
+                <Text
+                    className={cx(
+                        "text-sm font-semibold",
+                        active ? "text-white" : "text-zinc-700 dark:text-zinc-200"
+                    )}
+                >
+                    {text}
+                </Text>
+                {subtext ? (
+                    <Text
+                        className={cx(
+                            "text-[11px]",
+                            active ? "text-white/80" : "text-zinc-500 dark:text-zinc-400"
+                        )}
+                    >
+                        {subtext}
+                    </Text>
+                ) : null}
+            </View>
             {tag && (
                 <View
                     className={cx(

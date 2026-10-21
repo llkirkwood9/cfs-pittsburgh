@@ -75,7 +75,7 @@ namespace api.Controllers
                 // Usernames are matched without regard to case on every database.
                 var username = request.Username.Trim().ToLower();
                 var user = await DB.Users
-                    .Include(u => u.Territory)
+                    .Include(u => u.Territories).ThenInclude(t => t.Territory)
                     .FirstOrDefaultAsync(u => u.Username.ToLower() == username);
 
                 if (user == null || !user.IsActive)
@@ -113,7 +113,7 @@ namespace api.Controllers
                     return Unauthorized(new { error = WrongPassword });
                 }
 
-                if (user.Territory is { IsActive: false })
+                if (AllTerritoriesOff(user))
                     return StatusCode(403, new { error = "Your territory has been switched off. Ask an administrator." });
 
                 user.FailedLoginCount = 0;
@@ -155,12 +155,12 @@ namespace api.Controllers
                 var hash = TokenService.HashRefreshToken(token);
                 var session = await DB.UserSessions
                     .Include(s => s.User)
-                    .ThenInclude(u => u!.Territory)
+                    .ThenInclude(u => u!.Territories).ThenInclude(t => t.Territory)
                     .FirstOrDefaultAsync(s => s.TokenHash == hash);
 
                 var user = session?.User;
                 if (session == null || user == null || session.ExpiresAt < DateTime.UtcNow
-                    || !user.IsActive || user.Territory is { IsActive: false })
+                    || !user.IsActive || AllTerritoriesOff(user))
                 {
                     if (session != null)
                     {
@@ -206,7 +206,7 @@ namespace api.Controllers
                 if (string.IsNullOrEmpty(request.CurrentPassword) || string.IsNullOrEmpty(request.NewPassword))
                     return BadRequest(new { error = "Enter your current password and a new one." });
 
-                var user = await DB.Users.Include(u => u.Territory).FirstOrDefaultAsync(u => u.Id == userId.Value);
+                var user = await DB.Users.Include(u => u.Territories).ThenInclude(t => t.Territory).FirstOrDefaultAsync(u => u.Id == userId.Value);
                 if (user == null || !user.IsActive)
                     return NotFound(new { error = "User not found." });
 
@@ -285,7 +285,7 @@ namespace api.Controllers
                 if (userId == null)
                     return Unauthorized(new { error = "Not signed in." });
 
-                var user = await DB.Users.Include(u => u.Territory).AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId.Value);
+                var user = await DB.Users.Include(u => u.Territories).ThenInclude(t => t.Territory).AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId.Value);
                 if (user == null || !user.IsActive)
                     return NotFound(new { error = "User not found." });
 
@@ -403,6 +403,13 @@ namespace api.Controllers
             "false" => false,
             _ => Request.IsHttps,
         };
+
+        /// <summary>
+        /// Whether a manager or crew member has no switched-on territory left to work in, and so can't
+        /// sign in. System Admins and administrators belong to none and are never caught by this.
+        /// </summary>
+        private static bool AllTerritoriesOff(User user) =>
+            AccessScope.NeedsTerritory(user.Role) && !user.Territories.Any(t => t.Territory is { IsActive: true });
 
         private bool AllowLegacyPins() => !string.Equals(Config["Auth:AllowLegacyPins"], "false", StringComparison.OrdinalIgnoreCase);
 

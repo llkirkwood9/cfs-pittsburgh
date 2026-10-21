@@ -47,8 +47,8 @@ const EventCloseOutPage = () => {
     const navigate = useNavigate();
     const { hasRole } = useAuth();
     const id = Number(eventId);
-    // Discarding and voiding open orders is for administrators.
-    const canClear = hasRole("Admin");
+    // Managers and above can clear open orders: discard a draft with nothing paid, void the rest.
+    const canClear = hasRole("Manager");
 
     const [saleEvent, setSaleEvent] = useState<Event | null>(null);
     const [orders, setOrders] = useState<OrderSummary[]>([]);

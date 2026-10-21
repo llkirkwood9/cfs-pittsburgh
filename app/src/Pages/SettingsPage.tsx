@@ -12,9 +12,11 @@ import NewEventSettings from "../Components/Settings/NewEventSettings";
 import ReceiptEmailSettings from "../Components/Settings/ReceiptEmailSettings";
 import { SettingsScopeContext } from "../Components/Settings/SettingsScope";
 import TermsSettings from "../Components/Settings/TermsSettings";
+import { useAuth } from "../Context/AuthContext";
 import { useSettings } from "../Context/SettingsContext";
 import { useTerritory } from "../Context/TerritoryContext";
 import type { GeneralSettings } from "../Models/GeneralSettings";
+import { IsCompanyWide } from "../Models/User";
 import { GetGeneralSettings } from "../Services/SettingsServices";
 
 const sections = [
@@ -35,11 +37,15 @@ const sections = [
  */
 const SettingsPage = () => {
     const { refresh: refreshInView } = useSettings();
+    const { user } = useAuth();
     const { territories, territoryId: territoryInView, canSwitch, territoryName } = useTerritory();
+    const companyWide = IsCompanyWide(user?.role);
 
-    // System Admins and administrators start on the territory in view, or the company-wide settings
-    // when viewing every territory; a manager only ever edits their own territory's.
-    const [scopeId, setScopeId] = useState<number | null>(territoryInView);
+    // Start on the territory in view. Viewing every territory, system admins and administrators
+    // start on the company-wide settings; a manager with several territories on their first.
+    const [scopeId, setScopeId] = useState<number | null>(
+        territoryInView ?? (companyWide ? null : (user?.territoryIds?.[0] ?? null))
+    );
     const [settings, setSettings] = useState<GeneralSettings | null>(null);
 
     const load = useCallback(async (id: number | null) => {
@@ -86,7 +92,7 @@ const SettingsPage = () => {
                         label="Editing"
                         value={scopeId}
                         options={[
-                            { value: null, label: "Company-wide settings" },
+                            ...(companyWide ? [{ value: null, label: "Company-wide settings" }] : []),
                             ...active.map((t) => ({ value: t.id ?? null, label: t.name ?? "" })),
                         ]}
                         onChange={setScopeId}

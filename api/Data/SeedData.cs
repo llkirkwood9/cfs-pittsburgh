@@ -44,10 +44,12 @@ namespace api.Data
             if (accountsOnly)
                 return generated;
 
+            // The sample catalog belongs to the first territory; every territory has its own.
+            var territoryId = await SeedTerritoryAsync(db, seed);
             await SeedEventAsync(db, seed);
-            var deliveryByName = await SeedDeliveryOptionsAsync(db, seed);
-            var created = await SeedProductsAsync(db, seed, deliveryByName);
-            await SeedBundlesAsync(db, created);
+            var deliveryByName = await SeedDeliveryOptionsAsync(db, seed, territoryId);
+            var created = await SeedProductsAsync(db, seed, deliveryByName, territoryId);
+            await SeedBundlesAsync(db, created, territoryId);
             return generated;
         }
 
@@ -188,15 +190,18 @@ namespace api.Data
         }
 
         /// <summary>
-        /// Creates any delivery option that is not already present.
+        /// Creates any delivery option that is not already in the territory's catalog.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <param name="seed">Parsed seed file</param>
+        /// <param name="territoryId">The territory the sample catalog belongs to</param>
         /// <returns>Lookup of delivery option by name.</returns>
         private static async Task<Dictionary<string, DeliveryOption>> SeedDeliveryOptionsAsync(
-            ApplicationDbContext db, SeedFile seed)
+            ApplicationDbContext db, SeedFile seed, int territoryId)
         {
-            var existing = await db.DeliveryOptions.ToDictionaryAsync(d => d.Name, StringComparer.OrdinalIgnoreCase);
+            var existing = await db.DeliveryOptions
+                .Where(d => d.TerritoryId == territoryId)
+                .ToDictionaryAsync(d => d.Name, StringComparer.OrdinalIgnoreCase);
 
             if (seed.DeliveryOptions != null)
             {
@@ -207,6 +212,7 @@ namespace api.Data
 
                     var option = new DeliveryOption
                     {
+                        TerritoryId = territoryId,
                         Name = d.Name,
                         Price = d.Price ?? 0m,
                         IsTaxable = d.IsTaxable ?? true,
@@ -233,8 +239,9 @@ namespace api.Data
         /// <param name="db">EF context</param>
         /// <param name="seed">Parsed seed file</param>
         /// <param name="deliveryByName">Delivery option lookup</param>
+        /// <param name="territoryId">The territory the sample catalog belongs to</param>
         private static async Task<List<(SeedProduct Seed, Product Entity)>> SeedProductsAsync(
-            ApplicationDbContext db, SeedFile seed, Dictionary<string, DeliveryOption> deliveryByName)
+            ApplicationDbContext db, SeedFile seed, Dictionary<string, DeliveryOption> deliveryByName, int territoryId)
         {
             var created = new List<(SeedProduct Seed, Product Entity)>();
 
@@ -242,6 +249,7 @@ namespace api.Data
                 return created;
 
             var existingNames = await db.Products
+                .Where(p => p.TerritoryId == territoryId)
                 .Select(p => p.Name + "|" + p.Brand)
                 .ToListAsync();
 
@@ -258,6 +266,7 @@ namespace api.Data
 
                 var product = new Product
                 {
+                    TerritoryId = territoryId,
                     Name = p.Name,
                     Brand = p.Brand ?? string.Empty,
                     Category = Enum.TryParse<ProductCategory>(p.Category, true, out var category)
@@ -317,7 +326,8 @@ namespace api.Data
         /// </summary>
         /// <param name="db">EF context</param>
         /// <param name="created">Seed products created in this run, with their entities</param>
-        private static async Task SeedBundlesAsync(ApplicationDbContext db, List<(SeedProduct Seed, Product Entity)> created)
+        /// <param name="territoryId">The territory the sample catalog belongs to</param>
+        private static async Task SeedBundlesAsync(ApplicationDbContext db, List<(SeedProduct Seed, Product Entity)> created, int territoryId)
         {
             var wanted = created
                 .SelectMany(c => (c.Seed.Variants ?? new List<SeedVariant>())
@@ -331,7 +341,7 @@ namespace api.Data
             var names = wanted.SelectMany(w => w.Seed.Includes!).Select(i => i.Product).Distinct().ToList();
             var components = await db.ProductVariants
                 .Include(v => v.Product)
-                .Where(v => v.Product != null && names.Contains(v.Product.Name))
+                .Where(v => v.Product != null && v.Product.TerritoryId == territoryId && names.Contains(v.Product.Name))
                 .ToListAsync();
 
             foreach (var (entity, seedVariant) in wanted)

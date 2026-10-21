@@ -1,10 +1,25 @@
 import api from "../Lib/api";
 import { HandleAxiosError } from "../Lib/ErrorHandler";
-import type { Product, ProductCategory } from "../Models/Product";
+import type { Product, ProductCategory, ProductCopyResult } from "../Models/Product";
 
 //*************************************//
 //*********** POST METHODS ************//
 //*************************************//
+
+/**
+ * Copies a product from another territory's catalog into the territory in view.
+ * @param id The product to copy.
+ * @returns The new product, with notes on delivery options added or bundled items left out, or null on failure.
+ */
+export const CopyProduct = async (id: number): Promise<ProductCopyResult | null> => {
+    try {
+        const response = await api.post<ProductCopyResult>(`/api/Product/product/${id}/copy`);
+        return response.data;
+    } catch (error) {
+        HandleAxiosError(error);
+        return null;
+    }
+};
 
 /**
  * Adds a product with its variants and delivery availability.
@@ -30,10 +45,15 @@ export const AddProduct = async (newProductData: Product): Promise<Product | nul
  * @param includeInactive Pass true from the catalog admin screen.
  * @returns Products with variants and delivery options, or an empty list on failure.
  */
-export const GetProducts = async (includeInactive = false): Promise<Product[]> => {
+export const GetProducts = async (
+    includeInactive = false,
+    territoryId?: number | null
+): Promise<Product[]> => {
     try {
         const response = await api.get<Product[]>("/api/Product/products", {
             params: { includeInactive },
+            // Another territory's catalog, such as one to copy from; otherwise the one in view.
+            headers: territoryId != null ? { "X-Territory-Id": String(territoryId) } : undefined,
         });
         return response.data;
     } catch (error) {

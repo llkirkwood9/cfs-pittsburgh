@@ -1015,17 +1015,12 @@ namespace api.Migrations
                     b.Property<int>("Role")
                         .HasColumnType("integer");
 
-                    b.Property<int?>("TerritoryId")
-                        .HasColumnType("integer");
-
                     b.Property<string>("Username")
                         .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("TerritoryId");
 
                     b.HasIndex("Username")
                         .IsUnique();
@@ -1070,6 +1065,21 @@ namespace api.Migrations
                     b.HasIndex("UserId");
 
                     b.ToTable("UserSessions");
+                });
+
+            modelBuilder.Entity("api.Models.UserTerritory", b =>
+                {
+                    b.Property<int>("UserId")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("TerritoryId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("UserId", "TerritoryId");
+
+                    b.HasIndex("TerritoryId");
+
+                    b.ToTable("UserTerritories");
                 });
 
             modelBuilder.Entity("api.Models.DeliveryOption", b =>
@@ -1300,16 +1310,6 @@ namespace api.Migrations
                     b.Navigation("Territory");
                 });
 
-            modelBuilder.Entity("api.Models.User", b =>
-                {
-                    b.HasOne("api.Models.Territory", "Territory")
-                        .WithMany()
-                        .HasForeignKey("TerritoryId")
-                        .OnDelete(DeleteBehavior.Restrict);
-
-                    b.Navigation("Territory");
-                });
-
             modelBuilder.Entity("api.Models.UserSession", b =>
                 {
                     b.HasOne("api.Models.User", "User")
@@ -1317,6 +1317,25 @@ namespace api.Migrations
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("api.Models.UserTerritory", b =>
+                {
+                    b.HasOne("api.Models.Territory", "Territory")
+                        .WithMany()
+                        .HasForeignKey("TerritoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("api.Models.User", "User")
+                        .WithMany("Territories")
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Territory");
 
                     b.Navigation("User");
                 });
@@ -1357,6 +1376,11 @@ namespace api.Migrations
                     b.Navigation("Components");
 
                     b.Navigation("Stock");
+                });
+
+            modelBuilder.Entity("api.Models.User", b =>
+                {
+                    b.Navigation("Territories");
                 });
 #pragma warning restore 612, 618
         }

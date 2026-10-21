@@ -11,7 +11,7 @@ import { cx } from "../../Lib/ClassNames";
  * territories - or all of them - here; everyone else just sees which territory they're in.
  */
 const TerritoryPicker = () => {
-    const { territories, territoryId, territoryName, canSwitch, setTerritoryId } = useTerritory();
+    const { territories, territoryId, territoryName, canSwitch, allLabel, setTerritoryId } = useTerritory();
     const [open, setOpen] = useState<boolean>(false);
 
     if (!canSwitch) {
@@ -28,7 +28,7 @@ const TerritoryPicker = () => {
 
     const active = territories.filter((t) => t.isActive !== false);
     const choices: { id: number | null; name: string }[] = [
-        { id: null, name: "All territories" },
+        { id: null, name: allLabel },
         ...active.map((t) => ({ id: t.id ?? null, name: t.name ?? "" })),
     ];
 

@@ -20,12 +20,12 @@ const roleBlurb: Record<UserRole, string> = {
     Sales: "Takes orders on the floor",
     Checkout: "Takes payment and prints receipts",
     SalesCheckout: "Both tables, without the admin screens",
-    Manager: "Runs one territory: its crew, events, catalog items and settings",
-    Admin: "Every territory, plus territories and global catalog",
+    Manager: "Runs their territories: crew, events, catalog and settings",
+    Admin: "Every territory, plus the Territories screen",
     SystemAdmin: "Everything, plus permanent deletes",
 };
 
-/** System Admins and administrators work across every territory; every other role belongs to one. */
+/** System Admins and administrators work across every territory; every other role belongs to one or more. */
 const needsTerritory = (role: UserRole) => !IsCompanyWide(role);
 
 /**
@@ -42,8 +42,10 @@ const MakePassword = (): string => {
 
 /**
  * Crew administration. Accounts are created here; there is no self-service signup, which keeps
- * a shared cart tablet from becoming a way in. Managers look after the crew of their own
- * territory; system admins and administrators everyone, in the territory picked in the menu bar.
+ * a shared cart tablet from becoming a way in. Anyone below administrator works in one or more
+ * territories - a rep who sells in two belongs to both and switches between them. Managers look
+ * after the crew of their own territories; system admins and administrators everyone, in the
+ * territory picked in the menu bar.
  */
 const CrewPage = () => {
     const { user } = useAuth();
@@ -63,7 +65,7 @@ const CrewPage = () => {
     const [email, setEmail] = useState<string>("");
     const [role, setRole] = useState<UserRole>("Sales");
     const [password, setPassword] = useState<string>("");
-    const [territoryId, setTerritoryId] = useState<number | null>(null);
+    const [territoryIds, setTerritoryIds] = useState<number[]>([]);
     const [isActive, setIsActive] = useState<boolean>(true);
     const [unlock, setUnlock] = useState<boolean>(false);
 
@@ -80,13 +82,14 @@ const CrewPage = () => {
     if (!user) return <Navigate to="/unauthorized" replace />;
 
     // Matches the API: system admins manage everyone, administrators everyone but system admins, managers only
-    // the Sales and Checkout crew of their own territory (and themselves, for their details).
+    // the Sales and Checkout crew of their own territories (and themselves, for their details).
+    const ownTerritoryIds = user.territoryIds ?? [];
     const canManage = (crew: User): boolean => {
         if (isSystemAdmin) return true;
         if (user.role === "Admin") return crew.role !== "SystemAdmin";
         if (crew.id === user.id) return true;
         return (
-            crew.territoryId === user.territoryId &&
+            (crew.territoryIds ?? []).some((id) => ownTerritoryIds.includes(id)) &&
             (crew.role === "Sales" || crew.role === "Checkout" || crew.role === "SalesCheckout")
         );
     };
@@ -98,7 +101,11 @@ const CrewPage = () => {
         if (r === "Manager") return companyWide;
         return true;
     });
+    // The territories this user can put people in: every switched-on one for system admins and
+    // administrators, a manager's own for a manager.
     const activeTerritories = territories.filter((t) => t.isActive !== false);
+    // Someone with only one territory to offer doesn't need to choose.
+    const chooseTerritories = companyWide || activeTerritories.length > 1;
 
     const open = (crew: User) => {
         setEditing(crew);
@@ -107,7 +114,15 @@ const CrewPage = () => {
         setEmail(crew.email ?? "");
         setRole(crew.role ?? "Sales");
         setIsActive(crew.isActive ?? true);
-        setTerritoryId(crew.territoryId ?? territoryInView ?? user?.territoryId ?? null);
+        setTerritoryIds(
+            crew.id
+                ? (crew.territoryIds ?? [])
+                : territoryInView != null
+                  ? [territoryInView]
+                  : activeTerritories.length === 1 && activeTerritories[0].id != null
+                    ? [activeTerritories[0].id]
+                    : []
+        );
         setUnlock(false);
         // A new account gets a ready-made password to hand over; an existing one keeps its own
         // unless a new one is entered.
@@ -123,8 +138,14 @@ const CrewPage = () => {
         if (password && password.length < 8)
             return Toast.Warning("The password must be at least 8 characters.");
 
-        if (companyWide && needsTerritory(role) && territoryId == null)
-            return Toast.Warning("Pick the territory this person works in.");
+        // A manager's choices are only their own territories; any others the person works in stay.
+        const offered = activeTerritories.map((t) => t.id);
+        const elsewhere = territoryIds.filter((id) => !offered.includes(id));
+        const chosen = chooseTerritories
+            ? territoryIds
+            : [...elsewhere, ...offered.filter((id): id is number => id != null)];
+        if (needsTerritory(role) && chosen.length === 0)
+            return Toast.Warning("Pick at least one territory this person works in.");
 
         const payload: User = {
             id: editing?.id,
@@ -132,11 +153,7 @@ const CrewPage = () => {
             username: username.trim(),
             email: email.trim(),
             role,
-            territoryId: needsTerritory(role)
-                ? companyWide
-                    ? territoryId
-                    : user?.territoryId
-                : null,
+            territoryIds: needsTerritory(role) ? chosen : [],
             isActive,
             password: password || undefined,
             isLockedOut: unlock ? false : undefined,
@@ -236,8 +253,8 @@ const CrewPage = () => {
                             <p className="text-xs text-zinc-500 dark:text-zinc-400">
                                 {crew.username} &middot;{" "}
                                 {crew.role ? UserRoleLabels[crew.role] : ""}
-                                {crew.territoryName
-                                    ? ` · ${crew.territoryName}`
+                                {crew.territoryNames?.length
+                                    ? ` · ${crew.territoryNames.join(", ")}`
                                     : crew.role && !needsTerritory(crew.role)
                                       ? " · All territories"
                                       : ""}
@@ -365,30 +382,66 @@ const CrewPage = () => {
                             )}
                         </div>
 
-                        {companyWide && needsTerritory(role) && (
-                            <label className="flex flex-col gap-1 sm:col-span-2">
-                                <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                                    Territory
+                        {needsTerritory(role) && chooseTerritories && (
+                            <fieldset className="flex flex-col gap-1 sm:col-span-2">
+                                <legend className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                                    Territories
+                                </legend>
+                                <div className="flex flex-wrap gap-2">
+                                    {activeTerritories.map((t) => {
+                                        const checked = t.id != null && territoryIds.includes(t.id);
+                                        return (
+                                            <label
+                                                key={t.id}
+                                                className={`flex min-h-[44px] cursor-pointer items-center gap-2 rounded-xl border px-3 text-sm font-medium ${
+                                                    checked
+                                                        ? "border-sky-600 bg-sky-50 text-sky-900 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-100"
+                                                        : "border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-800"
+                                                } ${editing.id === user.id ? "pointer-events-none opacity-60" : ""}`}
+                                            >
+                                                <input
+                                                    type="checkbox"
+                                                    checked={checked}
+                                                    disabled={editing.id === user.id}
+                                                    onChange={(e) =>
+                                                        t.id != null &&
+                                                        setTerritoryIds((ids) =>
+                                                            e.target.checked
+                                                                ? [...ids, t.id!]
+                                                                : ids.filter((id) => id !== t.id)
+                                                        )
+                                                    }
+                                                    className="h-5 w-5 accent-sky-600"
+                                                />
+                                                {t.name}
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                                {!companyWide &&
+                                    (editing.territoryNames ?? []).some(
+                                        (_, i) =>
+                                            !activeTerritories.some(
+                                                (t) => t.id === editing.territoryIds?.[i]
+                                            )
+                                    ) && (
+                                        <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                                            Also works in{" "}
+                                            {(editing.territoryNames ?? [])
+                                                .filter(
+                                                    (_, i) =>
+                                                        !activeTerritories.some(
+                                                            (t) => t.id === editing.territoryIds?.[i]
+                                                        )
+                                                )
+                                                .join(", ")}
+                                            , which stays as it is.
+                                        </span>
+                                    )}
+                                <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                                    Someone in more than one territory picks which they&apos;re working in from the menu bar.
                                 </span>
-                                <select
-                                    value={territoryId ?? ""}
-                                    disabled={editing.id === user.id}
-                                    onChange={(e) =>
-                                        setTerritoryId(
-                                            e.target.value ? Number(e.target.value) : null
-                                        )
-                                    }
-                                    className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base
-                                        dark:border-zinc-600 dark:bg-zinc-800 dark:scheme-dark"
-                                >
-                                    <option value="">Pick a territory...</option>
-                                    {activeTerritories.map((t) => (
-                                        <option key={t.id} value={t.id}>
-                                            {t.name}
-                                        </option>
-                                    ))}
-                                </select>
-                            </label>
+                            </fieldset>
                         )}
 
                         <div className="sm:col-span-2">

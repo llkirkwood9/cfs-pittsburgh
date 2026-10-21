@@ -68,16 +68,17 @@ namespace api.Controllers
         {
             try
             {
-                var territoryId = Scope.TerritoryId;
+                var visible = Scope.VisibleTerritoryIds;
+                var several = visible == null || visible.Count > 1;
 
                 var orders = await DB.Orders
-                    .Where(o => territoryId == null || o.Event!.TerritoryId == territoryId)
+                    .Where(o => visible == null || visible.Contains(o.Event!.TerritoryId))
                     .Include(o => o.Lines)
                     .Include(o => o.Payments)
                     .AsNoTracking()
                     .ToListAsync();
                 var events = await DB.Events
-                    .Where(e => territoryId == null || e.TerritoryId == territoryId)
+                    .Where(e => visible == null || visible.Contains(e.TerritoryId))
                     .Include(e => e.Territory)
                     .AsNoTracking()
                     .ToListAsync();
@@ -98,8 +99,8 @@ namespace api.Controllers
                         {
                             EventId = e.Id,
                             Organization = e.Organization,
-                            // Only needed to tell events apart when every territory is in view.
-                            TerritoryName = territoryId == null ? e.Territory?.Name : null,
+                            // Only needed to tell events apart when more than one territory is in view.
+                            TerritoryName = several ? e.Territory?.Name : null,
                             EventDate = e.EventDate,
                             IsActive = e.IsActive,
                             CompletedOrderCount = figures.CompletedOrderCount ?? 0,
@@ -110,7 +111,7 @@ namespace api.Controllers
                         };
                     })
                     .ToList();
-                stats.WorstProducts = await WorstSellersAsync(DB, orders, territoryId);
+                stats.WorstProducts = await WorstSellersAsync(DB, orders, visible);
 
                 return Ok(stats);
             }
@@ -133,14 +134,17 @@ namespace api.Controllers
         {
             try
             {
-                if (!Scope.IsCompanyWide)
-                    return Forbidden("Only a system admin or administrator may compare territories.");
+                if (!Scope.CanSwitch)
+                    return Forbidden("Comparing territories needs more than one territory.");
+
+                var visible = Scope.IsCompanyWide ? null : Scope.MemberTerritoryIds.ToList();
 
                 var start = from?.Date;
                 var end = to?.Date.AddDays(1);
 
                 var orders = await DB.Orders
                     .Where(o => o.Status == OrderStatus.Completed
+                                && (visible == null || visible.Contains(o.Event!.TerritoryId))
                                 && (start == null || o.SaleDate >= start)
                                 && (end == null || o.SaleDate < end))
                     .Include(o => o.Event)
@@ -148,7 +152,10 @@ namespace api.Controllers
                     .AsNoTracking()
                     .ToListAsync();
 
-                var territories = await DB.Territories.AsNoTracking().OrderBy(t => t.Name).ToListAsync();
+                var territories = await DB.Territories.AsNoTracking()
+                    .Where(t => visible == null || visible.Contains(t.Id))
+                    .OrderBy(t => t.Name)
+                    .ToListAsync();
                 var activeEvents = await DB.Events.AsNoTracking()
                     .Where(e => e.IsActive)
                     .Select(e => new { e.TerritoryId, e.Organization })
@@ -217,20 +224,20 @@ namespace api.Controllers
         /// </summary>
         /// <param name="db">EF context</param>
         /// <param name="orders">The orders to report on, with their lines</param>
-        /// <param name="territoryId">The territory in view, whose own products are listed with the
-        /// company-wide ones; null for every product</param>
+        /// <param name="territories">The territories in view, whose products are listed; null for
+        /// every territory's</param>
         /// <param name="count">How many to list</param>
         /// <returns>The worst sellers.</returns>
         private static async Task<List<ProductTallyDto>> WorstSellersAsync(
             ApplicationDbContext db,
             List<Order> orders,
-            int? territoryId,
+            List<int>? territories,
             int count = 10)
         {
             var products = await db.Products
                 .AsNoTracking()
                 .Where(p => p.IsActive)
-                .Where(p => territoryId == null || p.TerritoryId == null || p.TerritoryId == territoryId)
+                .Where(p => p.TerritoryId != null && (territories == null || territories.Contains(p.TerritoryId.Value)))
                 .Select(p => new { p.Id, p.Name, p.Brand, p.Category, VariantIds = p.Variants.Select(v => v.Id).ToList() })
                 .ToListAsync();
 

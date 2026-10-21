@@ -141,7 +141,11 @@ const MorePage = () => {
                         <Text className="text-lg font-bold">{user?.name}</Text>
                         <Text className="text-sm text-zinc-500 dark:text-zinc-400">
                             {user?.role ? UserRoleLabels[user.role] : ""}
-                            {user?.territoryName ? ` · ${user.territoryName}` : ""}
+                            {user?.territoryNames?.length
+                                ? ` · ${user.territoryNames.join(", ")}`
+                                : user?.territoryName
+                                  ? ` · ${user.territoryName}`
+                                  : ""}
                         </Text>
                     </View>
                 </View>

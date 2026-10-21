@@ -65,7 +65,12 @@ const UserProfileDropdown = () => {
                         </p>
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">
                             {user?.role ? UserRoleLabels[user.role] : ""}
-                            {user?.territoryName ? ` · ${user.territoryName}` : ""} &middot; v
+                            {user?.territoryNames?.length
+                                ? ` · ${user.territoryNames.join(", ")}`
+                                : user?.territoryName
+                                  ? ` · ${user.territoryName}`
+                                  : ""}{" "}
+                            &middot; v
                             {DASHBOARD_VERSION}
                         </p>
                     </div>

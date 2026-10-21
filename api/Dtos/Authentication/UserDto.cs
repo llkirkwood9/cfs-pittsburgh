@@ -32,12 +32,23 @@ namespace api.Dtos.Authentication
         public string? Role { get; set; }
 
         /// <summary>
-        /// The territory a manager or crew member works in; null for system admins and administrators
+        /// The territories a manager or crew member works in, one or several; empty for system admins
+        /// and administrators. Sent in full when saving a user.
+        /// </summary>
+        public List<int>? TerritoryIds { get; set; }
+
+        /// <summary>
+        /// Their names, in the same order, for display
+        /// </summary>
+        public List<string>? TerritoryNames { get; set; }
+
+        /// <summary>
+        /// The first of TerritoryIds, for older app versions that know only one territory
         /// </summary>
         public int? TerritoryId { get; set; }
 
         /// <summary>
-        /// The territory's name, for display
+        /// The first of TerritoryNames, for older app versions
         /// </summary>
         public string? TerritoryName { get; set; }
 

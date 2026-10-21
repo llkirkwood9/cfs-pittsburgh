@@ -139,7 +139,9 @@ export const endSession = async (): Promise<void> => {
 
 api.interceptors.request.use((config) => {
     if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
-    if (territoryId != null) config.headers[TERRITORY_HEADER] = String(territoryId);
+    // A request may name another territory itself, such as reading a catalog to copy from.
+    if (territoryId != null && !config.headers[TERRITORY_HEADER])
+        config.headers[TERRITORY_HEADER] = String(territoryId);
     return config;
 });
 

@@ -78,15 +78,10 @@ namespace api.Models
         public UserRole Role { get; set; } = UserRole.Sales;
 
         /// <summary>
-        /// The territory a manager or crew member works in. Null for system admins and administrators,
-        /// who work across every territory.
+        /// The territories a manager or crew member works in - one or several. Empty for system admins
+        /// and administrators, who work across every territory.
         /// </summary>
-        public int? TerritoryId { get; set; }
-
-        /// <summary>
-        /// Navigation to the territory
-        /// </summary>
-        public Territory? Territory { get; set; }
+        public List<UserTerritory> Territories { get; set; } = new();
 
         /// <summary>
         /// Inactive users cannot sign in

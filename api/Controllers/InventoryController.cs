@@ -333,9 +333,9 @@ namespace api.Controllers
             return IsAtLeast(UserRole.Manager) || IsInRole(UserRole.Checkout) || IsInRole(UserRole.SalesCheckout);
         }
 
-        /// <summary>A product a territory sells: global, or its own.</summary>
+        /// <summary>A product from a territory's catalog.</summary>
         private static bool InTerritoryCatalog(Product product, int territoryId) =>
-            product.TerritoryId == null || product.TerritoryId == territoryId;
+            product.TerritoryId == territoryId;
 
         /// <summary>
         /// Loads one inventory row.
@@ -368,7 +368,7 @@ namespace api.Controllers
                 .AsSplitQuery()
                 .Where(v => v.Product!.TrackInventory
                             && !v.ExcludeFromInventory
-                            && (v.Product.TerritoryId == null || v.Product.TerritoryId == territoryId));
+                            && v.Product.TerritoryId == territoryId);
 
             query = variantId != null
                 ? query.Where(v => v.Id == variantId.Value)

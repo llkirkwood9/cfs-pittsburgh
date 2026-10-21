@@ -305,12 +305,14 @@ the resource → **Logs** → the `app` service, and look for `Created the first
 Open `https://sales.example.com` and sign in as **admin** with it. You'll be asked to choose your
 own password straight away. Then:
 
-1. **Territories** - rename the first territory and add the others.
-2. **Crew** - add a manager for each territory, and administrators for anyone who runs things
-   company-wide. Each new account gets a starting password to pass on; they choose their own at
-   their first sign-in.
-3. **Catalog** - bring in the catalog with **Restore catalog**, or add the global items every
-   territory sells. Managers can add their own territory's items after that.
+1. **Catalog** - each territory has its own. Set up the first territory's: bring it in with
+   **Restore catalog**, or add the items.
+2. **Territories** - rename the first territory and add the others. A new territory can start with
+   a copy of another's catalog (everything but stock).
+3. **Crew** - add a manager for each territory, and administrators for anyone who runs things
+   company-wide. Someone who works in more than one territory - a rep who sells in two - is ticked
+   into each. Each new account gets a starting password to pass on; they choose their own at their
+   first sign-in.
 4. **Settings** - the company-wide details, terms and receipt email; each territory can then change
    what it needs to.
 

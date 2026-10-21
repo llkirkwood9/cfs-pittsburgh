@@ -256,6 +256,10 @@ using (var scope = app.Services.CreateScope())
         {
             await db.Database.MigrateAsync();
 
+            // Every territory has its own catalog now: a database from before gives each territory
+            // its own copy of what used to be global. Does nothing once that's done.
+            await api.Utils.CatalogCopy.SplitGlobalItemsAsync(db, message => logger.LogWarning("{Message}", message));
+
             // SKIP_SEED_DATA in the Docker .env (Seed:Skip) leaves out the sample catalog,
             // delivery options and event.
             var skipSeed = builder.Configuration["Seed:Skip"]?.Trim().ToLowerInvariant() is "true" or "1" or "yes";

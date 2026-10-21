@@ -29,7 +29,7 @@ namespace api.Controllers
         #region Private Fields
 
         private const string ManagersOnly = "Only a manager, administrator or system admin may change the catalog.";
-        private const string GlobalReadOnly = "Global items can only be changed by a system admin or administrator.";
+        private const string NotYourCatalog = "You can only change the catalog of your own territories.";
 
         #endregion
 
@@ -105,14 +105,58 @@ namespace api.Controllers
             }
         }
 
+        /// <summary>
+        /// Copies a product from another territory's catalog into the territory in view (or the one
+        /// given), for someone who works in more than one territory and looks after the catalog.
+        /// Everything about it is copied - sizes, prices, sales, selections, notes and warranty -
+        /// but no stock. The delivery options it offers are matched by name, and added to the
+        /// territory's catalog when it has none of that name; bundled items are matched by brand,
+        /// name and size, and left out when the territory doesn't sell them.
+        /// </summary>
+        /// <param name="id">The product to copy</param>
+        /// <param name="toTerritoryId">The territory to copy it into; the one in view when left out</param>
+        /// <returns>The new product, with notes on anything added or left out.</returns>
+        [HttpPost("product/{id}/copy")]
+        [Authorize(AuthenticationSchemes = "Bearer")]
+        public async Task<IActionResult> CopyProduct(int id, [FromQuery] int? toTerritoryId = null)
+        {
+            try
+            {
+                var source = await DB.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
+                if (source == null || !Visible(source.TerritoryId))
+                    return NotFound(new { error = "Product not found." });
+
+                var (territoryId, problem) = await CatalogTerritoryAsync(toTerritoryId);
+                if (problem != null)
+                    return problem;
+
+                if (source.TerritoryId == territoryId)
+                    return BadRequest(new { error = "That product is already in this territory's catalog." });
+
+                var brand = source.Brand.ToLower();
+                var name = source.Name.ToLower();
+                if (await DB.Products.AnyAsync(p => p.TerritoryId == territoryId && p.Brand.ToLower() == brand && p.Name.ToLower() == name))
+                    return BadRequest(new { error = $"This territory's catalog already has {source.Name}. Edit that one instead." });
+
+                var (copy, notes) = await CatalogCopy.CopyProductAsync(DB, source.Id, territoryId);
+
+                Trace(TraceEventType.Information, $"{GetCurrentUserName()} copied {source.Name} into territory {territoryId}.");
+                return Ok(new ProductCopyResultDto { Product = await LoadDtoAsync(copy.Id), Notes = notes });
+            }
+            catch (Exception e)
+            {
+                return ServerError("Internal error occurred while copying the product.", e);
+            }
+        }
+
         #endregion
 
         #region GET Methods
 
         /// <summary>
-        /// Lists the catalog of the territory being worked - global items and its own - or every
-        /// item for a system admin or administrator viewing every territory. Defaults to active products
-        /// only, which is what the floor needs.
+        /// Lists the catalog of the territory being worked - or of all the user's territories, each
+        /// item naming its own, when none is picked. Defaults to active products only, which is what
+        /// the floor needs.
         /// </summary>
         /// <param name="includeInactive">Pass true from the catalog admin screen</param>
         /// <returns>Products with their variants and delivery options.</returns>
@@ -122,9 +166,9 @@ namespace api.Controllers
         {
             try
             {
-                var territoryId = Scope.TerritoryId;
+                var visible = Scope.VisibleTerritoryIds;
                 var query = DB.Products
-                    .Where(p => territoryId == null || p.TerritoryId == null || p.TerritoryId == territoryId)
+                    .Where(p => p.TerritoryId != null && (visible == null || visible.Contains(p.TerritoryId.Value)))
                     .Include(p => p.Territory)
                     .Include(p => p.Variants)
                     .ThenInclude(v => v.Components)
@@ -232,22 +276,7 @@ namespace api.Controllers
                     return NotFound(new { error = "Product not found." });
 
                 if (!CanEditCatalog(product.TerritoryId))
-                    return Forbidden(GlobalReadOnly);
-
-                // The edit form always sends the name and the territory, null meaning global. Only an
-                // system admin or administrator can move an item; a partial update leaves it where it is.
-                if (Scope.IsCompanyWide && request.Name != null && request.TerritoryId != product.TerritoryId)
-                {
-                    var (territoryId, problem) = await CatalogTerritoryAsync(request.TerritoryId);
-                    if (problem != null)
-                        return problem;
-
-                    var moveError = await ValidateMoveAsync(product, territoryId, request);
-                    if (moveError != null)
-                        return BadRequest(new { error = moveError });
-
-                    product.TerritoryId = territoryId;
-                }
+                    return Forbidden(NotYourCatalog);
 
                 var componentError = await ValidateComponentsAsync(product.Id, product.TerritoryId, request.Variants)
                                      ?? await ValidateDeliveryOptionsAsync(product.TerritoryId, request.DeliveryOptions);
@@ -409,7 +438,7 @@ namespace api.Controllers
                     return NotFound(new { error = "Product not found." });
 
                 if (!CanEditCatalog(product.TerritoryId))
-                    return Forbidden(GlobalReadOnly);
+                    return Forbidden(NotYourCatalog);
 
                 if (permanent)
                 {
@@ -505,22 +534,20 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// Whether the signed-in user can see a catalog item at all: system admins and administrators see
-        /// everything; everyone else sees global items and their own territory's.
+        /// Whether the signed-in user can see a catalog item at all: it's in one of their territories'
+        /// catalogs (any territory's, for a system admin or administrator).
         /// </summary>
-        /// <param name="itemTerritoryId">The item's territory, null for global</param>
+        /// <param name="itemTerritoryId">The item's territory</param>
         /// <returns>True when visible.</returns>
-        private bool Visible(int? itemTerritoryId) =>
-            InCatalog(itemTerritoryId, Scope.IsCompanyWide ? null : Scope.HomeTerritoryId);
+        private bool Visible(int? itemTerritoryId) => Scope.CanSee(itemTerritoryId);
 
         /// <summary>
         /// Checks every bundle component in a save request. A product cannot include itself, a
         /// bundle cannot include another bundle - one level keeps the sheet and the stat tallies
-        /// predictable - and everything in it has to be sold where the bundle is: a global bundle
-        /// only includes global items; a territory's bundle global items or that territory's own.
+        /// predictable - and everything in it has to be from the bundle's own territory's catalog.
         /// </summary>
         /// <param name="productId">The product being saved, or null when it is new</param>
-        /// <param name="territoryId">The product's territory, null for global</param>
+        /// <param name="territoryId">The product's territory</param>
         /// <param name="variants">Variant DTOs from the request</param>
         /// <returns>An error message, or null when everything is valid.</returns>
         private async Task<string?> ValidateComponentsAsync(int? productId, int? territoryId, List<ProductVariantDto>? variants)
@@ -554,19 +581,16 @@ namespace api.Controllers
             if (found.Any(v => v.IsBundle))
                 return "A bundle cannot include another bundle. Pick the individual items instead.";
 
-            if (found.Any(v => v.TerritoryId != null && v.TerritoryId != territoryId))
-                return territoryId == null
-                    ? "A global item can only include other global items."
-                    : "A bundle can only include global items and items from its own territory.";
+            if (found.Any(v => v.TerritoryId != territoryId))
+                return "A bundle can only include items from its own territory's catalog.";
 
             return null;
         }
 
         /// <summary>
-        /// Checks the delivery options in a save request are offered where the product is sold:
-        /// global options, or the product's own territory's.
+        /// Checks the delivery options in a save request are from the product's own territory.
         /// </summary>
-        /// <param name="territoryId">The product's territory, null for global</param>
+        /// <param name="territoryId">The product's territory</param>
         /// <param name="options">Delivery option DTOs from the request</param>
         /// <returns>An error message, or null when everything is valid.</returns>
         private async Task<string?> ValidateDeliveryOptionsAsync(int? territoryId, List<ProductDeliveryOptionDto>? options)
@@ -583,10 +607,8 @@ namespace api.Controllers
             if (found.Count != ids.Count)
                 return "A delivery option no longer exists.";
 
-            if (found.Any(t => t != null && t != territoryId))
-                return territoryId == null
-                    ? "A global item can only offer global delivery options."
-                    : "An item can only offer global delivery options and its own territory's.";
+            if (found.Any(t => t != territoryId))
+                return "An item can only offer its own territory's delivery options.";
 
             return null;
         }
@@ -683,49 +705,6 @@ namespace api.Controllers
 
             if (options.GroupBy(o => o.Name!.Trim().ToLowerInvariant()).Any(g => g.Count() > 1))
                 return "Two selections have the same name.";
-
-            return null;
-        }
-
-        /// <summary>
-        /// Checks an item can move to another territory, or become global: what it includes and
-        /// offers must be available there, and no bundle sold elsewhere may include it.
-        /// </summary>
-        /// <param name="product">The product, with variants, components and delivery options loaded</param>
-        /// <param name="territoryId">Where it's going, null for global</param>
-        /// <param name="request">The save request; lists it replaces are checked later instead</param>
-        /// <returns>An error message, or null when the move is fine.</returns>
-        private async Task<string?> ValidateMoveAsync(Product product, int? territoryId, ProductDto request)
-        {
-            var variantIds = product.Variants.Select(v => v.Id).ToList();
-
-            if (territoryId != null)
-            {
-                var usedElsewhere = await DB.ProductVariantComponents
-                    .AnyAsync(c => variantIds.Contains(c.ComponentVariantId)
-                                   && !variantIds.Contains(c.BundleVariantId)
-                                   && (c.BundleVariant!.Product!.TerritoryId == null || c.BundleVariant.Product.TerritoryId != territoryId));
-                if (usedElsewhere)
-                    return "A bundle outside that territory includes this item. Take it out of the bundle first.";
-            }
-
-            if (request.Variants == null)
-            {
-                var componentIds = product.Variants.SelectMany(v => v.Components).Select(c => c.ComponentVariantId).Distinct().ToList();
-                if (await DB.ProductVariants.AnyAsync(v => componentIds.Contains(v.Id)
-                                                           && v.Product!.TerritoryId != null
-                                                           && v.Product.TerritoryId != territoryId))
-                    return "This bundle includes items that aren't sold there.";
-            }
-
-            if (request.DeliveryOptions == null)
-            {
-                var optionIds = product.DeliveryOptions.Select(d => d.DeliveryOptionId).ToList();
-                if (await DB.DeliveryOptions.AnyAsync(d => optionIds.Contains(d.Id)
-                                                           && d.TerritoryId != null
-                                                           && d.TerritoryId != territoryId))
-                    return "This item offers delivery options that aren't available there.";
-            }
 
             return null;
         }
@@ -998,8 +977,7 @@ namespace api.Controllers
                     .ToList(),
                 DeliveryOptions = product.DeliveryOptions
                     .Where(d => d.DeliveryOption != null && (includeInactive || d.DeliveryOption.IsActive))
-                    .OrderBy(d => d.DeliveryOption!.TerritoryId != null)
-                    .ThenBy(d => d.DeliveryOption!.SortOrder)
+                    .OrderBy(d => d.DeliveryOption!.SortOrder)
                     .Select(d => new ProductDeliveryOptionDto
                     {
                         Id = d.Id,

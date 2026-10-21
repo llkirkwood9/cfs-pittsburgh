@@ -1,9 +1,9 @@
 export type DeliveryOption = {
     id?: number;
-    /** The territory it's offered in; null for a global option offered everywhere. */
+    /** The territory whose catalog it's in - every territory has its own. */
     territoryId?: number | null;
     territoryName?: string | null;
-    /** Whether the signed-in user may change it - a manager can't change global options. */
+    /** Whether the signed-in user may change it. */
     canEdit?: boolean;
     name?: string;
     price?: number;

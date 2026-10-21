@@ -8,9 +8,11 @@ import NewEventSettings from "../Components/Settings/NewEventSettings";
 import ReceiptEmailSettings from "../Components/Settings/ReceiptEmailSettings";
 import { SettingsScopeContext } from "../Components/Settings/SettingsScope";
 import TermsSettings from "../Components/Settings/TermsSettings";
+import { useAuth } from "../Context/AuthContext";
 import { useSettings } from "../Context/SettingsContext";
 import { useTerritory } from "../Context/TerritoryContext";
 import type { GeneralSettings } from "../Models/GeneralSettings";
+import { IsCompanyWide } from "../Models/User";
 import { GetGeneralSettings } from "../Services/SettingsServices";
 
 const sections = [
@@ -31,11 +33,15 @@ const sections = [
  */
 const SettingsPage = () => {
     const { refresh: refreshInView } = useSettings();
+    const { user } = useAuth();
     const { territories, territoryId: territoryInView, canSwitch, territoryName } = useTerritory();
+    const companyWide = IsCompanyWide(user?.role);
 
-    // System Admins and administrators start on the territory in view, or the company-wide settings
-    // when viewing every territory; a manager only ever edits their own territory's.
-    const [scopeId, setScopeId] = useState<number | null>(territoryInView);
+    // Start on the territory in view. Viewing every territory, system admins and administrators
+    // start on the company-wide settings; a manager with several territories on their first.
+    const [scopeId, setScopeId] = useState<number | null>(
+        territoryInView ?? (companyWide ? null : (user?.territoryIds?.[0] ?? null))
+    );
     const [settings, setSettings] = useState<GeneralSettings | null>(null);
 
     const load = useCallback(async (id: number | null) => {
@@ -75,7 +81,7 @@ const SettingsPage = () => {
                         className="min-h-[44px] rounded-xl border border-zinc-300 bg-white px-3 text-base font-semibold
                             dark:border-zinc-600 dark:bg-zinc-800 dark:scheme-dark"
                     >
-                        <option value="">Company-wide settings</option>
+                        {companyWide && <option value="">Company-wide settings</option>}
                         {active.map((t) => (
                             <option key={t.id} value={t.id}>
                                 {t.name}

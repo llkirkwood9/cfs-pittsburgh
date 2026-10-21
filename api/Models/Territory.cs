@@ -3,9 +3,8 @@ using System.ComponentModel.DataAnnotations;
 namespace api.Models
 {
     /// <summary>
-    /// A sales territory: its own crew, events, stock and settings. Catalog items and delivery
-    /// options are either global (every territory) or belong to one territory. System Admins and
-    /// administrators work across every territory; everyone else belongs to exactly one.
+    /// A sales territory: its own crew, events, catalog, stock and settings. System Admins and
+    /// administrators work across every territory; everyone else belongs to one or more.
     /// </summary>
     public class Territory
     {
@@ -33,8 +32,34 @@ namespace api.Models
     }
 
     /// <summary>
-    /// How many of one size a territory's cart has on hand. Stock is kept per territory, even for
-    /// global catalog items, because each territory carries its own.
+    /// A manager or crew member's membership of a territory. Someone who sells in two territories
+    /// belongs to both, and switches between them in the menu bar.
+    /// </summary>
+    public class UserTerritory
+    {
+        /// <summary>
+        /// The user
+        /// </summary>
+        public int UserId { get; set; }
+
+        /// <summary>
+        /// Navigation to the user
+        /// </summary>
+        public User? User { get; set; }
+
+        /// <summary>
+        /// One of their territories
+        /// </summary>
+        public int TerritoryId { get; set; }
+
+        /// <summary>
+        /// Navigation to the territory
+        /// </summary>
+        public Territory? Territory { get; set; }
+    }
+
+    /// <summary>
+    /// How many of one size a territory's cart has on hand.
     /// </summary>
     public class InventoryStock
     {

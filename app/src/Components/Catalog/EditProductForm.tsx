@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import BundlePickerModal from "./BundlePickerModal";
 import type { BundlePick } from "./BundlePickerModal";
-import { FitsTerritory, ScopeField } from "./CatalogScope";
+import CopyFromTerritory from "./CopyFromTerritory";
 import OptionsEditor, { FromDraftOptions, OptionsProblem, ToDraftOptions } from "./OptionsEditor";
 import type { DraftOption } from "./OptionsEditor";
 import SaleEditor, { FromSaleDraft, SaleProblem, ToSaleDraft } from "./SaleEditor";
@@ -31,13 +31,12 @@ type Props = {
     catalog: Product[];
     categories: ProductCategory[];
     deliveryOptions: DeliveryOption[];
-    territories: Territory[];
-    /** System Admins and administrators choose where an item is sold; managers' items stay in their territory. */
-    canChooseTerritory: boolean;
-    /** The manager's own territory, shown when they can't choose. */
-    ownTerritoryName?: string | null;
     onSave: (product: Product) => Promise<void>;
     onClose: () => void;
+    /** For a new item: the user's other territories, whose catalogs it can be copied from instead. */
+    copySources?: Territory[];
+    /** A product was copied in from another territory's catalog. */
+    onCopied?: (product: Product) => void;
 };
 
 type DraftVariant = ProductVariant & { priceText: string; sale: SaleDraft };
@@ -45,26 +44,22 @@ type DraftVariant = ProductVariant & { priceText: string; sale: SaleDraft };
 const heading = "text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400";
 
 /**
- * Full product editor: name, brand, category, where it's sold, every priced size/configuration
- * row, and which delivery services are offered with what price. This is what makes delivery
- * types differ from one mattress to the next. A territory's item can include and offer global
- * things and its territory's own; a global item only global ones.
+ * Full product editor: name, brand, category, every priced size/configuration row, and which
+ * delivery services are offered with what price. This is what makes delivery types differ from
+ * one mattress to the next. Each territory has its own catalog, so an item only includes and
+ * offers things from its own territory's. Someone with more than one territory can start a new
+ * item as a copy of one from another territory's catalog.
  */
 const EditProductForm = ({
     product,
     catalog,
     categories,
     deliveryOptions,
-    territories,
-    canChooseTerritory,
-    ownTerritoryName,
     onSave,
     onClose,
+    copySources = [],
+    onCopied,
 }: Props) => {
-    const [territoryId, setTerritoryId] = useState<number | null>(product.territoryId ?? null);
-    // Only what can be sold alongside it where it's sold.
-    const usableOptions = deliveryOptions.filter((o) => FitsTerritory(o.territoryId, territoryId));
-    const usableCatalog = catalog.filter((p) => FitsTerritory(p.territoryId, territoryId));
     const [name, setName] = useState<string>(product.name ?? "");
     const [brand, setBrand] = useState<string>(product.brand ?? "");
     const [category, setCategory] = useState<ProductCategory>(product.category ?? "Misc");
@@ -263,25 +258,10 @@ const EditProductForm = ({
                 `${badDelivery.name}: ${SaleProblem(deliverySale(badDelivery.deliveryOptionId))}`
             );
 
-        const strayOption = delivery.find(
-            (d) => !usableOptions.some((o) => o.id === d.deliveryOptionId)
-        );
-        if (strayOption && deliveryOptions.some((o) => o.id === strayOption.deliveryOptionId))
-            return Toast.Warning(
-                `${strayOption.name} isn't offered where this item is sold. Untick it or choose another territory.`
-            );
-        const strayComponent = variants
-            .flatMap((v) => v.components ?? [])
-            .find((c) => !usableCatalog.some((p) => p.id === c.productId));
-        if (strayComponent && catalog.some((p) => p.id === strayComponent.productId))
-            return Toast.Warning(
-                `${strayComponent.productName} isn't sold where this item is. Take it out of the bundle or choose another territory.`
-            );
-
         setSaving(true);
         await onSave({
             id: product.id,
-            territoryId,
+            territoryId: product.territoryId,
             name: name.trim(),
             brand: brand.trim(),
             category,
@@ -341,6 +321,9 @@ const EditProductForm = ({
             }
         >
             <View className="gap-5">
+                {!product.id && copySources.length > 0 && onCopied && (
+                    <CopyFromTerritory territories={copySources} onCopied={onCopied} />
+                )}
                 <Grid columns={{ base: 1, sm: 2 }}>
                     <TextField
                         label="Name"
@@ -370,15 +353,6 @@ const EditProductForm = ({
                             label="Track inventory"
                             checked={trackInventory}
                             onChange={setTrackInventory}
-                        />
-                    </Cell>
-                    <Cell span={{ base: 1, sm: 2 }}>
-                        <ScopeField
-                            value={territoryId}
-                            onChange={setTerritoryId}
-                            territories={territories}
-                            canChoose={canChooseTerritory}
-                            fixedName={ownTerritoryName}
                         />
                     </Cell>
                     {/* Decides whether the customer initials the warranty statement. */}
@@ -538,12 +512,12 @@ const EditProductForm = ({
                 <View>
                     <Text className={cx(heading, "mb-2")}>Delivery options for this product</Text>
                     <View className="gap-2">
-                        {usableOptions.length === 0 && (
+                        {deliveryOptions.length === 0 && (
                             <Text className="text-sm text-zinc-500 dark:text-zinc-400">
-                                No delivery options are offered where this item is sold yet.
+                                This territory has no delivery options yet.
                             </Text>
                         )}
-                        {usableOptions.map((option) => {
+                        {deliveryOptions.map((option) => {
                             const selected = delivery.find((d) => d.deliveryOptionId === option.id);
                             const off = CleanDiscount(option.saleDiscountPercent, option.saleDiscountAmount);
 
@@ -633,7 +607,7 @@ const EditProductForm = ({
 
             {bundlingIndex !== null && (
                 <BundlePickerModal
-                    catalog={usableCatalog}
+                    catalog={catalog}
                     excludeProductId={product.id}
                     size={variants[bundlingIndex]?.size}
                     configuration={variants[bundlingIndex]?.configuration}

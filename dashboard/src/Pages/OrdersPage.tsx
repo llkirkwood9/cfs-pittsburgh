@@ -63,8 +63,9 @@ const Summary = (orders: OrderSummary[]): string => {
 
 /**
  * Past orders. Everyone can look back over the event they are working and open any sales sheet
- * for reprinting; a manager or above can additionally search across every event in their territory
- * (a system admin or administrator, every territory).
+ * for reprinting; a manager or above can additionally search across every event in their
+ * territories (a system admin or administrator, every territory). With more than one territory in
+ * view, each event says which territory it's in.
  */
 const OrdersPage = () => {
     const { user, hasRole } = useAuth();
@@ -214,6 +215,7 @@ const OrdersPage = () => {
                         <TabButton
                             key={event.id}
                             text={event.organization ?? ""}
+                            subtext={showTerritory ? (event.territoryName ?? undefined) : undefined}
                             tag={IsPastEvent(event) ? "Past" : undefined}
                             active={scope?.kind === "event" && scope.eventId === event.id}
                             onClick={() =>

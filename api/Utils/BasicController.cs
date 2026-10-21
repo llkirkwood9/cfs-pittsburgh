@@ -153,49 +153,36 @@ namespace api.Utils
         protected bool CanSee(Event? saleEvent) => saleEvent != null && Scope.CanSee(saleEvent.TerritoryId);
 
         /// <summary>
-        /// Whether the signed-in user may change a catalog item or delivery option: system admins and
-        /// administrators any; a manager only their own territory's, never a global one.
+        /// Whether the signed-in user may change a catalog item, delivery option or financing option:
+        /// a manager or above, in one of their territories.
         /// </summary>
-        /// <param name="itemTerritoryId">The item's territory, null for a global item</param>
+        /// <param name="itemTerritoryId">The item's territory</param>
         /// <returns>True when allowed.</returns>
-        protected bool CanEditCatalog(int? itemTerritoryId)
-        {
-            var scope = Scope;
-            return scope.IsCompanyWide
-                   || (scope.Role == UserRole.Manager && itemTerritoryId != null && itemTerritoryId == scope.HomeTerritoryId);
-        }
+        protected bool CanEditCatalog(int? itemTerritoryId) =>
+            Scope.IsAtLeast(UserRole.Manager) && Scope.CanSee(itemTerritoryId);
 
         /// <summary>
-        /// Whether a territory sells a catalog item: it's global, or the territory's own. With no
-        /// territory (a system admin or administrator viewing every territory) everything counts.
+        /// Which territory's catalog a new item goes in: the one asked for, or else the one in view.
+        /// Each territory has its own catalog, so it has to be one territory, and one the user may
+        /// change the catalog of.
         /// </summary>
-        /// <param name="itemTerritoryId">The item's territory, null for a global item</param>
-        /// <param name="territoryId">The territory, or null for every territory</param>
-        /// <returns>True when it's in that territory's catalog.</returns>
-        protected static bool InCatalog(int? itemTerritoryId, int? territoryId) =>
-            territoryId == null || itemTerritoryId == null || itemTerritoryId == territoryId;
-
-        /// <summary>
-        /// Which territory a new catalog item or delivery option belongs to: a manager's always goes
-        /// in their own; a system admin or administrator chooses one, or none for a global item.
-        /// </summary>
-        /// <param name="requested">The territory asked for, or null for global</param>
-        /// <returns>The territory (null for global), or the response to return instead.</returns>
-        protected async Task<(int? TerritoryId, IActionResult? Problem)> CatalogTerritoryAsync(int? requested)
+        /// <param name="requested">The territory asked for, or null for the one in view</param>
+        /// <returns>The territory, or the response to return instead.</returns>
+        protected async Task<(int TerritoryId, IActionResult? Problem)> CatalogTerritoryAsync(int? requested)
         {
-            var scope = Scope;
-            if (!scope.IsCompanyWide)
-                return scope.Role == UserRole.Manager
-                    ? (scope.HomeTerritoryId, null)
-                    : (null, Forbidden("Only a manager, administrator or system admin may change the catalog."));
+            if (!Scope.IsAtLeast(UserRole.Manager))
+                return (0, Forbidden("Only a manager, administrator or system admin may change the catalog."));
 
-            if (requested == null)
-                return (null, null);
+            if ((requested ?? Scope.TerritoryId) is not { } territoryId)
+                return (0, BadRequest(new { error = "Pick the territory whose catalog this goes in." }));
 
-            if (!await DB.Territories.AnyAsync(t => t.Id == requested && t.IsActive))
-                return (null, BadRequest(new { error = "That territory doesn't exist or is switched off." }));
+            if (!Scope.CanSee(territoryId))
+                return (0, Forbidden("You can only change the catalog of your own territories."));
 
-            return (requested, null);
+            if (!await DB.Territories.AnyAsync(t => t.Id == territoryId && t.IsActive))
+                return (0, BadRequest(new { error = "That territory doesn't exist or is switched off." }));
+
+            return (territoryId, null);
         }
 
         #endregion

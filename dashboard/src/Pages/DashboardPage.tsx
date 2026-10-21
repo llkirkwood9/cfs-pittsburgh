@@ -191,11 +191,8 @@ const DashboardPage = () => {
                 {events.map((event) => (
                     <TabButton
                         key={event.id}
-                        text={
-                            viewingAll && event.territoryName
-                                ? `${event.organization ?? ""} · ${event.territoryName}`
-                                : (event.organization ?? "")
-                        }
+                        text={event.organization ?? ""}
+                        subtext={viewingAll ? (event.territoryName ?? undefined) : undefined}
                         tag={IsPastEvent(event) ? "Past" : undefined}
                         active={scope === "event" && event.id === eventId}
                         onClick={() => event.id && switchEvent(event.id)}

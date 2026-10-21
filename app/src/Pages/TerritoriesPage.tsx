@@ -6,6 +6,7 @@ import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import Page from "../Components/Elements/Page";
+import SelectField from "../Components/Elements/SelectField";
 import SwipeRow from "../Components/Elements/SwipeRow";
 import type { SwipeAction } from "../Components/Elements/SwipeRow";
 import Text from "../Components/Elements/Text";
@@ -33,6 +34,8 @@ const TerritoriesPage = () => {
     const [refreshing, setRefreshing] = useState<boolean>(false);
     const [editing, setEditing] = useState<Territory | null>(null);
     const [name, setName] = useState<string>("");
+    // A new territory's catalog: empty, or a copy of another territory's.
+    const [copyFrom, setCopyFrom] = useState<number | null>(null);
     const [saving, setSaving] = useState<boolean>(false);
     const [switchingOff, setSwitchingOff] = useState<Territory | null>(null);
     const [deleting, setDeleting] = useState<Territory | null>(null);
@@ -63,6 +66,7 @@ const TerritoriesPage = () => {
     const open = (territory: Territory) => {
         setEditing(territory);
         setName(territory.name ?? "");
+        setCopyFrom(null);
     };
 
     const handleSave = async () => {
@@ -71,11 +75,15 @@ const TerritoriesPage = () => {
         setSaving(true);
         const saved = editing?.id
             ? await UpdateTerritory({ id: editing.id, name: name.trim() })
-            : await AddTerritory(name.trim());
+            : await AddTerritory(name.trim(), copyFrom);
         setSaving(false);
 
         if (!saved) return;
-        Toast.Success(`${saved.name} saved.`);
+        Toast.Success(
+            !editing?.id && copyFrom != null
+                ? `${saved.name} added, with ${saved.productCount ?? 0} products copied into its catalog.`
+                : `${saved.name} saved.`
+        );
         setEditing(null);
         await afterChange();
     };
@@ -235,9 +243,25 @@ const TerritoriesPage = () => {
                         autoCapitalize="words"
                     />
                     {!editing.id && (
-                        <Text className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-                            It starts with the company-wide settings and the global catalog.
-                        </Text>
+                        <>
+                            <SelectField<number | null>
+                                label="Catalog"
+                                value={copyFrom}
+                                options={[
+                                    { value: null, label: "Start with an empty catalog" },
+                                    ...territories
+                                        .filter((t) => t.isActive !== false)
+                                        .map((t) => ({ value: t.id ?? null, label: `Copy ${t.name}'s catalog` })),
+                                ]}
+                                onChange={setCopyFrom}
+                                className="mt-3"
+                            />
+                            <Text className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
+                                Each territory has its own catalog. A copy brings every product with its
+                                sizes, prices and sales, and the delivery and financing options - but not
+                                stock. It starts with the company-wide settings.
+                            </Text>
+                        </>
                     )}
                 </Modal>
             )}

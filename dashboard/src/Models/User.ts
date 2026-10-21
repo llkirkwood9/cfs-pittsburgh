@@ -20,7 +20,7 @@ export const RoleRank: Record<UserRole, number> = {
     SystemAdmin: 5,
 };
 
-/** System admins and administrators work across every territory; everyone else belongs to one. */
+/** System admins and administrators work across every territory; everyone else belongs to one or more. */
 export const IsCompanyWide = (role?: UserRole | null): boolean =>
     role === "SystemAdmin" || role === "Admin";
 
@@ -30,7 +30,11 @@ export type User = {
     username?: string;
     email?: string;
     role?: UserRole;
-    /** The territory they work in; null for system admins and administrators. */
+    /** The territories they work in, one or several; empty for system admins and administrators. */
+    territoryIds?: number[];
+    /** Their names, in the same order. */
+    territoryNames?: string[];
+    /** The first of territoryIds (for older apps). */
     territoryId?: number | null;
     territoryName?: string | null;
     isActive?: boolean;

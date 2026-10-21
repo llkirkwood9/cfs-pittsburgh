@@ -122,8 +122,8 @@ namespace api.Controllers
                         .AsSplitQuery()
                         .FirstOrDefaultAsync(v => v.Id == request.ProductVariantId.Value);
 
-                    // Only items sold in the event's territory: global ones and its own.
-                    if (variant == null || !InCatalog(variant.Product?.TerritoryId, order.Event!.TerritoryId))
+                    // Only items from the event's territory's catalog.
+                    if (variant == null || variant.Product?.TerritoryId != order.Event!.TerritoryId)
                         return NotFound(new { error = "Product not found." });
 
                     // A variant with no price is an "Inquire" card - the rep has to key a price in.
@@ -169,7 +169,7 @@ namespace api.Controllers
                 else if (lineType == OrderLineType.Delivery && request.DeliveryOptionId != null)
                 {
                     var option = await DB.DeliveryOptions.FindAsync(request.DeliveryOptionId.Value);
-                    if (option == null || !InCatalog(option.TerritoryId, order.Event!.TerritoryId))
+                    if (option == null || option.TerritoryId != order.Event!.TerritoryId)
                         return NotFound(new { error = "Delivery option not found." });
 
                     // Priced as the item it ships offers it: that product's own price and sale for
@@ -709,10 +709,10 @@ namespace api.Controllers
                 if (!IsAtLeast(UserRole.Manager))
                     return Forbidden("Only a manager, administrator or system admin may browse every event.");
 
-                var territoryId = Scope.TerritoryId;
+                var visible = Scope.VisibleTerritoryIds;
                 // Blank drafts, with no number yet, aren't listed.
                 var query = DB.Orders.Where(o => o.OrderNumber != null
-                    && (territoryId == null || o.Event!.TerritoryId == territoryId));
+                    && (visible == null || visible.Contains(o.Event!.TerritoryId)));
 
                 if (!string.IsNullOrWhiteSpace(status))
                 {
@@ -1363,7 +1363,7 @@ namespace api.Controllers
         private async Task<bool> AddLinkedDeliveryLineAsync(Order order, OrderLine parent, int deliveryOptionId)
         {
             var option = await DB.DeliveryOptions.FindAsync(deliveryOptionId);
-            if (option == null || !InCatalog(option.TerritoryId, order.Event!.TerritoryId))
+            if (option == null || option.TerritoryId != order.Event!.TerritoryId)
                 return false;
 
             var productDelivery = parent.ProductVariantId == null
@@ -1489,7 +1489,7 @@ namespace api.Controllers
         {
             var lower = financeType.ToLower();
             if (await DB.FinanceOptions.AnyAsync(f => f.IsActive && f.Name.ToLower() == lower
-                                                      && (f.TerritoryId == null || f.TerritoryId == territoryId)))
+                                                      && f.TerritoryId == territoryId))
                 return null;
 
             return (await SettingsStore.LoadAsync(DB, territoryId)).AllowOtherFinanceType
@@ -1509,7 +1509,7 @@ namespace api.Controllers
             var lower = financeType.ToLower();
             return await DB.FinanceOptions
                 .Where(f => f.IsActive && f.Name.ToLower() == lower
-                            && (f.TerritoryId == null || f.TerritoryId == territoryId))
+                            && f.TerritoryId == territoryId)
                 .Select(f => f.Name)
                 .FirstOrDefaultAsync() ?? financeType;
         }

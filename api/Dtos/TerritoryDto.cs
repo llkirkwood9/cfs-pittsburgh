@@ -44,5 +44,11 @@ namespace api.Dtos
         /// When it was created (UTC)
         /// </summary>
         public DateTime? CreatedAt { get; set; }
+
+        /// <summary>
+        /// When adding a territory: another territory whose catalog it starts with a copy of
+        /// (products, delivery and financing options - not stock counts). Leave out for an empty one.
+        /// </summary>
+        public int? CopyCatalogFromTerritoryId { get; set; }
     }
 }

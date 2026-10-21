@@ -1,7 +1,6 @@
 import { Redirect } from "expo-router";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
-import { ScopeBadge } from "../Components/Catalog/CatalogScope";
 import DeliveryOptionList from "../Components/Catalog/DeliveryOptionList";
 import EditProductForm from "../Components/Catalog/EditProductForm";
 import FinanceOptionList from "../Components/Catalog/FinanceOptionList";
@@ -27,7 +26,6 @@ import { Toast } from "../Lib/Toast";
 import type { DeliveryOption } from "../Models/DeliveryOption";
 import type { FinanceOption } from "../Models/FinanceOption";
 import type { Product, ProductCategory } from "../Models/Product";
-import { IsCompanyWide } from "../Models/User";
 import { ExportCatalog } from "../Services/CatalogServices";
 import {
     AddDeliveryOption,
@@ -56,15 +54,16 @@ const meta = "text-xs text-zinc-500 dark:text-zinc-400";
 /**
  * Catalog administration. Everything the floor can sell is defined here: products, the sizes and
  * configurations they come in, their prices, which delivery services each one offers, and the
- * kinds of financing offered at checkout. Global items are sold in every territory and only
- * system admins and administrators change them; a manager adds and looks after items for their
- * own territory.
+ * kinds of financing offered at checkout. Every territory has its own catalog; this is the one of
+ * the territory picked in the menu bar. Someone with more than one territory can copy items
+ * across from another territory's catalog when adding one.
  */
 const CatalogPage = () => {
     const { user } = useAuth();
-    const { territories, territoryId: territoryInView, territoryName } = useTerritory();
+    const { territories, territoryId: territoryInView } = useTerritory();
     const isSystemAdmin = user?.role === "SystemAdmin";
-    const companyWide = IsCompanyWide(user?.role);
+    // The user's other territories, to copy an item from.
+    const copySources = territories.filter((t) => t.id !== territoryInView && t.isActive !== false);
 
     const [products, setProducts] = useState<Product[]>([]);
     const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOption[]>([]);
@@ -234,9 +233,7 @@ const CatalogPage = () => {
             0
         );
         const excluded = variants.filter((v) => v.excludeFromInventory).length;
-        // Stock is counted per territory, so there's no one figure for All.
-        const count = territoryInView != null ? ` · ${onHand} on hand` : "";
-        return `Tracked${count}${excluded ? ` (${excluded} not counted)` : ""}`;
+        return `Tracked · ${onHand} on hand${excluded ? ` (${excluded} not counted)` : ""}`;
     };
 
     if (loading) {
@@ -273,9 +270,8 @@ const CatalogPage = () => {
                         icon="fa-solid fa-plus"
                         onClick={() =>
                             setEditing({
+                                territoryId: territoryInView,
                                 category: tab === "All" ? "Misc" : (tab as ProductCategory),
-                                // New items go in the territory being viewed, or global from All.
-                                territoryId: companyWide ? territoryInView : user.territoryId,
                                 isActive: true,
                                 variants: [],
                                 deliveryOptions: [],
@@ -285,13 +281,6 @@ const CatalogPage = () => {
                     />
                 )}
             </View>
-
-            {!companyWide && (
-                <Text className="mb-3 text-sm text-zinc-500 dark:text-zinc-400">
-                    Global items are set company-wide and can&apos;t be changed here. Anything you add is
-                    sold in {territoryName || "your territory"} only.
-                </Text>
-            )}
 
             <ScrollView
                 horizontal
@@ -329,10 +318,6 @@ const CatalogPage = () => {
                     onSave={handleSaveFinanceOption}
                     onDelete={handleDeleteFinanceOption}
                     onReorder={handleReorderFinanceOptions}
-                    territories={territories}
-                    canChooseTerritory={companyWide}
-                    ownTerritoryName={territoryName}
-                    defaultTerritoryId={companyWide ? territoryInView : (user.territoryId ?? null)}
                 />
             ) : tab === "Delivery" ? (
                 <DeliveryOptionList
@@ -341,10 +326,6 @@ const CatalogPage = () => {
                     onDelete={handleDeleteDeliveryOption}
                     onReorder={handleReorderDeliveryOptions}
                     permanentDelete={isSystemAdmin}
-                    territories={territories}
-                    canChooseTerritory={companyWide}
-                    ownTerritoryName={territoryName}
-                    defaultTerritoryId={companyWide ? territoryInView : (user.territoryId ?? null)}
                 />
             ) : (
                 <>
@@ -380,27 +361,21 @@ const CatalogPage = () => {
                         {filtered.map((product) => (
                             <SwipeRow
                                 key={product.id}
-                                // Global items are set company-wide; a manager sees them but can't change them.
-                                onPress={product.canEdit === false ? undefined : () => setEditing(product)}
-                                actions={
-                                    product.canEdit === false
-                                        ? []
-                                        : [
-                                              {
-                                                  label: "Delete",
-                                                  icon: "fa-solid fa-trash",
-                                                  tone: "danger",
-                                                  onPress: () => setDeleting(product),
-                                              },
-                                          ]
-                                }
+                                onPress={() => setEditing(product)}
+                                actions={[
+                                    {
+                                        label: "Delete",
+                                        icon: "fa-solid fa-trash",
+                                        tone: "danger",
+                                        onPress: () => setDeleting(product),
+                                    },
+                                ]}
                                 accessibilityLabel={`${product.name}, ${product.brand ?? ""}`}
                                 className="flex-row items-center gap-3 p-3"
                             >
                                 <View className="min-w-[200px] flex-1">
                                     <View className="flex-row flex-wrap items-center gap-2">
                                         <Text className="font-semibold">{product.name}</Text>
-                                        <ScopeBadge territoryName={product.territoryName} />
                                         {!product.isActive && (
                                             <View className="rounded bg-amber-100 px-1.5 py-0.5 dark:bg-amber-900/50">
                                                 <Text className="text-xs font-semibold text-amber-800 dark:text-amber-300">
@@ -444,17 +419,7 @@ const CatalogPage = () => {
                                     ) : null}
                                 </View>
 
-                                {product.canEdit === false ? (
-                                    <View className="flex-row items-center gap-1.5">
-                                        <Icon
-                                            icon="fa-solid fa-lock"
-                                            className="text-xs text-zinc-500 dark:text-zinc-400"
-                                        />
-                                        <Text className={meta}>Set company-wide</Text>
-                                    </View>
-                                ) : (
-                                    <Icon icon="fa-solid fa-chevron-right" className="text-xs text-zinc-400" />
-                                )}
+                                <Icon icon="fa-solid fa-chevron-right" className="text-xs text-zinc-400" />
                             </SwipeRow>
                         ))}
 
@@ -475,9 +440,12 @@ const CatalogPage = () => {
                     deliveryOptions={deliveryOptions.filter((o) => o.isActive)}
                     onSave={handleSaveProduct}
                     onClose={() => setEditing(null)}
-                    territories={territories}
-                    canChooseTerritory={companyWide}
-                    ownTerritoryName={territoryName}
+                    copySources={copySources}
+                    onCopied={async (copy) => {
+                        // Open the copy, so anything that differs here - a price - can be changed.
+                        await load();
+                        setEditing(copy);
+                    }}
                 />
             )}
 

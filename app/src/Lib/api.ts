@@ -164,7 +164,9 @@ export const endSession = async (): Promise<void> => {
 api.interceptors.request.use((config) => {
     config.headers["X-CFS-Client"] = CLIENT;
     if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
-    if (territoryId != null) config.headers[TERRITORY_HEADER] = String(territoryId);
+    // A request may name another territory itself, such as reading a catalog to copy from.
+    if (territoryId != null && !config.headers[TERRITORY_HEADER])
+        config.headers[TERRITORY_HEADER] = String(territoryId);
     // Changing the password keeps this device signed in; the API knows it by its refresh token.
     if (/\/api\/auth\/change-password/i.test(config.url ?? "")) {
         const stored = GetItem(REFRESH_TOKEN_KEY);

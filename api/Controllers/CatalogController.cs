@@ -78,7 +78,7 @@ namespace api.Controllers
                 if (request.Catalog == null || request.Mode is not ("update" or "replace"))
                     return BadRequest(new { error = "Missing parameter." });
 
-                var result = await CatalogTransfer.ImportAsync(DB, request.Catalog, request.Mode == "replace");
+                var result = await CatalogTransfer.ImportAsync(DB, request.Catalog, request.Mode == "replace", Scope.TerritoryId);
 
                 Trace(TraceEventType.Information,
                     $"Catalog {request.Mode} by {GetCurrentUserName()}: {result.ProductsAdded} added, {result.ProductsUpdated} updated, {result.ProductsRemoved} removed.");

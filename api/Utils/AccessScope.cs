@@ -7,8 +7,9 @@ namespace api.Utils
 {
     /// <summary>
     /// Who is asking and which territory they're working in, read fresh from the database for every
-    /// request. System Admins and administrators work across every territory and may narrow to one with
-    /// the X-Territory-Id header (the territory picker); everyone else is held to their own.
+    /// request. System Admins and administrators work across every territory; everyone else across
+    /// the territories they belong to - one or several. Anyone with more than one may narrow to one
+    /// with the X-Territory-Id header (the territory picker).
     /// </summary>
     public sealed class AccessScope
     {
@@ -23,33 +24,48 @@ namespace api.Utils
         /// <summary>Their role.</summary>
         public UserRole Role { get; init; }
 
-        /// <summary>Their own territory; null for system admins and administrators.</summary>
-        public int? HomeTerritoryId { get; init; }
+        /// <summary>
+        /// The switched-on territories a manager or crew member belongs to. Empty for system admins
+        /// and administrators, who belong to every territory.
+        /// </summary>
+        public IReadOnlyList<int> MemberTerritoryIds { get; init; } = [];
 
-        /// <summary>The territory a system admin or administrator has picked, or null for every territory.</summary>
+        /// <summary>The territory picked in the menu bar, or null for all of the user's territories.</summary>
         public int? SelectedTerritoryId { get; init; }
 
-        /// <summary>System Admins and administrators: not tied to one territory.</summary>
+        /// <summary>System Admins and administrators: not tied to any territory.</summary>
         public bool IsCompanyWide => Role is UserRole.SystemAdmin or UserRole.Admin;
 
+        /// <summary>Whether the user works in more than one territory, and so has the picker.</summary>
+        public bool CanSwitch => IsCompanyWide || MemberTerritoryIds.Count > 1;
+
         /// <summary>
-        /// The territory this request is about: a crew member's own, or the one a system admin or
-        /// administrator picked. Null means every territory (system admins and administrators only).
+        /// The one territory this request is about: the one picked, or a crew member's only one.
+        /// Null means all the user's territories - every territory, for a system admin or
+        /// administrator.
         /// </summary>
-        public int? TerritoryId => IsCompanyWide ? SelectedTerritoryId : HomeTerritoryId;
+        public int? TerritoryId => SelectedTerritoryId ?? (!IsCompanyWide && MemberTerritoryIds.Count == 1 ? MemberTerritoryIds[0] : null);
+
+        /// <summary>
+        /// The territories this request covers, for filtering lists: the one in view, or all the
+        /// user's. Null means every territory (a system admin or administrator viewing them all).
+        /// </summary>
+        public List<int>? VisibleTerritoryIds =>
+            TerritoryId is { } one ? [one] : IsCompanyWide ? null : MemberTerritoryIds.ToList();
 
         #endregion
 
         #region Public Methods
 
         /// <summary>
-        /// Whether the user may see records belonging to a territory.
+        /// Whether the user may see records belonging to a territory - one of theirs, whichever one
+        /// is picked in the menu bar.
         /// </summary>
         /// <param name="territoryId">The record's territory</param>
-        /// <returns>True when it's theirs, or they're company-wide.</returns>
+        /// <returns>True when it's one of theirs, or they're company-wide.</returns>
         public bool CanSee(int? territoryId)
         {
-            return IsCompanyWide || (territoryId != null && territoryId == HomeTerritoryId);
+            return territoryId != null && (IsCompanyWide || MemberTerritoryIds.Contains(territoryId.Value));
         }
 
         /// <summary>
@@ -127,23 +143,27 @@ namespace api.Utils
                 .Where(u => u.Id == userId)
                 .Select(u => new
                 {
-                    u.Id, u.Name, u.Role, u.TerritoryId, u.IsActive, u.MustChangePassword,
-                    TerritoryActive = u.Territory == null || u.Territory.IsActive,
+                    u.Id, u.Name, u.Role, u.IsActive, u.MustChangePassword,
+                    Territories = u.Territories
+                        .Where(t => t.Territory!.IsActive)
+                        .OrderBy(t => t.TerritoryId)
+                        .Select(t => t.TerritoryId)
+                        .ToList(),
                 })
                 .FirstOrDefaultAsync();
 
-            // Gone, switched off, or its territory switched off: the token no longer counts.
-            if (user == null || !user.IsActive || !user.TerritoryActive)
+            // Gone, switched off, or every one of its territories switched off: the token no longer
+            // counts.
+            if (user == null || !user.IsActive || (AccessScope.NeedsTerritory(user.Role) && user.Territories.Count == 0))
             {
                 await Deny(context, 401, "Your account is no longer active. Please sign in again.");
                 return;
             }
 
-            // A changed role or territory means a new token with the right claims; a 401 makes the
-            // dashboard renew it and retry.
+            // A changed role means a new token with the right claims; a 401 makes the dashboard renew
+            // it and retry. (Territories aren't in the token: they're read here on every request.)
             var tokenRole = principal.FindFirstValue(ClaimTypes.Role);
-            var tokenTerritory = principal.FindFirstValue("territory");
-            if (tokenRole != user.Role.ToString() || tokenTerritory != user.TerritoryId?.ToString())
+            if (tokenRole != user.Role.ToString())
             {
                 await Deny(context, 401, "Your account was changed. Please sign in again.");
                 return;
@@ -161,10 +181,14 @@ namespace api.Utils
                 return;
             }
 
+            // The territory picked in the menu bar: any one for a system admin or administrator, one of
+            // their own for everyone else. Anything else is ignored, which shows all of theirs.
+            var companyWide = !AccessScope.NeedsTerritory(user.Role);
             int? selected = null;
-            if (user.Role is UserRole.SystemAdmin or UserRole.Admin
-                && int.TryParse(context.Request.Headers[TerritoryHeader].FirstOrDefault(), out var picked)
-                && await db.Territories.AnyAsync(t => t.Id == picked))
+            if (int.TryParse(context.Request.Headers[TerritoryHeader].FirstOrDefault(), out var picked)
+                && (companyWide
+                    ? await db.Territories.AnyAsync(t => t.Id == picked)
+                    : user.Territories.Contains(picked)))
             {
                 selected = picked;
             }
@@ -174,7 +198,7 @@ namespace api.Utils
                 UserId = user.Id,
                 Name = user.Name,
                 Role = user.Role,
-                HomeTerritoryId = user.TerritoryId,
+                MemberTerritoryIds = companyWide ? [] : user.Territories,
                 SelectedTerritoryId = selected,
             };
 

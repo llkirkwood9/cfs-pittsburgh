@@ -108,7 +108,9 @@ export const router = createBrowserRouter([
                 path: "catalog",
                 element: (
                     <ProtectedRoute roles={["Manager"]}>
-                        <CatalogPage />
+                        <RequireTerritory purpose="look after the catalog">
+                            <CatalogPage />
+                        </RequireTerritory>
                     </ProtectedRoute>
                 ),
             },

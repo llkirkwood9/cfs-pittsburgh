@@ -5,13 +5,15 @@ type Props = {
     badge?: number;
     /** A short word shown in a small pill after the text, e.g. "Past". */
     tag?: string;
+    /** Small text under the label, e.g. the territory an event is in. */
+    subtext?: string;
     className?: string;
 };
 
 /**
  * Segmented-control style tab, used for the draft switcher and the catalog category filter.
  */
-const TabButton = ({ text, active, onClick, badge, tag, className = "" }: Props) => {
+const TabButton = ({ text, active, onClick, badge, tag, subtext, className = "" }: Props) => {
     return (
         <button
             type="button"
@@ -24,7 +26,20 @@ const TabButton = ({ text, active, onClick, badge, tag, className = "" }: Props)
                         : "bg-zinc-200 text-zinc-700 hover:bg-zinc-300 dark:bg-zinc-700 dark:text-zinc-200 dark:hover:bg-zinc-600"
                 } ${className}`}
         >
-            <span>{text}</span>
+            {subtext ? (
+                <span className="flex flex-col items-start py-1 text-left leading-tight">
+                    <span>{text}</span>
+                    <span
+                        className={`text-[11px] font-normal ${
+                            active ? "text-white/80" : "text-zinc-500 dark:text-zinc-400"
+                        }`}
+                    >
+                        {subtext}
+                    </span>
+                </span>
+            ) : (
+                <span>{text}</span>
+            )}
             {tag && (
                 <span
                     className={`rounded-full px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
