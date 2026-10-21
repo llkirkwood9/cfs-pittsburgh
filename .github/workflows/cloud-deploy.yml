@@ -1,20 +1,20 @@
-# Builds this branch's app image and deploys it to the cloud droplet.
+# Builds this branch's app image and has Coolify deploy it to the cloud server.
 #
-# 1. build: the image for x86 (the droplet) and ARM (a Raspberry Pi on this branch), published to
-#    this repository's container registry as :cloud, :cloud-<version> and :<commit>. Each build is
-#    versioned YYYY.MM.<build>, numbered from 1 each month, and tagged cloud-v<version>.
-# 2. deploy: copies the deployment files to /opt/cfs on the droplet over SSH, signs it in to the
-#    registry for the pull, and runs docker/cloud/cfs-deploy.sh there (backup, pull, restart, wait
-#    for healthy). Skipped until the DEPLOY_HOST variable is set. 
+# 1. build: the image for x86 (the cloud server) and ARM (a Raspberry Pi on this branch), published
+#    to this repository's container registry as :cloud, :cloud-<version> and :<commit>. Each build
+#    is versioned YYYY.MM.<build>, numbered from 1 each month, and tagged cloud-v<version>.
+# 2. deploy: calls the Coolify resource's deploy webhook. Coolify reads docker-compose.coolify.yml,
+#    backs up the database, pulls the new :cloud image and restarts the app; this job then follows
+#    the deployment until it finishes. Skipped (with a note) until the Coolify secrets are set.
 #
-# Runs on every push to Cloud-Support that touches the app or its deployment files, and by hand
-# from the Actions tab - where "Build a new image" can be unticked to redeploy the current one.
+# Runs on every push to Cloud-Support that touches the app or its compose file, and by hand from the
+# Actions tab - where "Build a new image" can be unticked to redeploy the current one.
 #
 # Repository settings (Settings -> Secrets and variables -> Actions), described in
 # Documents/Cloud Deployment.md, Step 6:
-#   variables: DEPLOY_HOST (the droplet's IP address), DEPLOY_USER (default: deploy)
-#   secrets:   DEPLOY_SSH_KEY (a private key the droplet's deploy user accepts),
-#              DEPLOY_KNOWN_HOSTS (the droplet's host key, from ssh-keyscan)
+#   secrets:  COOLIFY_WEBHOOK (the resource's Deploy webhook URL),
+#             COOLIFY_TOKEN (a Coolify API token with the Deploy and Read permissions)
+#   variable: CFS_URL (optional, e.g. https://sales.example.com: checked for Healthy afterwards)
 name: Cloud deploy
 
 on:
@@ -24,10 +24,7 @@ on:
       - "api/**"
       - "dashboard/**"
       - "Dockerfile"
-      - "docker-compose.yml"
-      - "docker-compose.cloud.yml"
-      - "docker/cloud/**"
-      - "docker/pi/cfs-backup.sh"
+      - "docker-compose.coolify.yml"
       - ".github/workflows/cloud-deploy.yml"
   workflow_dispatch:
     inputs:
@@ -96,45 +93,57 @@ jobs:
     needs: build
     # After a successful build, or straight away when the build was skipped on purpose.
     if: >-
-      always() && github.ref == 'refs/heads/Cloud-Support' && vars.DEPLOY_HOST != '' &&
+      always() && github.ref == 'refs/heads/Cloud-Support' &&
       (needs.build.result == 'success' || needs.build.result == 'skipped')
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: read # lets the droplet pull the image with this run's token
-    env:
-      TARGET: ${{ vars.DEPLOY_USER || 'deploy' }}@${{ vars.DEPLOY_HOST }}
+    permissions: {}
 
     steps:
-      - uses: actions/checkout@v4
-
-      - name: Set up SSH
+      - name: Deploy with Coolify
         env:
-          SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
-          KNOWN_HOSTS: ${{ secrets.DEPLOY_KNOWN_HOSTS }}
+          WEBHOOK: ${{ secrets.COOLIFY_WEBHOOK }}
+          TOKEN: ${{ secrets.COOLIFY_TOKEN }}
         run: |
-          install -m 700 -d ~/.ssh
-          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
-          chmod 600 ~/.ssh/id_ed25519
-          printf '%s\n' "$KNOWN_HOSTS" > ~/.ssh/known_hosts
+          if [ -z "$WEBHOOK" ] || [ -z "$TOKEN" ]; then
+            echo "::notice::COOLIFY_WEBHOOK and COOLIFY_TOKEN aren't set yet, so nothing was deployed."
+            exit 0
+          fi
 
-      # Only what the droplet runs: no source code goes there. The .env with the secrets is the
-      # droplet's own and is never touched.
-      - name: Copy the deployment files
-        run: |
-          tar czf - docker-compose.yml docker-compose.cloud.yml docker/cloud docker/pi/cfs-backup.sh \
-            | ssh "$TARGET" 'mkdir -p /opt/cfs && tar xzf - -C /opt/cfs'
+          response=$(curl -sS --fail-with-body --request POST "$WEBHOOK" --header "Authorization: Bearer $TOKEN")
+          echo "$response"
 
-      # This run's token can read the package, and stops working when the run ends.
-      - name: Sign the droplet in to the registry
+          # Follow the deployment Coolify queued, when its reply names it and the token can read it.
+          uuid=$(echo "$response" | jq -r '[.. | .deployment_uuid? // empty] | first // empty' 2>/dev/null || true)
+          if [ -z "$uuid" ]; then
+            echo "::notice::Coolify accepted the deploy. Follow it on the resource's Deployments page."
+            exit 0
+          fi
+
+          base="${WEBHOOK%%/api/*}"
+          for _ in $(seq 1 90); do
+            status=$(curl -sS --header "Authorization: Bearer $TOKEN" "$base/api/v1/deployments/$uuid" | jq -r '.status // empty' 2>/dev/null || true)
+            case "$status" in
+              finished) echo "Coolify finished the deployment."; exit 0 ;;
+              failed|cancelled*) echo "::error::Coolify's deployment $status - see its Deployments page for the log."; exit 1 ;;
+              "") echo "::notice::Couldn't read the deployment's progress (the token needs the Read permission). Check Coolify."; exit 0 ;;
+            esac
+            echo "Coolify: $status"
+            sleep 10
+          done
+          echo "::error::The deployment hadn't finished after 15 minutes."
+          exit 1
+
+      - name: Check the app answers
+        if: vars.CFS_URL != ''
         env:
-          TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          ACTOR: ${{ github.actor }}
-        run: printf '%s' "$TOKEN" | ssh "$TARGET" "docker login ghcr.io -u '$ACTOR' --password-stdin"
-
-      - name: Deploy
-        run: ssh "$TARGET" 'bash /opt/cfs/docker/cloud/cfs-deploy.sh'
-
-      - name: Sign the droplet out of the registry
-        if: always()
-        run: ssh "$TARGET" 'docker logout ghcr.io' || true
+          URL: ${{ vars.CFS_URL }}
+        run: |
+          for _ in $(seq 1 30); do
+            if [ "$(curl -fsS "$URL/health" 2>/dev/null)" = "Healthy" ]; then
+              echo "$URL is healthy."
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "::error::$URL/health didn't say Healthy within five minutes."
+          exit 1

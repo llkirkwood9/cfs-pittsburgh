@@ -9,8 +9,8 @@
 #
 # Backups are custom-format pg_dump files, gzipped. Restoring replaces everything in the database.
 #
-# The cloud droplet uses this same script (bash /opt/cfs/docker/pi/cfs-backup.sh ...): its .env
-# names its compose files in COMPOSE_FILE, and CFS_BACKUP_KEEP there sets how many are kept.
+# COMPOSE_FILE in .env names other compose files than docker-compose.pi.yml, and CFS_BACKUP_KEEP
+# there sets how many backups are kept. (The cloud's backups are made by docker-compose.coolify.yml.)
 set -euo pipefail
 
 CFS_DIR="${CFS_DIR:-/opt/cfs}"
@@ -26,7 +26,7 @@ env_value() {
     sed -n "s/^$1=//p" "$CFS_DIR/.env" | tail -1 | tr -d "\"'\r"
 }
 
-# The Pi runs docker-compose.pi.yml; the droplet's .env names its own pair of files.
+# The Pi runs docker-compose.pi.yml unless .env names other files.
 COMPOSE_FILE="${COMPOSE_FILE:-$(env_value COMPOSE_FILE)}"
 export COMPOSE_FILE="${COMPOSE_FILE:-docker-compose.pi.yml}"
 BACKUP_DIR="${CFS_BACKUP_DIR:-$CFS_DIR/backups}"

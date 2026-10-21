@@ -1,107 +1,127 @@
 # Running CFS Fundraiser in the cloud
 
-One DigitalOcean droplet runs the same two containers as a cart's Raspberry Pi - the app and
-**PostgreSQL** - with **Caddy** in front of them for HTTPS on your own domain. Every territory's
-tablets and phones reach it at that address, and nothing has to be carried to the venue but the
-devices. GitHub Actions builds the app and deploys it to the droplet on every push to the
-`Cloud-Support` branch.
+The cloud version runs on one small server of your own - a DigitalOcean droplet - managed through
+**Coolify**, a free, open-source control panel installed on that server. Coolify gives you a web
+dashboard, HTTPS certificates for your domain, logs, and deploys triggered from GitHub. Every
+territory's tablets and phones reach the app at your address, and nothing has to be carried to the
+venue but the devices.
+
+It's the same two containers a cart's Raspberry Pi runs - the app and **PostgreSQL** - described for
+Coolify in `docker-compose.coolify.yml`:
 
 ```
-                   ┌─────────────────── one DigitalOcean droplet ───────────────────┐
- tablets, phones ──HTTPS──> Caddy :443 ──HTTP──> app :8080 ──────> PostgreSQL
- sales.example.com          cfs-caddy            cfs-app           cfs-db
-                            (certificate)        (API + dashboard) (cfs-pgdata volume)
-                   └────────────────────────────────────────────────────────────────┘
+ push to Cloud-Support ─> GitHub Actions builds the image ─> ghcr.io
+                                   └─ deploy webhook ─> Coolify: backup, pull the image, restart
+
+ tablets, phones ──HTTPS──> Coolify's proxy ──> app :8080 ──> PostgreSQL ──> /opt/cfs/backups
+ sales.example.com          (certificate)       (API +        (cfs-pgdata     (before each deploy,
+                                                 dashboard)    volume)          and every night)
 ```
 
 | File | What it is |
 | --- | --- |
-| `docker-compose.yml` | The app and PostgreSQL - the same file a Pi uses |
-| `docker-compose.cloud.yml` | Adds Caddy, keeps the app's port off the internet, and tells the app it's behind HTTPS |
-| `docker/cloud/Caddyfile` | Caddy's settings: your domain, passed on to the app |
-| `docker/cloud/cfs-deploy.sh` | Run on the droplet by each deploy: backup, pull, restart, wait until healthy |
-| `docker/pi/cfs-backup.sh` | Backs up and restores the database - the Pi's script, used here too |
-| `.github/workflows/cloud-deploy.yml` | Builds the image and deploys it on every push to `Cloud-Support` |
+| `docker-compose.coolify.yml` | What Coolify runs: the app, PostgreSQL, a backup before each deploy and one every night |
+| `.github/workflows/cloud-deploy.yml` | Builds the image on every push to `Cloud-Support`, then calls Coolify's deploy webhook |
 
-The droplet holds no source code: each deploy copies just these files to `/opt/cfs` and pulls the
-ready-made image. Your secrets live only in `/opt/cfs/.env` on the droplet.
+The image is **built by GitHub Actions, never on the server** - Coolify only pulls it - so the
+server stays small and a deploy takes seconds.
+
+**Overview**
+
+1. Create the server (DigitalOcean).
+2. Open its firewall.
+3. Install Coolify.
+4. Point your domain at it (Squarespace).
+5. Deploy the app in Coolify.
+6. Let GitHub Actions deploy every change.
+7. Sign in for the first time.
+8. Email through SMTP2GO.
 
 ---
 
-## Is the droplet big enough?
+## Is the server big enough?
 
-**Yes.** The planned droplet - **Basic, 2 GiB memory, 1 vCPU, 50 GiB SSD, 2,000 GiB transfer**
-(about $12 a month) - has plenty of room:
+**Coolify's own minimum is 2 CPU cores and 2 GB of memory.** The 1 vCPU droplet planned earlier
+(Basic, 2 GiB, 1 vCPU, 50 GiB) is below that, so choose:
 
-| | Uses |
+> **Basic → Regular, 2 GB memory / 2 vCPUs, 60 GB SSD, 3 TB transfer** - about $18 a month (check
+> DigitalOcean's current price).
+
+What runs on it:
+
+| | Memory |
 | --- | --- |
-| **Memory** | Ubuntu and Docker about 350 MB, the app 150-300 MB, PostgreSQL 50-150 MB, Caddy about 30 MB: under 1 GB of the 2 GB. (The app and its database run in about 175 MB on a 1 GB Pi.) |
-| **CPU** | Light. Sales sheets and PDFs are made on the tablets, not the server; the server saves orders and answers each device's refresh every few seconds. |
-| **Disk** | The images take about 1 GB, and the database stays well under 1 GB for years of events. The nightly backups are a few MB each. |
-| **Transfer** | A busy event day is tens of MB per device. 2,000 GiB a month is far more than you'll use. |
+| Ubuntu, Docker | about 350 MB |
+| Coolify (its dashboard, its own database and cache, and the proxy) | several hundred MB |
+| This app, PostgreSQL and the backup helper | about 200 MB (measured: 165 MB idle) |
 
-Two things keep it comfortable: the image is **built by GitHub Actions, never on the droplet**
-(building the .NET and React code would need more memory than it has), and Step 3 adds a 2 GB
-swap file as a safety margin.
+That fits in 2 GB, with the 2 GB swap file Step 3 adds as a safety margin. The disk and transfer are
+far more than the app needs: the database stays well under 1 GB for years of events, and a busy
+event day is tens of MB per device.
 
-When to go bigger: if many territories run busy events at the same time - say more than 50 devices
-at once - and pages start to feel slow, resize to 4 GiB / 2 vCPUs in the DigitalOcean console
-(**Resize** → **CPU and RAM only**, which keeps the disk so you can resize back). The droplet's
-**Graphs** tab shows whether memory or CPU is actually busy.
+The $12 droplet with 1 vCPU would probably still run, since nothing is built on the server, but
+Coolify doesn't support it and its dashboard and deploys would be slow. The ~$5-6 plans have only
+1 GB of memory, which isn't enough for Coolify. If many territories run busy events at once and
+the app feels slow, resize to 4 GB / 2 vCPUs in the DigitalOcean console (**Resize** → **CPU and
+RAM only** keeps the disk, so you can go back).
+
+The same steps work on Hetzner Cloud or Linode/Akamai: pick a plan with at least 2 vCPUs and 2 GB.
 
 ---
 
 ## What you need
 
 - A **DigitalOcean** account.
-- A **domain** you own and can change the DNS of, such as `cfsbeds.com`. The app will live at a
-  name under it, such as `sales.cfsbeds.com`. This guide writes `sales.example.com`; use yours.
-- **Admin access to the GitHub repository**, to add the deploy settings.
-- A computer with an SSH client - Windows 10 and later, macOS and Linux all have `ssh`.
-- For emailed receipts: a free **SMTP2GO** account (Step 9).
+- Your **Squarespace** domain, such as `cfsbeds.com`. The app will live at a name under it, such as
+  `sales.cfsbeds.com`, and Coolify's dashboard at `coolify.cfsbeds.com`. This guide writes
+  `sales.example.com` and `coolify.example.com`; use yours.
+- **Admin access to the GitHub repository** (`llkirkwood9/cfs-pittsburgh`).
+- A **GitHub personal access token** with the `read:packages` scope, so the server can pull the
+  app's image (Step 5). GitHub → **Settings** → **Developer settings** → **Personal access tokens**
+  → **Tokens (classic)** → **Generate new token**, tick only `read:packages`.
+- A computer with `ssh` - Windows 10 and later, macOS and Linux all have it.
+- For emailed receipts: a free **SMTP2GO** account (Step 8).
 
 ---
 
-## Step 1 - Create the droplet
+## Step 1 - Create the server
 
 In the DigitalOcean console: **Create** → **Droplets**.
 
-1. **Region**: the one nearest your territories (for Pittsburgh: New York or Toronto).
+1. **Region**: the one nearest your fundraisers (for Pittsburgh: New York or Toronto).
 2. **Image**: **Ubuntu 24.04 (LTS) x64**.
-3. **Size**: **Basic** → **Regular** → **2 GB / 1 CPU, 50 GB SSD, 2 TB transfer**.
-4. **Authentication**: **SSH Key**. Add your computer's public key if you haven't before. To make
-   one, run `ssh-keygen -t ed25519` on your computer and paste in the contents of the `.pub` file
-   it reports (usually `~/.ssh/id_ed25519.pub`).
-5. **Backups**: turn on **Weekly** (or **Daily**) backups. It adds 20% (30% for daily) to the price
-   and keeps whole-droplet copies you can restore with one click. The app also backs up its
-   database every night (see *Backups*); the two together cover a lost droplet and a bad change.
-6. **Monitoring**: tick it - it's free and gives you the memory and CPU graphs and alerts.
+3. **Size**: **Basic** → **Regular** → **2 GB / 2 CPUs** (see above).
+4. **Authentication**: **SSH Key**. Add your computer's public key if you haven't before: run
+   `ssh-keygen -t ed25519` on your computer and paste in the `.pub` file it reports (usually
+   `~/.ssh/id_ed25519.pub`).
+5. **Backups**: turn on **Weekly** (or **Daily**) backups - 20% (30% for daily) on top of the price,
+   for one-click copies of the whole server. The app also backs up its own database (see *Backups*).
+6. **Monitoring**: tick it - free memory and CPU graphs and alerts.
 7. **Hostname**: `cfs-cloud`. Then **Create Droplet**.
 
-Note the droplet's **IPv4 address** once it's ready; this guide writes `203.0.113.10`.
+Note the server's **public IPv4 address**; this guide writes `203.0.113.10`.
 
-## Step 2 - Firewall
+## Step 2 - Open the firewall
 
 **Networking** → **Firewalls** → **Create Firewall**, named `cfs`:
 
-| Inbound rule | Protocol | Port | Sources |
+| Inbound rule | Protocol | Port | Why |
 | --- | --- | --- | --- |
-| SSH | TCP | 22 | All IPv4, All IPv6 |
-| HTTP | TCP | 80 | All IPv4, All IPv6 |
-| HTTPS | TCP | 443 | All IPv4, All IPv6 |
-| Custom (HTTP/3) | UDP | 443 | All IPv4, All IPv6 |
+| SSH | TCP | 22 | Signing in to the server |
+| HTTP | TCP | 80 | Certificates, and the redirect to HTTPS |
+| HTTPS | TCP | 443 | The app and Coolify's dashboard |
+| Custom | UDP | 443 | HTTP/3 (optional) |
+| Custom | TCP | 8000, 6001, 6002 | Coolify's dashboard by IP address - **only until Step 4**, then delete these |
 
-Leave the outbound rules as they are (everything allowed). Under **Apply to Droplets**, choose
-`cfs-cloud`, and create it.
+Sources: **All IPv4** and **All IPv6**. Leave the outbound rules as they are. Under **Apply to
+Droplets**, choose `cfs-cloud`, and create it.
 
-Use this DigitalOcean firewall rather than `ufw` on the droplet: Docker opens the ports it
-publishes in a way that goes around `ufw`. The app's own port, 8080, is only published on the
-droplet itself anyway. SSH has to be open to everyone because GitHub's deploy runners don't come
-from fixed addresses; it only accepts keys, never passwords.
+Use this DigitalOcean firewall rather than `ufw` on the server: Docker opens the ports it publishes
+in a way that goes around `ufw`.
 
-## Step 3 - Prepare the droplet
+## Step 3 - Install Coolify
 
-From your computer, sign in as `root`:
+From your computer, sign in to the server:
 
 ```bash
 ssh root@203.0.113.10
@@ -119,189 +139,163 @@ Add a 2 GB swap file, as a safety margin for memory:
 fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile && echo '/swapfile none swap sw 0 0' >> /etc/fstab
 ```
 
-Set the time zone, so the nightly backup runs at night where you are:
+Set the time zone, and make the folder the app's backups go in:
 
 ```bash
-timedatectl set-timezone America/New_York
+timedatectl set-timezone America/New_York && mkdir -p /opt/cfs/backups
 ```
 
-Install Docker:
+Install Coolify with its official script (it installs Docker too, and takes a few minutes):
 
 ```bash
-curl -fsSL https://get.docker.com | sh
+curl -fsSL https://cdn.coollabs.io/coolify/install.sh | bash
 ```
 
-Cap the containers' log files, so they can't fill the disk over the months:
+When it finishes, **straight away** open `http://203.0.113.10:8000` in your browser and create the
+admin account - the first person to open that page becomes the admin. Use a long password, and
+turn on two-factor authentication in your Coolify profile. When the onboarding asks where to
+deploy, choose **This Machine** (localhost).
 
-```bash
-printf '{\n  "log-driver": "json-file",\n  "log-opts": { "max-size": "10m", "max-file": "5" }\n}\n' > /etc/docker/daemon.json && systemctl restart docker
-```
-
-Create the **deploy** user that runs the app, and that GitHub Actions signs in as. It can use
-Docker but not `sudo`, and it accepts the same SSH key as `root`:
-
-```bash
-adduser --disabled-password --gecos "" deploy && usermod -aG docker deploy
-```
-
-```bash
-install -d -m 700 -o deploy -g deploy /home/deploy/.ssh && install -m 600 -o deploy -g deploy /root/.ssh/authorized_keys /home/deploy/.ssh/authorized_keys
-```
-
-```bash
-install -d -o deploy -g deploy /opt/cfs /opt/cfs/backups
-```
-
-**Optional but recommended - security updates that need a restart.** Ubuntu installs security
-updates by itself; this lets it restart for the few that need one, at 4 am. The containers come
-back on their own.
+**Optional but recommended:** let Ubuntu restart for the security updates that need it, at 4 am.
+Coolify and the app come back on their own:
 
 ```bash
 printf 'Unattended-Upgrade::Automatic-Reboot "true";\nUnattended-Upgrade::Automatic-Reboot-Time "04:00";\n' > /etc/apt/apt.conf.d/52cfs-reboot
 ```
 
-Restart to pick up the updates, then check you can sign in as **deploy** and use Docker:
+## Step 4 - Point your domain at the server (Squarespace)
 
-```bash
-reboot
-```
+1. Sign in to **Squarespace** → **Domains** → click your domain → **DNS** → **DNS Settings**.
+2. Under **Custom records**, add two records:
 
-```bash
-ssh deploy@203.0.113.10
-```
+   | Type | Host | Data |
+   | --- | --- | --- |
+   | `A` | `sales` | `203.0.113.10` |
+   | `A` | `coolify` | `203.0.113.10` |
 
-```bash
-docker run --rm hello-world
-```
+   Squarespace adds your domain to the host, so `sales` means `sales.example.com`.
 
-## Step 4 - Point your domain at the droplet
+> **Leave the `@` and `www` records alone** if your company website is on Squarespace - changing
+> them would take the website down. The app lives on its own name (`sales`). Only point `@` and
+> `www` at the server if the domain is just for this app.
 
-Caddy can only get the HTTPS certificate once your domain leads to the droplet, so do this before
-the first deploy.
-
-Wherever your domain's DNS is managed (usually the registrar - GoDaddy, Namecheap, Cloudflare,
-Squarespace and so on), add a record:
-
-| Type | Name | Value | TTL |
-| --- | --- | --- | --- |
-| `A` | `sales` | `203.0.113.10` (the droplet's IPv4 address) | 1 hour, or the default |
-
-If you turned on IPv6 for the droplet, add an `AAAA` record for `sales` with its IPv6 address too.
-On **Cloudflare**, set the record to **DNS only** (grey cloud): Caddy handles HTTPS itself.
-
-> **Prefer to manage DNS at DigitalOcean?** **Networking** → **Domains** → add `example.com`, then
-> at your registrar change the domain's nameservers to `ns1.digitalocean.com`,
-> `ns2.digitalocean.com` and `ns3.digitalocean.com`, and create the `A` record at DigitalOcean -
-> it lets you pick the droplet from a list. Copy any records you already have (email, website)
-> across first, or they stop working.
-
-Check it from your computer; it should print the droplet's address. It can take a few minutes, and
-occasionally a few hours, to spread:
+Check from your computer that both names give the server's address (it can take a few minutes, and
+occasionally a few hours, to spread):
 
 ```bash
 nslookup sales.example.com
 ```
 
-## Step 5 - Create the secrets file
-
-Signed in as **deploy**, write `/opt/cfs/.env` with new random secrets in one go. Change
-`sales.example.com` to your address first:
-
 ```bash
-printf 'COMPOSE_FILE=docker-compose.yml:docker-compose.cloud.yml\nCFS_IMAGE=ghcr.io/llkirkwood9/cfs-fundraiser:cloud\nCFS_DOMAIN=%s\nPOSTGRES_PASSWORD=%s\nJWT_KEY=%s\nSKIP_SEED_DATA=true\nALLOW_LEGACY_PINS=false\nCFS_BACKUP_KEEP=30\n' 'sales.example.com' "$(openssl rand -hex 24)" "$(openssl rand -base64 48 | tr -d '\n/+=')" > /opt/cfs/.env
+nslookup coolify.example.com
 ```
 
-```bash
-chmod 600 /opt/cfs/.env && cat /opt/cfs/.env
-```
+**Put Coolify's dashboard on its own HTTPS address.** In Coolify: **Settings** → **General** →
+**Domain** (the instance's URL) → `https://coolify.example.com` → **Save**. Open
+`https://coolify.example.com` - Coolify fetches its certificate on the first visit. From now on use
+that address, and **delete the 8000, 6001 and 6002 rules** from the firewall (Step 2).
 
-What each line does:
+## Step 5 - Deploy the app in Coolify
 
-| Line | |
+**a. Let the server pull the app's image.** The image is private on GitHub's registry. In Coolify,
+open **Registries** (or **Servers** → *localhost* → **Registries**) → **Log in**, choose the
+**GHCR** preset, and enter username `llkirkwood9` and the `read:packages` token. (Or make the image
+public instead: GitHub → your profile → **Packages** → `cfs-fundraiser` → **Package settings** →
+**Change visibility** → Public - then no login is needed.)
+
+**b. Check the image exists.** On GitHub, **Actions** → **Cloud deploy** should show a green
+**build** for `Cloud-Support`. If it doesn't, click **Run workflow** (branch `Cloud-Support`) and
+wait for the build (10-15 minutes the first time). Its deploy step does nothing yet; that's Step 6.
+
+**c. Connect GitHub.** **Sources** → **+ Add** → **GitHub App**, and follow Coolify's steps: it
+creates a GitHub App for you. When GitHub asks where to install it, choose **Only select
+repositories** → `cfs-pittsburgh`.
+
+**d. Create the resource.** **Projects** → **+ Add** a project (e.g. `CFS`) → open it → **+ New**
+resource → **Private Repository (with GitHub App)** → pick the app from (c) and the repository, then:
+
+| Setting | Value |
 | --- | --- |
-| `COMPOSE_FILE` | Makes every `docker compose` command in `/opt/cfs` use both compose files. Keep it exactly as it is. |
-| `CFS_IMAGE` | The image to run: this branch's, built by the workflow. |
-| `CFS_DOMAIN` | Your address. Caddy gets its certificate for this name. |
-| `POSTGRES_PASSWORD`, `JWT_KEY` | The database password and the key that signs sign-ins. |
-| `SKIP_SEED_DATA=true` | Starts with an empty catalog rather than the sample one; bring the real catalog in with **Restore catalog** (Catalog screen, system admins). Leave the line out to start with the sample catalog. |
-| `ALLOW_LEGACY_PINS=false` | No sign-in with a PIN from before passwords. **Leave it out** if you're moving a Pi's data across (see *Moving a cart's data to the cloud*) until everyone has chosen a password. |
-| `CFS_BACKUP_KEEP=30` | How many database backups to keep on the droplet. |
+| Branch | `Cloud-Support` |
+| Build Pack | **Docker Compose** |
+| Base Directory | `/` |
+| Docker Compose Location | `/docker-compose.coolify.yml` |
 
-**Save a copy of this file in your password manager.** If `POSTGRES_PASSWORD` is changed later,
-the existing database won't accept the new one.
+Click **Continue**. Coolify reads the file and lists its services: `db`, `backup-before-deploy`,
+`app` and `backup`.
 
-**Optional - choose the first password.** The first account's starting password is otherwise
-random and written to the app's log. To choose it, add `SEED_ADMIN_PASSWORD=...` to the file now,
-and take it out again after the first sign-in.
+**e. Add the domain.** For the **app** service, set the domain to:
 
-## Step 6 - Connect GitHub Actions
-
-GitHub Actions deploys by signing in to the droplet as **deploy** with a key of its own.
-
-On your computer, make that key (it has no passphrase, because a robot uses it):
-
-```bash
-ssh-keygen -t ed25519 -N "" -C "github-actions-deploy" -f cfs-deploy
+```
+https://sales.example.com:8080
 ```
 
-Let the droplet accept it:
+The `:8080` tells Coolify which port inside the container to send visitors to; people still just
+open `https://sales.example.com`. (If your Coolify version asks for them separately: **Add domain**
+→ service `app`, protocol `https`, host `sales.example.com`, port `8080`.) Leave the other services
+without a domain - they aren't reachable from outside.
 
-```bash
-cat cfs-deploy.pub | ssh deploy@203.0.113.10 "cat >> ~/.ssh/authorized_keys"
+**f. Check the environment variables.** Under **Environment Variables**:
+
+| Variable | Value |
+| --- | --- |
+| `SERVICE_PASSWORD_POSTGRES`, `SERVICE_PASSWORD_64_JWT` | Made up by Coolify - the database password and the key that signs sign-ins. **Don't change them** after the first deploy; save a copy in your password manager. |
+| `SKIP_SEED_DATA` | `true` starts with an empty catalog; bring the real catalog in with **Restore catalog**. `false` loads the sample catalog. |
+| `ALLOW_LEGACY_PINS` | `false`. Set `true` only while moving a Pi's data across (see *Moving a cart's data to the cloud*). |
+| `SEED_ADMIN_PASSWORD` | Optional: the first account's starting password. Blank writes a random one to the app's log. |
+| `TZ`, `CFS_BACKUP_TIME`, `CFS_BACKUP_KEEP` | The nightly backup: `America/New_York`, `03:15`, keep `30` |
+| `CFS_IMAGE` | Leave as `ghcr.io/llkirkwood9/cfs-fundraiser:cloud` (see *Rolling back*) |
+| `EMAIL_*` | Step 8 |
+
+**g. Persistent storage.** Nothing to set up, but this is what keeps the sales safe: the database
+lives in the `cfs-pgdata` volume and the backups in `/opt/cfs/backups` on the server - both listed
+under **Persistent Storage**, and both kept through every deploy and update.
+
+**h. Turn off Coolify's own auto-deploy.** **Advanced** → untick **Auto Deploy**. GitHub Actions
+deploys once the new image is built (Step 6); Coolify deploying on the push itself would start the
+old image.
+
+**i. Deploy.** Click **Deploy** and watch the log. Coolify backs up the (empty) database, pulls the
+image and starts everything. When the app shows as running (healthy), open
+`https://sales.example.com/health` - it should say `Healthy`. The very first request can take a few
+seconds while the certificate is fetched.
+
+## Step 6 - Let GitHub Actions deploy every change
+
+The workflow is already in the repository (`.github/workflows/cloud-deploy.yml`). On every push to
+`Cloud-Support` it builds the image and then calls Coolify's deploy webhook. It only needs two
+secrets:
+
+1. **Turn on Coolify's API.** **Settings** → **Advanced** → **API access**: **Enabled** → **Save**.
+2. **Make a token.** **Keys & Tokens** → **API Tokens** → name it `github-actions`, tick **Deploy**
+   and **Read** (Read lets the workflow follow the deployment to the end) → create, and copy it -
+   it's only shown once.
+3. **Copy the webhook.** Open the app's resource → **Webhooks** → copy the **Deploy Webhook URL**
+   (it looks like `https://coolify.example.com/api/v1/deploy?uuid=...&force=false`).
+4. **Store them on GitHub.** The repository → **Settings** → **Secrets and variables** →
+   **Actions**:
+   - **Secrets** tab: `COOLIFY_WEBHOOK` = the webhook URL, `COOLIFY_TOKEN` = the token.
+   - **Variables** tab (optional): `CFS_URL` = `https://sales.example.com` - the workflow then also
+     checks the app says `Healthy` after each deploy.
+
+The deploy step of the workflow comes down to this:
+
+```yaml
+- name: Deploy with Coolify
+  run: |
+    curl --fail --request POST "$WEBHOOK" --header "Authorization: Bearer $TOKEN"
 ```
 
-Read the droplet's own key, so GitHub can be sure it's talking to your droplet:
+and then follows the deployment until Coolify reports it finished (or fails the run if it didn't).
 
-```bash
-ssh-keyscan -t ed25519 203.0.113.10
-```
+**Try it:** **Actions** → **Cloud deploy** → **Run workflow** → branch `Cloud-Support`, and untick
+**Build a new image** for a quick redeploy. From now on, every push or merge to `Cloud-Support`
+that changes the app builds and deploys by itself.
 
-Now on GitHub, open the repository → **Settings** → **Secrets and variables** → **Actions**:
+## Step 7 - First sign-in
 
-- On the **Variables** tab, add:
-  - `DEPLOY_HOST` = `203.0.113.10` (the IP address, so a DNS problem never blocks a deploy)
-  - `DEPLOY_USER` = `deploy`
-- On the **Secrets** tab, add:
-  - `DEPLOY_SSH_KEY` = everything in the `cfs-deploy` file (not the `.pub`), including the
-    `-----BEGIN` and `-----END` lines
-  - `DEPLOY_KNOWN_HOSTS` = the line `ssh-keyscan` printed, starting `203.0.113.10 ssh-ed25519`
-
-Then delete `cfs-deploy` and `cfs-deploy.pub` from your computer (or keep them in your password
-manager). If the key is ever exposed, remove its line from `/home/deploy/.ssh/authorized_keys` on
-the droplet and make a new one.
-
-The workflow signs the droplet in to GitHub's container registry with a token that only lasts for
-that run, so the image can stay private and nothing else needs setting up.
-
-## Step 7 - First deploy
-
-On GitHub: **Actions** → **Cloud deploy** → **Run workflow** → branch `Cloud-Support` → **Run
-workflow**. From now on it also runs by itself on every push to `Cloud-Support` that changes the
-app.
-
-- **build** takes roughly 10-15 minutes the first time and a few minutes after that. The image is
-  published as `ghcr.io/llkirkwood9/cfs-fundraiser:cloud`, and under its version, e.g.
-  `:cloud-2026.10.1`, which the profile menu shows.
-- **deploy** copies the files to `/opt/cfs`, backs up the database (from the second deploy on),
-  pulls the images, starts the three containers and waits for the app to report healthy. If it
-  doesn't within five minutes, the step fails and prints the app's log.
-
-When it's green, open `https://sales.example.com/health`; it should say `Healthy`. The very first
-request can take a few extra seconds while Caddy fetches the certificate.
-
-To see the containers on the droplet (signed in as **deploy**):
-
-```bash
-cd /opt/cfs && docker compose ps
-```
-
-## Step 8 - First sign-in
-
-Unless you set `SEED_ADMIN_PASSWORD`, read the first account's starting password from the log:
-
-```bash
-cd /opt/cfs && docker compose logs app | grep "Created the first account"
-```
+Unless you set `SEED_ADMIN_PASSWORD`, find the first account's starting password: in Coolify, open
+the resource → **Logs** → the `app` service, and look for `Created the first account`.
 
 Open `https://sales.example.com` and sign in as **admin** with it. You'll be asked to choose your
 own password straight away. Then:
@@ -315,12 +309,12 @@ own password straight away. Then:
 4. **Settings** - the company-wide details, terms and receipt email; each territory can then change
    what it needs to.
 
-If you set `SEED_ADMIN_PASSWORD`, take that line out of `/opt/cfs/.env` now.
+If you set `SEED_ADMIN_PASSWORD`, clear it in Coolify now.
 
 **The mobile app** signs in to the same place: type `sales.example.com` as the server address on
 its sign-in screen (it adds `https://` to a domain name by itself).
 
-## Step 9 - Email receipts and reports through SMTP2GO
+## Step 8 - Email receipts and reports through SMTP2GO
 
 The app emails a customer their receipt as a PDF (**Email** on a sales sheet) and an event's sheets
 as one PDF (**Email report**). Until email is set up, those buttons say so.
@@ -330,56 +324,48 @@ plan covers 1,000 emails a month, up to 200 a day (check its pricing page; limit
 goes out from your own domain, signed for it, which is what keeps receipts out of spam.
 
 > **DigitalOcean blocks the usual mail ports** (25, 465 and 587) on droplets, to stop spam.
-> SMTP2GO also listens on **port 2525**, which isn't blocked - so this setup uses 2525.
+> SMTP2GO also listens on **port 2525**, which isn't blocked - the app uses 2525 unless told
+> otherwise.
 
 1. **Sign up** at https://www.smtp2go.com and pick the free plan.
 2. **Add your domain.** **Sending** → **Verified Senders** → **Add a Sender Domain**, enter your
-   domain (for example `cfsbeds.com`) and choose **Continue with this domain**.
-3. **Add the three DNS records it shows** - CNAME records covering SPF, DKIM and link tracking -
-   where you added the `A` record in Step 4, copying each name and value exactly. Some providers
-   add your domain to the name for you, so you may only need its first part. On Cloudflare, set
-   them to **DNS only** (grey cloud). Any SPF record you already have stays as it is.
-4. **Add a DMARC record** if the domain doesn't have one: a TXT record named `_dmarc` with the
-   value `v=DMARC1; p=none; rua=mailto:you@example.com` (an address you read). Gmail and Yahoo
-   expect one; `p=none` only asks for reports and never blocks mail.
+   domain (e.g. `cfsbeds.com`) and choose **Continue with this domain**.
+3. **Add the three CNAME records it shows** in Squarespace (**DNS Settings** → **Custom records**,
+   as in Step 4). In the **Host** box put only the part before your domain - for
+   `em123.cfsbeds.com`, just `em123` - and paste the **Data** exactly. Any SPF record you already
+   have stays as it is.
+4. **Add a DMARC record** if the domain doesn't have one: type `TXT`, host `_dmarc`, data
+   `v=DMARC1; p=none; rua=mailto:you@example.com` (an address you read). Gmail and Yahoo expect
+   one; `p=none` only asks for reports and never blocks mail.
 5. **Verify.** Back in SMTP2GO, press **Verify**. The records can take minutes to a few hours to
    spread; until the domain is verified, SMTP2GO sends only 25 emails an hour.
 6. **Create an SMTP user.** **Sending** → **SMTP Users** (on some dashboards under **Settings**) →
    **Add SMTP User**. Its username and password are separate from your SMTP2GO sign-in; copy both.
-7. **Add them to the droplet's `.env`.** Signed in as **deploy**, open it with `nano /opt/cfs/.env`
-   and add these lines with your own values (`Ctrl+O`, `Enter` to save, `Ctrl+X` to leave). The
-   from address must be on the domain you verified:
+7. **Enter them in Coolify**, on the resource's **Environment Variables**. The from address must be
+   on the domain you verified:
 
-   ```
-   EMAIL_HOST=mail.smtp2go.com
-   EMAIL_PORT=2525
-   EMAIL_SECURITY=StartTls
-   EMAIL_USERNAME=the-smtp-username
-   EMAIL_PASSWORD=the-smtp-password
-   EMAIL_FROM=receipts@cfsbeds.com
-   EMAIL_FROM_NAME=Custom Fundraising Solutions
-   EMAIL_REPLY_TO=office@cfsbeds.com
-   ```
+   | Variable | Value |
+   | --- | --- |
+   | `EMAIL_HOST` | `mail.smtp2go.com` |
+   | `EMAIL_PORT` | `2525` |
+   | `EMAIL_SECURITY` | `StartTls` |
+   | `EMAIL_USERNAME`, `EMAIL_PASSWORD` | the SMTP user's |
+   | `EMAIL_FROM` | e.g. `receipts@cfsbeds.com` |
+   | `EMAIL_FROM_NAME` | e.g. `Custom Fundraising Solutions` (blank: the app name from **Settings**) |
+   | `EMAIL_REPLY_TO` | an address someone reads, e.g. `office@cfsbeds.com` |
 
-   `EMAIL_REPLY_TO` is where a customer's reply goes, so use an address someone reads. Without
-   `EMAIL_FROM_NAME`, emails show the app name from **Settings** as the sender.
-8. **Apply it** - this restarts the app with the new settings, in a few seconds:
-
-   ```bash
-   cd /opt/cfs && docker compose up -d
-   ```
-
+8. **Redeploy** the resource, so the app picks the settings up.
 9. **Test it**: email a receipt to yourself from a completed sale. SMTP2GO's **Reports** list every
    message and whether it was delivered. In Gmail, **More** (⋮) → **Show original** should show
    SPF, DKIM and DMARC as **PASS**.
 
 If sending fails:
 
-- **A timeout or "can't connect"**: check `EMAIL_PORT=2525`; port 587 is blocked on the droplet.
+- **A timeout or "can't connect"**: check `EMAIL_PORT` is `2525`; 587 is blocked on the droplet.
 - **"535 authentication failed"**: the SMTP2GO sign-in password was used instead of the SMTP
   user's, or the username was cut short when pasting.
 - **A rejected sender**: `EMAIL_FROM` isn't on the verified domain.
-- More detail: `cd /opt/cfs && docker compose logs --tail 50 app | grep -i email`
+- More detail: the `app` service's log in Coolify.
 
 The Raspberry Pi guide's *If receipts go to spam* section applies here too.
 
@@ -389,43 +375,52 @@ The Raspberry Pi guide's *If receipts go to spam* section applies here too.
 
 Three layers, each covering something the others don't:
 
-1. **Before every deploy**, the deploy takes a database backup first - a new version can change the
-   database as it starts.
-2. **Every night**, a database backup into `/opt/cfs/backups`; the newest `CFS_BACKUP_KEEP` (30)
-   are kept. Set it up once, signed in as **root**:
+1. **Before every deploy** - the `backup-before-deploy` service copies the database before the app
+   starts, because a new version can change the database as it starts. (Its name ends `-deploy`.)
+2. **Every night** - the `backup` service, at `CFS_BACKUP_TIME`, keeping the newest
+   `CFS_BACKUP_KEEP` (30) of all the backups.
+3. **DigitalOcean's droplet backups** (Step 1) - for when the whole server is lost.
 
-   ```bash
-   printf '15 3 * * * deploy bash /opt/cfs/docker/pi/cfs-backup.sh backup >> /opt/cfs/backups/backup.log 2>&1\n' > /etc/cron.d/cfs-backup
-   ```
-
-3. **DigitalOcean's droplet backups** (Step 1) - a copy of the whole droplet, for when the droplet
-   itself is lost.
-
-**Keep a copy off the droplet too**, after each event or monthly. From your computer:
+They're files in `/opt/cfs/backups` on the server. **Keep a copy off the server too**, after each
+event or monthly - from your computer:
 
 ```bash
-scp "deploy@203.0.113.10:/opt/cfs/backups/cfs-*.dump.gz" .
+scp "root@203.0.113.10:/opt/cfs/backups/cfs-*.dump.gz" .
 ```
 
-Signed in as **deploy**, these work at any time:
+The commands below are run on the server (`ssh root@203.0.113.10`). To take a backup now:
 
 ```bash
-bash /opt/cfs/docker/pi/cfs-backup.sh backup
+docker exec $(docker ps -qf label=com.docker.compose.service=backup) cfs-backup
+```
+
+To see the backups:
+
+```bash
+ls -lt /opt/cfs/backups
+```
+
+**Restoring** replaces everything in the database with a backup. The app is stopped while it runs,
+so do it outside an event. Set the file, then run the rest as they are:
+
+```bash
+FILE=/opt/cfs/backups/cfs-20261101-031500.dump.gz
 ```
 
 ```bash
-bash /opt/cfs/docker/pi/cfs-backup.sh list
+DB=$(docker ps -qf label=com.docker.compose.service=db) && APP=$(docker ps -qf label=com.docker.compose.service=app)
 ```
-
-**Restoring** replaces everything in the database with the backup. The app is stopped while it
-runs, so do it outside an event. Type `RESTORE` when asked:
 
 ```bash
-bash /opt/cfs/docker/pi/cfs-backup.sh restore latest
+docker stop $APP && docker exec $DB dropdb -U cfs --if-exists --force CfsFundraiser && docker exec $DB createdb -U cfs CfsFundraiser
 ```
 
-or name a file: `... restore /opt/cfs/backups/cfs-20261101-031500.dump.gz`. **Try one restore**
-before you need it - on the droplet before it goes live is a good time.
+```bash
+gunzip -c $FILE | docker exec -i $DB pg_restore -U cfs -d CfsFundraiser --no-owner --no-privileges; docker start $APP
+```
+
+`pg_restore` may print a few warnings; that's normal. The app brings the database up to date as it
+starts. **Try one restore** before you need it - before the server goes live is a good time.
 
 ## Moving a cart's data to the cloud
 
@@ -437,7 +432,7 @@ To carry on from a Raspberry Pi's orders, events, crew and catalog:
    sudo bash /opt/cfs/docker/pi/cfs-backup.sh backup
    ```
 
-2. **On your computer**, copy it off the Pi and onto the droplet (use the file name the backup
+2. **On your computer**, copy it off the Pi and onto the server (use the file name the backup
    printed):
 
    ```bash
@@ -445,86 +440,77 @@ To carry on from a Raspberry Pi's orders, events, crew and catalog:
    ```
 
    ```bash
-   scp cfs-20261101-090000.dump.gz deploy@203.0.113.10:/opt/cfs/backups/
+   scp cfs-20261101-090000.dump.gz root@203.0.113.10:/opt/cfs/backups/
    ```
 
-3. **On the droplet**, as **deploy**, restore it (type `RESTORE` when asked):
+3. **In Coolify**, if the Pi still used PINs, set `ALLOW_LEGACY_PINS` to `true` and redeploy.
+4. **On the server**, restore it as in *Backups*, with
+   `FILE=/opt/cfs/backups/cfs-20261101-090000.dump.gz`.
 
-   ```bash
-   bash /opt/cfs/docker/pi/cfs-backup.sh restore /opt/cfs/backups/cfs-20261101-090000.dump.gz
-   ```
-
-The app brings the database up to date as it starts. Coming from a Pi that still used PINs,
-everything goes into a territory called **Pittsburgh** (rename it under **Territories**), and each
-person signs in once more with their old PIN as the password and is then asked to choose one. For
-that, `ALLOW_LEGACY_PINS=false` mustn't be in `.env` yet; add it (and run `docker compose up -d`)
-once everyone has a password.
+Coming from a Pi that still used PINs, everything goes into a territory called **Pittsburgh**
+(rename it under **Territories**), and each person signs in once more with their old PIN as the
+password and is then asked to choose one. Once everyone has, set `ALLOW_LEGACY_PINS` back to
+`false` and redeploy.
 
 ## Updating
 
-Push to `Cloud-Support`. The workflow builds a new image and deploys it, with a backup first.
-Watch it under **Actions** → **Cloud deploy**; the new version shows in the profile menu.
+Push (or merge) to `Cloud-Support`. GitHub Actions builds a new image and has Coolify deploy it,
+with a backup first; follow it under **Actions** → **Cloud deploy** or on the resource's
+**Deployments** page in Coolify. The new version shows in the app's profile menu.
 
-To redeploy without building - after changing `.env`, say - run the workflow by hand and untick
-**Build a new image**. Or, on the droplet: `cd /opt/cfs && docker compose up -d`.
+To redeploy without building - after changing an environment variable, say - click **Redeploy** in
+Coolify, or run the workflow by hand with **Build a new image** unticked.
 
-**If an update goes wrong**: revert the change on GitHub (or `git revert` and push), and the
-workflow deploys the previous code. If the bad version changed the database, restore the backup
-the deploy took just before it (`... cfs-backup.sh list` shows when each was taken).
+### Rolling back
 
-## Day-to-day
+Every build is also kept under its version, e.g. `ghcr.io/llkirkwood9/cfs-fundraiser:cloud-2026.10.3`
+(the **Packages** page on GitHub lists them). To go back, set `CFS_IMAGE` to the previous version in
+Coolify and **Redeploy**. If the bad version changed the database, restore the backup taken just
+before it (its name ends `-deploy`). Fix the problem, push it, and set `CFS_IMAGE` back to
+`ghcr.io/llkirkwood9/cfs-fundraiser:cloud` - otherwise later deploys keep running the old version.
 
-Signed in as **deploy**, in `/opt/cfs`:
+### Coolify itself
 
-| | |
-| --- | --- |
-| Is everything up? | `docker compose ps` - all three running, the app `healthy` |
-| The app's log | `docker compose logs --tail 80 app` |
-| HTTPS and the certificate | `docker compose logs --tail 40 caddy` |
-| Restart everything | `docker compose restart` |
-| Memory and CPU now | `docker stats --no-stream` |
-| Free disk | `df -h /` and `docker system df` |
-
-The containers start again by themselves after a crash or a reboot.
+Coolify updates itself unless you turn that off in **Settings**; an update restarts its dashboard,
+not your app. If you'd rather choose the moment, turn auto-update off and update between events.
 
 ## Troubleshooting
 
 **The site doesn't load, or the browser warns about the certificate.** Check that
-`nslookup sales.example.com` gives the droplet's address and that `CFS_DOMAIN` in `.env` matches
-it exactly. Then read `docker compose logs caddy`: Caddy says why it couldn't get a certificate -
-usually DNS not pointing at the droplet yet, or ports 80 and 443 not open in the firewall. It keeps
-retrying on its own.
+`nslookup sales.example.com` gives the server's address and that the domain on the `app` service
+is exactly `https://sales.example.com:8080`. Ports 80 and 443 must be open in the firewall. The
+proxy's log says why a certificate failed: **Servers** → *localhost* → **Proxy** → **Logs**.
 
-**"502 Bad Gateway".** Caddy is up but the app isn't answering - normal for a minute after a start.
-If it lasts, read `docker compose logs --tail 80 app`.
+**"Bad Gateway" or "no available server".** The proxy can't reach the app - normal for a minute
+after a deploy. If it lasts, read the `app` service's log, and check its domain ends in `:8080`.
 
-**The deploy fails at "Copy the deployment files" or later SSH steps.** Check `DEPLOY_HOST`,
-`DEPLOY_USER`, and that the `.pub` half of `DEPLOY_SSH_KEY` is in
-`/home/deploy/.ssh/authorized_keys`. "Host key verification failed" means `DEPLOY_KNOWN_HOSTS` is
-wrong - or the droplet was rebuilt, in which case run `ssh-keyscan` again and update it.
+**"denied" or "unauthorized" when pulling the image.** The server's registry login is missing or
+the token has expired (Step 5a).
 
-**"denied" when pulling the image.** The workflow's token couldn't read the package. On GitHub,
-open the package (your profile → **Packages** → `cfs-fundraiser`) → **Package settings** →
-**Manage Actions access**, and make sure this repository is listed with **Read** access.
+**The workflow's deploy step fails with 401 or 403.** API access is off in Coolify, or the token
+doesn't have the Deploy permission (Step 6).
 
-**A password mismatch after changing `.env`.** PostgreSQL keeps the password from its first start.
-Put the old password back in `.env`.
+**The app keeps restarting.** Read its log in Coolify. A database password mismatch means
+`SERVICE_PASSWORD_POSTGRES` was changed after the first deploy - put the old value back.
+
+**Running out of disk.** Coolify can clean up old images: **Servers** → *localhost* → **Docker
+Cleanup**. `df -h /` on the server shows what's free.
 
 ---
 
 ## Security checklist
 
-- [ ] `/opt/cfs/.env` is `chmod 600`, and a copy is in your password manager.
-- [ ] The DigitalOcean firewall lets in only 22, 80 and 443.
-- [ ] SSH accepts keys only. Droplets created with an SSH key already refuse passwords; as root,
-      `sshd -T | grep passwordauthentication` should say `no`.
-- [ ] Droplet backups are on, the nightly database backup is set up, a copy is kept off the
-      droplet, and a restore has been tried.
-- [ ] `SEED_ADMIN_PASSWORD` is out of `.env` after the first sign-in.
-- [ ] `ALLOW_LEGACY_PINS=false` is in `.env` once nobody signs in with a PIN any more.
+- [ ] Coolify's admin account has a long password and two-factor authentication.
+- [ ] The firewall lets in only 22, 80 and 443 once Coolify is on its own domain.
+- [ ] SSH accepts keys only (droplets created with an SSH key already refuse passwords).
+- [ ] The Coolify API token has only **Deploy** and **Read**, and lives only in GitHub's secrets.
+- [ ] The registry token has only `read:packages`.
+- [ ] Droplet backups are on, a copy of the backups is kept off the server, and a restore has
+      been tried.
+- [ ] `SEED_ADMIN_PASSWORD` is cleared after the first sign-in.
+- [ ] `ALLOW_LEGACY_PINS` is `false`.
 - [ ] Everyone has their own account - no shared sign-ins - and people who leave are switched off
       on the Crew screen (that signs them out everywhere at once).
-- [ ] The deploy key is only in GitHub's secrets.
 
 ### What the app does itself
 
@@ -535,5 +521,5 @@ an httpOnly, SameSite=Strict cookie in the dashboard, the Keychain / Keystore in
 every request checked against the database, so a switched-off account or territory stops working
 at once; territory rules enforced by the API; security headers (Content-Security-Policy and the
 rest) and HSTS on every response; and errors that don't reveal anything about the server. Behind
-Caddy, the app believes the visitor's address and HTTPS only from Caddy, the one hop in front of
-it. See the README's *Security* section for the details.
+Coolify's proxy, the app believes the visitor's address and HTTPS only from that one hop. See the
+README's *Security* section for the details.

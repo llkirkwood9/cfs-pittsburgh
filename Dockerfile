@@ -1,7 +1,7 @@
 # CFS Fundraiser - the app (API + dashboard) in one image, talking to a PostgreSQL server in its
 # own container beside it (docker-compose.yml). The same image and the same two containers run on an
-# x86 PC or server, a Raspberry Pi and the cloud droplet, where Caddy adds HTTPS in front
-# (docker-compose.cloud.yml, Documents/Cloud Deployment.md). It runs as an unprivileged user and
+# x86 PC or server, a Raspberry Pi and the cloud server, where Coolify adds HTTPS in front
+# (docker-compose.coolify.yml, Documents/Cloud Deployment.md). It runs as an unprivileged user and
 # keeps nothing on its own disk.
 #
 #   docker compose up -d --build        (builds this image and starts it with PostgreSQL)

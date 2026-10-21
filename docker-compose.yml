@@ -1,6 +1,6 @@
 # CFS Fundraiser: the app in one container and PostgreSQL in another. The same file runs on an
-# x86 PC or server, on a Raspberry Pi, and - with docker-compose.cloud.yml adding HTTPS in front -
-# on the cloud droplet (Documents/Cloud Deployment.md).
+# x86 PC or server and on a Raspberry Pi. The cloud runs the same two containers through Coolify,
+# from docker-compose.coolify.yml (Documents/Cloud Deployment.md).
 #
 #   docker compose up -d --build        # build the app image here from source, then start
 #   docker compose pull && docker compose up -d     # or use the published image
@@ -59,7 +59,7 @@ services:
       Seed__Skip: "${SKIP_SEED_DATA:-false}"
       Seed__AdminPassword: "${SEED_ADMIN_PASSWORD:-}"
       # Browsers reach this box directly, so headers claiming another address or HTTPS are not
-      # believed. docker-compose.cloud.yml turns this on for the droplet, where Caddy sits in front.
+      # believed. docker-compose.coolify.yml turns this on, where Coolify's proxy sits in front.
       ForwardedHeaders__Enabled: "false"
       # Optional: email receipts and event reports. Leave EMAIL_HOST empty to keep email off.
       Email__Host: "${EMAIL_HOST:-}"

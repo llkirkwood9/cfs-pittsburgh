@@ -148,7 +148,7 @@ both ARM (the Pi) and x86:
 
 1. Push to the `Cloud-Support` branch. The **Cloud deploy** workflow starts automatically (you
    can also start it by hand under **Actions** → **Cloud deploy** → **Run workflow**). Its deploy
-   step is for the cloud droplet and is skipped until one is set up, so the Pi doesn't need it.
+   step is for the cloud server and does nothing until one is set up, so the Pi doesn't need it.
 2. Watch it on GitHub under **Actions** → **Cloud deploy**. The first run takes roughly 10-15
    minutes.
 3. When it finishes, the image exists at `ghcr.io/llkirkwood9/cfs-fundraiser:cloud`, and also
@@ -509,8 +509,8 @@ docker inspect --format '{{index .Config.Image}} {{.Created}}' cfs-app
 
 This runs plain HTTP on your local network, which is fine for a cart on an event Wi-Fi. Don't
 forward port 8080 through a router to the internet: there's no HTTPS. If you need it reachable
-from outside the venue, run it on the cloud droplet instead (*Cloud Deployment.md* - the same two
-containers, with HTTPS in front), or put the Pi behind a VPN.
+from outside the venue, run it in the cloud instead (*Cloud Deployment.md* - the same two
+containers, run by Coolify with HTTPS in front), or put the Pi behind a VPN.
 
 The app still guards itself: passwords of at least 8 characters, a 15-minute lockout after 5
 wrong ones, short-lived sign-ins kept only in the tablet's memory, and a session cookie the page
