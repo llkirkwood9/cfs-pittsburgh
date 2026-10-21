@@ -5,7 +5,7 @@
 #    versioned YYYY.MM.<build>, numbered from 1 each month, and tagged cloud-v<version>.
 # 2. deploy: copies the deployment files to /opt/cfs on the droplet over SSH, signs it in to the
 #    registry for the pull, and runs docker/cloud/cfs-deploy.sh there (backup, pull, restart, wait
-#    for healthy). Skipped until the DEPLOY_HOST variable is set.
+#    for healthy). Skipped until the DEPLOY_HOST variable is set. 
 #
 # Runs on every push to Cloud-Support that touches the app or its deployment files, and by hand
 # from the Actions tab - where "Build a new image" can be unticked to redeploy the current one.
