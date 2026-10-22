@@ -134,7 +134,10 @@ const TerritoryComparison = ({ pollMs, refreshKey = 0 }: Props) => {
                                 <Text className="min-w-0 flex-1 font-semibold text-sky-700 dark:text-sky-400">
                                     {row.territoryName}
                                     {row.isActive === false && (
-                                        <Text className="text-xs font-normal text-zinc-500"> (off)</Text>
+                                        <Text className="text-xs font-normal text-zinc-500">
+                                            {" "}
+                                            (off)
+                                        </Text>
                                     )}
                                 </Text>
                                 <Text className="font-semibold tabular-nums">
@@ -160,18 +163,17 @@ const TerritoryComparison = ({ pollMs, refreshKey = 0 }: Props) => {
                                     <Text className={meta}>No active event</Text>
                                 )}
                                 <Text className={meta}>
-                                    {row.completedOrderCount ?? 0} sale{row.completedOrderCount === 1 ? "" : "s"}
+                                    {row.completedOrderCount ?? 0} sale
+                                    {row.completedOrderCount === 1 ? "" : "s"}
                                 </Text>
                                 <Text className={meta}>net {FormatCurrency(row.netSales)}</Text>
-                                <Text className={meta}>average {FormatCurrency(row.averageSale)}</Text>
                                 <Text className={meta}>
-                                    {row.mattressCount ?? 0} matts / {row.adjustableBaseCount ?? 0} bases
+                                    average {FormatCurrency(row.averageSale)}
                                 </Text>
-                                {(row.outstandingBalance ?? 0) > 0 && (
-                                    <Text className="text-xs font-semibold text-amber-700 dark:text-amber-400">
-                                        {FormatCurrency(row.outstandingBalance)} owed
-                                    </Text>
-                                )}
+                                <Text className={meta}>
+                                    {row.mattressCount ?? 0} matts / {row.adjustableBaseCount ?? 0}{" "}
+                                    bases
+                                </Text>
                             </View>
                         </Pressable>
                     ))}
@@ -180,7 +182,9 @@ const TerritoryComparison = ({ pollMs, refreshKey = 0 }: Props) => {
                         <View className="gap-0.5 border-t-2 border-zinc-200 px-2 pt-3 dark:border-zinc-600">
                             <View className="flex-row items-center justify-between gap-3">
                                 <Text className="font-bold">All territories</Text>
-                                <Text className="font-bold tabular-nums">{FormatCurrency(totals.total)}</Text>
+                                <Text className="font-bold tabular-nums">
+                                    {FormatCurrency(totals.total)}
+                                </Text>
                             </View>
                             <Text className={meta}>
                                 {totals.orders} sale{totals.orders === 1 ? "" : "s"} · net{" "}

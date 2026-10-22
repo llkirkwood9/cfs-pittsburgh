@@ -17,11 +17,12 @@ type Props = {
 /**
  * Admin-only: send an order back to the checkout table (to fix a payment) or the sales floor (to
  * change what was sold). A completed sale leaves the day's totals until it is completed again;
- * its recorded payments stay on it.
+ * its recorded payments stay on it. A voided order comes back the same way, to be finished again.
  */
 const ReopenOrderModal = ({ order, onReopen, onClose }: Props) => {
     const [working, setWorking] = useState<"floor" | "checkout" | null>(null);
     const completed = order.status === "Completed";
+    const voided = order.status === "Voided";
 
     const reopen = async (to: "floor" | "checkout") => {
         setWorking(to);
@@ -56,7 +57,9 @@ const ReopenOrderModal = ({ order, onReopen, onClose }: Props) => {
         <Modal
             title={`Reopen order #${order.orderNumber}`}
             onClose={onClose}
-            footer={<Button text="Cancel" onClick={onClose} className="bg-zinc-500 dark:bg-zinc-600" />}
+            footer={
+                <Button text="Cancel" onClick={onClose} className="bg-zinc-500 dark:bg-zinc-600" />
+            }
         >
             <Text className="mb-4 text-sm text-zinc-600 dark:text-zinc-400">
                 {order.billingName || "No name"} · {FormatCurrency(order.total)}
@@ -70,6 +73,19 @@ const ReopenOrderModal = ({ order, onReopen, onClose }: Props) => {
                     />
                     <Text className="flex-1 text-sm text-amber-800 dark:text-amber-300">
                         It leaves the event&apos;s totals until it is completed again.
+                    </Text>
+                </View>
+            )}
+
+            {voided && (
+                <View className="mb-4 flex-row gap-2 rounded-lg bg-sky-50 px-3 py-2 dark:bg-sky-950/40">
+                    <Icon
+                        icon="fa-solid fa-circle-info"
+                        className="mt-0.5 text-sm text-sky-800 dark:text-sky-300"
+                    />
+                    <Text className="flex-1 text-sm text-sky-800 dark:text-sky-300">
+                        It is no longer void, and counts in the event&apos;s totals once it is
+                        completed.
                     </Text>
                 </View>
             )}

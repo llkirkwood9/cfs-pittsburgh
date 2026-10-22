@@ -86,8 +86,7 @@ namespace api.Controllers
                 static List<Order> Completed(IEnumerable<Order> list) =>
                     list.Where(o => o.Status == OrderStatus.Completed).ToList();
 
-                // Every item sold, ranked, rather than an event's top 15.
-                var stats = Build(Completed(orders), orders, topProducts: null);
+                var stats = Build(Completed(orders), orders);
                 stats.Events = events
                     .OrderByDescending(e => e.EventDate)
                     .ThenByDescending(e => e.Id)
@@ -226,13 +225,12 @@ namespace api.Controllers
         /// <param name="orders">The orders to report on, with their lines</param>
         /// <param name="territories">The territories in view, whose products are listed; null for
         /// every territory's</param>
-        /// <param name="count">How many to list</param>
-        /// <returns>The worst sellers.</returns>
+        /// <returns>Every product, worst sellers first. The dashboard filters by category and
+        /// shows the top of the list.</returns>
         private static async Task<List<ProductTallyDto>> WorstSellersAsync(
             ApplicationDbContext db,
             List<Order> orders,
-            List<int>? territories,
-            int count = 10)
+            List<int>? territories)
         {
             var products = await db.Products
                 .AsNoTracking()
@@ -266,7 +264,6 @@ namespace api.Controllers
                 .ThenBy(p => p.Revenue)
                 .ThenBy(p => p.Brand)
                 .ThenBy(p => p.Description)
-                .Take(count)
                 .ToList();
         }
 
@@ -291,9 +288,8 @@ namespace api.Controllers
         /// </summary>
         /// <param name="completed">Completed orders, with lines (and payments, for the payment totals)</param>
         /// <param name="orders">Every order in range, for the work-in-progress counts</param>
-        /// <param name="topProducts">How many best sellers to list; null lists every item sold</param>
         /// <returns>The computed stat sheet.</returns>
-        private static DashboardStatsDto Build(List<Order> completed, List<Order> orders, int? topProducts = 15)
+        private static DashboardStatsDto Build(List<Order> completed, List<Order> orders)
         {
             var lines = completed.SelectMany(o => o.Lines).ToList();
             var payments = completed.SelectMany(o => o.Payments).ToList();
@@ -388,7 +384,6 @@ namespace api.Controllers
                     })
                     .OrderByDescending(p => p.Quantity)
                     .ThenByDescending(p => p.Revenue)
-                    .Take(topProducts ?? int.MaxValue)
                     .ToList(),
 
                 RepTotals = completed

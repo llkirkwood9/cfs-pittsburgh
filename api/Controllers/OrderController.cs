@@ -480,8 +480,8 @@ namespace api.Controllers
         /// <summary>
         /// Sends an order back to the checkout table or the sales floor. Checkout uses this when it
         /// spots something wrong; a manager or above can also use it on a completed sale, which takes
-        /// it out of the day's totals until it is completed again. Payments already recorded stay
-        /// on the order.
+        /// it out of the day's totals until it is completed again, or on a voided order, to bring it
+        /// back. Payments already recorded stay on the order.
         /// </summary>
         /// <param name="id">Order id</param>
         /// <param name="to">"floor" (the default) or "checkout"</param>
@@ -496,9 +496,6 @@ namespace api.Controllers
                 if (order == null)
                     return NotFound(new { error = "Order not found." });
 
-                if (order.Status == OrderStatus.Voided)
-                    return BadRequest(new { error = "This order has been voided." });
-
                 var target = string.IsNullOrWhiteSpace(to) || to.Equals("floor", StringComparison.OrdinalIgnoreCase)
                     ? OrderStatus.Draft
                     : to.Equals("checkout", StringComparison.OrdinalIgnoreCase)
@@ -510,6 +507,19 @@ namespace api.Controllers
 
                 if (order.Status == OrderStatus.Completed && !IsAtLeast(UserRole.Manager))
                     return Forbidden("Only a manager, administrator or system admin may reopen a completed sale.");
+
+                if (order.Status == OrderStatus.Voided && !IsAtLeast(UserRole.Manager))
+                    return Forbidden("Only a manager, administrator or system admin may reopen a voided order.");
+
+                // The checkout table needs the same as when a rep sends it over.
+                if (order.Status == OrderStatus.Voided && target == OrderStatus.AwaitingCheckout)
+                {
+                    if (order.Lines.Count == 0)
+                        return BadRequest(new { error = "This order has no items. Send it to the sales floor instead." });
+
+                    if (string.IsNullOrWhiteSpace(order.BillingFirstName) || string.IsNullOrWhiteSpace(order.BillingLastName))
+                        return BadRequest(new { error = "This order has no customer name. Send it to the sales floor instead." });
+                }
 
                 if (order.Status == target)
                     return BadRequest(new { error = target == OrderStatus.Draft
@@ -540,7 +550,9 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// Voids an order. The row is kept for the audit trail but drops out of every total.
+        /// Voids an order. The row is kept for the audit trail but drops out of every total. The
+        /// checkout table may void an order waiting there; anything on the sales floor or already
+        /// completed takes a manager or above.
         /// </summary>
         /// <param name="id">Order id</param>
         /// <returns>The voided order.</returns>
@@ -553,6 +565,12 @@ namespace api.Controllers
                 var order = await LoadOrderAsync(id);
                 if (order == null)
                     return NotFound(new { error = "Order not found." });
+
+                if (order.Status == OrderStatus.Voided)
+                    return BadRequest(new { error = "This order has already been voided." });
+
+                if (order.Status != OrderStatus.AwaitingCheckout && !IsAtLeast(UserRole.Manager))
+                    return Forbidden("Only a manager, administrator or system admin may void this order.");
 
                 if (order.Status == OrderStatus.Completed)
                     await InventoryRules.RestoreForOrderAsync(DB, order, order.Event!.TerritoryId, GetCurrentUserId(), GetCurrentUserName(), "voided");

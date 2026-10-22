@@ -34,6 +34,7 @@ import {
     GetAllOrders,
     GetOrdersForEvent,
     ReopenOrder,
+    VoidOrder,
 } from "../Services/OrderServices";
 
 type Scope = { kind: "event"; eventId: number } | { kind: "all" };
@@ -44,7 +45,10 @@ const statusStyles: Record<OrderStatus, { box: string; text: string }> = {
         box: "bg-amber-100 dark:bg-amber-900/50",
         text: "text-amber-800 dark:text-amber-300",
     },
-    Completed: { box: "bg-green-100 dark:bg-green-900/50", text: "text-green-800 dark:text-green-300" },
+    Completed: {
+        box: "bg-green-100 dark:bg-green-900/50",
+        text: "text-green-800 dark:text-green-300",
+    },
     Voided: { box: "bg-red-100 dark:bg-red-900/50", text: "text-red-800 dark:text-red-300" },
 };
 
@@ -94,6 +98,7 @@ const OrdersPage = () => {
     const [loading, setLoading] = useState<boolean>(true);
     const [refreshing, setRefreshing] = useState<boolean>(false);
     const [reopening, setReopening] = useState<OrderSummary | null>(null);
+    const [voiding, setVoiding] = useState<OrderSummary | null>(null);
 
     const load = useCallback(async (target: Scope, status: OrderStatus | "All", term: string) => {
         const rows =
@@ -213,6 +218,18 @@ const OrdersPage = () => {
         await runSearch();
     };
 
+    const handleVoid = async () => {
+        if (!voiding?.id) return;
+
+        const id = voiding.id;
+        setVoiding(null);
+        const result = await VoidOrder(id);
+        if (!result) return;
+
+        Toast.Info(`Order #${result.orderNumber} voided.`);
+        await runSearch();
+    };
+
     const header = (
         <View>
             <View className="mb-3 flex-row flex-wrap items-center justify-between gap-2">
@@ -250,7 +267,9 @@ const OrdersPage = () => {
                             subtext={showTerritory ? (event.territoryName ?? undefined) : undefined}
                             tag={IsPastEvent(event) ? "Past" : undefined}
                             active={scope?.kind === "event" && scope.eventId === event.id}
-                            onClick={() => event.id && switchScope({ kind: "event", eventId: event.id })}
+                            onClick={() =>
+                                event.id && switchScope({ kind: "event", eventId: event.id })
+                            }
                         />
                     ))}
                 </ScrollView>
@@ -282,12 +301,19 @@ const OrdersPage = () => {
                     className="flex-1"
                     autoCapitalize="none"
                 />
-                <Button icon="fa-solid fa-magnifying-glass" title="Search" onClick={runSearch} className="px-5" />
+                <Button
+                    icon="fa-solid fa-magnifying-glass"
+                    title="Search"
+                    onClick={runSearch}
+                    className="px-5"
+                />
             </View>
 
             {loading && <ListSkeleton rows={6} />}
             {!loading && scope && orders.length > 0 && (
-                <Text className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">{Summary(orders)}</Text>
+                <Text className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">
+                    {Summary(orders)}
+                </Text>
             )}
             {!loading && !scope && (
                 <View className="items-center rounded-xl border-2 border-dashed border-zinc-300 py-14 dark:border-zinc-700">
@@ -310,11 +336,23 @@ const OrdersPage = () => {
         </View>
     );
 
-    // Tap an order to see its sales sheet; Reopen and Delete are a swipe away.
+    // Tap an order to see its sales sheet; Void, Reopen and Delete are a swipe away.
     const renderOrder = ({ item: order }: { item: OrderSummary }) => {
         const style = statusStyles[order.status ?? "Draft"];
         const actions: SwipeAction[] = [];
-        if (isManager && (order.status === "Completed" || order.status === "AwaitingCheckout"))
+        if (isManager && (order.status === "Draft" || order.status === "AwaitingCheckout"))
+            actions.push({
+                label: "Void",
+                icon: "fa-solid fa-ban",
+                tone: "danger",
+                onPress: () => setVoiding(order),
+            });
+        if (
+            isManager &&
+            (order.status === "Completed" ||
+                order.status === "AwaitingCheckout" ||
+                order.status === "Voided")
+        )
             actions.push({
                 label: "Reopen",
                 icon: "fa-solid fa-arrow-rotate-left",
@@ -392,7 +430,9 @@ const OrdersPage = () => {
                 ListHeaderComponent={header}
                 contentContainerClassName="mx-auto w-full max-w-screen-2xl p-3 pb-28 sm:p-4"
                 keyboardShouldPersistTaps="handled"
-                refreshControl={<RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />}
+                refreshControl={
+                    <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
+                }
             />
 
             {removing && (
@@ -413,6 +453,23 @@ const OrdersPage = () => {
                         }
                     }}
                     onCancel={() => setRemoving(null)}
+                />
+            )}
+
+            {voiding && (
+                <ConfirmationModal
+                    title="Void order"
+                    message={`Void order #${voiding.orderNumber}${
+                        voiding.billingName ? ` for ${voiding.billingName}` : ""
+                    }? It ${
+                        voiding.status === "Draft"
+                            ? "comes off the sales floor"
+                            : "leaves the checkout queue"
+                    } and stays on file for the audit trail. It can be reopened later.`}
+                    confirmText="Void"
+                    destructive
+                    onConfirm={handleVoid}
+                    onCancel={() => setVoiding(null)}
                 />
             )}
 

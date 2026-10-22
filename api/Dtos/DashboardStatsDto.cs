@@ -180,14 +180,14 @@ namespace api.Dtos
         public List<SaleMomentDto>? Sales { get; set; }
 
         /// <summary>
-        /// Units sold per product, best sellers first: the top 15 for an event, every item sold
-        /// for the overview of every event
+        /// Units sold per product, best sellers first: every item sold. The dashboard filters by
+        /// category and shows the top of the list.
         /// </summary>
         public List<ProductTallyDto>? TopProducts { get; set; }
 
         /// <summary>
-        /// The catalog's products that have sold the fewest units, fewest first, including any
-        /// never sold. Only filled in for the overview of every event.
+        /// Every product in the catalog by units sold, fewest first, including any never sold.
+        /// Only filled in for the overview of every event.
         /// </summary>
         public List<ProductTallyDto>? WorstProducts { get; set; }
 

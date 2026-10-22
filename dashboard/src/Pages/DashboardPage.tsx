@@ -12,59 +12,99 @@ import StatCard from "../Components/Elements/StatCard";
 import TabButton from "../Components/Elements/TabButton";
 import { useAuth } from "../Context/AuthContext";
 import { useTerritory } from "../Context/TerritoryContext";
-import { EventsForFilter, FormatCurrency, IsPastEvent } from "../Lib/ModelHelpers";
+import { CategoryNames, EventsForFilter, FormatCurrency, IsPastEvent } from "../Lib/ModelHelpers";
 import { IsOnline } from "../Lib/Connection";
 import type { DashboardStats, ProductTally } from "../Models/DashboardStats";
 import type { Event } from "../Models/Event";
+import type { ProductCategory } from "../Models/Product";
 import { GetStatsForAllEvents, GetStatsForEvent } from "../Services/DashboardServices";
 import { GetActiveEvent, GetEvents } from "../Services/EventServices";
 
 /** How often the figures refresh while the page is open. */
 const POLL_MS = 15000;
 
-/** A titled list of products with the units each sold, in the order given. */
+/** How many best sellers an event lists; the overview of every event lists every item sold. */
+const BEST_SELLERS = 15;
+
+/** How many worst sellers the overview of every event lists. */
+const WORST_SELLERS = 20;
+
+/**
+ * A titled list of products with the units each sold, in the order given, narrowed to one
+ * category if picked and cut to the first few.
+ */
 const ProductRanking = ({
     title,
     products,
     empty,
+    limit,
 }: {
     title: string;
     products: ProductTally[];
     empty: string;
-}) => (
-    <section className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
-        <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-            {title}
-        </h2>
-        {products.length === 0 ? (
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">{empty}</p>
-        ) : (
-            <ul className="space-y-1">
-                {products.map((product, index) => (
-                    <li
-                        key={`${product.description}-${index}`}
-                        className="flex items-center gap-3 rounded-lg px-2 py-1.5 odd:bg-zinc-50 dark:odd:bg-zinc-700/40"
-                    >
-                        <span className="w-8 shrink-0 text-center text-lg font-bold tabular-nums text-sky-700 dark:text-sky-400">
-                            {product.quantity}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                            <span className="line-clamp-2 block text-sm font-medium">
-                                {product.description}
+    /** How many to show; leave out to show them all. */
+    limit?: number;
+}) => {
+    const [category, setCategory] = useState<ProductCategory | "All">("All");
+    const shown = products
+        .filter((p) => category === "All" || p.category === category)
+        .slice(0, limit);
+
+    return (
+        <section className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h2 className="text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                    {title}
+                </h2>
+                <select
+                    value={category}
+                    onChange={(e) => setCategory(e.target.value as ProductCategory | "All")}
+                    aria-label={`${title} category`}
+                    className="min-h-[36px] rounded-lg border border-zinc-300 bg-white px-2 text-sm
+                    dark:border-zinc-600 dark:bg-zinc-800 dark:scheme-dark"
+                >
+                    <option value="All">All categories</option>
+                    {(Object.keys(CategoryNames) as ProductCategory[]).map((c) => (
+                        <option key={c} value={c}>
+                            {CategoryNames[c]}
+                        </option>
+                    ))}
+                </select>
+            </div>
+            {shown.length === 0 ? (
+                <p className="text-sm text-zinc-500 dark:text-zinc-400">
+                    {category === "All"
+                        ? empty
+                        : `No ${CategoryNames[category].toLowerCase()} yet.`}
+                </p>
+            ) : (
+                <ul className="space-y-1">
+                    {shown.map((product, index) => (
+                        <li
+                            key={`${product.description}-${index}`}
+                            className="flex items-center gap-3 rounded-lg px-2 py-1.5 odd:bg-zinc-50 dark:odd:bg-zinc-700/40"
+                        >
+                            <span className="w-8 shrink-0 text-center text-lg font-bold tabular-nums text-sky-700 dark:text-sky-400">
+                                {product.quantity}
                             </span>
-                            <span className="block text-xs text-zinc-500 dark:text-zinc-400">
-                                {product.brand}
+                            <span className="min-w-0 flex-1">
+                                <span className="line-clamp-2 block text-sm font-medium">
+                                    {product.description}
+                                </span>
+                                <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                                    {product.brand}
+                                </span>
                             </span>
-                        </span>
-                        <span className="shrink-0 text-sm font-semibold tabular-nums">
-                            {FormatCurrency(product.revenue)}
-                        </span>
-                    </li>
-                ))}
-            </ul>
-        )}
-    </section>
-);
+                            <span className="shrink-0 text-sm font-semibold tabular-nums">
+                                {FormatCurrency(product.revenue)}
+                            </span>
+                        </li>
+                    ))}
+                </ul>
+            )}
+        </section>
+    );
+};
 
 /**
  * The event's stat sheet, live, or an overview of every event with each one's figures side by
@@ -90,7 +130,11 @@ const DashboardPage = () => {
      */
     const show = useCallback(async (nextScope: "event" | "all", id: number | null) => {
         const result =
-            nextScope === "all" ? await GetStatsForAllEvents() : id ? await GetStatsForEvent(id) : null;
+            nextScope === "all"
+                ? await GetStatsForAllEvents()
+                : id
+                  ? await GetStatsForEvent(id)
+                  : null;
         // Keep the last figures up while the server cannot be reached, rather than showing zeros.
         if (!result && !IsOnline()) return;
         setScope(nextScope);
@@ -329,12 +373,14 @@ const DashboardPage = () => {
                     title="Best sellers"
                     products={stats?.topProducts ?? []}
                     empty="No sales yet."
+                    limit={scope === "event" ? BEST_SELLERS : undefined}
                 />
                 {scope === "all" && (
                     <ProductRanking
                         title="Worst sellers"
                         products={stats?.worstProducts ?? []}
                         empty="No products yet."
+                        limit={WORST_SELLERS}
                     />
                 )}
             </div>

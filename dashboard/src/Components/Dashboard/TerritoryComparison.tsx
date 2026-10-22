@@ -117,8 +117,7 @@ const TerritoryComparison = ({ pollMs }: Props) => {
                                 <th className="py-2 pr-3 text-right">Sales</th>
                                 <th className="py-2 pr-3 text-right">Net</th>
                                 <th className="py-2 pr-3 text-right">Average</th>
-                                <th className="py-2 pr-3 text-right">Matts / bases</th>
-                                <th className="py-2 text-right">Owed</th>
+                                <th className="py-2 text-right">Matts / bases</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -179,17 +178,8 @@ const TerritoryComparison = ({ pollMs }: Props) => {
                                     <td className="py-2 pr-3 text-right tabular-nums">
                                         {FormatCurrency(row.averageSale)}
                                     </td>
-                                    <td className="py-2 pr-3 text-right tabular-nums">
+                                    <td className="py-2 text-right tabular-nums">
                                         {row.mattressCount ?? 0} / {row.adjustableBaseCount ?? 0}
-                                    </td>
-                                    <td
-                                        className={`py-2 text-right tabular-nums ${
-                                            (row.outstandingBalance ?? 0) > 0
-                                                ? "font-semibold text-amber-700 dark:text-amber-400"
-                                                : ""
-                                        }`}
-                                    >
-                                        {FormatCurrency(row.outstandingBalance)}
                                     </td>
                                 </tr>
                             ))}
@@ -212,10 +202,9 @@ const TerritoryComparison = ({ pollMs }: Props) => {
                                             totals.orders ? totals.total / totals.orders : 0
                                         )}
                                     </td>
-                                    <td className="py-2 pr-3 text-right tabular-nums">
+                                    <td className="py-2 text-right tabular-nums">
                                         {totals.mattresses} / {totals.bases}
                                     </td>
-                                    <td className="py-2" />
                                 </tr>
                             </tfoot>
                         )}

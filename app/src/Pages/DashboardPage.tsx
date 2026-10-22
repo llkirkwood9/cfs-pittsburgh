@@ -10,6 +10,7 @@ import Grid, { Cell } from "../Components/Elements/Grid";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Page from "../Components/Elements/Page";
+import SelectField from "../Components/Elements/SelectField";
 import StatCard from "../Components/Elements/StatCard";
 import TabButton from "../Components/Elements/TabButton";
 import Text from "../Components/Elements/Text";
@@ -19,14 +20,21 @@ import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
 import { IsOnline } from "../Lib/Connection";
-import { EventsForFilter, FormatCurrency, IsPastEvent } from "../Lib/ModelHelpers";
+import { CategoryNames, EventsForFilter, FormatCurrency, IsPastEvent } from "../Lib/ModelHelpers";
 import type { DashboardStats, ProductTally } from "../Models/DashboardStats";
 import type { Event } from "../Models/Event";
+import type { ProductCategory } from "../Models/Product";
 import { GetStatsForAllEvents, GetStatsForEvent } from "../Services/DashboardServices";
 import { GetActiveEvent, GetEvents } from "../Services/EventServices";
 
 /** How often the figures refresh while the page is open. */
 const POLL_MS = 15000;
+
+/** How many best sellers an event lists; the overview of every event lists every item sold. */
+const BEST_SELLERS = 15;
+
+/** How many worst sellers the overview of every event lists. */
+const WORST_SELLERS = 20;
 
 /** A section card with an uppercase heading. */
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -38,36 +46,76 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
     </View>
 );
 
-/** Products with the units each sold, in the order given. */
-const ProductRanking = ({ products, empty }: { products: ProductTally[]; empty: string }) =>
-    products.length === 0 ? (
-        <Text className="text-sm text-zinc-500 dark:text-zinc-400">{empty}</Text>
-    ) : (
-        <View className="gap-1">
-            {products.map((product, index) => (
-                <View
-                    key={`${product.description}-${index}`}
-                    className={cx(
-                        "flex-row items-center gap-3 rounded-lg px-2 py-1.5",
-                        index % 2 === 0 && "bg-zinc-50 dark:bg-zinc-700/40"
-                    )}
-                >
-                    <Text className="w-8 text-center text-lg font-bold tabular-nums text-sky-700 dark:text-sky-400">
-                        {product.quantity}
-                    </Text>
-                    <View className="min-w-0 flex-1">
-                        <Text className="text-sm font-medium" numberOfLines={2}>
-                            {product.description}
-                        </Text>
-                        <Text className="text-xs text-zinc-500 dark:text-zinc-400">{product.brand}</Text>
-                    </View>
-                    <Text className="text-sm font-semibold tabular-nums">
-                        {FormatCurrency(product.revenue)}
-                    </Text>
+/**
+ * Products with the units each sold, in the order given, narrowed to one category if picked and
+ * cut to the first few.
+ */
+const ProductRanking = ({
+    products,
+    empty,
+    limit,
+}: {
+    products: ProductTally[];
+    empty: string;
+    /** How many to show; leave out to show them all. */
+    limit?: number;
+}) => {
+    const [category, setCategory] = useState<ProductCategory | "All">("All");
+    const shown = products
+        .filter((p) => category === "All" || p.category === category)
+        .slice(0, limit);
+
+    return (
+        <View className="gap-3">
+            <SelectField<ProductCategory | "All">
+                label="Category"
+                value={category}
+                onChange={setCategory}
+                options={[
+                    { value: "All", label: "All categories" },
+                    ...(Object.keys(CategoryNames) as ProductCategory[]).map((c) => ({
+                        value: c,
+                        label: CategoryNames[c],
+                    })),
+                ]}
+            />
+            {shown.length === 0 ? (
+                <Text className="text-sm text-zinc-500 dark:text-zinc-400">
+                    {category === "All"
+                        ? empty
+                        : `No ${CategoryNames[category].toLowerCase()} yet.`}
+                </Text>
+            ) : (
+                <View className="gap-1">
+                    {shown.map((product, index) => (
+                        <View
+                            key={`${product.description}-${index}`}
+                            className={cx(
+                                "flex-row items-center gap-3 rounded-lg px-2 py-1.5",
+                                index % 2 === 0 && "bg-zinc-50 dark:bg-zinc-700/40"
+                            )}
+                        >
+                            <Text className="w-8 text-center text-lg font-bold text-sky-700 tabular-nums dark:text-sky-400">
+                                {product.quantity}
+                            </Text>
+                            <View className="min-w-0 flex-1">
+                                <Text className="text-sm font-medium" numberOfLines={2}>
+                                    {product.description}
+                                </Text>
+                                <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+                                    {product.brand}
+                                </Text>
+                            </View>
+                            <Text className="text-sm font-semibold tabular-nums">
+                                {FormatCurrency(product.revenue)}
+                            </Text>
+                        </View>
+                    ))}
                 </View>
-            ))}
+            )}
         </View>
     );
+};
 
 /**
  * The event's stat sheet, live, or an overview of every event with each one's figures side by
@@ -134,7 +182,9 @@ const DashboardPage = () => {
         load("event").finally(() => setLoading(false));
     }, [load]);
 
-    const checkActiveEvent = useActiveEventChange(loading ? undefined : activeId, () => load(scope));
+    const checkActiveEvent = useActiveEventChange(loading ? undefined : activeId, () =>
+        load(scope)
+    );
 
     useEffect(() => {
         const timer = setInterval(() => show(scope, eventId), POLL_MS);
@@ -172,10 +222,18 @@ const DashboardPage = () => {
 
     const units: { label: string; value: number; icon: string }[] = [
         { label: "Mattresses", value: stats?.mattressCount ?? 0, icon: "fa-solid fa-bed" },
-        { label: "Adjustable bases", value: stats?.adjustableBaseCount ?? 0, icon: "fa-solid fa-sliders" },
+        {
+            label: "Adjustable bases",
+            value: stats?.adjustableBaseCount ?? 0,
+            icon: "fa-solid fa-sliders",
+        },
         { label: "Purple", value: stats?.purpleCount ?? 0, icon: "fa-solid fa-star" },
         { label: "Helix", value: stats?.helixCount ?? 0, icon: "fa-solid fa-star" },
-        { label: "Protectors", value: stats?.mattressProtectorCount ?? 0, icon: "fa-solid fa-shield" },
+        {
+            label: "Protectors",
+            value: stats?.mattressProtectorCount ?? 0,
+            icon: "fa-solid fa-shield",
+        },
         { label: "Pillows", value: stats?.pillowCount ?? 0, icon: "fa-solid fa-cloud" },
         { label: "Sheets", value: stats?.sheetCount ?? 0, icon: "fa-solid fa-layer-group" },
         { label: "Frames", value: stats?.frameCount ?? 0, icon: "fa-solid fa-border-all" },
@@ -238,7 +296,11 @@ const DashboardPage = () => {
                     label="Net sales"
                     value={FormatCurrency(stats?.netSales)}
                     // Milestone stars are an event's goal; they mean nothing summed across events.
-                    badge={scope === "event" && stats?.eventId ? <SalesStars net={stats?.netSales ?? 0} /> : undefined}
+                    badge={
+                        scope === "event" && stats?.eventId ? (
+                            <SalesStars net={stats?.netSales ?? 0} />
+                        ) : undefined
+                    }
                     sublabel="Product revenue before tax"
                     icon="fa-solid fa-receipt"
                     accent="sky"
@@ -268,8 +330,13 @@ const DashboardPage = () => {
                                     key={unit.label}
                                     className="items-center rounded-lg bg-zinc-100 p-3 dark:bg-zinc-700"
                                 >
-                                    <Icon icon={unit.icon} className="text-sm text-zinc-500 dark:text-zinc-400" />
-                                    <Text className="mt-1 text-2xl font-bold tabular-nums">{unit.value}</Text>
+                                    <Icon
+                                        icon={unit.icon}
+                                        className="text-sm text-zinc-500 dark:text-zinc-400"
+                                    />
+                                    <Text className="mt-1 text-2xl font-bold tabular-nums">
+                                        {unit.value}
+                                    </Text>
                                     <Text className="text-center text-[11px] text-zinc-500 dark:text-zinc-400">
                                         {unit.label}
                                     </Text>
@@ -282,9 +349,16 @@ const DashboardPage = () => {
                 <Section title="Taken by">
                     <View className="gap-2">
                         {payments.map((row) => (
-                            <View key={row.label} className="flex-row items-baseline justify-between gap-4">
-                                <Text className="text-sm text-zinc-600 dark:text-zinc-400">{row.label}</Text>
-                                <Text className="font-semibold tabular-nums">{FormatCurrency(row.value)}</Text>
+                            <View
+                                key={row.label}
+                                className="flex-row items-baseline justify-between gap-4"
+                            >
+                                <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                                    {row.label}
+                                </Text>
+                                <Text className="font-semibold tabular-nums">
+                                    {FormatCurrency(row.value)}
+                                </Text>
                             </View>
                         ))}
                         {(stats?.outstandingBalance ?? 0) > 0 && (
@@ -292,7 +366,7 @@ const DashboardPage = () => {
                                 <Text className="text-sm font-semibold text-amber-700 dark:text-amber-400">
                                     Outstanding balance
                                 </Text>
-                                <Text className="font-bold tabular-nums text-amber-700 dark:text-amber-400">
+                                <Text className="font-bold text-amber-700 tabular-nums dark:text-amber-400">
                                     {FormatCurrency(stats?.outstandingBalance)}
                                 </Text>
                             </View>
@@ -301,7 +375,9 @@ const DashboardPage = () => {
 
                     <View className="mt-4 flex-row flex-wrap gap-2 border-t border-zinc-200 pt-3 dark:border-zinc-700">
                         <View className="rounded-full bg-zinc-100 px-2 py-1 dark:bg-zinc-700">
-                            <Text className="text-xs">{stats?.draftOrderCount ?? 0} on the floor</Text>
+                            <Text className="text-xs">
+                                {stats?.draftOrderCount ?? 0} on the floor
+                            </Text>
                         </View>
                         <View className="rounded-full bg-amber-100 px-2 py-1 dark:bg-amber-900/50">
                             <Text className="text-xs text-amber-800 dark:text-amber-300">
@@ -337,13 +413,21 @@ const DashboardPage = () => {
             )}
 
             <Section title="Best sellers">
-                <ProductRanking products={stats?.topProducts ?? []} empty="No sales yet." />
+                <ProductRanking
+                    products={stats?.topProducts ?? []}
+                    empty="No sales yet."
+                    limit={scope === "event" ? BEST_SELLERS : undefined}
+                />
             </Section>
 
             {scope === "all" && (
                 <View className="mt-4">
                     <Section title="Worst sellers">
-                        <ProductRanking products={stats?.worstProducts ?? []} empty="No products yet." />
+                        <ProductRanking
+                            products={stats?.worstProducts ?? []}
+                            empty="No products yet."
+                            limit={WORST_SELLERS}
+                        />
                     </Section>
                 </View>
             )}

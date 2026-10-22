@@ -26,6 +26,7 @@ import {
     GetAllOrders,
     GetOrdersForEvent,
     ReopenOrder,
+    VoidOrder,
 } from "../Services/OrderServices";
 
 type Scope = { kind: "event"; eventId: number } | { kind: "all" };
@@ -83,6 +84,7 @@ const OrdersPage = () => {
     const [search, setSearch] = useState<string>("");
     const [loading, setLoading] = useState<boolean>(true);
     const [reopening, setReopening] = useState<OrderSummary | null>(null);
+    const [voiding, setVoiding] = useState<OrderSummary | null>(null);
 
     const load = useCallback(async (target: Scope, status: OrderStatus | "All", term: string) => {
         setLoading(true);
@@ -176,6 +178,18 @@ const OrdersPage = () => {
         Toast.Success(
             `Order #${result.orderNumber} sent ${to === "checkout" ? "to checkout" : "to the sales floor"}.`
         );
+        await runSearch();
+    };
+
+    const handleVoid = async () => {
+        if (!voiding?.id) return;
+
+        const id = voiding.id;
+        setVoiding(null);
+        const result = await VoidOrder(id);
+        if (!result) return;
+
+        Toast.Info(`Order #${result.orderNumber} voided.`);
         await runSearch();
     };
 
@@ -360,8 +374,19 @@ const OrdersPage = () => {
                                     className="min-h-[44px] px-3 text-sm"
                                 />
                                 {isManager &&
-                                    (order.status === "Completed" ||
+                                    (order.status === "Draft" ||
                                         order.status === "AwaitingCheckout") && (
+                                        <Button
+                                            text="Void"
+                                            icon="fa-solid fa-ban"
+                                            onClick={() => setVoiding(order)}
+                                            className="min-h-[44px] bg-red-700 px-3 text-sm hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
+                                        />
+                                    )}
+                                {isManager &&
+                                    (order.status === "Completed" ||
+                                        order.status === "AwaitingCheckout" ||
+                                        order.status === "Voided") && (
                                         <Button
                                             text="Reopen"
                                             icon="fa-solid fa-arrow-rotate-left"
@@ -405,6 +430,23 @@ const OrdersPage = () => {
                         }
                     }}
                     onCancel={() => setRemoving(null)}
+                />
+            )}
+
+            {voiding && (
+                <ConfirmationModal
+                    title="Void order"
+                    message={`Void order #${voiding.orderNumber}${
+                        voiding.billingName ? ` for ${voiding.billingName}` : ""
+                    }? It ${
+                        voiding.status === "Draft"
+                            ? "comes off the sales floor"
+                            : "leaves the checkout queue"
+                    } and stays on file for the audit trail. It can be reopened later.`}
+                    confirmText="Void"
+                    destructive
+                    onConfirm={handleVoid}
+                    onCancel={() => setVoiding(null)}
                 />
             )}
 

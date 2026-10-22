@@ -14,11 +14,12 @@ type Props = {
 /**
  * Admin-only: send an order back to the checkout table (to fix a payment) or the sales floor (to
  * change what was sold). A completed sale leaves the day's totals until it is completed again;
- * its recorded payments stay on it.
+ * its recorded payments stay on it. A voided order comes back the same way, to be finished again.
  */
 const ReopenOrderModal = ({ order, onReopen, onClose }: Props) => {
     const [working, setWorking] = useState<"floor" | "checkout" | null>(null);
     const completed = order.status === "Completed";
+    const voided = order.status === "Voided";
 
     const reopen = async (to: "floor" | "checkout") => {
         setWorking(to);
@@ -69,6 +70,13 @@ const ReopenOrderModal = ({ order, onReopen, onClose }: Props) => {
                 <p className="mb-4 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">
                     <Icon icon="fa-solid fa-triangle-exclamation" /> It leaves the event&apos;s
                     totals until it is completed again.
+                </p>
+            )}
+
+            {voided && (
+                <p className="mb-4 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-800 dark:bg-sky-950/40 dark:text-sky-300">
+                    <Icon icon="fa-solid fa-circle-info" /> It is no longer void, and counts in the
+                    event&apos;s totals once it is completed.
                 </p>
             )}
 
