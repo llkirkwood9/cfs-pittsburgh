@@ -247,15 +247,18 @@ namespace api.Controllers
                 .GroupBy(l => l.ProductVariantId!.Value)
                 .ToDictionary(g => g.Key, g => (Quantity: g.Sum(l => l.Quantity), Revenue: g.Sum(l => l.LineTotal)));
 
+            // Every territory keeps its own copy of a product, so with several territories in view
+            // the copies are counted together as one product.
             return products
-                .Select(p =>
+                .GroupBy(p => (Name: TallyKey(p.Name), Brand: TallyKey(p.Brand), p.Category))
+                .Select(g =>
                 {
-                    var tallies = p.VariantIds.Where(sold.ContainsKey).Select(id => sold[id]).ToList();
+                    var tallies = g.SelectMany(p => p.VariantIds).Where(sold.ContainsKey).Select(id => sold[id]).ToList();
                     return new ProductTallyDto
                     {
-                        Description = p.Name,
-                        Brand = p.Brand,
-                        Category = p.Category.ToString(),
+                        Description = g.First().Name,
+                        Brand = g.First().Brand,
+                        Category = g.Key.Category.ToString(),
                         Quantity = tallies.Sum(t => t.Quantity),
                         Revenue = Math.Round(tallies.Sum(t => t.Revenue), 2),
                     };
@@ -266,6 +269,15 @@ namespace api.Controllers
                 .ThenBy(p => p.Description)
                 .ToList();
         }
+
+        /// <summary>
+        /// A product name or brand reduced to what identifies it, so the same product in two
+        /// territories' catalogs lands in one tally: trimmed, single-spaced and lower case.
+        /// </summary>
+        /// <param name="text">Name or brand</param>
+        /// <returns>The key to group on.</returns>
+        private static string TallyKey(string? text) =>
+            string.Join(' ', (text ?? string.Empty).Split((char[]?)null, StringSplitOptions.RemoveEmptyEntries)).ToLowerInvariant();
 
         /// <summary>
         /// Loads the orders matching a filter, with their lines and payments.
@@ -373,11 +385,13 @@ namespace api.Controllers
                 // columns above, but the set itself is what was sold, so only it is listed here.
                 TopProducts = productLines
                     .Where(l => l.LineType != OrderLineType.Included)
-                    .GroupBy(l => new { l.Description, l.Brand, l.Category })
+                    // Same product from different territories' catalogs counts as one, even if typed
+                    // with different capitals or spacing.
+                    .GroupBy(l => (Description: TallyKey(l.Description), Brand: TallyKey(l.Brand), l.Category))
                     .Select(g => new ProductTallyDto
                     {
-                        Description = g.Key.Description,
-                        Brand = g.Key.Brand,
+                        Description = g.First().Description,
+                        Brand = g.First().Brand,
                         Category = g.Key.Category.ToString(),
                         Quantity = g.Sum(l => l.Quantity),
                         Revenue = Math.Round(g.Sum(l => l.LineTotal), 2),
