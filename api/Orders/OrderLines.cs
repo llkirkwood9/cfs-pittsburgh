@@ -111,16 +111,6 @@ namespace api.Orders
                 (c.ComponentVariantId, IncludedStockKey(c, choices)), line.Quantity * Math.Max(1, c.Quantity)));
         }
 
-        /// <summary>
-        /// The selection and choice ids sent by the dashboard.
-        /// </summary>
-        /// <param name="choices">The selections as sent</param>
-        /// <returns>Selection id and choice id pairs.</returns>
-        public static IEnumerable<(int OptionId, int ChoiceId)> PickedChoices(List<LineChoiceDto>? choices) =>
-            (choices ?? [])
-                .Where(c => c.OptionId != null && c.ChoiceId != null)
-                .Select(c => (c.OptionId!.Value, c.ChoiceId!.Value));
-
         #endregion
 
         #region Delivery
@@ -198,6 +188,76 @@ namespace api.Orders
 
             return line;
         }
+
+        #endregion
+
+        #region Values
+
+        /// <summary>Longest note on a line.</summary>
+        public const int MaxNotesLength = 500;
+
+        /// <summary>
+        /// Why a line's quantity, price or discount can't be used, or null when they can. A value
+        /// left out (null) isn't checked.
+        /// </summary>
+        /// <param name="quantity">Quantity, at least 1</param>
+        /// <param name="unitPrice">Unit price, 0 or more</param>
+        /// <param name="discountPercent">Percent off, 0 to 100</param>
+        /// <param name="discountAmount">Amount off, 0 or more</param>
+        /// <returns>A message for the rep, or null.</returns>
+        public static string? ValuesProblem(int? quantity, decimal? unitPrice, decimal? discountPercent, decimal? discountAmount)
+        {
+            if (quantity is < 1)
+                return "The quantity must be at least 1.";
+
+            if (unitPrice is < 0)
+                return "The unit price cannot be negative.";
+
+            if (discountPercent is < 0 or > 100)
+                return "The discount must be between 0 and 100 percent.";
+
+            if (discountAmount is < 0)
+                return "A discount can't be negative.";
+
+            return null;
+        }
+
+        /// <summary>
+        /// Sets a line's own discount. One discount style per line: a percent above 0 wins and
+        /// clears the amount; otherwise the amount is kept, and 0 means no discount.
+        /// </summary>
+        /// <param name="line">The line</param>
+        /// <param name="percent">Percent off, already checked</param>
+        /// <param name="amount">Amount off, already checked</param>
+        public static void SetDiscount(OrderLine line, decimal? percent, decimal? amount)
+        {
+            if (percent is > 0)
+            {
+                line.DiscountPercent = percent;
+                line.DiscountAmount = null;
+            }
+            else
+            {
+                line.DiscountPercent = null;
+                line.DiscountAmount = amount == 0 ? null : amount;
+            }
+        }
+
+        /// <summary>
+        /// Why a line's note can't be saved, or null when it can.
+        /// </summary>
+        /// <param name="notes">The note as typed</param>
+        /// <returns>A message for the rep, or null.</returns>
+        public static string? NotesProblem(string? notes) =>
+            notes is { Length: > MaxNotesLength } ? "An item note can be at most 500 characters." : null;
+
+        /// <summary>
+        /// A line's note as stored: trimmed, nothing when blank.
+        /// </summary>
+        /// <param name="notes">The note as typed</param>
+        /// <returns>The note, or null.</returns>
+        public static string? CleanNotes(string? notes) =>
+            string.IsNullOrWhiteSpace(notes) ? null : notes.Trim();
 
         #endregion
 

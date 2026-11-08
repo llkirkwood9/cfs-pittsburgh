@@ -1,5 +1,5 @@
 using api.Models;
-using api.Utils;
+using api.Settings;
 
 namespace api.Orders
 {
@@ -11,30 +11,6 @@ namespace api.Orders
     /// </summary>
     public static class Acknowledgements
     {
-        /// <summary>Ask on every order.</summary>
-        public const string Always = "always";
-
-        /// <summary>Ask only when at least one item isn't being taken home today.</summary>
-        public const string Shipped = "shipped";
-
-        /// <summary>Ask only when at least one item has a manufacturer warranty.</summary>
-        public const string Warranty = "warranty";
-
-        /// <summary>The statement confirming the customer's details.</summary>
-        public const string CustomerInfoKey = "customerInfo";
-
-        /// <summary>The warranty and mattress protector statement.</summary>
-        public const string WarrantyKey = "warranty";
-
-        /// <summary>The drop ship delivery statement.</summary>
-        public const string DropShipKey = "dropShip";
-
-        /// <summary>The all-sales-are-final statement.</summary>
-        public const string AdvisoryKey = "advisory";
-
-        /// <summary>Every value a statement's AskWhen may take.</summary>
-        public static readonly IReadOnlyList<string> AskWhenValues = [Always, Shipped, Warranty];
-
         /// <summary>
         /// The keys of the statements this order needs initialled, in signing order.
         /// </summary>
@@ -73,17 +49,17 @@ namespace api.Orders
 
         private static bool Applies(string? askWhen, Order order) => askWhen switch
         {
-            Shipped => SomethingShips(order),
-            Warranty => HasWarranty(order),
+            SalesTerms.Shipped => SomethingShips(order),
+            SalesTerms.Warranty => HasWarranty(order),
             _ => true,
         };
 
         private static string? InitialsFor(Order order, string key) => key switch
         {
-            CustomerInfoKey => order.CustomerInfoInitials,
-            WarrantyKey => order.WarrantyInitials,
-            DropShipKey => order.DropShipInitials,
-            AdvisoryKey => order.AdvisoryInitials,
+            SalesTerms.CustomerInfoKey => order.CustomerInfoInitials,
+            SalesTerms.WarrantyKey => order.WarrantyInitials,
+            SalesTerms.DropShipKey => order.DropShipInitials,
+            SalesTerms.AdvisoryKey => order.AdvisoryInitials,
             _ => null,
         };
     }

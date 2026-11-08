@@ -1,9 +1,10 @@
+using api.Catalog;
 using api.Data;
 using api.Dtos;
 using api.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace api.Utils
+namespace api.Inventory
 {
     /// <summary>
     /// A territory's inventory as the Inventory screen and the event's Accessory Inventory Sheet

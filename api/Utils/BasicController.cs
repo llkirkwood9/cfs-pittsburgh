@@ -76,21 +76,6 @@ namespace api.Utils
         }
 
         /// <summary>
-        /// Checks whether the signed-in user holds the supplied role. Administrator also holds for
-        /// a system admin. For "this role or anything more senior", use IsAtLeast.
-        /// </summary>
-        /// <param name="role">Role to test</param>
-        /// <returns>True when the user is in that role.</returns>
-        protected bool IsInRole(UserRole role)
-        {
-            // A system admin can do everything an administrator can.
-            if (role == UserRole.Admin && Scope.Role == UserRole.SystemAdmin)
-                return true;
-
-            return Scope.Role == role;
-        }
-
-        /// <summary>
         /// Whether the signed-in user's role is at least as senior as the one given.
         /// </summary>
         /// <param name="minimum">The least senior role allowed</param>

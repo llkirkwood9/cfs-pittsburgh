@@ -1,6 +1,7 @@
-using api.Data;
-using api.Utils;
 using Microsoft.EntityFrameworkCore;
+using api.Data;
+using api.Settings;
+using api.Utils;
 
 namespace api.Orders
 {

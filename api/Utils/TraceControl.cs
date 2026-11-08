@@ -47,9 +47,33 @@ namespace api.Utils
         /// </summary>
         private static long _lastPruneTicks;
 
+        /// <summary>
+        /// The logger for code that has none of its own, set at startup.
+        /// </summary>
+        private static ILogger? _defaultLogger;
+
         #endregion
 
         #region Public Methods
+
+        /// <summary>
+        /// Sets the logger used by Trace calls that don't pass one. Called once at startup.
+        /// </summary>
+        /// <param name="logger">The logger</param>
+        public static void UseDefaultLogger(ILogger logger) => _defaultLogger = logger;
+
+        /// <summary>
+        /// Writes a trace through the default logger (see UseDefaultLogger); does nothing before
+        /// one is set.
+        /// </summary>
+        /// <param name="source">Which component is tracing</param>
+        /// <param name="eventType">Severity</param>
+        /// <param name="message">Message to trace</param>
+        public static void Trace(TraceControlSource source, TraceEventType eventType, string message)
+        {
+            if (_defaultLogger is { } logger)
+                Trace(source, eventType, logger, message);
+        }
 
         /// <summary>
         /// Writes a trace, suppressing identical repeats inside the suppression window.

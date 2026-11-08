@@ -1,13 +1,14 @@
 using System.Diagnostics;
-using api.Catalog;
-using api.Data;
-using api.Dtos;
-using api.Models;
-using api.Services;
-using api.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using api.Catalog;
+using api.Data;
+using api.Dtos;
+using api.Inventory;
+using api.Models;
+using api.Services;
+using api.Utils;
 
 namespace api.Controllers
 {
@@ -23,13 +24,6 @@ namespace api.Controllers
         ILogger<BasicController> logger)
         : CatalogItemController(db, logger)
     {
-        #region Private Fields
-
-        private const string ManagersOnly = "Only a manager, administrator or system admin may change the catalog.";
-        private const string NotYourCatalog = "You can only change the catalog of your own territories.";
-
-        #endregion
-
         #region POST Methods
 
         /// <summary>
@@ -41,8 +35,8 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> AddProduct([FromBody] ProductDto request)
         {
-            if (!IsAtLeast(UserRole.Manager))
-                return Forbidden(ManagersOnly);
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
 
             if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Category))
                 return BadRequest(new { error = "Missing parameter." });
@@ -121,9 +115,7 @@ namespace api.Controllers
             if (source.TerritoryId == territoryId)
                 return BadRequest(new { error = "That product is already in this territory's catalog." });
 
-            var brand = source.Brand.ToLower();
-            var name = source.Name.ToLower();
-            if (await DB.Products.AnyAsync(p => p.TerritoryId == territoryId && p.Brand.ToLower() == brand && p.Name.ToLower() == name))
+            if (await DB.Products.Where(p => p.TerritoryId == territoryId).WithBrandAndName(source.Brand, source.Name).AnyAsync())
                 return BadRequest(new { error = $"This territory's catalog already has {source.Name}. Edit that one instead." });
 
             var (copy, notes) = await CatalogCopy.CopyProductAsync(DB, source.Id, territoryId);
@@ -206,8 +198,8 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> UpdateProduct([FromBody] ProductDto request)
         {
-            if (!IsAtLeast(UserRole.Manager))
-                return Forbidden(ManagersOnly);
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
 
             if (request.Id == null)
                 return BadRequest(new { error = "Missing parameter." });
@@ -220,8 +212,8 @@ namespace api.Controllers
             if (product == null)
                 return NotFound(new { error = "Product not found." });
 
-            if (!CanEditCatalog(product.TerritoryId))
-                return Forbidden(NotYourCatalog);
+            if (DenyUnlessEditable(product.TerritoryId) is { } notEditable)
+                return notEditable;
 
             var componentError = await ValidateComponentsAsync(product.Id, product.TerritoryId, request.Variants)
                                  ?? await ValidateDeliveryOptionsAsync(product.TerritoryId, request.DeliveryOptions);
@@ -355,8 +347,8 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> DeleteProduct(int id, [FromQuery] bool permanent = false)
         {
-            if (!IsAtLeast(UserRole.Manager))
-                return Forbidden(ManagersOnly);
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
 
             var product = await DB.Products
                 .Include(p => p.Variants)
@@ -366,8 +358,8 @@ namespace api.Controllers
             if (product == null)
                 return NotFound(new { error = "Product not found." });
 
-            if (!CanEditCatalog(product.TerritoryId))
-                return Forbidden(NotYourCatalog);
+            if (DenyUnlessEditable(product.TerritoryId) is { } notEditable)
+                return notEditable;
 
             if (permanent)
             {
@@ -487,7 +479,7 @@ namespace api.Controllers
             if (requested.Any(c => c.ComponentVariantId == null))
                 return "Pick an item and size for every bundled product.";
 
-            if (requested.Any(c => c.Quantity is < 1 or > 20))
+            if (requested.Any(c => !CatalogRules.IsValidBundleQuantity(c.Quantity)))
                 return "A bundled item's quantity must be between 1 and 20.";
 
             var ids = requested.Select(c => c.ComponentVariantId!.Value).Distinct().ToList();
@@ -548,11 +540,7 @@ namespace api.Controllers
             sales.AddRange((request.Variants ?? []).Select(v => (v.SaleDiscountPercent, v.SaleDiscountAmount)));
             sales.AddRange((request.DeliveryOptions ?? []).Select(d => (d.SaleDiscountPercent, d.SaleDiscountAmount)));
 
-            if (sales.Any(s => s.Percent is < 0 or > 100))
-                return "A sale percent must be between 0 and 100.";
-            if (sales.Any(s => s.Amount < 0))
-                return "A sale amount can't be negative.";
-            return null;
+            return CatalogRules.SalesProblem(sales);
         }
 
         /// <summary>

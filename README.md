@@ -69,17 +69,22 @@ docker/pi/                  cfs.service, cfs-update.sh, cfs-backup.sh, cfs-reset
 
 api/                        ASP.NET Core 10 Web API
 ├── Controllers/            One controller per resource, all inheriting BasicController
-├── Orders/                 The order rules: status changes, building lines, payments, totals
-│                           (OrderCalculator), line order, acknowledgements, DTO mapping, saving
-├── Catalog/                The catalog rules and limits, product options and queries, copying a
-│                           catalog between territories, catalog files (CatalogTransfer)
+├── Orders/                 The order rules: status steps (OrderLifecycle), building and checking
+│                           lines, payments, totals (OrderCalculator), line order,
+│                           acknowledgements, DTO mapping, saving
+├── Catalog/                The catalog rules and limits, choices and stock keys, product options
+│                           and queries, copying catalogs between territories, catalog files
+├── Inventory/              Stock rules (InventoryRules) and the inventory sheet
+├── Settings/               SettingsStore and the sales terms
+├── Users/                  Passwords, PasswordPolicy, UserMapper
+├── Email/                  EmailTemplates
+├── Seeding/                SeedData
 ├── Dtos/                   Request/response shapes; EF models are never exposed directly
 ├── Models/                 EF entities
-├── Data/                   ApplicationDbContext, its design-time factory, SeedData, CatalogSeed.json
+├── Data/                   ApplicationDbContext, its design-time factory, CatalogSeed.json
 ├── Services/               TokenService (JWT, sessions, password hashing), EmailService (SMTP)
 ├── Utils/                  BasicController, AccessScope and TerritoryScoping (who may see what),
-│                           ApiExceptionMiddleware, Choices, StockKeys, InventoryRules,
-│                           PermanentDelete, SettingsStore, EmailTemplates, PasswordPolicy, TraceControl
+│                           ApiExceptionMiddleware, PermanentDelete, Rates, RateLimits, TraceControl
 ├── Migrations/             EF Core migrations for PostgreSQL
 ├── Program.cs              Configuration, auth, CORS, migrations and seeding, SPA hosting
 ├── appsettings*.json       Settings; appsettings.local.json (gitignored) holds your own
@@ -189,7 +194,7 @@ cd api && dotnet run --launch-profile http
 - Listens on `http://localhost:5046` (the `https` profile adds `https://localhost:7277`).
 - On start it waits for the database, applies any pending migrations, and seeds the catalog,
   delivery options, a sample event and the first `admin` account from `Data/CatalogSeed.json` and
-  `Data/SeedData.cs`. The seed fills in whatever is missing on every start; `Seed:Skip` turns it
+  `Seeding/SeedData.cs`. The seed fills in whatever is missing on every start; `Seed:Skip` turns it
   off (section 8).
 - In Development the OpenAPI document is at `http://localhost:5046/openapi/v1.json`.
 - `GET /health` answers `Healthy`; the image's health check uses it.
@@ -875,12 +880,12 @@ with an optional price change. The picks are stored on the line as JSON (`Choice
 after the description. When a selection **counts stock**, each size keeps a count per combination
 of counted choices, in each territory: `InventoryStocks` rows carry a `StockKey` such as
 `3:12|4:20` (option id : choice id, ordered by option), and the empty key is the size's own count.
-`Utils/Choices.cs` resolves picks and builds keys; `Utils/InventoryRules.cs` reads and changes the
+`Catalog/Choices.cs` resolves picks and builds keys; `Inventory/InventoryRules.cs` reads and changes the
 counts.
 
 **Inventory.** Only products marked Track inventory are counted, and each size can be left out
 (a size not kept at the cart): it isn't counted and can't be sold as Take With, nor can a bundle
-that includes it. `Utils/InventoryRules.cs` enforces it.
+that includes it. `Inventory/InventoryRules.cs` enforces it.
 
 **Catalog files.** `GET /api/catalog/export` and `POST /api/catalog/import` (system admins only)
 save and restore the catalog as JSON (`"format": "cfs-catalog", "version": 1`) - every product

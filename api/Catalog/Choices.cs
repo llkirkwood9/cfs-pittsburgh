@@ -1,8 +1,9 @@
+using System.Diagnostics;
 using System.Text.Json;
-using api.Catalog;
 using api.Models;
+using api.Utils;
 
-namespace api.Utils
+namespace api.Catalog
 {
     /// <summary>
     /// One selection made for an item on an order, e.g. Color: Gray. Kept on the order line as
@@ -162,8 +163,10 @@ namespace api.Utils
             {
                 return JsonSerializer.Deserialize<List<LineChoice>>(json, JsonOptions) ?? [];
             }
-            catch (JsonException)
+            catch (JsonException e)
             {
+                // A line whose stored selections can't be read shows none rather than failing.
+                TraceControl.Trace(TraceControlSource.Api, TraceEventType.Warning, $"An order line's selections couldn't be read, so none are shown: {e.Message}");
                 return [];
             }
         }

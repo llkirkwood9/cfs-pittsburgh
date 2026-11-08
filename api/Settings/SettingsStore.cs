@@ -1,11 +1,10 @@
 using System.Globalization;
-using System.Text.Json;
 using api.Data;
 using api.Models;
-using api.Orders;
+using api.Utils;
 using Microsoft.EntityFrameworkCore;
 
-namespace api.Utils
+namespace api.Settings
 {
     /// <summary>
     /// The settings an administrator changes from the dashboard, with their defaults. Only a
@@ -70,33 +69,6 @@ namespace api.Utils
         /// </summary>
         public const bool DefaultAllowOtherFinanceType = true;
 
-        /// <summary>
-        /// The four statements a customer initials, in the order they're signed. The keys match
-        /// the order's initials fields, so there are always exactly these four.
-        /// </summary>
-        public static readonly IReadOnlyList<SalesTerm> DefaultTerms =
-        [
-            new(Acknowledgements.CustomerInfoKey, "Check your details", "",
-                "Customer confirms the name, address, phone, email and delivery details above are correct.",
-                Acknowledgements.Shipped),
-            new(Acknowledgements.WarrantyKey, "Warranty & mattress protectors", "Customer Service & Warranty Information",
-                "All products come with a manufacturer warranty. Customer service and warranty issues are the responsibility of the manufacturer. " +
-                "All manufacturers require the use of mattress protectors. They reserve the right to refuse service or invalidate the warranty if there are " +
-                "any stains or soils present even if the product is defective. Customer has been notified that sleep sets must be clean, free of tears, " +
-                "burns, odors, pet hair and stains of any kind for the warranty to be valid. In addition, manufacturer warranties only cover the cost of " +
-                "the replacement item, not additional expenses such as delivery or set-up.",
-                Acknowledgements.Warranty),
-            new(Acknowledgements.DropShipKey, "How your bed arrives", "Drop Ship Delivery",
-                "**ALL ITEMS WILL BE DROP SHIPPED DIRECTLY TO THE CUSTOMER UNLESS OTHERWISE NOTED.** Items do not require a signature when delivered. " +
-                "The mattress will be compressed, vacuum sealed and boxed. The product may be heavy and may require additional persons to move it. " +
-                "Once open, the bed will completely recover within 24-48 hours, however, sleeping on it sooner will not damage the bed.",
-                Acknowledgements.Shipped),
-            new(Acknowledgements.AdvisoryKey, "All sales are final", "Advisory",
-                "Customer acknowledges and understands that this is a sanctioned fundraising event with a portion of the proceeds allocated " +
-                "directly to the above mentioned organization and therefore, **__ALL SALES AND TRANSACTIONS ARE FINAL__**.",
-                Acknowledgements.Always),
-        ];
-
         #endregion
 
         #region Public Methods
@@ -132,7 +104,7 @@ namespace api.Utils
                 Count(AppSettingKeys.LowStockAt, DefaultLowStockAt),
                 Amount(AppSettingKeys.DefaultSalesTaxRate, DefaultSalesTaxRate, allowZero: true),
                 Amount(AppSettingKeys.DefaultCcProcessingFeeRate, DefaultCcProcessingFeeRate, allowZero: true),
-                ReadTerms(rows.GetValueOrDefault(AppSettingKeys.SalesSheetTerms)),
+                SalesTerms.Read(rows.GetValueOrDefault(AppSettingKeys.SalesSheetTerms)),
                 Flag(AppSettingKeys.AllowOtherFinanceType, DefaultAllowOtherFinanceType));
         }
 
@@ -229,7 +201,7 @@ namespace api.Utils
         public static GeneralSettings Defaults { get; } = new(
             DefaultAppName, DefaultCompanyName, DefaultCustomerServicePhone,
             DefaultStarsFirstAt, DefaultStarsEvery, DefaultLowStockAt,
-            DefaultSalesTaxRate, DefaultCcProcessingFeeRate, DefaultTerms, DefaultAllowOtherFinanceType);
+            DefaultSalesTaxRate, DefaultCcProcessingFeeRate, SalesTerms.Defaults, DefaultAllowOtherFinanceType);
 
         /// <summary>
         /// Saves one setting, or removes its row when the value is empty or the same as what it
@@ -304,63 +276,12 @@ namespace api.Utils
         public static string Store(int value) => value.ToString(CultureInfo.InvariantCulture);
 
         /// <summary>
-        /// Terms written for storing (and for a completed order's copy).
-        /// </summary>
-        public static string Store(IEnumerable<SalesTerm> terms) => JsonSerializer.Serialize(terms.ToList(), JsonOptions);
-
-        /// <summary>
         /// A yes/no setting written for storing.
         /// </summary>
         public static string Store(bool value) => value ? "true" : "false";
 
-        /// <summary>
-        /// Reads stored terms. Any of the four that is missing or blank falls back to its
-        /// default, and anything else is ignored, so there are always exactly the four.
-        /// </summary>
-        /// <param name="json">Stored terms, or null</param>
-        /// <returns>The four terms, in signing order.</returns>
-        public static IReadOnlyList<SalesTerm> ReadTerms(string? json)
-        {
-            List<SalesTerm>? saved = null;
-            if (!string.IsNullOrWhiteSpace(json))
-            {
-                try
-                {
-                    saved = JsonSerializer.Deserialize<List<SalesTerm>>(json, JsonOptions);
-                }
-                catch (JsonException)
-                {
-                    saved = null;
-                }
-            }
-
-            return DefaultTerms.Select(d =>
-            {
-                var s = saved?.FirstOrDefault(t => t.Key == d.Key);
-                // Wording kept from before statements had a rule of their own takes the default.
-                var askWhen = AskWhenOrDefault(s?.AskWhen, d.AskWhen);
-                return s == null || string.IsNullOrWhiteSpace(s.Text)
-                    ? d with { AskWhen = askWhen }
-                    : new SalesTerm(d.Key, string.IsNullOrWhiteSpace(s.Title) ? d.Title : s.Title.Trim(), s.Heading?.Trim() ?? "", s.Text.Trim(), askWhen);
-            }).ToList();
-        }
-
-        /// <summary>
-        /// A statement's rule for when to ask, or its default when the value isn't one of the rules.
-        /// </summary>
-        /// <param name="askWhen">The rule as stored or sent</param>
-        /// <param name="fallback">The statement's default rule</param>
-        /// <returns>always, shipped or warranty.</returns>
-        public static string AskWhenOrDefault(string? askWhen, string fallback) =>
-            askWhen != null && Acknowledgements.AskWhenValues.Contains(askWhen) ? askWhen : fallback;
-
         #endregion
 
-        #region Private Fields
-
-        private static readonly JsonSerializerOptions JsonOptions = new(JsonSerializerDefaults.Web);
-
-        #endregion
     }
 
     /// <summary>
@@ -387,15 +308,4 @@ namespace api.Utils
         decimal DefaultCcProcessingFeeRate,
         IReadOnlyList<SalesTerm> Terms,
         bool AllowOtherFinanceType);
-
-    /// <summary>
-    /// One statement the customer initials, on the sales sheet and on their initialling screen.
-    /// </summary>
-    /// <param name="Key">customerInfo, warranty, dropShip or advisory - which initials it takes</param>
-    /// <param name="Title">The heading on the customer's initialling screen</param>
-    /// <param name="Heading">The underlined heading on the sales sheet; may be empty</param>
-    /// <param name="Text">The paragraph, the same in both places. **bold** and __underline__ allowed.</param>
-    /// <param name="AskWhen">When the customer is asked to initial it: always, shipped (something on
-    /// the order isn't taken home) or warranty (an item has a warranty). Skipped, it prints N/A.</param>
-    public record SalesTerm(string Key, string Title, string Heading, string Text, string AskWhen);
 }

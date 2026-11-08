@@ -1,4 +1,4 @@
-namespace api.Utils
+namespace api.Catalog
 {
     /// <summary>
     /// The key stock is kept under for a combination of counted choices: "selection:choice" pairs

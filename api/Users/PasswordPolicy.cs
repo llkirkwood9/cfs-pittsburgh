@@ -1,4 +1,4 @@
-namespace api.Utils
+namespace api.Users
 {
     /// <summary>
     /// What makes an acceptable password, following current NIST guidance: long enough, not a

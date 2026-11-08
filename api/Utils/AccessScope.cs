@@ -87,6 +87,12 @@ namespace api.Utils
         }
 
         /// <summary>
+        /// Whether the user can work the checkout table: checkout crew (alone or with sales), or a
+        /// manager or above.
+        /// </summary>
+        public bool CanWorkCheckout => IsAtLeast(UserRole.Manager) || Role is UserRole.Checkout or UserRole.SalesCheckout;
+
+        /// <summary>
         /// A role's seniority, for comparisons.
         /// </summary>
         /// <param name="role">The role</param>

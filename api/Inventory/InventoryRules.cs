@@ -1,9 +1,10 @@
 using System.Linq.Expressions;
+using api.Catalog;
 using api.Data;
 using api.Models;
 using Microsoft.EntityFrameworkCore;
 
-namespace api.Utils
+namespace api.Inventory
 {
     /// <summary>
     /// Stock rules for Take With sales. A tracked item can only go home with the customer when the
@@ -124,20 +125,24 @@ namespace api.Utils
         }
 
         /// <summary>
-        /// Checks that every tracked Take With item on the order is in stock in the territory.
+        /// Checks that every tracked Take With item on the order is in stock in its territory.
+        /// Included items are first given their bundle's Take With box, since they leave the
+        /// building the same way.
         /// </summary>
         /// <param name="db">EF context</param>
-        /// <param name="territoryId">The order's territory</param>
-        /// <param name="lines">Order lines, including any not yet saved</param>
+        /// <param name="order">Order with its lines and event loaded</param>
+        /// <param name="pending">A line about to be added, not on the order yet</param>
         /// <param name="extra">Additional demand not yet on the order, such as a bundle's items</param>
         /// <returns>A message for the rep when something is short, otherwise null.</returns>
         public static async Task<string?> CheckStockAsync(
             ApplicationDbContext db,
-            int territoryId,
-            IEnumerable<OrderLine> lines,
+            Order order,
+            OrderLine? pending = null,
             IEnumerable<KeyValuePair<(int VariantId, string StockKey), int>>? extra = null)
         {
-            var demand = TakeWithDemand(lines);
+            SyncIncludedTakeWith(order);
+            var territoryId = order.Event!.TerritoryId;
+            var demand = TakeWithDemand(pending == null ? order.Lines : order.Lines.Append(pending));
             foreach (var (key, quantity) in extra ?? [])
                 demand[key] = demand.GetValueOrDefault(key) + quantity;
 

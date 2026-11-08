@@ -12,8 +12,8 @@ namespace api.Orders
         #region Public Methods
 
         /// <summary>
-        /// Copies every block of a request onto an order: header, billing, delivery and
-        /// acknowledgements. When the details the customer initialled change and no new initials
+        /// Copies every block of a request onto an order: header, billing, delivery,
+        /// acknowledgements, comments and rates. When the details the customer initialled change and no new initials
         /// came with them, the initials are cleared - they have to look again before the sale can
         /// be completed.
         /// </summary>
@@ -30,6 +30,11 @@ namespace api.Orders
 
             if (request.CustomerInfoInitials == null && CustomerDetails(order) != detailsBefore)
                 order.CustomerInfoInitials = null;
+
+            if (request.Comments != null)
+                order.Comments = string.IsNullOrWhiteSpace(request.Comments) ? null : request.Comments;
+
+            ApplyRates(order, request);
         }
 
         /// <summary>
@@ -113,6 +118,23 @@ namespace api.Orders
             if (trimmed == null) return (null, null);
             var space = trimmed.IndexOf(' ');
             return space < 0 ? (trimmed, null) : (trimmed[..space], Clean(trimmed[(space + 1)..]));
+        }
+
+        /// <summary>
+        /// Copies the sales tax and card fee rates, and whether the card fee applies, onto an
+        /// order. The rates are checked before (Rates.Problem). Waiving the fee is checkout's
+        /// decision and isn't done here.
+        /// </summary>
+        private static void ApplyRates(Order order, OrderDto request)
+        {
+            if (request.SalesTaxRate != null)
+                order.SalesTaxRate = request.SalesTaxRate.Value;
+
+            if (request.CcProcessingFeeRate != null)
+                order.CcProcessingFeeRate = request.CcProcessingFeeRate.Value;
+
+            if (request.ApplyCcProcessingFee != null)
+                order.ApplyCcProcessingFee = request.ApplyCcProcessingFee.Value;
         }
 
         /// <summary>

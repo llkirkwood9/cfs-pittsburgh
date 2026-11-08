@@ -28,6 +28,18 @@ namespace api.Catalog
         /// <summary>Highest delivery option price.</summary>
         public const decimal MaxDeliveryPrice = 100_000;
 
+        /// <summary>Longest financing option name.</summary>
+        public const int MaxFinanceNameLength = 100;
+
+        /// <summary>Most of one item a bundle can include.</summary>
+        public const int MaxBundleQuantity = 20;
+
+        /// <summary>Why a sale's percent is refused (the product and delivery option editors).</summary>
+        public const string SalePercentMessage = "A sale percent must be between 0 and 100.";
+
+        /// <summary>Why a sale's amount is refused (the product and delivery option editors).</summary>
+        public const string SaleAmountMessage = "A sale amount can't be negative.";
+
         /// <summary>Most selections (such as Color) on one product.</summary>
         public const int MaxOptions = 10;
 
@@ -84,6 +96,50 @@ namespace api.Catalog
         }
 
         /// <summary>
+        /// Whether a sale's percent can be saved: none, or 0 to 100.
+        /// </summary>
+        /// <param name="percent">Percent off</param>
+        /// <returns>True when it can.</returns>
+        public static bool IsValidSalePercent(decimal? percent) => percent is not (< 0 or > 100);
+
+        /// <summary>
+        /// Whether a sale's amount can be saved: none, or 0 or more.
+        /// </summary>
+        /// <param name="amount">Amount off</param>
+        /// <returns>True when it can.</returns>
+        public static bool IsValidSaleAmount(decimal? amount) => !(amount < 0);
+
+        /// <summary>
+        /// Why some sales can't be saved, for the editors: any bad percent first, then any bad
+        /// amount. Null when all of them can.
+        /// </summary>
+        /// <param name="sales">Percent and amount of each sale</param>
+        /// <returns>A message, or null.</returns>
+        public static string? SalesProblem(IEnumerable<(decimal? Percent, decimal? Amount)> sales)
+        {
+            var list = sales.ToList();
+            if (list.Any(s => !IsValidSalePercent(s.Percent)))
+                return SalePercentMessage;
+            if (list.Any(s => !IsValidSaleAmount(s.Amount)))
+                return SaleAmountMessage;
+            return null;
+        }
+
+        /// <summary>
+        /// Whether a bundle may include this many of one item: none given, or 1 to 20.
+        /// </summary>
+        /// <param name="quantity">How many</param>
+        /// <returns>True when it may.</returns>
+        public static bool IsValidBundleQuantity(int? quantity) => quantity is not (< 1 or > MaxBundleQuantity);
+
+        /// <summary>
+        /// Whether a financing option's name, trimmed, is usable: 1 to 100 characters.
+        /// </summary>
+        /// <param name="trimmed">The trimmed name, or null</param>
+        /// <returns>True when it is.</returns>
+        public static bool IsValidFinanceName(string? trimmed) => (trimmed?.Length ?? 0) is > 0 and <= MaxFinanceNameLength;
+
+        /// <summary>
         /// What a delivery option costs for a product: the product's own price for it when it has
         /// one, otherwise the option's.
         /// </summary>
@@ -92,6 +148,23 @@ namespace api.Catalog
         /// <returns>The price.</returns>
         public static decimal DeliveryPrice(DeliveryOption option, ProductDeliveryOption? forProduct) =>
             forProduct?.PriceOverride ?? option.Price;
+
+        /// <summary>
+        /// Whether two catalog names (a brand, product, size, configuration, delivery option or
+        /// financing option) are the same in a catalog file or a copy between territories:
+        /// ignoring case and the spaces around them, with nothing counting as empty.
+        /// </summary>
+        /// <param name="a">One name</param>
+        /// <param name="b">The other</param>
+        /// <returns>True when they match.</returns>
+        public static bool SameName(string? a, string? b) => NameKey(a) == NameKey(b);
+
+        /// <summary>
+        /// A catalog name reduced to what SameName compares: trimmed and lower case; empty for none.
+        /// </summary>
+        /// <param name="value">The name</param>
+        /// <returns>The key.</returns>
+        public static string NameKey(string? value) => value?.Trim().ToLowerInvariant() ?? "";
 
         #endregion
 

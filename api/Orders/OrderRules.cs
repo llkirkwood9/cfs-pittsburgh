@@ -46,22 +46,6 @@ namespace api.Orders
             return CheckoutGap.None;
         }
 
-        /// <summary>
-        /// Puts back on the shelf anything a completed sale took home, when it stops being
-        /// completed (reopened or voided). Does nothing for an order in any other status. The
-        /// caller saves.
-        /// </summary>
-        /// <param name="db">EF context</param>
-        /// <param name="order">Order with its event loaded</param>
-        /// <param name="userId">Crew member making the change</param>
-        /// <param name="userName">Their name</param>
-        /// <param name="reason">What is happening to the order, e.g. "reopened" or "voided"</param>
-        public static async Task LeavingCompletedAsync(ApplicationDbContext db, Order order, int? userId, string? userName, string reason)
-        {
-            if (order.Status == OrderStatus.Completed)
-                await InventoryRules.RestoreForOrderAsync(db, order, order.Event!.TerritoryId, userId, userName, reason);
-        }
-
         #endregion
 
         #region Blank Drafts

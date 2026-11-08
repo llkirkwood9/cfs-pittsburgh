@@ -447,8 +447,7 @@ namespace api.Catalog
                 .ToList());
         }
 
-        private static bool Same(string? a, string? b) =>
-            string.Equals(a?.Trim(), b?.Trim(), StringComparison.OrdinalIgnoreCase);
+        private static bool Same(string? a, string? b) => CatalogRules.SameName(a, b);
 
         #endregion
     }

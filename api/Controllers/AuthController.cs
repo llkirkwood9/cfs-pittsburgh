@@ -3,6 +3,7 @@ using api.Data;
 using api.Dtos.Authentication;
 using api.Models;
 using api.Services;
+using api.Users;
 using api.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -201,15 +202,12 @@ namespace api.Controllers
             if (request.NewPassword == request.CurrentPassword)
                 return BadRequest(new { error = "The new password is the same as the current one." });
 
-            var problem = PasswordPolicy.Check(request.NewPassword, user.Username, user.Name);
+            // Keep this device signed in; sign every other one out.
+            var keep = IncomingRefreshToken() is { Length: > 0 } thisDevice ? TokenService.HashRefreshToken(thisDevice) : "";
+            var problem = await Passwords.ChangeAsync(DB, tokenService, user, request.NewPassword, mustChange: false, keepSessionHash: keep);
             if (problem != null)
                 return BadRequest(new { error = problem });
 
-            Passwords.Set(tokenService, user, request.NewPassword, mustChange: false);
-
-            // Keep this device signed in; sign every other one out.
-            var keep = IncomingRefreshToken() is { Length: > 0 } thisDevice ? TokenService.HashRefreshToken(thisDevice) : "";
-            await DB.UserSessions.Where(s => s.UserId == user.Id && s.TokenHash != keep).ExecuteDeleteAsync();
             await DB.SaveChangesAsync();
 
             Trace(TraceEventType.Information, $"{user.Username} changed their password.");

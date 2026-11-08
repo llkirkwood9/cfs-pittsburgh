@@ -31,6 +31,23 @@ namespace api.Catalog
                 .AsSplitQuery();
 
         /// <summary>
+        /// Products with this brand and name as the editor stored them, ignoring case only (the
+        /// database compares; spaces count). Used to stop a copy into a territory duplicating an
+        /// item it already lists - a narrower test than CatalogRules.SameName, which the catalog
+        /// file and copying between territories use to match items up.
+        /// </summary>
+        /// <param name="query">Products</param>
+        /// <param name="brand">The brand</param>
+        /// <param name="name">The name</param>
+        /// <returns>The matching products.</returns>
+        public static IQueryable<Product> WithBrandAndName(this IQueryable<Product> query, string brand, string name)
+        {
+            var lowerBrand = brand.ToLower();
+            var lowerName = name.ToLower();
+            return query.Where(p => p.Brand.ToLower() == lowerBrand && p.Name.ToLower() == lowerName);
+        }
+
+        /// <summary>
         /// A product with what saving it changes: its sizes and what they include, its delivery
         /// choices and its selections.
         /// </summary>

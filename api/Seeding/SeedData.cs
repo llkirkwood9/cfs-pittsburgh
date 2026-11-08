@@ -1,11 +1,13 @@
 using System.Text.Json;
 using Microsoft.EntityFrameworkCore;
 using api.Catalog;
+using api.Data;
 using api.Models;
 using api.Services;
+using api.Users;
 using api.Utils;
 
-namespace api.Data
+namespace api.Seeding
 {
     /// <summary>
     /// Loads the starting territory, catalog, delivery options, crew accounts and opening event from

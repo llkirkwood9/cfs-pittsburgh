@@ -12,4 +12,17 @@ namespace api.Models
         /// </summary>
         int? TerritoryId { get; }
     }
+
+    /// <summary>
+    /// A catalog list item a manager puts in order within its territory, such as a delivery
+    /// option or a financing option.
+    /// </summary>
+    public interface ISortedCatalogItem : ITerritoryOwned
+    {
+        /// <summary>Primary key</summary>
+        int Id { get; }
+
+        /// <summary>Position within its territory's list</summary>
+        int SortOrder { get; set; }
+    }
 }

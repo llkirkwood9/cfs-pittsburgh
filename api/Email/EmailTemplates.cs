@@ -4,8 +4,9 @@ using System.Text;
 using System.Text.RegularExpressions;
 using api.Models;
 using api.Orders;
+using api.Settings;
 
-namespace api.Utils
+namespace api.Email
 {
     /// <summary>
     /// The wording of the emails the app sends. The sheets themselves travel as a PDF attachment;

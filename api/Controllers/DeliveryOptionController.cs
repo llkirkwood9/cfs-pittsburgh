@@ -24,12 +24,6 @@ namespace api.Controllers
         ILogger<BasicController> logger)
         : CatalogItemController(db, logger)
     {
-        #region Private Fields
-
-        private const string NotYourCatalog = "You can only change the catalog of your own territories.";
-
-        #endregion
-
         #region POST Methods
 
         /// <summary>
@@ -41,8 +35,8 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> AddDeliveryOption([FromBody] DeliveryOptionDto request)
         {
-            if (!IsAtLeast(UserRole.Manager))
-                return Forbidden("Only a manager, administrator or system admin may change the catalog.");
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
 
             if (string.IsNullOrWhiteSpace(request.Name))
                 return BadRequest(new { error = "Enter a name." });
@@ -118,27 +112,8 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> ReorderDeliveryOptions([FromBody] List<int> ids)
         {
-            if (!IsAtLeast(UserRole.Manager))
-                return Forbidden("Only a manager, administrator or system admin may change the catalog.");
-
-            if (ids.Count == 0 || ids.Distinct().Count() != ids.Count)
-                return BadRequest(new { error = "Invalid parameter." });
-
-            var first = await DB.DeliveryOptions.FindAsync(ids[0]);
-            if (first == null)
-                return BadRequest(new { error = "The list has changed. Refresh and try again." });
-
-            var group = await DB.DeliveryOptions.Where(d => d.TerritoryId == first.TerritoryId).ToListAsync();
-            if (group.Count != ids.Count || group.Any(o => !ids.Contains(o.Id)))
-                return BadRequest(new { error = "The list has changed. Refresh and try again." });
-
-            if (!CanEditCatalog(first.TerritoryId))
-                return Forbidden(NotYourCatalog);
-
-            foreach (var option in group)
-                option.SortOrder = ids.IndexOf(option.Id) + 1;
-
-            await DB.SaveChangesAsync();
+            if (await ReorderAsync(ids, id => DB.DeliveryOptions.FindAsync(id), territoryId => DB.DeliveryOptions.Where(d => d.TerritoryId == territoryId).ToListAsync()) is { } problem)
+                return problem;
 
             return Ok(await ListAsync(includeInactive: true));
         }
@@ -156,8 +131,8 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> UpdateDeliveryOption([FromBody] DeliveryOptionDto request)
         {
-            if (!IsAtLeast(UserRole.Manager))
-                return Forbidden("Only a manager, administrator or system admin may change the catalog.");
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
 
             if (request.Id == null)
                 return BadRequest(new { error = "Missing parameter." });
@@ -166,8 +141,8 @@ namespace api.Controllers
             if (option == null)
                 return NotFound(new { error = "Delivery option not found." });
 
-            if (!CanEditCatalog(option.TerritoryId))
-                return Forbidden(NotYourCatalog);
+            if (DenyUnlessEditable(option.TerritoryId) is { } notEditable)
+                return notEditable;
 
             if (request.Name != null)
             {
@@ -230,15 +205,15 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> DeleteDeliveryOption(int id, [FromQuery] bool permanent = false)
         {
-            if (!IsAtLeast(UserRole.Manager))
-                return Forbidden("Only a manager, administrator or system admin may change the catalog.");
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
 
             var option = (await DB.DeliveryOptions.FindAsync(id)).IfVisibleTo(Scope);
             if (option == null)
                 return NotFound(new { error = "Delivery option not found." });
 
-            if (!CanEditCatalog(option.TerritoryId))
-                return Forbidden(NotYourCatalog);
+            if (DenyUnlessEditable(option.TerritoryId) is { } notEditable)
+                return notEditable;
 
             if (permanent)
             {
@@ -335,11 +310,7 @@ namespace api.Controllers
         /// </summary>
         private static string? SaleProblem(DeliveryOptionDto request)
         {
-            if (request.SaleDiscountPercent is < 0 or > 100)
-                return "A sale percent must be between 0 and 100.";
-            if (request.SaleDiscountAmount < 0)
-                return "A sale amount can't be negative.";
-            return null;
+            return CatalogRules.SalesProblem([(request.SaleDiscountPercent, request.SaleDiscountAmount)]);
         }
 
         #endregion

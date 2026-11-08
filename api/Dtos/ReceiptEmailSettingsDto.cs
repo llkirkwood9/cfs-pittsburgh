@@ -1,4 +1,4 @@
-using api.Utils;
+using api.Settings;
 
 namespace api.Dtos
 {

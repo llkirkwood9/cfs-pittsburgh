@@ -1,12 +1,13 @@
 using System.Diagnostics;
-using api.Data;
-using api.Dtos;
-using api.Models;
-using api.Services;
-using api.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using api.Data;
+using api.Dtos;
+using api.Inventory;
+using api.Models;
+using api.Services;
+using api.Utils;
 
 namespace api.Controllers
 {
@@ -270,7 +271,7 @@ namespace api.Controllers
         /// <returns>True when allowed.</returns>
         private bool CanUpdateInventory()
         {
-            return IsAtLeast(UserRole.Manager) || IsInRole(UserRole.Checkout) || IsInRole(UserRole.SalesCheckout);
+            return Scope.CanWorkCheckout;
         }
 
         /// <summary>

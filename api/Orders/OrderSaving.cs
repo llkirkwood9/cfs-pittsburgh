@@ -1,7 +1,8 @@
+using Microsoft.EntityFrameworkCore;
 using api.Data;
+using api.Inventory;
 using api.Models;
 using api.Utils;
-using Microsoft.EntityFrameworkCore;
 
 namespace api.Orders
 {

@@ -1,5 +1,9 @@
+using Microsoft.EntityFrameworkCore;
+using api.Catalog;
 using api.Dtos;
+using api.Inventory;
 using api.Models;
+using api.Settings;
 using api.Utils;
 
 namespace api.Orders
@@ -21,7 +25,7 @@ namespace api.Orders
         public static OrderDto ToDto(Order order, Dictionary<(int VariantId, string StockKey), int>? onHand, IReadOnlyList<SalesTerm> currentTerms)
         {
             // A completed order is judged by the wording, and rules, it was signed under.
-            var terms = order.TermsJson == null ? currentTerms : SettingsStore.ReadTerms(order.TermsJson);
+            var terms = order.TermsJson == null ? currentTerms : SalesTerms.Read(order.TermsJson);
 
             return new OrderDto
             {
@@ -79,7 +83,7 @@ namespace api.Orders
                 AdvisoryInitials = order.AdvisoryInitials,
                 Terms = order.TermsJson == null
                     ? null
-                    : SettingsStore.ReadTerms(order.TermsJson).Select(SalesTermDto.From).ToList(),
+                    : SalesTerms.Read(order.TermsJson).Select(SalesTermDto.From).ToList(),
                 RequiredTerms = Acknowledgements.RequiredTerms(order, terms),
                 CustomerSignatureName = order.CustomerSignatureName,
                 CustomerSignature = order.CustomerSignature,
@@ -156,6 +160,19 @@ namespace api.Orders
                     .ToList(),
             };
         }
+
+        /// <summary>
+        /// Orders loaded read-only with what ToSummaryDto reads: their lines and their event's
+        /// territory.
+        /// </summary>
+        /// <param name="query">Orders</param>
+        /// <returns>The query with the summary's data included.</returns>
+        public static IQueryable<Order> ForSummary(this IQueryable<Order> query) =>
+            query
+                .Include(o => o.Lines)
+                .Include(o => o.Event)
+                .ThenInclude(e => e!.Territory)
+                .AsNoTracking();
 
         /// <summary>
         /// Maps an order entity to the lightweight summary DTO used by the queues.

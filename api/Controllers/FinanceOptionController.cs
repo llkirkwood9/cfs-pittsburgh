@@ -24,11 +24,7 @@ namespace api.Controllers
     {
         #region Private Fields
 
-        private const string CatalogOnly = "Only a manager, administrator or system admin may change the catalog.";
-
-        private const string NotYourCatalog = "You can only change the catalog of your own territories.";
-
-        private const int MaxNameLength = 100;
+        private const int MaxNameLength = CatalogRules.MaxFinanceNameLength;
 
         #endregion
 
@@ -43,8 +39,8 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> AddFinanceOption([FromBody] FinanceOptionDto request)
         {
-            if (!IsAtLeast(UserRole.Manager))
-                return Forbidden(CatalogOnly);
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
 
             var name = request.Name?.Trim();
             if (string.IsNullOrEmpty(name))
@@ -110,8 +106,8 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> UpdateFinanceOption([FromBody] FinanceOptionDto request)
         {
-            if (!IsAtLeast(UserRole.Manager))
-                return Forbidden(CatalogOnly);
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
 
             if (request.Id == null)
                 return BadRequest(new { error = "Missing parameter." });
@@ -120,8 +116,8 @@ namespace api.Controllers
             if (option == null)
                 return NotFound(new { error = "Financing option not found." });
 
-            if (!CanEditCatalog(option.TerritoryId))
-                return Forbidden(NotYourCatalog);
+            if (DenyUnlessEditable(option.TerritoryId) is { } notEditable)
+                return notEditable;
 
             var territoryId = option.TerritoryId;
             var name = request.Name?.Trim() ?? option.Name;
@@ -157,27 +153,8 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> ReorderFinanceOptions([FromBody] List<int> ids)
         {
-            if (!IsAtLeast(UserRole.Manager))
-                return Forbidden(CatalogOnly);
-
-            if (ids.Count == 0 || ids.Distinct().Count() != ids.Count)
-                return BadRequest(new { error = "Invalid parameter." });
-
-            var first = await DB.FinanceOptions.FindAsync(ids[0]);
-            if (first == null)
-                return BadRequest(new { error = "The list has changed. Refresh and try again." });
-
-            var group = await DB.FinanceOptions.Where(f => f.TerritoryId == first.TerritoryId).ToListAsync();
-            if (group.Count != ids.Count || group.Any(o => !ids.Contains(o.Id)))
-                return BadRequest(new { error = "The list has changed. Refresh and try again." });
-
-            if (!CanEditCatalog(first.TerritoryId))
-                return Forbidden(NotYourCatalog);
-
-            foreach (var option in group)
-                option.SortOrder = ids.IndexOf(option.Id) + 1;
-
-            await DB.SaveChangesAsync();
+            if (await ReorderAsync(ids, id => DB.FinanceOptions.FindAsync(id), territoryId => DB.FinanceOptions.Where(f => f.TerritoryId == territoryId).ToListAsync()) is { } problem)
+                return problem;
 
             return Ok(await ListAsync(Scope.VisibleTerritoryIds, includeInactive: true));
         }
@@ -195,15 +172,15 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> DeleteFinanceOption(int id)
         {
-            if (!IsAtLeast(UserRole.Manager))
-                return Forbidden(CatalogOnly);
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
 
             var option = (await DB.FinanceOptions.FindAsync(id)).IfVisibleTo(Scope);
             if (option == null)
                 return NotFound(new { error = "Financing option not found." });
 
-            if (!CanEditCatalog(option.TerritoryId))
-                return Forbidden(NotYourCatalog);
+            if (DenyUnlessEditable(option.TerritoryId) is { } notEditable)
+                return notEditable;
 
             DB.FinanceOptions.Remove(option);
             await DB.SaveChangesAsync();

@@ -1,7 +1,7 @@
 using api.Dtos.Authentication;
 using api.Models;
 
-namespace api.Utils
+namespace api.Users
 {
     /// <summary>
     /// Maps user accounts for the API. Never includes a password or PIN hash.

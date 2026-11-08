@@ -3,6 +3,7 @@ using api.Data;
 using api.Dtos.Authentication;
 using api.Models;
 using api.Services;
+using api.Users;
 using api.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -73,12 +74,10 @@ namespace api.Controllers
                 IsActive = request.IsActive ?? true,
             };
 
-            var weak = PasswordPolicy.Check(request.Password, user.Username, user.Name);
+            // They choose their own at the first sign-in, so whoever set this never knows it for long.
+            var weak = await Passwords.ChangeAsync(DB, tokenService, user, request.Password, mustChange: true);
             if (weak != null)
                 return BadRequest(new { error = weak });
-
-            // They choose their own at the first sign-in, so whoever set this never knows it for long.
-            Passwords.Set(tokenService, user, request.Password!, mustChange: true);
 
             DB.Users.Add(user);
             await DB.SaveChangesAsync();
@@ -237,18 +236,16 @@ namespace api.Controllers
                 user.FailedLoginCount = 0;
             }
 
+            // A reset password ends every session too, so the account can't renew on the old one.
             if (!string.IsNullOrEmpty(request.Password))
             {
-                var weak = PasswordPolicy.Check(request.Password, user.Username, user.Name);
+                var weak = await Passwords.ChangeAsync(DB, tokenService, user, request.Password, mustChange: !self);
                 if (weak != null)
                     return BadRequest(new { error = weak });
-
-                Passwords.Set(tokenService, user, request.Password, mustChange: !self);
-                endSessions = true;
             }
 
             // A role or territory change takes effect at the user's next request anyway; ending
-            // their sessions makes sure a deactivated or reset account can't renew.
+            // their sessions makes sure a deactivated account can't renew.
             if (endSessions)
                 await DB.UserSessions.Where(s => s.UserId == user.Id).ExecuteDeleteAsync();
 

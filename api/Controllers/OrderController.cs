@@ -1,12 +1,15 @@
 using System.Diagnostics;
-using api.Data;
-using api.Dtos;
-using api.Models;
-using api.Orders;
-using api.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using api.Catalog;
+using api.Data;
+using api.Dtos;
+using api.Inventory;
+using api.Models;
+using api.Orders;
+using api.Settings;
+using api.Utils;
 
 namespace api.Controllers
 {
@@ -118,7 +121,7 @@ namespace api.Controllers
                     return BadRequest(new { error = "This size has no price on file. Enter a price to continue." });
 
                 // Selections such as Color: every required one needs a choice.
-                var (chosen, choiceProblem) = Choices.Resolve(variant.Product!, OrderLines.PickedChoices(request.Choices));
+                var (chosen, choiceProblem) = Choices.Resolve(variant.Product!, PickedChoices(request.Choices));
                 if (choiceProblem != null)
                     return BadRequest(new { error = choiceProblem });
 
@@ -126,7 +129,7 @@ namespace api.Controllers
                 foreach (var component in variant.Components.Where(c => c.ComponentVariant?.Product != null))
                 {
                     var picked = request.IncludedChoices?.FirstOrDefault(i => i.ComponentVariantId == component.ComponentVariantId)?.Choices;
-                    var (included, includedProblem) = Choices.Resolve(component.ComponentVariant!.Product!, OrderLines.PickedChoices(picked));
+                    var (included, includedProblem) = Choices.Resolve(component.ComponentVariant!.Product!, PickedChoices(picked));
                     if (includedProblem != null)
                         return BadRequest(new { error = includedProblem });
                     includedChoices[component.ComponentVariantId] = included;
@@ -204,8 +207,6 @@ namespace api.Controllers
             line.LineType = lineType;
             line.SortOrder = order.Lines.Count == 0 ? 1 : order.Lines.Max(l => l.SortOrder) + 1;
             line.Quantity = request.Quantity ?? 1;
-            line.DiscountPercent = request.DiscountPercent;
-            line.DiscountAmount = request.DiscountAmount;
 
             if (request.TakeWith != null)
                 line.TakeWith = request.TakeWith.Value;
@@ -213,28 +214,15 @@ namespace api.Controllers
             if (request.IsTaxable != null)
                 line.IsTaxable = request.IsTaxable.Value;
 
-            if (request.Notes is { Length: > 500 })
-                return BadRequest(new { error = "An item note can be at most 500 characters." });
+            if (OrderLines.NotesProblem(request.Notes) is { } notesProblem)
+                return BadRequest(new { error = notesProblem });
 
-            line.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+            line.Notes = OrderLines.CleanNotes(request.Notes);
 
-            if (line.Quantity < 1)
-                return BadRequest(new { error = "The quantity must be at least 1." });
+            if (OrderLines.ValuesProblem(line.Quantity, line.UnitPrice, request.DiscountPercent, request.DiscountAmount) is { } valuesProblem)
+                return BadRequest(new { error = valuesProblem });
 
-            if (line.UnitPrice < 0)
-                return BadRequest(new { error = "The unit price cannot be negative." });
-
-            if (line.DiscountPercent is < 0 or > 100)
-                return BadRequest(new { error = "The discount must be between 0 and 100 percent." });
-
-            if (line.DiscountAmount is < 0)
-                return BadRequest(new { error = "A discount can't be negative." });
-
-            // One discount style per line: a percent wins over an amount.
-            if (line.DiscountPercent is > 0)
-                line.DiscountAmount = null;
-            else
-                line.DiscountPercent = null;
+            OrderLines.SetDiscount(line, request.DiscountPercent, request.DiscountAmount);
 
             if (line.LineType == OrderLineType.Upcharge)
                 OrderLines.KeepUpchargePlain(line);
@@ -248,8 +236,7 @@ namespace api.Controllers
 
             var bundleDemand = OrderLines.BundleTakeWithDemand(line, soldVariant, includedChoices);
 
-            InventoryRules.SyncIncludedTakeWith(order);
-            var stockError = await InventoryRules.CheckStockAsync(DB, order.Event!.TerritoryId, order.Lines.Append(line), bundleDemand);
+            var stockError = await InventoryRules.CheckStockAsync(DB, order, line, bundleDemand);
             if (stockError != null)
                 return BadRequest(new { error = stockError });
 
@@ -340,20 +327,7 @@ namespace api.Controllers
             if (order == null)
                 return NotFound(new { error = "Order not found." });
 
-            if (order.Status != OrderStatus.Draft)
-                return BadRequest(new { error = "Only a draft can be sent to checkout." });
-
-            switch (OrderRules.MissingForCheckout(order))
-            {
-                case CheckoutGap.NoItems:
-                    return BadRequest(new { error = "Add at least one item before sending to checkout." });
-                case CheckoutGap.NoCustomerName:
-                    return BadRequest(new { error = "Enter the customer's first and last name before sending to checkout." });
-            }
-
-            order.Status = OrderStatus.AwaitingCheckout;
-            order.SubmittedAt = DateTime.UtcNow;
-            return await SavedAsync(order, OrderChange.Amounts);
+            return await AnswerAsync(order, await OrderLifecycle.SubmitAsync(DB, order));
         }
 
         /// <summary>
@@ -370,36 +344,7 @@ namespace api.Controllers
             if (order == null)
                 return NotFound(new { error = "Order not found." });
 
-            if (order.Status == OrderStatus.Voided)
-                return BadRequest(new { error = OrderRules.VoidedMessage });
-
-            if (order.Status == OrderStatus.Completed)
-                return BadRequest(new { error = "This order is already complete." });
-
-            if (order.Lines.Count == 0)
-                return BadRequest(new { error = "An order needs at least one item before it can be completed." });
-
-            if (order.Payments.Count == 0)
-                return BadRequest(new { error = "Record at least one payment before completing the order." });
-
-            if (!Acknowledgements.IsComplete(order, (await SettingsStore.LoadAsync(DB, order.Event!.TerritoryId)).Terms))
-                return BadRequest(new { error = "The customer needs to initial each acknowledgement that applies and sign before the order can be completed." });
-
-            // Another sale may have taken the last one since this order was written up.
-            InventoryRules.SyncIncludedTakeWith(order);
-            var stockError = await InventoryRules.CheckStockAsync(DB, order.Event!.TerritoryId, order.Lines);
-            if (stockError != null)
-                return BadRequest(new { error = stockError });
-
-            order.Status = OrderStatus.Completed;
-            order.CompletedAt = DateTime.UtcNow;
-            // Keep the wording the customer just initialled - the territory's - with the sale.
-            order.TermsJson = SettingsStore.Store((await SettingsStore.LoadAsync(DB, order.Event!.TerritoryId)).Terms);
-            order.CompletedByUserId = GetCurrentUserId();
-            order.ReceivedBy ??= GetCurrentUserName();
-            order.ReceivedDate ??= DateTime.UtcNow;
-            await InventoryRules.DeductForSaleAsync(DB, order, order.Event!.TerritoryId, GetCurrentUserId(), GetCurrentUserName());
-            return await SavedAsync(order, OrderChange.Amounts);
+            return await AnswerAsync(order, await OrderLifecycle.CompleteAsync(DB, order, Actor()));
         }
 
         /// <summary>
@@ -428,41 +373,7 @@ namespace api.Controllers
             if (target == null)
                 return BadRequest(new { error = "Invalid parameter." });
 
-            if (order.Status == OrderStatus.Completed && !IsAtLeast(UserRole.Manager))
-                return Forbidden("Only a manager, administrator or system admin may reopen a completed sale.");
-
-            if (order.Status == OrderStatus.Voided && !IsAtLeast(UserRole.Manager))
-                return Forbidden("Only a manager, administrator or system admin may reopen a voided order.");
-
-            // The checkout table needs the same as when a rep sends it over.
-            if (order.Status == OrderStatus.Voided && target == OrderStatus.AwaitingCheckout)
-            {
-                switch (OrderRules.MissingForCheckout(order))
-                {
-                    case CheckoutGap.NoItems:
-                        return BadRequest(new { error = "This order has no items. Send it to the sales floor instead." });
-                    case CheckoutGap.NoCustomerName:
-                        return BadRequest(new { error = "This order has no customer name. Send it to the sales floor instead." });
-                }
-            }
-
-            if (order.Status == target)
-                return BadRequest(new { error = target == OrderStatus.Draft
-                    ? "This order is already on the sales floor."
-                    : "This order is already at checkout." });
-
-            // Anything the sale took home goes back on the shelf until it is completed again.
-            await OrderRules.LeavingCompletedAsync(DB, order, GetCurrentUserId(), GetCurrentUserName(), "reopened");
-
-            order.Status = target.Value;
-            order.SubmittedAt = target == OrderStatus.AwaitingCheckout
-                ? DateTime.UtcNow
-                : null;
-            order.CompletedAt = null;
-            order.CompletedByUserId = null;
-            // Completing it again keeps the wording in force then.
-            order.TermsJson = null;
-            return await SavedAsync(order, OrderChange.Other);
+            return await AnswerAsync(order, await OrderLifecycle.ReopenAsync(DB, order, target.Value, Actor()));
         }
 
         /// <summary>
@@ -480,16 +391,7 @@ namespace api.Controllers
             if (order == null)
                 return NotFound(new { error = "Order not found." });
 
-            if (order.Status == OrderStatus.Voided)
-                return BadRequest(new { error = "This order has already been voided." });
-
-            if (order.Status != OrderStatus.AwaitingCheckout && !IsAtLeast(UserRole.Manager))
-                return Forbidden("Only a manager, administrator or system admin may void this order.");
-
-            await OrderRules.LeavingCompletedAsync(DB, order, GetCurrentUserId(), GetCurrentUserName(), "voided");
-
-            order.Status = OrderStatus.Voided;
-            return await SavedAsync(order, OrderChange.Other);
+            return await AnswerAsync(order, await OrderLifecycle.VoidAsync(DB, order, Actor()));
         }
 
         #endregion
@@ -522,10 +424,7 @@ namespace api.Controllers
             }
 
             var orders = await query
-                .Include(o => o.Lines)
-                .Include(o => o.Event)
-                .ThenInclude(e => e!.Territory)
-                .AsNoTracking()
+                .ForSummary()
                 .OrderByDescending(o => o.UpdatedAt)
                 .ToListAsync();
 
@@ -555,10 +454,7 @@ namespace api.Controllers
                 query = query.Where(o => o.CreatedByUserId == userId.Value);
 
             var orders = await query
-                .Include(o => o.Lines)
-                .Include(o => o.Event)
-                .ThenInclude(e => e!.Territory)
-                .AsNoTracking()
+                .ForSummary()
                 .OrderBy(o => o.CreatedAt)
                 .ToListAsync();
 
@@ -580,10 +476,7 @@ namespace api.Controllers
 
             var orders = await DB.Orders
                 .Where(o => o.EventId == eventId && o.Status == OrderStatus.AwaitingCheckout)
-                .Include(o => o.Lines)
-                .Include(o => o.Event)
-                .ThenInclude(e => e!.Territory)
-                .AsNoTracking()
+                .ForSummary()
                 .OrderBy(o => o.SubmittedAt)
                 .ToListAsync();
 
@@ -642,10 +535,7 @@ namespace api.Controllers
             }
 
             var orders = await query
-                .Include(o => o.Lines)
-                .Include(o => o.Event)
-                .ThenInclude(e => e!.Territory)
-                .AsNoTracking()
+                .ForSummary()
                 .OrderByDescending(o => o.SaleDate)
                 .ThenByDescending(o => o.OrderNumber)
                 .Take(Math.Clamp(take, 1, 500))
@@ -770,25 +660,13 @@ namespace api.Controllers
             // they have to look again before the sale can be completed.
             OrderFields.Apply(order, request);
 
-            if (request.Comments != null)
-                order.Comments = string.IsNullOrWhiteSpace(request.Comments) ? null : request.Comments;
-
-            if (request.SalesTaxRate != null)
-                order.SalesTaxRate = request.SalesTaxRate.Value;
-
-            if (request.CcProcessingFeeRate != null)
-                order.CcProcessingFeeRate = request.CcProcessingFeeRate.Value;
-
-            if (request.ApplyCcProcessingFee != null)
-                order.ApplyCcProcessingFee = request.ApplyCcProcessingFee.Value;
-
             // Waiving the card fee is a checkout decision, and changes the total of a sale
             // that is still open only.
             if (request.WaiveCcProcessingFee != null && request.WaiveCcProcessingFee.Value != order.WaiveCcProcessingFee)
             {
                 if (order.Status == OrderStatus.Completed)
                     return BadRequest(new { error = "This sale is complete, so its card fee can no longer be changed." });
-                if (!IsInRole(UserRole.Checkout) && !IsInRole(UserRole.SalesCheckout) && !IsInRole(UserRole.Manager) && !IsInRole(UserRole.Admin))
+                if (!Scope.CanWorkCheckout)
                     return Forbidden("Only the checkout table can waive the card fee.");
 
                 order.WaiveCcProcessingFee = request.WaiveCcProcessingFee.Value;
@@ -833,17 +711,8 @@ namespace api.Controllers
                 line.Description = request.Description;
             }
 
-            if (request.Quantity is < 1)
-                return BadRequest(new { error = "The quantity must be at least 1." });
-
-            if (request.UnitPrice is < 0)
-                return BadRequest(new { error = "The unit price cannot be negative." });
-
-            if (request.DiscountPercent is < 0 or > 100)
-                return BadRequest(new { error = "The discount must be between 0 and 100 percent." });
-
-            if (request.DiscountAmount is < 0)
-                return BadRequest(new { error = "A discount can't be negative." });
+            if (OrderLines.ValuesProblem(request.Quantity, request.UnitPrice, request.DiscountPercent, request.DiscountAmount) is { } valuesProblem)
+                return BadRequest(new { error = valuesProblem });
 
             if (request.Brand != null)
                 line.Brand = request.Brand;
@@ -874,25 +743,19 @@ namespace api.Controllers
 
             // Sending one discount style clears the other, so the two can never both apply.
             if (request.DiscountPercent != null)
-            {
-                line.DiscountPercent = request.DiscountPercent.Value == 0 ? null : request.DiscountPercent;
-                line.DiscountAmount = null;
-            }
+                OrderLines.SetDiscount(line, request.DiscountPercent, null);
             else if (request.DiscountAmount != null)
-            {
-                line.DiscountAmount = request.DiscountAmount.Value == 0 ? null : request.DiscountAmount;
-                line.DiscountPercent = null;
-            }
+                OrderLines.SetDiscount(line, null, request.DiscountAmount);
 
             if (request.IsTaxable != null)
                 line.IsTaxable = request.IsTaxable.Value;
 
             if (request.Notes != null)
             {
-                if (request.Notes.Length > 500)
-                    return BadRequest(new { error = "An item note can be at most 500 characters." });
+                if (OrderLines.NotesProblem(request.Notes) is { } notesProblem)
+                    return BadRequest(new { error = notesProblem });
 
-                line.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes.Trim();
+                line.Notes = OrderLines.CleanNotes(request.Notes);
             }
 
             if (request.SortOrder != null)
@@ -910,8 +773,7 @@ namespace api.Controllers
                 OrderLines.KeepUpchargePlain(line);
             }
 
-            InventoryRules.SyncIncludedTakeWith(order);
-            var stockError = await InventoryRules.CheckStockAsync(DB, order.Event!.TerritoryId, order.Lines);
+            var stockError = await InventoryRules.CheckStockAsync(DB, order);
             if (stockError != null)
                 return BadRequest(new { error = stockError });
 
@@ -1101,6 +963,36 @@ namespace api.Controllers
         #endregion
 
         #region Private Methods
+
+        /// <summary>
+        /// The answer to a status step: the reason it was refused, or the order as it now stands.
+        /// </summary>
+        /// <param name="order">The order</param>
+        /// <param name="problem">Why the step was refused, or null when it was done</param>
+        /// <returns>The response.</returns>
+        private async Task<IActionResult> AnswerAsync(Order order, OrderProblem? problem)
+        {
+            if (problem != null)
+                return problem.Forbidden ? Forbidden(problem.Message) : BadRequest(new { error = problem.Message });
+
+            return Ok(await LoadDtoAsync(order.Id));
+        }
+
+        /// <summary>
+        /// The signed-in user, as the order steps record them.
+        /// </summary>
+        /// <returns>Their id, name and whether they are a manager or above.</returns>
+        private OrderActor Actor() => new(GetCurrentUserId(), GetCurrentUserName(), IsAtLeast(UserRole.Manager));
+
+        /// <summary>
+        /// The selection and choice ids sent by the dashboard.
+        /// </summary>
+        /// <param name="choices">The selections as sent</param>
+        /// <returns>Selection id and choice id pairs.</returns>
+        private static IEnumerable<(int OptionId, int ChoiceId)> PickedChoices(List<LineChoiceDto>? choices) =>
+            (choices ?? [])
+                .Where(c => c.OptionId != null && c.ChoiceId != null)
+                .Select(c => (c.OptionId!.Value, c.ChoiceId!.Value));
 
         /// <summary>
         /// Saves a changed order with the bookkeeping its change calls for, and answers with the

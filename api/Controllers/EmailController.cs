@@ -1,12 +1,15 @@
 using System.Diagnostics;
-using api.Data;
-using api.Dtos;
-using api.Models;
-using api.Services;
-using api.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using api.Data;
+using api.Dtos;
+using api.Email;
+using api.Inventory;
+using api.Models;
+using api.Services;
+using api.Settings;
+using api.Utils;
 
 namespace api.Controllers
 {

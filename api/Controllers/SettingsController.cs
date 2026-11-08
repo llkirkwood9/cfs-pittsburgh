@@ -1,13 +1,15 @@
 using System.Diagnostics;
-using api.Data;
-using api.Dtos;
-using api.Models;
-using api.Orders;
-using api.Services;
-using api.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using api.Data;
+using api.Dtos;
+using api.Email;
+using api.Models;
+using api.Orders;
+using api.Services;
+using api.Settings;
+using api.Utils;
 
 namespace api.Controllers
 {
@@ -197,7 +199,7 @@ namespace api.Controllers
             if (request.DefaultCcProcessingFeeRate != null)
                 await Set(AppSettingKeys.DefaultCcProcessingFeeRate, SettingsStore.Store(feeRate), SettingsStore.Store(fallback.DefaultCcProcessingFeeRate));
             if (terms != null)
-                await Set(AppSettingKeys.SalesSheetTerms, SettingsStore.Store(terms), SettingsStore.Store(fallback.Terms));
+                await Set(AppSettingKeys.SalesSheetTerms, SalesTerms.Store(terms), SalesTerms.Store(fallback.Terms));
             if (request.AllowOtherFinanceType != null)
                 await Set(AppSettingKeys.AllowOtherFinanceType, SettingsStore.Store(request.AllowOtherFinanceType.Value), SettingsStore.Store(fallback.AllowOtherFinanceType));
 
@@ -306,7 +308,7 @@ namespace api.Controllers
         private static (List<SalesTerm>? Terms, string? Problem) CheckTerms(List<SalesTermDto> edited)
         {
             var result = new List<SalesTerm>();
-            foreach (var d in SettingsStore.DefaultTerms)
+            foreach (var d in SalesTerms.Defaults)
             {
                 var e = edited.FirstOrDefault(t => t.Key == d.Key);
                 var text = e?.Text?.Replace("\r\n", "\n").Trim() ?? "";
@@ -318,10 +320,10 @@ namespace api.Controllers
                     return (null, $"\"{title ?? d.Title}\" can be at most {SettingsStore.MaxTermTextLength:N0} characters, so the sales sheet still fits on one page.");
                 if (title?.Length > SettingsStore.MaxTermHeadingLength || heading.Length > SettingsStore.MaxTermHeadingLength)
                     return (null, $"Titles and headings can be at most {SettingsStore.MaxTermHeadingLength} characters.");
-                if (e?.AskWhen != null && !Acknowledgements.AskWhenValues.Contains(e.AskWhen))
+                if (e?.AskWhen != null && !SalesTerms.AskWhenValues.Contains(e.AskWhen))
                     return (null, "Each statement is asked always, when something ships, or when an item has a warranty.");
                 result.Add(new SalesTerm(d.Key, string.IsNullOrWhiteSpace(title) ? d.Title : title, heading, text,
-                    SettingsStore.AskWhenOrDefault(e?.AskWhen, d.AskWhen)));
+                    SalesTerms.AskWhenOrDefault(e?.AskWhen, d.AskWhen)));
             }
             return (result, null);
         }

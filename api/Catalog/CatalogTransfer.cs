@@ -285,7 +285,7 @@ namespace api.Catalog
             if (deliveryOptions.Count > 500 || products.Count > 5000 || financeOptions.Count > 500)
                 return "This catalog file is too large.";
 
-            if (financeOptions.Any(f => (f.Name?.Trim().Length ?? 0) is 0 or > 100))
+            if (financeOptions.Any(f => !CatalogRules.IsValidFinanceName(f.Name?.Trim())))
                 return "Every financing option needs a name of up to 100 characters.";
             var repeated = financeOptions.GroupBy(f => (Key(f.Territory), Key(f.Name))).FirstOrDefault(g => g.Count() > 1);
             if (repeated != null)
@@ -298,7 +298,7 @@ namespace api.Catalog
                     return "Every delivery option needs a name of up to 100 characters.";
                 if (d.Price is null or < 0 or > CatalogRules.MaxDeliveryPrice)
                     return $"Delivery option \"{name}\": the price must be 0 or more.";
-                if (d.SaleDiscountPercent is < 0 or > 100 || d.SaleDiscountAmount < 0)
+                if (!CatalogRules.IsValidSalePercent(d.SaleDiscountPercent) || !CatalogRules.IsValidSaleAmount(d.SaleDiscountAmount))
                     return $"Delivery option \"{name}\": a sale must be 0 to 100 percent, or an amount of 0 or more.";
             }
 
@@ -319,7 +319,7 @@ namespace api.Catalog
                 var sales = new List<(decimal? Percent, decimal? Amount)> { (p.SaleDiscountPercent, p.SaleDiscountAmount) };
                 sales.AddRange((p.Variants ?? []).Select(v => (v.SaleDiscountPercent, v.SaleDiscountAmount)));
                 sales.AddRange((p.DeliveryOptions ?? []).Select(d => (d.SaleDiscountPercent, d.SaleDiscountAmount)));
-                if (sales.Any(s => s.Percent is < 0 or > 100 || s.Amount < 0))
+                if (sales.Any(s => !CatalogRules.IsValidSalePercent(s.Percent) || !CatalogRules.IsValidSaleAmount(s.Amount)))
                     return $"{label}: a sale must be 0 to 100 percent, or an amount of 0 or more.";
 
                 var variants = p.Variants ?? [];
@@ -329,7 +329,7 @@ namespace api.Catalog
                     return $"{label}: a size can be at most 50 characters and a configuration 100.";
                 if (variants.Any(v => v.Price is < 0 or > 1_000_000))
                     return $"{label}: prices must be 0 or more.";
-                if (variants.SelectMany(v => v.Includes ?? []).Any(c => c.Quantity is < 1 or > 20))
+                if (variants.SelectMany(v => v.Includes ?? []).Any(c => !CatalogRules.IsValidBundleQuantity(c.Quantity)))
                     return $"{label}: an included item's quantity must be between 1 and 20.";
 
                 var optionError = ProductOptions.Validate(ToOptionDtos(p.Options, null));
@@ -716,10 +716,10 @@ namespace api.Catalog
             string.IsNullOrWhiteSpace(configuration) ? size?.Trim() ?? "" : $"{size?.Trim()} / {configuration.Trim()}";
 
         /// <summary>A name for matching: trimmed and lower case, with nothing the same as blank.</summary>
-        private static string Key(string? value) => value?.Trim().ToLowerInvariant() ?? "";
+        private static string Key(string? value) => CatalogRules.NameKey(value);
 
         /// <summary>Whether two names match, ignoring case and spaces around them.</summary>
-        private static bool Same(string? a, string? b) => Key(a) == Key(b);
+        private static bool Same(string? a, string? b) => CatalogRules.SameName(a, b);
 
         #endregion
     }

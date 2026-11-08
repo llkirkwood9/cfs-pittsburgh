@@ -168,6 +168,9 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+// Code with no logger of its own (settings and catalog JSON readers) traces through this one.
+TraceControl.UseDefaultLogger(app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("api"));
+
 if (trustForwarded)
     app.UseForwardedHeaders();
 
@@ -265,7 +268,7 @@ using (var scope = app.Services.CreateScope())
             // SKIP_SEED_DATA in the Docker .env (Seed:Skip) leaves out the sample catalog,
             // delivery options and event.
             var skipSeed = builder.Configuration["Seed:Skip"]?.Trim().ToLowerInvariant() is "true" or "1" or "yes";
-            var generated = await api.Data.SeedData.SeedAsync(
+            var generated = await api.Seeding.SeedData.SeedAsync(
                 db, tokenService, builder.Configuration["Seed:AdminPassword"], accountsOnly: skipSeed);
             if (skipSeed && attempt == 1)
                 logger.LogWarning("Seed:Skip is set, so the sample catalog, delivery options and event were not loaded.");
@@ -277,7 +280,7 @@ using (var scope = app.Services.CreateScope())
                     "Created the first account. Username: admin  Temporary password: {Password}  (it must be changed at first sign-in)",
                     generated);
 
-            var promoted = await api.Data.SeedData.EnsureSystemAdminAsync(db);
+            var promoted = await api.Seeding.SeedData.EnsureSystemAdminAsync(db);
             if (promoted != null)
                 logger.LogWarning("No system admin account existed, so {Username} is now the system admin.", promoted);
             break;
@@ -290,7 +293,10 @@ using (var scope = app.Services.CreateScope())
         }
         catch (Exception e)
         {
+            // Serving on a database that isn't migrated would only fail later and less clearly,
+            // so the host stops and its supervisor (Docker, systemd) can restart it.
             logger.LogCritical("Startup migration or seed failed: {Message}", e.Message);
+            throw;
         }
     }
 }
