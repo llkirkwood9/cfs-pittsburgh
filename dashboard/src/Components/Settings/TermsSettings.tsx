@@ -4,11 +4,11 @@ import Icon from "../Elements/Icon";
 import TermText from "../Elements/TermText";
 import TextField from "../Elements/TextField";
 import SettingsCard from "./SettingsCard";
-import { useSettingsScope } from "./SettingsScope";
+import { useSettingsScope } from "@shared/Context/SettingsScope";
 import { Toast } from "../../Lib/Toast";
-import { AskWhenOptions, DefaultSalesTerms } from "../../Models/GeneralSettings";
-import type { AskWhen, SalesTerm } from "../../Models/GeneralSettings";
-import { SaveGeneralSettings } from "../../Services/SettingsServices";
+import { AskWhenOptions, DefaultSalesTerms } from "@shared/Models/GeneralSettings";
+import type { AskWhen, SalesTerm } from "@shared/Models/GeneralSettings";
+import { SaveGeneralSettings } from "@shared/Services/SettingsServices";
 
 /** Matches the server's limits. */
 const MAX_TEXT = 1200;

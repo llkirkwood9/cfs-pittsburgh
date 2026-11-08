@@ -14,7 +14,7 @@ import SelectField from "../Components/Elements/SelectField";
 import SwipeRow from "../Components/Elements/SwipeRow";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useSettings } from "../Context/SettingsContext";
 import { useTerritory } from "../Context/TerritoryContext";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
@@ -25,11 +25,11 @@ import {
     IsUpcomingEvent,
     ParseMoney,
     SplitEvents,
-} from "../Lib/ModelHelpers";
+} from "@shared/Lib/ModelHelpers";
 import { cx } from "../Lib/ClassNames";
 import { Toast } from "../Lib/Toast";
-import type { Event } from "../Models/Event";
-import { AddEvent, DeleteEvent, GetEvents, UpdateEvent } from "../Services/EventServices";
+import type { Event } from "@shared/Models/Event";
+import { AddEvent, DeleteEvent, GetEvents, UpdateEvent } from "@shared/Services/EventServices";
 
 /** A small rounded label beside an event's name. */
 const Tag = ({ text, box, color }: { text: string; box: string; color: string }) => (

@@ -6,13 +6,13 @@ import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import TextField from "../Components/Elements/TextField";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useTerritory } from "../Context/TerritoryContext";
-import { FormatDateTime, FormatElapsed } from "../Lib/ModelHelpers";
+import { FormatDateTime, FormatElapsed } from "@shared/Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
-import { IsCompanyWide, UserRoleLabels } from "../Models/User";
-import type { User, UserRole } from "../Models/User";
-import { AddUser, DeleteUser, GetUsers, UpdateUser } from "../Services/UserServices";
+import { IsCompanyWide, UserRoleLabels } from "@shared/Models/User";
+import type { User, UserRole } from "@shared/Models/User";
+import { AddUser, DeleteUser, GetUsers, UpdateUser } from "@shared/Services/UserServices";
 
 const roles: UserRole[] = ["Sales", "Checkout", "SalesCheckout", "Manager", "Admin", "SystemAdmin"];
 

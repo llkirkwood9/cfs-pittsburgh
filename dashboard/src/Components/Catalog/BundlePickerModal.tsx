@@ -4,8 +4,8 @@ import Modal from "../Elements/Modal";
 import TabButton from "../Elements/TabButton";
 import TextField from "../Elements/TextField";
 import { Toast } from "../../Lib/Toast";
-import type { Product, ProductCategory } from "../../Models/Product";
-import type { ProductVariant } from "../../Models/ProductVariant";
+import type { Product, ProductCategory } from "@shared/Models/Product";
+import type { ProductVariant } from "@shared/Models/ProductVariant";
 
 export type BundlePick = {
     product: Product;

@@ -3,18 +3,18 @@ import ConfirmationModal from "../Elements/ConfirmationModal";
 import Icon from "../Elements/Icon";
 import ListSkeleton from "../Elements/ListSkeleton";
 import SettingsCard from "./SettingsCard";
-import { useSettingsScope } from "./SettingsScope";
-import { FormatDateTime } from "../../Lib/ModelHelpers";
+import { useSettingsScope } from "@shared/Context/SettingsScope";
+import { FormatDateTime } from "@shared/Lib/ModelHelpers";
 import { Toast } from "../../Lib/Toast";
 import type {
     ReceiptEmailPreview,
     ReceiptEmailSettings as ReceiptEmail,
-} from "../../Models/ReceiptEmailSettings";
+} from "@shared/Models/ReceiptEmailSettings";
 import {
     GetReceiptEmailSettings,
     PreviewReceiptEmail,
     SaveReceiptEmailSettings,
-} from "../../Services/SettingsServices";
+} from "@shared/Services/SettingsServices";
 
 /** How long typing has to pause before the preview refreshes. */
 const PREVIEW_DELAY_MS = 400;

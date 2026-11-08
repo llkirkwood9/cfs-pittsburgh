@@ -2,9 +2,9 @@ import { Pressable, View } from "react-native";
 import Icon from "../Elements/Icon";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
-import { FormatCurrency, FormatShortDate, IsPastEvent, IsUpcomingEvent } from "../../Lib/ModelHelpers";
-import type { EventTally } from "../../Models/DashboardStats";
-import type { Event } from "../../Models/Event";
+import { FormatCurrency, FormatShortDate, IsPastEvent, IsUpcomingEvent } from "@shared/Lib/ModelHelpers";
+import type { EventTally } from "@shared/Models/DashboardStats";
+import type { Event } from "@shared/Models/Event";
 
 type Props = {
     events: EventTally[];

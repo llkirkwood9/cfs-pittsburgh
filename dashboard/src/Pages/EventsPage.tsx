@@ -6,7 +6,7 @@ import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import TextField from "../Components/Elements/TextField";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useSettings } from "../Context/SettingsContext";
 import { useTerritory } from "../Context/TerritoryContext";
 import {
@@ -16,10 +16,10 @@ import {
     IsUpcomingEvent,
     ParseMoney,
     SplitEvents,
-} from "../Lib/ModelHelpers";
+} from "@shared/Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
-import type { Event } from "../Models/Event";
-import { AddEvent, DeleteEvent, GetEvents, UpdateEvent } from "../Services/EventServices";
+import type { Event } from "@shared/Models/Event";
+import { AddEvent, DeleteEvent, GetEvents, UpdateEvent } from "@shared/Services/EventServices";
 
 /**
  * Event administration. The sales tax rate, the card processing fee and the order number

@@ -2,9 +2,9 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ChangePasswordModal from "./ChangePasswordModal";
 import Icon from "../Elements/Icon";
-import { useAuth } from "../../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { DASHBOARD_VERSION } from "../../Lib/Version";
-import { UserRoleLabels } from "../../Models/User";
+import { UserRoleLabels } from "@shared/Models/User";
 
 /**
  * Shows who is signed in on this tablet and offers sign-out. The crew shares devices, so the

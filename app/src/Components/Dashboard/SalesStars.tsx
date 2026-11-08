@@ -2,7 +2,7 @@ import { View } from "react-native";
 import Icon from "../Elements/Icon";
 import Text from "../Elements/Text";
 import { useSettings } from "../../Context/SettingsContext";
-import { FormatCurrency } from "../../Lib/ModelHelpers";
+import { FormatCurrency } from "@shared/Lib/ModelHelpers";
 
 /** Past this many, the rest are shown as a number so the card never overflows. */
 const MAX_DRAWN = 8;

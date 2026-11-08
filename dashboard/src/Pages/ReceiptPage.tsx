@@ -4,14 +4,14 @@ import Button from "../Components/Elements/Button";
 import EmailDialog from "../Components/Elements/EmailDialog";
 import LoadingPage from "../Components/Elements/LoadingPage";
 import ReceiptSheet from "../Components/Checkout/ReceiptSheet";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { HomePathForRole } from "../Lib/RoleRoutes";
 import { FindSheets, PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
 import { Toast } from "../Lib/Toast";
-import type { Order } from "../Models/Order";
-import { EmailReceipt, GetEmailStatus } from "../Services/EmailServices";
-import type { EmailStatus } from "../Services/EmailServices";
-import { GetOrder } from "../Services/OrderServices";
+import type { Order } from "@shared/Models/Order";
+import { EmailReceipt, GetEmailStatus } from "@shared/Services/EmailServices";
+import type { EmailStatus } from "@shared/Services/EmailServices";
+import { GetOrder } from "@shared/Services/OrderServices";
 
 /**
  * The printable copy of a sale. Unfinished orders are stamped as such by the sheet itself. Print

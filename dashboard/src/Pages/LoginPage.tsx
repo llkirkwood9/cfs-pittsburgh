@@ -4,7 +4,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
 import TextField from "../Components/Elements/TextField";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useSettings } from "../Context/SettingsContext";
 import { HomePathForRole } from "../Lib/RoleRoutes";
 import { Toast } from "../Lib/Toast";

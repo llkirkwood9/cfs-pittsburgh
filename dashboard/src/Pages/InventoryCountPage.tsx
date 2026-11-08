@@ -5,18 +5,18 @@ import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import TextField from "../Components/Elements/TextField";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import {
     CategoryNames,
     GroupInventory,
     InventoryRowKey,
     InventorySizeLabel,
-} from "../Lib/ModelHelpers";
+} from "@shared/Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
-import type { Event } from "../Models/Event";
-import type { InventoryItem } from "../Models/InventoryItem";
-import { GetActiveEvent } from "../Services/EventServices";
-import { GetInventory, SaveInventoryCount } from "../Services/InventoryServices";
+import type { Event } from "@shared/Models/Event";
+import type { InventoryItem } from "@shared/Models/InventoryItem";
+import { GetActiveEvent } from "@shared/Services/EventServices";
+import { GetInventory, SaveInventoryCount } from "@shared/Services/InventoryServices";
 
 type Phase = "start" | "end";
 

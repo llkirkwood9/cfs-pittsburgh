@@ -7,7 +7,7 @@ import Icon from "../Components/Elements/Icon";
 import KeyboardAvoider from "../Components/Elements/KeyboardAvoider";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useSettings } from "../Context/SettingsContext";
 import { HomePathForRole } from "../Lib/RoleRoutes";
 import { GetServerUrl } from "../Lib/Server";

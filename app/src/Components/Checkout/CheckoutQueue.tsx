@@ -2,8 +2,8 @@ import { Pressable, View } from "react-native";
 import Icon from "../Elements/Icon";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
-import { FormatCurrency, FormatElapsed } from "../../Lib/ModelHelpers";
-import type { OrderSummary } from "../../Models/OrderSummary";
+import { FormatCurrency, FormatElapsed } from "@shared/Lib/ModelHelpers";
+import type { OrderSummary } from "@shared/Models/OrderSummary";
 
 type Props = {
     orders: OrderSummary[];

@@ -2,7 +2,7 @@ import { useState } from "react";
 import { TextInput, View } from "react-native";
 import Button from "../Elements/Button";
 import Text from "../Elements/Text";
-import type { Order } from "../../Models/Order";
+import type { Order } from "@shared/Models/Order";
 
 type Props = {
     order: Order;

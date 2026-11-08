@@ -5,11 +5,11 @@ import SizeGuideButton from "./SizeGuideButton";
 import TerritoryPicker from "./TerritoryPicker";
 import ThemeToggle from "./ThemeToggle";
 import UserProfileDropdown from "./UserProfileDropdown";
-import { useAuth } from "../../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useSettings } from "../../Context/SettingsContext";
 import { useTerritory } from "../../Context/TerritoryContext";
 import { useCheckoutWaiting } from "../../Hooks/UseCheckoutWaiting";
-import type { UserRole } from "../../Models/User";
+import type { UserRole } from "@shared/Models/User";
 
 type NavItem = {
     to: string;

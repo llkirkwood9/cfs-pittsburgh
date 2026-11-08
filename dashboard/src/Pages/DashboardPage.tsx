@@ -10,15 +10,15 @@ import StockWatch from "../Components/Dashboard/StockWatch";
 import TerritoryComparison from "../Components/Dashboard/TerritoryComparison";
 import StatCard from "../Components/Elements/StatCard";
 import TabButton from "../Components/Elements/TabButton";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useTerritory } from "../Context/TerritoryContext";
-import { CategoryNames, EventsForFilter, FormatCurrency, IsPastEvent } from "../Lib/ModelHelpers";
-import { IsOnline } from "../Lib/Connection";
-import type { DashboardStats, ProductTally } from "../Models/DashboardStats";
-import type { Event } from "../Models/Event";
-import type { ProductCategory } from "../Models/Product";
-import { GetStatsForAllEvents, GetStatsForEvent } from "../Services/DashboardServices";
-import { GetActiveEvent, GetEvents } from "../Services/EventServices";
+import { CategoryNames, EventsForFilter, FormatCurrency, IsPastEvent } from "@shared/Lib/ModelHelpers";
+import { IsOnline } from "@shared/Lib/Connection";
+import type { DashboardStats, ProductTally } from "@shared/Models/DashboardStats";
+import type { Event } from "@shared/Models/Event";
+import type { ProductCategory } from "@shared/Models/Product";
+import { GetStatsForAllEvents, GetStatsForEvent } from "@shared/Services/DashboardServices";
+import { GetActiveEvent, GetEvents } from "@shared/Services/EventServices";
 
 /** How often the figures refresh while the page is open. */
 const POLL_MS = 15000;

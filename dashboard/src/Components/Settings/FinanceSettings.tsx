@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import SettingsCard from "./SettingsCard";
-import { useSettingsScope } from "./SettingsScope";
+import { useSettingsScope } from "@shared/Context/SettingsScope";
 import { Toast } from "../../Lib/Toast";
-import { DefaultGeneralSettings } from "../../Models/GeneralSettings";
-import { SaveGeneralSettings } from "../../Services/SettingsServices";
+import { DefaultGeneralSettings } from "@shared/Models/GeneralSettings";
+import { SaveGeneralSettings } from "@shared/Services/SettingsServices";
 
 /**
  * Whether checkout's financing type list ends with Other, for typing in a kind of financing that

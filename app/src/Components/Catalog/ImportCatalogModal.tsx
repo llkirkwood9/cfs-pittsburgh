@@ -6,8 +6,8 @@ import Modal from "../Elements/Modal";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
 import { PickTextFile } from "../../Lib/Files";
-import type { CatalogFile, CatalogImportMode, CatalogImportResult } from "../../Models/CatalogFile";
-import { ImportCatalog } from "../../Services/CatalogServices";
+import type { CatalogFile, CatalogImportMode, CatalogImportResult } from "@shared/Models/CatalogFile";
+import { ImportCatalog } from "@shared/Services/CatalogServices";
 
 type Props = {
     onClose: () => void;

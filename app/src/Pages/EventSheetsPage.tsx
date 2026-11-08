@@ -11,22 +11,22 @@ import LoadingPage from "../Components/Elements/LoadingPage";
 import Text from "../Components/Elements/Text";
 import InventoryNotesEditor from "../Components/Inventory/InventoryNotesEditor";
 import InventorySheet from "../Components/Inventory/InventorySheet";
-import { useAuth } from "../Context/AuthContext";
-import { FormatCurrency, FormatShortDate } from "../Lib/ModelHelpers";
+import { useAuth } from "@shared/Context/AuthContext";
+import { FormatCurrency, FormatShortDate } from "@shared/Lib/ModelHelpers";
 import { BuildSalesCsv, DownloadCsv } from "../Lib/SalesExport";
-import { PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
+import { PdfUpload, PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
 import type { SheetRef } from "../Lib/SheetPdf";
 import { Toast } from "../Lib/Toast";
-import type { DashboardStats } from "../Models/DashboardStats";
-import type { Event } from "../Models/Event";
-import type { InventoryItem } from "../Models/InventoryItem";
-import type { Order } from "../Models/Order";
-import { GetStatsForEvent } from "../Services/DashboardServices";
-import { EmailEventReport, GetEmailStatus } from "../Services/EmailServices";
-import type { EmailStatus } from "../Services/EmailServices";
-import { GetEvent } from "../Services/EventServices";
-import { GetInventory } from "../Services/InventoryServices";
-import { GetSalesSheetsForEvent } from "../Services/OrderServices";
+import type { DashboardStats } from "@shared/Models/DashboardStats";
+import type { Event } from "@shared/Models/Event";
+import type { InventoryItem } from "@shared/Models/InventoryItem";
+import type { Order } from "@shared/Models/Order";
+import { GetStatsForEvent } from "@shared/Services/DashboardServices";
+import { EmailEventReport, GetEmailStatus } from "@shared/Services/EmailServices";
+import type { EmailStatus } from "@shared/Services/EmailServices";
+import { GetEvent } from "@shared/Services/EventServices";
+import { GetInventory } from "@shared/Services/InventoryServices";
+import { GetSalesSheetsForEvent } from "@shared/Services/OrderServices";
 
 /**
  * Every completed sales sheet for one event, stacked one per printed page, between the stat sheet
@@ -229,7 +229,7 @@ const EventSheetsPage = () => {
                         );
                         if (!pdf) return null;
                         report("Sending...");
-                        return EmailEventReport(saleEvent.id!, to, message, pdf);
+                        return EmailEventReport(saleEvent.id!, to, message, PdfUpload(pdf));
                     }}
                     onClose={() => setEmailing(false)}
                 />

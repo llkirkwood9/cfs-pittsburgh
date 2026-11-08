@@ -7,9 +7,9 @@ import Grid, { Cell } from "../Elements/Grid";
 import Icon from "../Elements/Icon";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
-import { NormalizeCustomer } from "../../Lib/ModelHelpers";
+import { NormalizeCustomer } from "@shared/Lib/ModelHelpers";
 import { Toast } from "../../Lib/Toast";
-import type { Order } from "../../Models/Order";
+import type { Order } from "@shared/Models/Order";
 
 type Props = {
     order: Order;

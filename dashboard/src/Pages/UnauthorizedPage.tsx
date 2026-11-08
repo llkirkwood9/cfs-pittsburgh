@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { HomePathForRole } from "../Lib/RoleRoutes";
 
 /**

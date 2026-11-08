@@ -12,7 +12,7 @@ import type { SwipeAction } from "../Components/Elements/SwipeRow";
 import TabButton from "../Components/Elements/TabButton";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useTerritory } from "../Context/TerritoryContext";
 import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
@@ -23,19 +23,19 @@ import {
     FormatShortDate,
     FormatTime,
     IsPastEvent,
-} from "../Lib/ModelHelpers";
+} from "@shared/Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
-import type { Event } from "../Models/Event";
-import type { OrderStatus } from "../Models/Order";
-import type { OrderSummary } from "../Models/OrderSummary";
-import { GetActiveEvent, GetEvents } from "../Services/EventServices";
+import type { Event } from "@shared/Models/Event";
+import type { OrderStatus } from "@shared/Models/Order";
+import type { OrderSummary } from "@shared/Models/OrderSummary";
+import { GetActiveEvent, GetEvents } from "@shared/Services/EventServices";
 import {
     DeleteOrder,
     GetAllOrders,
     GetOrdersForEvent,
     ReopenOrder,
     VoidOrder,
-} from "../Services/OrderServices";
+} from "@shared/Services/OrderServices";
 
 type Scope = { kind: "event"; eventId: number } | { kind: "all" };
 

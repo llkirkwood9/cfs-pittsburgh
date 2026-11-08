@@ -1,8 +1,8 @@
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import TextField from "../Elements/TextField";
-import { ParseMoney } from "../../Lib/ModelHelpers";
-import type { ProductOption } from "../../Models/ProductOption";
+import { ParseMoney } from "@shared/Lib/ModelHelpers";
+import type { ProductOption } from "@shared/Models/ProductOption";
 
 /** A choice being edited. `key` is local, so new rows have something stable to key on. */
 export type DraftChoice = { key: string; id?: number; name: string; priceText: string };

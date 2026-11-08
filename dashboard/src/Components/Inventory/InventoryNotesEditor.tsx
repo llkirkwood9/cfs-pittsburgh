@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import Button from "../Elements/Button";
 import TextArea from "../Elements/TextArea";
 import { Toast } from "../../Lib/Toast";
-import { SaveInventoryNotes } from "../../Services/InventoryServices";
+import { SaveInventoryNotes } from "@shared/Services/InventoryServices";
 
 type Props = {
     eventId: number;

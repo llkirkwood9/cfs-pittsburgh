@@ -23,6 +23,7 @@ on:
     paths:
       - "api/**"
       - "dashboard/**"
+      - "shared/**"
       - "Dockerfile"
       - "docker-compose.coolify.yml"
       - ".github/workflows/cloud-deploy.yml"

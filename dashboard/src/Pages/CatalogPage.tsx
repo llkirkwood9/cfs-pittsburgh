@@ -10,37 +10,37 @@ import DeliveryOptionList from "../Components/Catalog/DeliveryOptionList";
 import EditProductForm from "../Components/Catalog/EditProductForm";
 import FinanceOptionList from "../Components/Catalog/FinanceOptionList";
 import ImportCatalogModal from "../Components/Catalog/ImportCatalogModal";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useTerritory } from "../Context/TerritoryContext";
-import { FormatCurrency } from "../Lib/ModelHelpers";
-import { DiscountText, HasDiscount, OnSale, SaleFor } from "../Lib/Pricing";
-import { ProductSortOptions, SortProducts, type ProductSortKey } from "../Lib/ProductSort";
+import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import { DiscountText, HasDiscount, OnSale, SaleFor } from "@shared/Lib/Pricing";
+import { ProductSortOptions, SortProducts, type ProductSortKey } from "@shared/Lib/ProductSort";
 import { Toast } from "../Lib/Toast";
-import type { DeliveryOption } from "../Models/DeliveryOption";
-import type { FinanceOption } from "../Models/FinanceOption";
-import { ExportCatalog } from "../Services/CatalogServices";
-import type { Product, ProductCategory } from "../Models/Product";
+import type { DeliveryOption } from "@shared/Models/DeliveryOption";
+import type { FinanceOption } from "@shared/Models/FinanceOption";
+import { ExportCatalog } from "@shared/Services/CatalogServices";
+import type { Product, ProductCategory } from "@shared/Models/Product";
 import {
     AddDeliveryOption,
     DeleteDeliveryOption,
     GetDeliveryOptions,
     ReorderDeliveryOptions,
     UpdateDeliveryOption,
-} from "../Services/DeliveryOptionServices";
+} from "@shared/Services/DeliveryOptionServices";
 import {
     AddFinanceOption,
     DeleteFinanceOption,
     GetFinanceOptions,
     ReorderFinanceOptions,
     UpdateFinanceOption,
-} from "../Services/FinanceOptionServices";
+} from "@shared/Services/FinanceOptionServices";
 import {
     AddProduct,
     DeleteProduct,
     GetCategories,
     GetProducts,
     UpdateProduct,
-} from "../Services/ProductServices";
+} from "@shared/Services/ProductServices";
 
 /**
  * Catalog administration. Everything the floor can sell is defined here: products, the sizes and

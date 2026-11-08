@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
 import TextField from "../Elements/TextField";
 import SettingsCard from "./SettingsCard";
-import { useSettingsScope } from "./SettingsScope";
+import { useSettingsScope } from "@shared/Context/SettingsScope";
 import { Toast } from "../../Lib/Toast";
-import { DefaultGeneralSettings } from "../../Models/GeneralSettings";
-import { SaveGeneralSettings } from "../../Services/SettingsServices";
+import { DefaultGeneralSettings } from "@shared/Models/GeneralSettings";
+import { SaveGeneralSettings } from "@shared/Services/SettingsServices";
 
 /** Matches the server's limit: 25%, to catch a rate typed in the wrong box. */
 const MAX_PERCENT = 25;

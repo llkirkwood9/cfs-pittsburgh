@@ -10,10 +10,10 @@ import Stepper from "../Elements/Stepper";
 import Text from "../Elements/Text";
 import TextArea from "../Elements/TextArea";
 import TextField from "../Elements/TextField";
-import { FormatCurrency, ParseMoney, TakeWithBlocked } from "../../Lib/ModelHelpers";
-import { ChoicesText, CleanDiscount, DiscountText, HasDiscount } from "../../Lib/Pricing";
+import { FormatCurrency, ParseMoney, TakeWithBlocked } from "@shared/Lib/ModelHelpers";
+import { ChoicesText, CleanDiscount, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
 import { Toast } from "../../Lib/Toast";
-import type { OrderLine } from "../../Models/OrderLine";
+import type { OrderLine } from "@shared/Models/OrderLine";
 
 type Props = {
     line: OrderLine;

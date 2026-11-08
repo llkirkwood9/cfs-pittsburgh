@@ -17,14 +17,14 @@ import SelectField from "../Elements/SelectField";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
 import { cx } from "../../Lib/ClassNames";
-import { ParseMoney } from "../../Lib/ModelHelpers";
-import { CleanDiscount, DiscountText, HasDiscount } from "../../Lib/Pricing";
+import { ParseMoney } from "@shared/Lib/ModelHelpers";
+import { CleanDiscount, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
 import { Toast } from "../../Lib/Toast";
-import type { DeliveryOption } from "../../Models/DeliveryOption";
-import type { Product, ProductCategory } from "../../Models/Product";
-import type { ProductDeliveryOption } from "../../Models/ProductDeliveryOption";
-import type { Territory } from "../../Models/Territory";
-import type { ProductVariant } from "../../Models/ProductVariant";
+import type { DeliveryOption } from "@shared/Models/DeliveryOption";
+import type { Product, ProductCategory } from "@shared/Models/Product";
+import type { ProductDeliveryOption } from "@shared/Models/ProductDeliveryOption";
+import type { Territory } from "@shared/Models/Territory";
+import type { ProductVariant } from "@shared/Models/ProductVariant";
 
 type Props = {
     product: Product;

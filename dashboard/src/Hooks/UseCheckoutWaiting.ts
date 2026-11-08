@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { OnCheckoutQueueChange } from "../Lib/CheckoutWaiting";
-import { IsOnline } from "../Lib/Connection";
-import { GetActiveEvent } from "../Services/EventServices";
-import { GetCheckoutQueue } from "../Services/OrderServices";
+import { OnCheckoutQueueChange } from "@shared/Lib/CheckoutWaiting";
+import { IsOnline } from "@shared/Lib/Connection";
+import { GetActiveEvent } from "@shared/Services/EventServices";
+import { GetCheckoutQueue } from "@shared/Services/OrderServices";
 
 /** How often the count is read again while the page is in view. */
 const POLL_MS = 20000;

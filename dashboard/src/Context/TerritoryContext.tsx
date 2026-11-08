@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { useAuth } from "./AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { setTerritoryHeader } from "../Lib/api";
-import { IsCompanyWide } from "../Models/User";
-import type { Territory } from "../Models/Territory";
-import { GetTerritories } from "../Services/TerritoryServices";
+import { IsCompanyWide } from "@shared/Models/User";
+import type { Territory } from "@shared/Models/Territory";
+import { GetTerritories } from "@shared/Services/TerritoryServices";
 
 const STORAGE_KEY = "cfs.territory";
 

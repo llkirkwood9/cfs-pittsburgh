@@ -1,9 +1,9 @@
 import { useEffect, useState } from "react";
 import { AppState } from "react-native";
-import { OnCheckoutQueueChange } from "../Lib/CheckoutWaiting";
-import { IsOnline } from "../Lib/Connection";
-import { GetActiveEvent } from "../Services/EventServices";
-import { GetCheckoutQueue } from "../Services/OrderServices";
+import { OnCheckoutQueueChange } from "@shared/Lib/CheckoutWaiting";
+import { IsOnline } from "@shared/Lib/Connection";
+import { GetActiveEvent } from "@shared/Services/EventServices";
+import { GetCheckoutQueue } from "@shared/Services/OrderServices";
 
 /** How often the count is read again while the app is in front. */
 const POLL_MS = 20000;

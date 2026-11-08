@@ -5,10 +5,10 @@ import ChangePasswordModal from "./ChangePasswordModal";
 import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
 import Text from "../Elements/Text";
-import { useAuth } from "../../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { GetServerUrl } from "../../Lib/Server";
 import { APP_VERSION } from "../../Lib/Version";
-import { UserRoleLabels } from "../../Models/User";
+import { UserRoleLabels } from "@shared/Models/User";
 
 /**
  * Shows who is signed in on this device and offers sign-out. The crew shares devices, so the

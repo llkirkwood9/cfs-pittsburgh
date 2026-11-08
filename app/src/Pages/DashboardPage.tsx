@@ -14,18 +14,18 @@ import SelectField from "../Components/Elements/SelectField";
 import StatCard from "../Components/Elements/StatCard";
 import TabButton from "../Components/Elements/TabButton";
 import Text from "../Components/Elements/Text";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useTerritory } from "../Context/TerritoryContext";
 import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
-import { IsOnline } from "../Lib/Connection";
-import { CategoryNames, EventsForFilter, FormatCurrency, IsPastEvent } from "../Lib/ModelHelpers";
-import type { DashboardStats, ProductTally } from "../Models/DashboardStats";
-import type { Event } from "../Models/Event";
-import type { ProductCategory } from "../Models/Product";
-import { GetStatsForAllEvents, GetStatsForEvent } from "../Services/DashboardServices";
-import { GetActiveEvent, GetEvents } from "../Services/EventServices";
+import { IsOnline } from "@shared/Lib/Connection";
+import { CategoryNames, EventsForFilter, FormatCurrency, IsPastEvent } from "@shared/Lib/ModelHelpers";
+import type { DashboardStats, ProductTally } from "@shared/Models/DashboardStats";
+import type { Event } from "@shared/Models/Event";
+import type { ProductCategory } from "@shared/Models/Product";
+import { GetStatsForAllEvents, GetStatsForEvent } from "@shared/Services/DashboardServices";
+import { GetActiveEvent, GetEvents } from "@shared/Services/EventServices";
 
 /** How often the figures refresh while the page is open. */
 const POLL_MS = 15000;

@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Text as RNText, TextInput, View } from "react-native";
 import SettingsCard from "./SettingsCard";
-import { useSettingsScope } from "./SettingsScope";
+import { useSettingsScope } from "@shared/Context/SettingsScope";
 import { SERIF } from "../Checkout/SheetTable";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Grid from "../Elements/Grid";
@@ -11,9 +11,9 @@ import { RenderTermText } from "../Elements/TermText";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
 import { Toast } from "../../Lib/Toast";
-import { AskWhenOptions, DefaultSalesTerms } from "../../Models/GeneralSettings";
-import type { AskWhen, SalesTerm } from "../../Models/GeneralSettings";
-import { SaveGeneralSettings } from "../../Services/SettingsServices";
+import { AskWhenOptions, DefaultSalesTerms } from "@shared/Models/GeneralSettings";
+import type { AskWhen, SalesTerm } from "@shared/Models/GeneralSettings";
+import { SaveGeneralSettings } from "@shared/Services/SettingsServices";
 
 /** Matches the server's limits. */
 const MAX_TEXT = 1200;

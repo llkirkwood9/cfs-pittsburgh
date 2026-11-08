@@ -15,20 +15,20 @@ import EditLineModal from "../Components/Sales/EditLineModal";
 import UpchargeModal from "../Components/Sales/UpchargeModal";
 import OrderLineList from "../Components/Sales/OrderLineList";
 import OrderTotals from "../Components/Sales/OrderTotals";
-import { useAuth } from "../Context/AuthContext";
-import { FormatCurrency, InitialsFor, IsAcknowledged, RequiredTerms } from "../Lib/ModelHelpers";
-import { CheckoutQueueCounted } from "../Lib/CheckoutWaiting";
-import { IsOnline } from "../Lib/Connection";
+import { useAuth } from "@shared/Context/AuthContext";
+import { FormatCurrency, InitialsFor, IsAcknowledged, RequiredTerms } from "@shared/Lib/ModelHelpers";
+import { CheckoutQueueCounted } from "@shared/Lib/CheckoutWaiting";
+import { IsOnline } from "@shared/Lib/Connection";
 import { Toast } from "../Lib/Toast";
-import type { DeliveryOption } from "../Models/DeliveryOption";
-import type { Event } from "../Models/Event";
-import type { Order } from "../Models/Order";
-import type { OrderLine } from "../Models/OrderLine";
-import type { OrderPayment, PaymentMethod } from "../Models/OrderPayment";
-import type { OrderSummary } from "../Models/OrderSummary";
-import type { Product } from "../Models/Product";
-import { GetDeliveryOptions } from "../Services/DeliveryOptionServices";
-import { GetActiveEvent } from "../Services/EventServices";
+import type { DeliveryOption } from "@shared/Models/DeliveryOption";
+import type { Event } from "@shared/Models/Event";
+import type { Order } from "@shared/Models/Order";
+import type { OrderLine } from "@shared/Models/OrderLine";
+import type { OrderPayment, PaymentMethod } from "@shared/Models/OrderPayment";
+import type { OrderSummary } from "@shared/Models/OrderSummary";
+import type { Product } from "@shared/Models/Product";
+import { GetDeliveryOptions } from "@shared/Services/DeliveryOptionServices";
+import { GetActiveEvent } from "@shared/Services/EventServices";
 import {
     AddOrderLine,
     AddOrderPayment,
@@ -42,8 +42,8 @@ import {
     UpdateOrder,
     UpdateOrderLine,
     VoidOrder,
-} from "../Services/OrderServices";
-import { GetProducts } from "../Services/ProductServices";
+} from "@shared/Services/OrderServices";
+import { GetProducts } from "@shared/Services/ProductServices";
 
 /**
  * How often the queue re-polls, so a new hand-off shows up without anyone refreshing. It also

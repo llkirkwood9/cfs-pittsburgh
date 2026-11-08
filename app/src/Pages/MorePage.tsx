@@ -7,14 +7,14 @@ import Page from "../Components/Elements/Page";
 import SizeGuideModal from "../Components/Elements/SizeGuideModal";
 import Text from "../Components/Elements/Text";
 import ChangePasswordModal from "../Components/Navbar/ChangePasswordModal";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useTheme } from "../Hooks/UseTheme";
 import type { Theme } from "../Hooks/UseTheme";
 import { cx } from "../Lib/ClassNames";
 import { GetServerUrl } from "../Lib/Server";
 import { APP_VERSION } from "../Lib/Version";
-import type { UserRole } from "../Models/User";
-import { UserRoleLabels } from "../Models/User";
+import type { UserRole } from "@shared/Models/User";
+import { UserRoleLabels } from "@shared/Models/User";
 
 type MenuItem = {
     href: Href;

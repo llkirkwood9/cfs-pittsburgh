@@ -2,9 +2,9 @@ import { useState } from "react";
 import Button from "../Elements/Button";
 import Modal from "../Elements/Modal";
 import TextField from "../Elements/TextField";
-import { FormatCurrency, ParseMoney } from "../../Lib/ModelHelpers";
+import { FormatCurrency, ParseMoney } from "@shared/Lib/ModelHelpers";
 import { Toast } from "../../Lib/Toast";
-import type { OrderLine } from "../../Models/OrderLine";
+import type { OrderLine } from "@shared/Models/OrderLine";
 
 type Props = {
     /** The item the upcharge is for. */

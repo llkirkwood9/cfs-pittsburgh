@@ -5,10 +5,10 @@ import "react-toastify/dist/ReactToastify.css";
 import ConnectionBanner from "./Components/Elements/ConnectionBanner";
 import ChangePasswordModal from "./Components/Navbar/ChangePasswordModal";
 import Navbar from "./Components/Navbar/Navbar";
-import { useAuth } from "./Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useTerritory } from "./Context/TerritoryContext";
 import { useSettings } from "./Context/SettingsContext";
-import { setNavigateFunction } from "./Lib/ErrorHandler";
+import { setNavigateFunction } from "./Lib/Host";
 
 /** Each screen's name for the browser tab, so several open tabs can be told apart. */
 const pageTitles: [RegExp, string][] = [

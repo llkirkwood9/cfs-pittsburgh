@@ -16,7 +16,7 @@ import { useSettings } from "../Context/SettingsContext";
 import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
-import { IsOnline } from "../Lib/Connection";
+import { IsOnline } from "@shared/Lib/Connection";
 import {
     CategoryNames,
     FormatDateTime,
@@ -24,14 +24,14 @@ import {
     GroupInventory,
     InventoryRowKey,
     InventorySizeLabel,
-} from "../Lib/ModelHelpers";
+} from "@shared/Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
-import type { Event } from "../Models/Event";
-import type { InventoryAdjustment } from "../Models/InventoryAdjustment";
-import type { InventoryItem } from "../Models/InventoryItem";
-import type { ProductCategory } from "../Models/Product";
-import { GetActiveEvent } from "../Services/EventServices";
-import { AdjustInventory, GetInventory, GetInventoryHistory } from "../Services/InventoryServices";
+import type { Event } from "@shared/Models/Event";
+import type { InventoryAdjustment } from "@shared/Models/InventoryAdjustment";
+import type { InventoryItem } from "@shared/Models/InventoryItem";
+import type { ProductCategory } from "@shared/Models/Product";
+import { GetActiveEvent } from "@shared/Services/EventServices";
+import { AdjustInventory, GetInventory, GetInventoryHistory } from "@shared/Services/InventoryServices";
 
 const kindLabels: Record<string, string> = {
     Adjustment: "Count changed",

@@ -2,12 +2,12 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
-import { useAuth } from "../../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useSettings } from "../../Context/SettingsContext";
-import { IsOnline } from "../../Lib/Connection";
-import { InventoryRowKey, InventorySizeLabel } from "../../Lib/ModelHelpers";
-import type { InventoryItem } from "../../Models/InventoryItem";
-import { GetInventory } from "../../Services/InventoryServices";
+import { IsOnline } from "@shared/Lib/Connection";
+import { InventoryRowKey, InventorySizeLabel } from "@shared/Lib/ModelHelpers";
+import type { InventoryItem } from "@shared/Models/InventoryItem";
+import { GetInventory } from "@shared/Services/InventoryServices";
 
 /** How many sizes to list before summarising the rest. */
 const SHOW = 6;

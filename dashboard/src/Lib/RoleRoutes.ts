@@ -1,4 +1,4 @@
-import type { UserRole } from "../Models/User";
+import type { UserRole } from "@shared/Models/User";
 
 /**
  * Where each role lands after signing in. A checkout user dropped on the sales floor would just

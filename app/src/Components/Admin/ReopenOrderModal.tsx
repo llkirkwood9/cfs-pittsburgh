@@ -5,8 +5,8 @@ import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
-import { FormatCurrency } from "../../Lib/ModelHelpers";
-import type { OrderSummary } from "../../Models/OrderSummary";
+import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import type { OrderSummary } from "@shared/Models/OrderSummary";
 
 type Props = {
     order: OrderSummary;

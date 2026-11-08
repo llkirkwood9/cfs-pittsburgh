@@ -5,15 +5,15 @@ import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
-import { useAuth } from "../Context/AuthContext";
-import { FormatCurrency, FormatShortDate, FormatTime } from "../Lib/ModelHelpers";
+import { useAuth } from "@shared/Context/AuthContext";
+import { FormatCurrency, FormatShortDate, FormatTime } from "@shared/Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
-import type { Event } from "../Models/Event";
-import type { InventoryItem } from "../Models/InventoryItem";
-import type { OrderSummary } from "../Models/OrderSummary";
-import { GetEvent, UpdateEvent } from "../Services/EventServices";
-import { GetInventory } from "../Services/InventoryServices";
-import { DeleteOrder, GetOrdersForEvent, VoidOrder } from "../Services/OrderServices";
+import type { Event } from "@shared/Models/Event";
+import type { InventoryItem } from "@shared/Models/InventoryItem";
+import type { OrderSummary } from "@shared/Models/OrderSummary";
+import { GetEvent, UpdateEvent } from "@shared/Services/EventServices";
+import { GetInventory } from "@shared/Services/InventoryServices";
+import { DeleteOrder, GetOrdersForEvent, VoidOrder } from "@shared/Services/OrderServices";
 
 /**
  * Whether clearing an open order voids it rather than discarding it. A draft with nothing paid is

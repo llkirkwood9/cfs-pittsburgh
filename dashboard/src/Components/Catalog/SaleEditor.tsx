@@ -1,4 +1,4 @@
-import { ParseMoney } from "../../Lib/ModelHelpers";
+import { ParseMoney } from "@shared/Lib/ModelHelpers";
 
 /** How a sale is set: none, a percent off, a fixed amount off each item - or, for a size, the product's. */
 export type SaleMode = "none" | "percent" | "amount" | "follow";

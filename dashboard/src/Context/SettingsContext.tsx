@@ -1,10 +1,10 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { useAuth } from "./AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useTerritory } from "./TerritoryContext";
-import { DefaultGeneralSettings } from "../Models/GeneralSettings";
-import type { GeneralSettings } from "../Models/GeneralSettings";
-import { GetGeneralSettings, GetPublicSettings } from "../Services/SettingsServices";
+import { DefaultGeneralSettings } from "@shared/Models/GeneralSettings";
+import type { GeneralSettings } from "@shared/Models/GeneralSettings";
+import { GetGeneralSettings, GetPublicSettings } from "@shared/Services/SettingsServices";
 
 type SettingsContextValue = {
     /** The settings in force for the territory in view; the defaults until they arrive. */

@@ -1,8 +1,8 @@
 import { Navigate } from "react-router-dom";
 import type { ReactNode } from "react";
 import LoadingPage from "../Components/Elements/LoadingPage";
-import { useAuth } from "../Context/AuthContext";
-import type { UserRole } from "../Models/User";
+import { useAuth } from "@shared/Context/AuthContext";
+import type { UserRole } from "@shared/Models/User";
 
 type Props = {
     children: ReactNode;

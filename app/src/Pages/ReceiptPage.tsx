@@ -7,14 +7,14 @@ import Button from "../Components/Elements/Button";
 import EmailDialog from "../Components/Elements/EmailDialog";
 import LoadingPage from "../Components/Elements/LoadingPage";
 import Text from "../Components/Elements/Text";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { HomePathForRole } from "../Lib/RoleRoutes";
-import { PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
+import { PdfUpload, PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
 import { Toast } from "../Lib/Toast";
-import type { Order } from "../Models/Order";
-import { EmailReceipt, GetEmailStatus } from "../Services/EmailServices";
-import type { EmailStatus } from "../Services/EmailServices";
-import { GetOrder } from "../Services/OrderServices";
+import type { Order } from "@shared/Models/Order";
+import { EmailReceipt, GetEmailStatus } from "@shared/Services/EmailServices";
+import type { EmailStatus } from "@shared/Services/EmailServices";
+import { GetOrder } from "@shared/Services/OrderServices";
 
 /**
  * The printable copy of a sale. Unfinished orders are stamped as such by the sheet itself. Print
@@ -123,7 +123,7 @@ const ReceiptPage = () => {
                         const pdf = await TryBuildSheetsPdf([sheetRef]);
                         if (!pdf) return null;
                         progress("Sending...");
-                        return EmailReceipt(order.id!, to, pdf);
+                        return EmailReceipt(order.id!, to, PdfUpload(pdf));
                     }}
                     onClose={() => setEmailing(false)}
                 />

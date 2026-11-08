@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import SettingsCard from "./SettingsCard";
-import { useSettingsScope } from "./SettingsScope";
+import { useSettingsScope } from "@shared/Context/SettingsScope";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Grid from "../Elements/Grid";
 import HtmlPreview from "../Elements/HtmlPreview";
@@ -10,17 +10,17 @@ import ListSkeleton from "../Elements/ListSkeleton";
 import Text from "../Elements/Text";
 import { useTheme } from "../../Hooks/UseTheme";
 import { cx } from "../../Lib/ClassNames";
-import { FormatDateTime } from "../../Lib/ModelHelpers";
+import { FormatDateTime } from "@shared/Lib/ModelHelpers";
 import { Toast } from "../../Lib/Toast";
 import type {
     ReceiptEmailPreview,
     ReceiptEmailSettings as ReceiptEmail,
-} from "../../Models/ReceiptEmailSettings";
+} from "@shared/Models/ReceiptEmailSettings";
 import {
     GetReceiptEmailSettings,
     PreviewReceiptEmail,
     SaveReceiptEmailSettings,
-} from "../../Services/SettingsServices";
+} from "@shared/Services/SettingsServices";
 
 /** How long typing has to pause before the preview refreshes. */
 const PREVIEW_DELAY_MS = 400;

@@ -1,7 +1,7 @@
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
-import { FormatCurrency } from "../../Lib/ModelHelpers";
-import type { OrderSummary } from "../../Models/OrderSummary";
+import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import type { OrderSummary } from "@shared/Models/OrderSummary";
 
 type Props = {
     drafts: OrderSummary[];

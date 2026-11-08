@@ -1,12 +1,12 @@
 import { useState } from "react";
 import Button from "../Elements/Button";
 import Modal from "../Elements/Modal";
-import { FormatCurrency, TakeWithBlocked } from "../../Lib/ModelHelpers";
-import { ApplyDiscount, DeliverySaleFor, DiscountText, HasDiscount } from "../../Lib/Pricing";
+import { FormatCurrency, TakeWithBlocked } from "@shared/Lib/ModelHelpers";
+import { ApplyDiscount, DeliverySaleFor, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
 import { Toast } from "../../Lib/Toast";
-import type { DeliveryOption } from "../../Models/DeliveryOption";
-import type { OrderLine } from "../../Models/OrderLine";
-import type { Product } from "../../Models/Product";
+import type { DeliveryOption } from "@shared/Models/DeliveryOption";
+import type { OrderLine } from "@shared/Models/OrderLine";
+import type { Product } from "@shared/Models/Product";
 
 type Props = {
     parentLine: OrderLine;

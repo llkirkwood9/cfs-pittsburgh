@@ -5,7 +5,7 @@ import Icon from "./Icon";
 import Text from "./Text";
 import { useTheme } from "../../Hooks/UseTheme";
 import { cx } from "../../Lib/ClassNames";
-import { FormatShortDate } from "../../Lib/ModelHelpers";
+import { FormatShortDate } from "@shared/Lib/ModelHelpers";
 
 type Props = {
     label: string;

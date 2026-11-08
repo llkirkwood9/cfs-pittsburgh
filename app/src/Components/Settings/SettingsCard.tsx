@@ -4,7 +4,7 @@ import type { LayoutChangeEvent } from "react-native";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import Text from "../Elements/Text";
-import { useSettingsScope } from "./SettingsScope";
+import { useSettingsScope } from "@shared/Context/SettingsScope";
 
 type Props = {
     id: string;

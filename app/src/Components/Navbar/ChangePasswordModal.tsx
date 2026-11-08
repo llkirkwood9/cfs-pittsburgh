@@ -4,9 +4,9 @@ import Button from "../Elements/Button";
 import Modal from "../Elements/Modal";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
-import { useAuth } from "../../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { Toast } from "../../Lib/Toast";
-import { ChangePassword, GetPasswordPolicy } from "../../Services/AuthServices";
+import { ChangePassword, GetPasswordPolicy } from "@shared/Services/AuthServices";
 
 type Props = {
     onClose: () => void;

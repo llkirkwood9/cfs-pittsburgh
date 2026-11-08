@@ -12,10 +12,10 @@ import SortableList from "../Elements/SortableList";
 import SwipeRow from "../Elements/SwipeRow";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
-import { FormatCurrency, ParseMoney } from "../../Lib/ModelHelpers";
-import { CleanDiscount, DiscountText, HasDiscount } from "../../Lib/Pricing";
+import { FormatCurrency, ParseMoney } from "@shared/Lib/ModelHelpers";
+import { CleanDiscount, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
 import { Toast } from "../../Lib/Toast";
-import type { DeliveryOption } from "../../Models/DeliveryOption";
+import type { DeliveryOption } from "@shared/Models/DeliveryOption";
 
 type Props = {
     options: DeliveryOption[];

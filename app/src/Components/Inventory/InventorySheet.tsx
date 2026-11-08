@@ -9,10 +9,10 @@ import {
     GroupInventory,
     InventoryRowKey,
     InventorySizeLabel,
-} from "../../Lib/ModelHelpers";
+} from "@shared/Lib/ModelHelpers";
 import { SHEET_WIDTH } from "../../Lib/SheetPdf";
-import type { Event } from "../../Models/Event";
-import type { InventoryItem } from "../../Models/InventoryItem";
+import type { Event } from "@shared/Models/Event";
+import type { InventoryItem } from "@shared/Models/InventoryItem";
 
 type Props = {
     saleEvent: Event | null;

@@ -14,12 +14,12 @@ import {
     FormatCurrency,
     ParseMoney,
     PaymentMethodLabels,
-} from "../../Lib/ModelHelpers";
+} from "@shared/Lib/ModelHelpers";
 import { Toast } from "../../Lib/Toast";
-import type { FinanceOption } from "../../Models/FinanceOption";
-import type { Order } from "../../Models/Order";
-import type { OrderPayment, PaymentMethod } from "../../Models/OrderPayment";
-import { GetFinanceOptions } from "../../Services/FinanceOptionServices";
+import type { FinanceOption } from "@shared/Models/FinanceOption";
+import type { Order } from "@shared/Models/Order";
+import type { OrderPayment, PaymentMethod } from "@shared/Models/OrderPayment";
+import { GetFinanceOptions } from "@shared/Services/FinanceOptionServices";
 
 type Props = {
     order: Order;

@@ -14,17 +14,17 @@ import EditLineModal from "../Components/Sales/EditLineModal";
 import UpchargeModal from "../Components/Sales/UpchargeModal";
 import OrderLineList from "../Components/Sales/OrderLineList";
 import OrderTotals from "../Components/Sales/OrderTotals";
-import { useAuth } from "../Context/AuthContext";
-import { FormatCurrency } from "../Lib/ModelHelpers";
+import { useAuth } from "@shared/Context/AuthContext";
+import { FormatCurrency } from "@shared/Lib/ModelHelpers";
 import { Toast } from "../Lib/Toast";
-import type { DeliveryOption } from "../Models/DeliveryOption";
-import type { Event } from "../Models/Event";
-import type { Order } from "../Models/Order";
-import type { OrderLine } from "../Models/OrderLine";
-import type { OrderSummary } from "../Models/OrderSummary";
-import type { Product } from "../Models/Product";
-import { GetDeliveryOptions } from "../Services/DeliveryOptionServices";
-import { GetActiveEvent } from "../Services/EventServices";
+import type { DeliveryOption } from "@shared/Models/DeliveryOption";
+import type { Event } from "@shared/Models/Event";
+import type { Order } from "@shared/Models/Order";
+import type { OrderLine } from "@shared/Models/OrderLine";
+import type { OrderSummary } from "@shared/Models/OrderSummary";
+import type { Product } from "@shared/Models/Product";
+import { GetDeliveryOptions } from "@shared/Services/DeliveryOptionServices";
+import { GetActiveEvent } from "@shared/Services/EventServices";
 import {
     AddOrder,
     AddOrderLine,
@@ -36,9 +36,9 @@ import {
     SubmitOrder,
     UpdateOrder,
     UpdateOrderLine,
-} from "../Services/OrderServices";
-import { GetProducts } from "../Services/ProductServices";
-import { GetReps } from "../Services/UserServices";
+} from "@shared/Services/OrderServices";
+import { GetProducts } from "@shared/Services/ProductServices";
+import { GetReps } from "@shared/Services/UserServices";
 
 /**
  * The sales floor. A rep keeps as many drafts open as they have customers, builds each one from

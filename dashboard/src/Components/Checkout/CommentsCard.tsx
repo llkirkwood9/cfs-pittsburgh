@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Button from "../Elements/Button";
-import type { Order } from "../../Models/Order";
+import type { Order } from "@shared/Models/Order";
 
 type Props = {
     order: Order;

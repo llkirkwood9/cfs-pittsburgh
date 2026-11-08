@@ -5,9 +5,9 @@ import Icon from "../Elements/Icon";
 import SelectField from "../Elements/SelectField";
 import Text from "../Elements/Text";
 import { Toast } from "../../Lib/Toast";
-import type { Product } from "../../Models/Product";
-import type { Territory } from "../../Models/Territory";
-import { CopyProduct, GetProducts } from "../../Services/ProductServices";
+import type { Product } from "@shared/Models/Product";
+import type { Territory } from "@shared/Models/Territory";
+import { CopyProduct, GetProducts } from "@shared/Services/ProductServices";
 
 type Props = {
     /** The other territories whose catalogs an item can be copied from. */

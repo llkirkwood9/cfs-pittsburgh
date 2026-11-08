@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import Icon from "./Icon";
 import api from "../../Lib/api";
-import { IsOnline, OnConnectionChange, SetOnline } from "../../Lib/Connection";
+import { IsOnline, OnConnectionChange, SetOnline } from "@shared/Lib/Connection";
 import { Toast } from "../../Lib/Toast";
 
 /** How often to check whether the server is back. */

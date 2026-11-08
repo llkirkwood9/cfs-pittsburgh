@@ -4,7 +4,7 @@ import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
 import Page from "../Components/Elements/Page";
 import Text from "../Components/Elements/Text";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { HomePathForRole } from "../Lib/RoleRoutes";
 
 /**

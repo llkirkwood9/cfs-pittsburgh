@@ -1,6 +1,6 @@
 import { Redirect } from "expo-router";
 import LoadingPage from "../Components/Elements/LoadingPage";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { HomePathForRole } from "../Lib/RoleRoutes";
 
 /**

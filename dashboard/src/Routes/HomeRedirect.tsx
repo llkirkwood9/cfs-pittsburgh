@@ -1,6 +1,6 @@
 import { Navigate } from "react-router-dom";
 import LoadingPage from "../Components/Elements/LoadingPage";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { HomePathForRole } from "../Lib/RoleRoutes";
 
 /**

@@ -5,7 +5,7 @@ import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
 import TextField from "../Elements/TextField";
 import { Toast } from "../../Lib/Toast";
-import type { FinanceOption } from "../../Models/FinanceOption";
+import type { FinanceOption } from "@shared/Models/FinanceOption";
 
 type Props = {
     options: FinanceOption[];

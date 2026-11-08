@@ -2,12 +2,12 @@ import { Children, isValidElement } from "react";
 import type { ReactNode, Ref } from "react";
 import { View } from "react-native";
 import { SheetText } from "../Checkout/SheetTable";
-import { FormatCurrency, FormatShortDate } from "../../Lib/ModelHelpers";
+import { FormatCurrency, FormatShortDate } from "@shared/Lib/ModelHelpers";
 import { SHEET_WIDTH } from "../../Lib/SheetPdf";
-import type { DashboardStats } from "../../Models/DashboardStats";
-import type { Event } from "../../Models/Event";
-import type { Order } from "../../Models/Order";
-import type { PaymentMethod } from "../../Models/OrderPayment";
+import type { DashboardStats } from "@shared/Models/DashboardStats";
+import type { Event } from "@shared/Models/Event";
+import type { Order } from "@shared/Models/Order";
+import type { PaymentMethod } from "@shared/Models/OrderPayment";
 
 type Props = {
     saleEvent: Event | null;

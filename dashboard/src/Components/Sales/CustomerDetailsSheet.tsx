@@ -3,8 +3,8 @@ import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import { useLockBodyScroll } from "../../Hooks/UseLockBodyScroll";
 import { Toast } from "../../Lib/Toast";
-import { NormalizeCustomer } from "../../Lib/ModelHelpers";
-import type { Order } from "../../Models/Order";
+import { NormalizeCustomer } from "@shared/Lib/ModelHelpers";
+import type { Order } from "@shared/Models/Order";
 
 type Props = {
     order: Order;

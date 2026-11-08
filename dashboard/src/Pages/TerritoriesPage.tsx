@@ -7,13 +7,13 @@ import Modal from "../Components/Elements/Modal";
 import TextField from "../Components/Elements/TextField";
 import { useTerritory } from "../Context/TerritoryContext";
 import { Toast } from "../Lib/Toast";
-import type { Territory } from "../Models/Territory";
+import type { Territory } from "@shared/Models/Territory";
 import {
     AddTerritory,
     DeleteTerritory,
     GetTerritories,
     UpdateTerritory,
-} from "../Services/TerritoryServices";
+} from "@shared/Services/TerritoryServices";
 
 /**
  * Territories, for system admins and administrators. Each one has its own crew, events, stock,

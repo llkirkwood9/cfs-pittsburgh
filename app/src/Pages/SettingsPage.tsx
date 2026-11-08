@@ -10,14 +10,14 @@ import DashboardSettings from "../Components/Settings/DashboardSettings";
 import FinanceSettings from "../Components/Settings/FinanceSettings";
 import NewEventSettings from "../Components/Settings/NewEventSettings";
 import ReceiptEmailSettings from "../Components/Settings/ReceiptEmailSettings";
-import { SettingsScopeContext } from "../Components/Settings/SettingsScope";
+import { SettingsScopeContext } from "@shared/Context/SettingsScope";
 import TermsSettings from "../Components/Settings/TermsSettings";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useSettings } from "../Context/SettingsContext";
 import { useTerritory } from "../Context/TerritoryContext";
-import type { GeneralSettings } from "../Models/GeneralSettings";
-import { IsCompanyWide } from "../Models/User";
-import { GetGeneralSettings } from "../Services/SettingsServices";
+import type { GeneralSettings } from "@shared/Models/GeneralSettings";
+import { IsCompanyWide } from "@shared/Models/User";
+import { GetGeneralSettings } from "@shared/Services/SettingsServices";
 
 const sections = [
     { id: "business", label: "Business details", icon: "fa-solid fa-building" },

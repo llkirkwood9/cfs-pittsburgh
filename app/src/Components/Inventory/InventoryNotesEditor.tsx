@@ -5,7 +5,7 @@ import Text from "../Elements/Text";
 import TextArea from "../Elements/TextArea";
 import { cx } from "../../Lib/ClassNames";
 import { Toast } from "../../Lib/Toast";
-import { SaveInventoryNotes } from "../../Services/InventoryServices";
+import { SaveInventoryNotes } from "@shared/Services/InventoryServices";
 
 type Props = {
     eventId: number;

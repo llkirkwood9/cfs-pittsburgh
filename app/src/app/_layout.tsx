@@ -8,7 +8,7 @@ import { Platform, View } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import ConnectionBanner from "../Components/Elements/ConnectionBanner";
 import ToastHost from "../Components/Elements/ToastHost";
-import { AuthProvider } from "../Context/AuthContext";
+import { AuthProvider } from "@shared/Context/AuthContext";
 import { SettingsProvider } from "../Context/SettingsContext";
 import { TerritoryProvider } from "../Context/TerritoryContext";
 import { ApplyStoredTheme, useTheme } from "../Hooks/UseTheme";

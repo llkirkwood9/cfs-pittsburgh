@@ -6,8 +6,8 @@ import Grid, { Cell } from "../Elements/Grid";
 import Text from "../Elements/Text";
 import TextArea from "../Elements/TextArea";
 import TextField from "../Elements/TextField";
-import { NormalizeCustomerField } from "../../Lib/ModelHelpers";
-import type { Order } from "../../Models/Order";
+import { NormalizeCustomerField } from "@shared/Lib/ModelHelpers";
+import type { Order } from "@shared/Models/Order";
 
 type Props = {
     order: Order;

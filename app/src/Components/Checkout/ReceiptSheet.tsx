@@ -14,13 +14,13 @@ import {
     PrintedInitials,
     PrintsOnSalesSheet,
     SortLinesForPrint,
-} from "../../Lib/ModelHelpers";
-import { ChoicesText, LineDiscountText, LineHasDiscount } from "../../Lib/Pricing";
+} from "@shared/Lib/ModelHelpers";
+import { ChoicesText, LineDiscountText, LineHasDiscount } from "@shared/Lib/Pricing";
 import { SHEET_WIDTH } from "../../Lib/SheetPdf";
-import { TermFor } from "../../Models/GeneralSettings";
-import type { SalesTerm, SalesTermKey } from "../../Models/GeneralSettings";
-import type { Order, OrderStatus } from "../../Models/Order";
-import type { PaymentMethod } from "../../Models/OrderPayment";
+import { TermFor } from "@shared/Models/GeneralSettings";
+import type { SalesTerm, SalesTermKey } from "@shared/Models/GeneralSettings";
+import type { Order, OrderStatus } from "@shared/Models/Order";
+import type { PaymentMethod } from "@shared/Models/OrderPayment";
 
 type Props = {
     order: Order;

@@ -3,7 +3,7 @@ import { NativeTabs } from "expo-router/unstable-native-tabs";
 import { View } from "react-native";
 import LoadingPage from "../../Components/Elements/LoadingPage";
 import ChangePasswordModal from "../../Components/Navbar/ChangePasswordModal";
-import { useAuth } from "../../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useTerritory } from "../../Context/TerritoryContext";
 import { useCheckoutWaiting } from "../../Hooks/UseCheckoutWaiting";
 

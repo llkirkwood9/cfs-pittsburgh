@@ -4,9 +4,9 @@ import {
     FormatShortDate,
     IsPastEvent,
     IsUpcomingEvent,
-} from "../../Lib/ModelHelpers";
-import type { EventTally } from "../../Models/DashboardStats";
-import type { Event } from "../../Models/Event";
+} from "@shared/Lib/ModelHelpers";
+import type { EventTally } from "@shared/Models/DashboardStats";
+import type { Event } from "@shared/Models/Event";
 
 type Props = {
     events: EventTally[];

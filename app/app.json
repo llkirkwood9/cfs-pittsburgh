@@ -58,7 +58,8 @@
     ],
     "experiments": {
       "typedRoutes": true,
-      "reactCompiler": true
+      "reactCompiler": true,
+      "tsconfigPaths": false
     },
     "extra": {
       "router": {},

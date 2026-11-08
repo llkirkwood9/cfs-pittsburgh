@@ -5,9 +5,9 @@ import SwipeRow from "../Elements/SwipeRow";
 import type { SwipeAction } from "../Elements/SwipeRow";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
-import { FormatCurrency, PrintsOnSalesSheet, SortLinesForPrint } from "../../Lib/ModelHelpers";
-import { ChoicesText, CleanDiscount, DiscountText, HasDiscount } from "../../Lib/Pricing";
-import type { OrderLine } from "../../Models/OrderLine";
+import { FormatCurrency, PrintsOnSalesSheet, SortLinesForPrint } from "@shared/Lib/ModelHelpers";
+import { ChoicesText, CleanDiscount, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
+import type { OrderLine } from "@shared/Models/OrderLine";
 
 type Props = {
     lines: OrderLine[];

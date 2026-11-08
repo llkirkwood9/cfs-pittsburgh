@@ -1,57 +1,8 @@
 import { useEffect, useState } from "react";
+import { applyTheme, readStoredTheme, storeTheme, subscribeThemeChanged } from "../Lib/Theme";
+import type { Theme } from "../Lib/Theme";
 
-export type Theme = "light" | "dark" | "system";
-
-const STORAGE_KEY = "theme";
-
-let listeners: ((theme: Theme) => void)[] = [];
-
-/**
- * Reads the persisted theme preference.
- * @returns The stored theme, defaulting to "system".
- */
-const readStoredTheme = (): Theme => {
-    const stored = localStorage.getItem(STORAGE_KEY);
-    return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
-};
-
-/**
- * Resolves whether the dark class should be on the document right now.
- * @param theme The preference to resolve.
- * @returns True when dark styling applies.
- */
-const resolveIsDark = (theme: Theme): boolean =>
-    theme === "dark" ||
-    (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches);
-
-/**
- * Applies the theme to the document element.
- * @param theme The preference to apply.
- */
-const applyTheme = (theme: Theme): void => {
-    document.documentElement.classList.toggle("dark", resolveIsDark(theme));
-};
-
-/**
- * Reads the current effective theme synchronously, for non-component code such as Toast.
- * @returns "dark" or "light".
- */
-export const getCurrentTheme = (): "dark" | "light" =>
-    resolveIsDark(readStoredTheme()) ? "dark" : "light";
-
-/**
- * Subscribes to theme changes from outside React.
- * @param listener Called with the new preference.
- * @returns An unsubscribe function.
- */
-export const subscribeThemeChanged = (listener: (theme: Theme) => void): (() => void) => {
-    listeners.push(listener);
-    return () => {
-        listeners = listeners.filter((l) => l !== listener);
-    };
-};
-
-applyTheme(readStoredTheme());
+export type { Theme };
 
 /**
  * Tri-state theme hook. Persists to localStorage and follows the OS while set to "system".
@@ -75,10 +26,8 @@ export const useTheme = () => {
     useEffect(() => subscribeThemeChanged(setThemeState), []);
 
     const setTheme = (next: Theme) => {
-        localStorage.setItem(STORAGE_KEY, next);
-        applyTheme(next);
+        storeTheme(next);
         setThemeState(next);
-        listeners.forEach((listener) => listener(next));
     };
 
     return { theme, setTheme };

@@ -10,7 +10,7 @@ import SwipeRow from "../Elements/SwipeRow";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
 import { Toast } from "../../Lib/Toast";
-import type { FinanceOption } from "../../Models/FinanceOption";
+import type { FinanceOption } from "@shared/Models/FinanceOption";
 
 type Props = {
     options: FinanceOption[];

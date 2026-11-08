@@ -1,6 +1,6 @@
 import { toast } from "react-toastify";
 import type { ToastOptions } from "react-toastify";
-import { getCurrentTheme } from "../Hooks/UseTheme";
+import { getCurrentTheme } from "./Theme";
 
 /**
  * Builds the shared toast options, themed to match the app and sized for a tablet.

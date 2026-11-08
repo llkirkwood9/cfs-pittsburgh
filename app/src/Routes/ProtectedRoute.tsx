@@ -3,9 +3,9 @@ import { Fragment } from "react";
 import type { ReactNode } from "react";
 import RequireTerritory from "./RequireTerritory";
 import LoadingPage from "../Components/Elements/LoadingPage";
-import { useAuth } from "../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
 import { useTerritory } from "../Context/TerritoryContext";
-import type { UserRole } from "../Models/User";
+import type { UserRole } from "@shared/Models/User";
 
 type Props = {
     children: ReactNode;

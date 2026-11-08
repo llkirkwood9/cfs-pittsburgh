@@ -5,7 +5,7 @@ import type { View } from "react-native";
 import { captureRef } from "react-native-view-shot";
 import { BuildImagePdf } from "./ImagePdf";
 import { Toast } from "./Toast";
-import type { PdfFile } from "../Services/EmailServices";
+import type { PdfUpload as Upload } from "@shared/Services/EmailServices";
 
 /**
  * The width every sheet is laid out at on screen, whatever the device: 8 inches, as on the
@@ -30,6 +30,20 @@ const QualityIndexFor = (pages: number): number => QUALITY.findIndex((q) => page
  * and an attachment grows by a third when it is encoded). Matches the API's limit.
  */
 const MAX_BYTES = 18 * 1024 * 1024;
+
+/** A PDF made on the device: the file it was written to. */
+export type PdfFile = {
+    uri: string;
+};
+
+/**
+ * A PDF file as an upload. React Native's FormData uploads a file from its uri; that shape isn't in
+ * the DOM FormData types the shared email service is written against.
+ * @param pdf The file.
+ * @returns The upload part.
+ */
+export const PdfUpload = (pdf: PdfFile): Upload =>
+    ({ uri: pdf.uri, name: "sheets.pdf", type: "application/pdf" }) as unknown as Upload;
 
 /** A sheet on screen, to be captured. */
 export type SheetRef = RefObject<View | null>;

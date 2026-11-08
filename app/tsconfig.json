@@ -3,11 +3,17 @@
   "compilerOptions": {
     "strict": true,
     "paths": {
-      "@/*": [
-        "./src/*"
+      "@shared/*": [
+        "../shared/*"
       ],
-      "@/assets/*": [
-        "./assets/*"
+      "@host": [
+        "./src/Lib/Host.ts"
+      ],
+      "react": [
+        "./node_modules/@types/react"
+      ],
+      "axios": [
+        "./node_modules/axios"
       ]
     }
   },
@@ -16,6 +22,7 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
-    "nativewind-env.d.ts"
+    "nativewind-env.d.ts",
+    "../shared/**/*.ts"
   ]
 }

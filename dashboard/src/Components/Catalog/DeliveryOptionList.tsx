@@ -5,10 +5,10 @@ import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
 import TextField from "../Elements/TextField";
 import SaleEditor, { FromSaleDraft, SaleProblem, ToSaleDraft, type SaleDraft } from "./SaleEditor";
-import { FormatCurrency, ParseMoney } from "../../Lib/ModelHelpers";
-import { CleanDiscount, DiscountText, HasDiscount } from "../../Lib/Pricing";
+import { FormatCurrency, ParseMoney } from "@shared/Lib/ModelHelpers";
+import { CleanDiscount, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
 import { Toast } from "../../Lib/Toast";
-import type { DeliveryOption } from "../../Models/DeliveryOption";
+import type { DeliveryOption } from "@shared/Models/DeliveryOption";
 
 type Props = {
     options: DeliveryOption[];

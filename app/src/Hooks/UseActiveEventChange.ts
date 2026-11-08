@@ -1,8 +1,8 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
 import { AppState } from "react-native";
-import { IsOnline } from "../Lib/Connection";
-import { GetActiveEvent } from "../Services/EventServices";
+import { IsOnline } from "@shared/Lib/Connection";
+import { GetActiveEvent } from "@shared/Services/EventServices";
 
 /**
  * Keeps a screen on the active event. Tabs stay loaded once opened, so a screen loaded before an

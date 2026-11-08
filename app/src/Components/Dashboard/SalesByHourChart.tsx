@@ -2,8 +2,8 @@ import { useMemo, useState } from "react";
 import { Pressable, View } from "react-native";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
-import { FormatCurrency, ParseServerTime } from "../../Lib/ModelHelpers";
-import type { SaleMoment } from "../../Models/DashboardStats";
+import { FormatCurrency, ParseServerTime } from "@shared/Lib/ModelHelpers";
+import type { SaleMoment } from "@shared/Models/DashboardStats";
 
 type Props = {
     sales: SaleMoment[];

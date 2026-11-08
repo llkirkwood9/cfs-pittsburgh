@@ -1,13 +1,13 @@
 import { useEffect, useState } from "react";
 import SettingsCard from "./SettingsCard";
-import { useSettingsScope } from "./SettingsScope";
+import { useSettingsScope } from "@shared/Context/SettingsScope";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Grid from "../Elements/Grid";
 import TextField from "../Elements/TextField";
 import { Toast } from "../../Lib/Toast";
-import { DefaultGeneralSettings } from "../../Models/GeneralSettings";
+import { DefaultGeneralSettings } from "@shared/Models/GeneralSettings";
 
-import { SaveGeneralSettings } from "../../Services/SettingsServices";
+import { SaveGeneralSettings } from "@shared/Services/SettingsServices";
 
 /** Matches the server's limits. */
 const MAX_APP_NAME = 30;

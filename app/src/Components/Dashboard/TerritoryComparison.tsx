@@ -5,10 +5,10 @@ import TabButton from "../Elements/TabButton";
 import Text from "../Elements/Text";
 import { useTerritory } from "../../Context/TerritoryContext";
 import { cx } from "../../Lib/ClassNames";
-import { IsOnline } from "../../Lib/Connection";
-import { FormatCurrency } from "../../Lib/ModelHelpers";
-import type { TerritoryStats } from "../../Models/Territory";
-import { GetTerritoryComparison } from "../../Services/DashboardServices";
+import { IsOnline } from "@shared/Lib/Connection";
+import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import type { TerritoryStats } from "@shared/Models/Territory";
+import { GetTerritoryComparison } from "@shared/Services/DashboardServices";
 
 type Range = "today" | "week" | "month" | "year" | "all";
 

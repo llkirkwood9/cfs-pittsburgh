@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Icon from "./Icon";
 import Text from "./Text";
 import api from "../../Lib/api";
-import { IsOnline, OnConnectionChange, SetOnline } from "../../Lib/Connection";
+import { IsOnline, OnConnectionChange, SetOnline } from "@shared/Lib/Connection";
 import { Toast } from "../../Lib/Toast";
 
 /** How often to check whether the server is back. */

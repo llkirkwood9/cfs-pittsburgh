@@ -4,9 +4,9 @@ import {
     GroupInventory,
     InventoryRowKey,
     InventorySizeLabel,
-} from "../../Lib/ModelHelpers";
-import type { Event } from "../../Models/Event";
-import type { InventoryItem } from "../../Models/InventoryItem";
+} from "@shared/Lib/ModelHelpers";
+import type { Event } from "@shared/Models/Event";
+import type { InventoryItem } from "@shared/Models/InventoryItem";
 
 type Props = {
     saleEvent: Event | null;

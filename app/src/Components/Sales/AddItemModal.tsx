@@ -20,7 +20,7 @@ import {
     TakeWithBlocked,
     VariantLabel,
     WarrantyText,
-} from "../../Lib/ModelHelpers";
+} from "@shared/Lib/ModelHelpers";
 import {
     ApplyDiscount,
     ChoicesPriceChange,
@@ -33,18 +33,18 @@ import {
     SaleFor,
     SizeTracked,
     StockFor,
-} from "../../Lib/Pricing";
+} from "@shared/Lib/Pricing";
 import {
     LowestPrice,
     ProductSortOptions,
     SortProducts,
     type ProductSortKey,
-} from "../../Lib/ProductSort";
+} from "@shared/Lib/ProductSort";
 import { Toast } from "../../Lib/Toast";
-import type { OrderLine } from "../../Models/OrderLine";
-import type { Product, ProductCategory } from "../../Models/Product";
-import type { LineChoice, ProductOption } from "../../Models/ProductOption";
-import type { ProductVariant } from "../../Models/ProductVariant";
+import type { OrderLine } from "@shared/Models/OrderLine";
+import type { Product, ProductCategory } from "@shared/Models/Product";
+import type { LineChoice, ProductOption } from "@shared/Models/ProductOption";
+import type { ProductVariant } from "@shared/Models/ProductVariant";
 import ChoicePicker from "./ChoicePicker";
 
 type Props = {
