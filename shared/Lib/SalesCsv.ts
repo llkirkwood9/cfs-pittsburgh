@@ -110,7 +110,9 @@ export const BuildSalesCsv = (orders: Order[]): string => {
         ];
     });
 
-    return [header, ...rows].map((row) => row.map(field).join(",")).join("\r\n");
+    // The byte-order mark makes Excel read the file as UTF-8 rather than mangling accents.
+    const bom = String.fromCharCode(0xfeff);
+    return bom + [header, ...rows].map((row) => row.map(field).join(",")).join("\r\n");
 };
 
 /**

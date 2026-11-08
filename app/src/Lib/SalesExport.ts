@@ -6,7 +6,5 @@ import { ShareTextFile } from "./Files";
  * @param text File contents.
  */
 export const DownloadCsv = async (filename: string, text: string): Promise<void> => {
-    // The byte-order mark makes Excel read the file as UTF-8 rather than mangling accents.
-    const bom = String.fromCharCode(0xfeff);
-    await ShareTextFile(filename, bom + text, "text/csv", "public.comma-separated-values-text");
+    await ShareTextFile(filename, text, "text/csv", "public.comma-separated-values-text");
 };

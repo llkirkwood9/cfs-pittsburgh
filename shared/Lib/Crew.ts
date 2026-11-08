@@ -3,16 +3,6 @@ import type { User, UserRole } from "../Models/User";
 import type { Territory } from "../Models/Territory";
 import { NewPasswordProblem } from "./Passwords";
 
-/** Every role, least senior first, as the Crew screen offers them. */
-export const CrewRoles: UserRole[] = [
-    "Sales",
-    "Checkout",
-    "SalesCheckout",
-    "Manager",
-    "Admin",
-    "SystemAdmin",
-];
-
 /** One line under each role on the Crew screen, saying what it does. */
 export const CrewRoleBlurbs: Record<UserRole, string> = {
     Sales: "Takes orders on the floor",
