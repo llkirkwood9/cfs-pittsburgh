@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import ChangePasswordModal from "./ChangePasswordModal";
 import Icon from "../Elements/Icon";
 import { useAuth } from "@shared/Context/AuthContext";
+import { Initials } from "@shared/Models/User";
 import { DASHBOARD_VERSION } from "../../Lib/Version";
 import { UserRoleLabels } from "@shared/Models/User";
 
@@ -34,12 +35,7 @@ const UserProfileDropdown = () => {
         navigate("/login", { replace: true });
     };
 
-    const initials = (user?.name ?? "?")
-        .split(" ")
-        .map((part) => part.charAt(0))
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
+    const initials = Initials(user?.name);
 
     return (
         <div className="relative" ref={containerRef}>
@@ -70,8 +66,7 @@ const UserProfileDropdown = () => {
                                 : user?.territoryName
                                   ? ` · ${user.territoryName}`
                                   : ""}{" "}
-                            &middot; v
-                            {DASHBOARD_VERSION}
+                            &middot; v{DASHBOARD_VERSION}
                         </p>
                     </div>
                     <button

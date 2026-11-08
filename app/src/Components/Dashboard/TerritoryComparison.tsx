@@ -1,49 +1,12 @@
-import { useCallback, useEffect, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import Icon from "../Elements/Icon";
 import TabButton from "../Elements/TabButton";
 import Text from "../Elements/Text";
-import { useTerritory } from "../../Context/TerritoryContext";
+import { useTerritory } from "@shared/Context/TerritoryContext";
 import { cx } from "../../Lib/ClassNames";
-import { IsOnline } from "@shared/Lib/Connection";
+import { useDashboardComparison } from "@shared/Hooks/useDashboardComparison";
+import { ComparisonRanges } from "@shared/Lib/Dashboard";
 import { FormatCurrency } from "@shared/Lib/Format";
-import type { TerritoryStats } from "@shared/Models/Territory";
-import { GetTerritoryComparison } from "@shared/Services/DashboardServices";
-
-type Range = "today" | "week" | "month" | "year" | "all";
-
-const ranges: { key: Range; label: string }[] = [
-    { key: "today", label: "Today" },
-    { key: "week", label: "7 days" },
-    { key: "month", label: "30 days" },
-    { key: "year", label: "This year" },
-    { key: "all", label: "All time" },
-];
-
-/** A date as YYYY-MM-DD in the device's own time zone. */
-const isoDay = (d: Date) =>
-    `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-
-const rangeDates = (range: Range): { from?: string; to?: string } => {
-    const today = new Date();
-    const back = (days: number) => {
-        const d = new Date(today);
-        d.setDate(d.getDate() - days);
-        return isoDay(d);
-    };
-    switch (range) {
-        case "today":
-            return { from: isoDay(today), to: isoDay(today) };
-        case "week":
-            return { from: back(6), to: isoDay(today) };
-        case "month":
-            return { from: back(29), to: isoDay(today) };
-        case "year":
-            return { from: `${today.getFullYear()}-01-01`, to: isoDay(today) };
-        default:
-            return {};
-    }
-};
 
 type Props = {
     /** Refresh interval in milliseconds, matching the rest of the dashboard. */
@@ -59,33 +22,7 @@ type Props = {
  */
 const TerritoryComparison = ({ pollMs, refreshKey = 0 }: Props) => {
     const { setTerritoryId } = useTerritory();
-    const [range, setRange] = useState<Range>("today");
-    const [rows, setRows] = useState<TerritoryStats[] | null>(null);
-
-    const load = useCallback(async (which: Range) => {
-        const { from, to } = rangeDates(which);
-        const result = await GetTerritoryComparison(from, to);
-        // Keep the last figures up while the server can't be reached.
-        if (result || IsOnline()) setRows(result ?? []);
-    }, []);
-
-    useEffect(() => {
-        load(range);
-        const timer = setInterval(() => load(range), pollMs);
-        return () => clearInterval(timer);
-    }, [range, load, pollMs, refreshKey]);
-
-    const top = Math.max(1, ...(rows ?? []).map((r) => r.totalSales ?? 0));
-    const totals = (rows ?? []).reduce(
-        (sum, r) => ({
-            orders: sum.orders + (r.completedOrderCount ?? 0),
-            total: sum.total + (r.totalSales ?? 0),
-            net: sum.net + (r.netSales ?? 0),
-            mattresses: sum.mattresses + (r.mattressCount ?? 0),
-            bases: sum.bases + (r.adjustableBaseCount ?? 0),
-        }),
-        { orders: 0, total: 0, net: 0, mattresses: 0, bases: 0 }
-    );
+    const { range, setRange, rows, top, totals } = useDashboardComparison(pollMs, refreshKey);
 
     const meta = "text-xs text-zinc-500 dark:text-zinc-400";
 
@@ -100,7 +37,7 @@ const TerritoryComparison = ({ pollMs, refreshKey = 0 }: Props) => {
                 className="mb-3"
                 contentContainerClassName="gap-1.5 pb-1"
             >
-                {ranges.map((r) => (
+                {ComparisonRanges.map((r) => (
                     <TabButton
                         key={r.key}
                         text={r.label}

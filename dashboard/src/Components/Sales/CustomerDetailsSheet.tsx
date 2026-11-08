@@ -1,9 +1,13 @@
-import { useState } from "react";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import { useLockBodyScroll } from "../../Hooks/UseLockBodyScroll";
-import { Toast } from "../../Lib/Toast";
-import { NormalizeCustomer } from "@shared/Lib/Orders";
+import { useCustomerSheet } from "@shared/Hooks/useSalesForms";
+import {
+    CustomerBillingFields,
+    CustomerDeliveryFields,
+    CustomerReferralField,
+    type CustomerSheetField,
+} from "@shared/Lib/Sales";
 import type { Order } from "@shared/Models/Order";
 
 type Props = {
@@ -12,164 +16,17 @@ type Props = {
     onClose: () => void;
 };
 
-type Field = {
-    key: keyof Order;
-    label: string;
-    hint?: string;
-    span: string;
-    type?: "text" | "tel" | "email";
-    inputMode?: "text" | "tel" | "email";
-    autoCapitalize?: "words" | "characters" | "none";
+/** Each field's width, out of 2 columns on a phone and 6 from a small screen up. */
+const BASE_SPAN: Record<CustomerSheetField["span"]["base"], string> = {
+    1: "col-span-1",
+    2: "col-span-2",
 };
-
-const billingFields: Field[] = [
-    {
-        key: "billingFirstName",
-        label: "First name",
-        span: "col-span-1 sm:col-span-3",
-        autoCapitalize: "words",
-    },
-    {
-        key: "billingLastName",
-        label: "Last name",
-        span: "col-span-1 sm:col-span-3",
-        autoCapitalize: "words",
-    },
-    {
-        key: "billingAddress",
-        label: "Street address",
-        span: "col-span-2 sm:col-span-6",
-        autoCapitalize: "words",
-    },
-    {
-        key: "billingUnit",
-        label: "Unit #",
-        hint: "Optional",
-        span: "col-span-1 sm:col-span-2",
-    },
-    {
-        key: "billingFloor",
-        label: "Floor",
-        hint: "Optional",
-        span: "col-span-1 sm:col-span-2",
-    },
-    {
-        key: "billingSuite",
-        label: "Suite #",
-        hint: "Optional",
-        span: "col-span-2 sm:col-span-2",
-    },
-    {
-        key: "billingCity",
-        label: "City",
-        span: "col-span-2 sm:col-span-3",
-        autoCapitalize: "words",
-    },
-    {
-        key: "billingState",
-        label: "State",
-        span: "col-span-1 sm:col-span-1",
-        autoCapitalize: "characters",
-    },
-    { key: "billingZip", label: "ZIP code", span: "col-span-1 sm:col-span-2", inputMode: "tel" },
-    {
-        key: "billingCell",
-        label: "Cell phone",
-        span: "col-span-2 sm:col-span-3",
-        type: "tel",
-        inputMode: "tel",
-    },
-    {
-        key: "billingAlt",
-        label: "Alternate phone",
-        hint: "Optional",
-        span: "col-span-2 sm:col-span-3",
-        type: "tel",
-        inputMode: "tel",
-    },
-    {
-        key: "billingEmail",
-        label: "Email",
-        span: "col-span-2 sm:col-span-6",
-        type: "email",
-        inputMode: "email",
-        autoCapitalize: "none",
-    },
-];
-
-// Only asked for when the bed is going somewhere other than the billing address - a gift, a
-// college dorm, a second home.
-const deliveryFields: Field[] = [
-    {
-        key: "deliveryName",
-        label: "Who is receiving it?",
-        span: "col-span-2 sm:col-span-6",
-        autoCapitalize: "words",
-    },
-    {
-        key: "deliveryAddress",
-        label: "Delivery street address",
-        span: "col-span-2 sm:col-span-6",
-        autoCapitalize: "words",
-    },
-    {
-        key: "deliveryUnit",
-        label: "Unit #",
-        hint: "Optional",
-        span: "col-span-1 sm:col-span-2",
-    },
-    {
-        key: "deliveryFloor",
-        label: "Floor",
-        hint: "Optional",
-        span: "col-span-1 sm:col-span-2",
-    },
-    {
-        key: "deliverySuite",
-        label: "Suite #",
-        hint: "Optional",
-        span: "col-span-2 sm:col-span-2",
-    },
-    {
-        key: "deliveryCity",
-        label: "City",
-        span: "col-span-2 sm:col-span-3",
-        autoCapitalize: "words",
-    },
-    {
-        key: "deliveryState",
-        label: "State",
-        span: "col-span-1 sm:col-span-1",
-        autoCapitalize: "characters",
-    },
-    { key: "deliveryZip", label: "ZIP code", span: "col-span-1 sm:col-span-2", inputMode: "tel" },
-    {
-        key: "deliveryCell",
-        label: "Phone at that address",
-        hint: "Optional",
-        span: "col-span-2 sm:col-span-3",
-        type: "tel",
-        inputMode: "tel",
-    },
-    {
-        key: "deliveryAlt",
-        label: "Alternate phone",
-        hint: "Optional",
-        span: "col-span-2 sm:col-span-3",
-        type: "tel",
-        inputMode: "tel",
-    },
-];
-
-const referralField: Field = {
-    key: "referralName",
-    label: "Who sent you?",
-    hint: "The student or family who invited you, so they get the credit",
-    span: "col-span-2 sm:col-span-6",
-    autoCapitalize: "words",
+const SM_SPAN: Record<CustomerSheetField["span"]["sm"], string> = {
+    1: "sm:col-span-1",
+    2: "sm:col-span-2",
+    3: "sm:col-span-3",
+    6: "sm:col-span-6",
 };
-
-const deliveryKeys = [...deliveryFields.map((f) => f.key), "deliveryEmail"] as const;
 
 /**
  * The screen a rep hands the tablet across for. Plain language instead of sales-sheet labels,
@@ -179,53 +36,17 @@ const deliveryKeys = [...deliveryFields.map((f) => f.key), "deliveryEmail"] as c
 const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
     useLockBodyScroll();
 
-    const [form, setForm] = useState<Order>(order);
-    const [saving, setSaving] = useState<boolean>(false);
-    const [elsewhere, setElsewhere] = useState<boolean>(!(order.deliverySameAsBilling ?? true));
+    const { value, set, elsewhere, setElsewhere, saving, done } = useCustomerSheet(
+        order,
+        onSave,
+        onClose
+    );
 
-    const set = (key: keyof Order, value: string) =>
-        setForm((current) => ({ ...current, [key]: value }));
-
-    const handleDone = async () => {
-        if (!(form.billingFirstName ?? "").trim() || !(form.billingLastName ?? "").trim())
-            return Toast.Warning("Please enter your first and last name.");
-
-        if (elsewhere && !(form.deliveryAddress ?? "").trim())
-            return Toast.Warning("Please enter the delivery address.");
-
-        // Delivering to the billing address leaves the sheet's delivery block empty, as the
-        // paper form expects, so any address typed and then abandoned is cleared.
-        const delivery = Object.fromEntries(
-            deliveryKeys.map((key) => [key, elsewhere ? ((form[key] as string | null) ?? "") : ""])
-        );
-
-        setSaving(true);
-        await onSave(
-            NormalizeCustomer({
-                id: order.id,
-                deliverySameAsBilling: !elsewhere,
-                ...delivery,
-                billingFirstName: form.billingFirstName ?? "",
-                billingLastName: form.billingLastName ?? "",
-                billingAddress: form.billingAddress ?? "",
-                billingUnit: form.billingUnit ?? "",
-                billingFloor: form.billingFloor ?? "",
-                billingSuite: form.billingSuite ?? "",
-                billingCity: form.billingCity ?? "",
-                billingState: form.billingState ?? "",
-                billingZip: form.billingZip ?? "",
-                billingCell: form.billingCell ?? "",
-                billingAlt: form.billingAlt ?? "",
-                billingEmail: form.billingEmail ?? "",
-                referralName: form.referralName ?? "",
-            })
-        );
-        setSaving(false);
-        onClose();
-    };
-
-    const renderField = (field: Field) => (
-        <label key={field.key} className={`flex flex-col gap-1.5 ${field.span}`}>
+    const renderField = (field: CustomerSheetField) => (
+        <label
+            key={field.key}
+            className={`flex flex-col gap-1.5 ${BASE_SPAN[field.span.base]} ${SM_SPAN[field.span.sm]}`}
+        >
             <span className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
                 {field.label}
                 {field.hint && (
@@ -235,10 +56,10 @@ const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
                 )}
             </span>
             <input
-                value={(form[field.key] as string | null | undefined) ?? ""}
+                value={value(field.key)}
                 onChange={(e) => set(field.key, e.target.value)}
                 type={field.type ?? "text"}
-                inputMode={field.inputMode}
+                inputMode={field.keyboard}
                 autoCapitalize={field.autoCapitalize}
                 autoCorrect="off"
                 className="min-h-[60px] w-full rounded-2xl border-2 border-zinc-300 bg-white px-4
@@ -267,7 +88,7 @@ const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
 
             <div className="flex-1 overflow-y-auto px-4 py-5">
                 <div className="mx-auto grid max-w-3xl grid-cols-2 gap-4 sm:grid-cols-6">
-                    {billingFields.map(renderField)}
+                    {CustomerBillingFields.map(renderField)}
 
                     <div className="col-span-2 mt-2 sm:col-span-6">
                         <p className="mb-2 text-base font-semibold text-zinc-800 dark:text-zinc-100">
@@ -300,10 +121,10 @@ const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
                         </div>
                     </div>
 
-                    {elsewhere && deliveryFields.map(renderField)}
+                    {elsewhere && CustomerDeliveryFields.map(renderField)}
 
                     <div className="col-span-2 mt-2 sm:col-span-6" />
-                    {renderField(referralField)}
+                    {renderField(CustomerReferralField)}
                 </div>
             </div>
 
@@ -317,7 +138,7 @@ const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
                     <Button
                         text="Done"
                         icon="fa-solid fa-check"
-                        onClick={handleDone}
+                        onClick={done}
                         loading={saving}
                         className="min-h-[60px] flex-1 bg-green-700 text-lg hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                     />

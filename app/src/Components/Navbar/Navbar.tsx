@@ -7,7 +7,7 @@ import UserProfileDropdown from "./UserProfileDropdown";
 import Icon from "../Elements/Icon";
 import LightStatusBar from "../Elements/LightStatusBar";
 import Text from "../Elements/Text";
-import { useSettings } from "../../Context/SettingsContext";
+import { useSettings } from "@shared/Context/SettingsContext";
 
 /**
  * The dashboard's menu bar, minus its tabs - the native tab bar has those. It keeps the app name

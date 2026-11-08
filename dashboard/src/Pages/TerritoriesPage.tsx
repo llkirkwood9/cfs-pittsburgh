@@ -1,19 +1,10 @@
-import { useEffect, useState } from "react";
 import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import TextField from "../Components/Elements/TextField";
-import { useTerritory } from "../Context/TerritoryContext";
-import { Toast } from "../Lib/Toast";
-import type { Territory } from "@shared/Models/Territory";
-import {
-    AddTerritory,
-    DeleteTerritory,
-    GetTerritories,
-    UpdateTerritory,
-} from "@shared/Services/TerritoryServices";
+import { useTerritories } from "@shared/Hooks/useTerritories";
 
 /**
  * Territories, for system admins and administrators. Each one has its own crew, events, stock,
@@ -22,74 +13,10 @@ import {
  * switched off at any time, and deleted while nothing belongs to it yet.
  */
 const TerritoriesPage = () => {
-    const { reload: reloadPicker, setTerritoryId } = useTerritory();
-    const [territories, setTerritories] = useState<Territory[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [editing, setEditing] = useState<Territory | null>(null);
-    const [name, setName] = useState<string>("");
-    // A new territory's catalog: empty, or a copy of another territory's.
-    const [copyFrom, setCopyFrom] = useState<number | null>(null);
-    const [saving, setSaving] = useState<boolean>(false);
-    const [switchingOff, setSwitchingOff] = useState<Territory | null>(null);
-    const [deleting, setDeleting] = useState<Territory | null>(null);
+    const page = useTerritories();
+    const { territories, editing, switchingOff, deleting } = page;
 
-    const load = async () => {
-        setTerritories(await GetTerritories(true));
-        setLoading(false);
-    };
-
-    useEffect(() => {
-        load();
-    }, []);
-
-    const afterChange = async () => {
-        await load();
-        await reloadPicker();
-    };
-
-    const open = (territory: Territory) => {
-        setEditing(territory);
-        setName(territory.name ?? "");
-        setCopyFrom(null);
-    };
-
-    const handleSave = async () => {
-        if (!name.trim()) return Toast.Warning("Enter the territory's name.");
-
-        setSaving(true);
-        const saved = editing?.id
-            ? await UpdateTerritory({ id: editing.id, name: name.trim() })
-            : await AddTerritory(name.trim(), copyFrom);
-        setSaving(false);
-
-        if (!saved) return;
-        Toast.Success(
-            !editing?.id && copyFrom != null
-                ? `${saved.name} added, with ${saved.productCount ?? 0} products copied into its catalog.`
-                : `${saved.name} saved.`
-        );
-        setEditing(null);
-        await afterChange();
-    };
-
-    const setActive = async (territory: Territory, isActive: boolean) => {
-        const saved = await UpdateTerritory({ id: territory.id, isActive });
-        setSwitchingOff(null);
-        if (!saved) return;
-        Toast.Success(isActive ? `${saved.name} switched back on.` : `${saved.name} switched off.`);
-        await afterChange();
-    };
-
-    const handleDelete = async () => {
-        if (!deleting?.id) return;
-        const done = await DeleteTerritory(deleting.id);
-        setDeleting(null);
-        if (!done) return;
-        Toast.Success("Territory deleted.");
-        await afterChange();
-    };
-
-    if (loading) {
+    if (page.loading) {
         return (
             <div className="mx-auto max-w-3xl p-4">
                 <ListSkeleton rows={3} />
@@ -104,7 +31,7 @@ const TerritoriesPage = () => {
                 <Button
                     text="Add territory"
                     icon="fa-solid fa-plus"
-                    onClick={() => open({ isActive: true })}
+                    onClick={page.add}
                     className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                 />
             </div>
@@ -156,27 +83,27 @@ const TerritoriesPage = () => {
                                     text="View"
                                     icon="fa-solid fa-eye"
                                     title="Work in this territory"
-                                    onClick={() => setTerritoryId(territory.id ?? null)}
+                                    onClick={() => page.workIn(territory)}
                                     className="min-h-[40px] bg-sky-700 px-3 text-sm hover:bg-sky-800 dark:bg-sky-600 dark:hover:bg-sky-700"
                                 />
                             )}
                             <Button
                                 text="Rename"
                                 icon="fa-solid fa-pen"
-                                onClick={() => open(territory)}
+                                onClick={() => page.open(territory)}
                                 className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                             />
                             {territory.isActive === false ? (
                                 <Button
                                     text="Switch on"
                                     icon="fa-solid fa-power-off"
-                                    onClick={() => setActive(territory, true)}
+                                    onClick={() => page.setActive(territory, true)}
                                     className="min-h-[40px] bg-green-700 px-3 text-sm hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                                 />
                             ) : (
                                 <button
                                     type="button"
-                                    onClick={() => setSwitchingOff(territory)}
+                                    onClick={() => page.setSwitchingOff(territory)}
                                     aria-label="Switch territory off"
                                     title="Switch off"
                                     className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
@@ -188,7 +115,7 @@ const TerritoriesPage = () => {
                             {empty && (
                                 <button
                                     type="button"
-                                    onClick={() => setDeleting(territory)}
+                                    onClick={() => page.setDeleting(territory)}
                                     aria-label="Delete territory"
                                     title="Delete"
                                     className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
@@ -205,27 +132,27 @@ const TerritoriesPage = () => {
             {editing && (
                 <Modal
                     title={editing.id ? "Rename territory" : "Add territory"}
-                    onClose={() => setEditing(null)}
+                    onClose={page.close}
                     footer={
                         <>
                             <Button
                                 text="Cancel"
-                                onClick={() => setEditing(null)}
+                                onClick={page.close}
                                 className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                             />
                             <Button
                                 text="Save"
                                 icon="fa-solid fa-check"
-                                onClick={handleSave}
-                                loading={saving}
+                                onClick={page.save}
+                                loading={page.saving}
                             />
                         </>
                     }
                 >
                     <TextField
                         label="Name"
-                        value={name}
-                        onChange={setName}
+                        value={page.name}
+                        onChange={page.setName}
                         maxLength={100}
                         autoFocus
                     />
@@ -236,28 +163,28 @@ const TerritoriesPage = () => {
                                     Catalog
                                 </span>
                                 <select
-                                    value={copyFrom ?? ""}
+                                    value={page.copyFrom ?? ""}
                                     onChange={(e) =>
-                                        setCopyFrom(e.target.value ? Number(e.target.value) : null)
+                                        page.setCopyFrom(
+                                            e.target.value ? Number(e.target.value) : null
+                                        )
                                     }
                                     className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base
                                         dark:border-zinc-600 dark:bg-zinc-800 dark:scheme-dark"
                                 >
                                     <option value="">Start with an empty catalog</option>
-                                    {territories
-                                        .filter((t) => t.isActive !== false)
-                                        .map((t) => (
-                                            <option key={t.id} value={t.id}>
-                                                Copy {t.name}&apos;s catalog
-                                            </option>
-                                        ))}
+                                    {page.copySources.map((t) => (
+                                        <option key={t.id} value={t.id}>
+                                            Copy {t.name}&apos;s catalog
+                                        </option>
+                                    ))}
                                 </select>
                             </label>
                             <p className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
                                 Each territory has its own catalog. A copy brings every product with
-                                its sizes, prices and sales, and the delivery and financing options -
-                                but not stock, which starts at zero. It starts with the company-wide
-                                settings; add its manager and crew on the Crew screen.
+                                its sizes, prices and sales, and the delivery and financing options
+                                - but not stock, which starts at zero. It starts with the
+                                company-wide settings; add its manager and crew on the Crew screen.
                             </p>
                         </>
                     )}
@@ -270,8 +197,8 @@ const TerritoriesPage = () => {
                     message={`Switch ${switchingOff.name} off? Its crew are signed out and can't sign back in, and its active event is closed, until it is switched back on. Nothing is deleted.`}
                     confirmText="Switch off"
                     destructive
-                    onConfirm={() => setActive(switchingOff, false)}
-                    onCancel={() => setSwitchingOff(null)}
+                    onConfirm={() => page.setActive(switchingOff, false)}
+                    onCancel={() => page.setSwitchingOff(null)}
                 />
             )}
 
@@ -281,8 +208,8 @@ const TerritoriesPage = () => {
                     message={`Delete ${deleting.name}? Nothing belongs to it yet, so nothing else is affected.`}
                     confirmText="Delete"
                     destructive
-                    onConfirm={handleDelete}
-                    onCancel={() => setDeleting(null)}
+                    onConfirm={page.confirmDelete}
+                    onCancel={() => page.setDeleting(null)}
                 />
             )}
         </div>

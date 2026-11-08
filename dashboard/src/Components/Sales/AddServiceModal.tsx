@@ -1,10 +1,8 @@
-import { useState } from "react";
 import Button from "../Elements/Button";
 import Modal from "../Elements/Modal";
+import { useServicePicker } from "@shared/Hooks/useSalesForms";
 import { FormatCurrency } from "@shared/Lib/Format";
-import { TakeWithBlocked } from "@shared/Lib/Inventory";
-import { ApplyDiscount, DeliverySaleFor, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
-import { Toast } from "../../Lib/Toast";
+import { DiscountText, HasDiscount } from "@shared/Lib/Pricing";
 import type { DeliveryOption } from "@shared/Models/DeliveryOption";
 import type { OrderLine } from "@shared/Models/OrderLine";
 import type { Product } from "@shared/Models/Product";
@@ -25,43 +23,8 @@ type Props = {
  * service is given afterwards, with Edit on its row.
  */
 const AddServiceModal = ({ parentLine, options, products = [], onAdd, onClose }: Props) => {
-    const [selectedId, setSelectedId] = useState<number | null>(null);
-    const [saving, setSaving] = useState<boolean>(false);
-
-    // Take With is only on offer while the cart has enough of a tracked item.
-    const stockBlock = TakeWithBlocked(
-        parentLine.quantityOnHand,
-        parentLine.quantity ?? 1,
-        parentLine.notKeptAtCart
-    );
-
-    const parentProduct = products.find((p) =>
-        (p.variants ?? []).some((v) => v.id === parentLine.productVariantId)
-    );
-    const pricing = (option: DeliveryOption) => {
-        const forProduct = parentProduct?.deliveryOptions?.find(
-            (d) => d.deliveryOptionId === option.id
-        );
-        const price = forProduct?.price ?? option.price ?? 0;
-        const sale = DeliverySaleFor(forProduct, option);
-        return { price, sale, salePrice: ApplyDiscount(price, sale) };
-    };
-
-    const selected = options.find((o) => o.id === selectedId);
-    const chosen = selected ? pricing(selected) : null;
-
-    const handleAdd = async () => {
-        if (!selectedId) return Toast.Warning("Pick a service first.");
-
-        setSaving(true);
-        await onAdd({
-            lineType: "Delivery",
-            deliveryOptionId: selectedId,
-            parentLineId: parentLine.id,
-        });
-        setSaving(false);
-        onClose();
-    };
+    const { selectedId, setSelectedId, blockedFor, pricing, chosen, saving, add } =
+        useServicePicker(parentLine, options, products, onAdd, onClose);
 
     return (
         <Modal
@@ -81,7 +44,7 @@ const AddServiceModal = ({ parentLine, options, products = [], onAdd, onClose }:
                                 : "Add service"
                         }
                         icon="fa-solid fa-plus"
-                        onClick={handleAdd}
+                        onClick={add}
                         loading={saving}
                         className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                     />
@@ -90,7 +53,7 @@ const AddServiceModal = ({ parentLine, options, products = [], onAdd, onClose }:
         >
             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                 {options.map((option) => {
-                    const blocked = option.isTakeWith ? stockBlock : null;
+                    const blocked = blockedFor(option);
                     const { price, sale, salePrice } = pricing(option);
 
                     return (

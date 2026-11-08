@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { View } from "react-native";
 import Checkbox from "../Elements/Checkbox";
 import ComboField from "../Elements/ComboField";
@@ -6,13 +5,12 @@ import Grid, { Cell } from "../Elements/Grid";
 import Text from "../Elements/Text";
 import TextArea from "../Elements/TextArea";
 import TextField from "../Elements/TextField";
-import { NormalizeCustomerField } from "@shared/Lib/Orders";
+import { useCustomerForm } from "@shared/Hooks/useSalesForms";
 import type { Order } from "@shared/Models/Order";
 
 type Props = {
     order: Order;
     reps: string[];
-    disabled?: boolean;
     onSave: (changes: Order) => Promise<void>;
 };
 
@@ -27,26 +25,11 @@ const ADDRESS_COLUMNS = { base: 2, sm: 4, lg: 2, xl: 4 };
  * That is deliberate: syncing the server copy back into the inputs would overwrite whatever the
  * rep is part way through typing.
  */
-const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
-    const [form, setForm] = useState<Order>(order);
-
-    const set = (field: keyof Order) => (value: string) =>
-        setForm((current) => ({ ...current, [field]: value }));
-
-    const commitValue = async (field: keyof Order, raw: unknown) => {
-        const value = typeof raw === "string" ? NormalizeCustomerField(field, raw) : (raw ?? "");
-        if (value !== raw) setForm((current) => ({ ...current, [field]: value }));
-
-        if ((value ?? "") === (order[field] ?? "")) return;
-        await onSave({ id: order.id, [field]: value } as Order);
-    };
-
-    const commit = (field: keyof Order) => () => commitValue(field, form[field]);
-
-    const toggleSameAsBilling = async (checked: boolean) => {
-        setForm((current) => ({ ...current, deliverySameAsBilling: checked }));
-        await onSave({ id: order.id, deliverySameAsBilling: checked });
-    };
+const CustomerForm = ({ order, reps, onSave }: Props) => {
+    const { form, text, set, commit, commitValue, toggleSameAsBilling } = useCustomerForm(
+        order,
+        onSave
+    );
 
     const field = (
         label: string,
@@ -58,10 +41,9 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
     ) => (
         <TextField
             label={label}
-            value={(form[key] as string | null | undefined) ?? ""}
+            value={text(key)}
             onChange={set(key)}
             onBlur={commit(key)}
-            disabled={disabled}
             inputMode={options?.inputMode}
             type={options?.type}
             autoCapitalize={
@@ -124,7 +106,6 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
                         onChange={set("cfsRepName")}
                         onCommit={(value) => commitValue("cfsRepName", value)}
                         suggestions={reps}
-                        disabled={disabled}
                     />
                 </Grid>
             </View>
@@ -140,7 +121,6 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
                     label="Same as billing"
                     checked={form.deliverySameAsBilling ?? true}
                     onChange={toggleSameAsBilling}
-                    disabled={disabled}
                     className="mb-3"
                 />
                 {!(form.deliverySameAsBilling ?? true) && address("delivery")}
@@ -151,7 +131,6 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
                 value={form.comments ?? ""}
                 onChange={set("comments")}
                 onBlur={commit("comments")}
-                disabled={disabled}
                 rows={3}
                 maxLength={1000}
                 placeholder="Anything the delivery crew or checkout table needs to know"

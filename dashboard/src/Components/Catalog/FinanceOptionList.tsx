@@ -1,10 +1,10 @@
-import { useState } from "react";
 import Button from "../Elements/Button";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
 import TextField from "../Elements/TextField";
-import { Toast } from "../../Lib/Toast";
+import { useCatalogOptionList } from "@shared/Hooks/useCatalogOptionList";
+import { FinanceOptionForm } from "@shared/Lib/CatalogOptions";
 import type { FinanceOption } from "@shared/Models/FinanceOption";
 
 type Props = {
@@ -21,34 +21,8 @@ type Props = {
  * under Settings.
  */
 const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
-    const [editing, setEditing] = useState<FinanceOption | null>(null);
-    const [deleting, setDeleting] = useState<FinanceOption | null>(null);
-    const [saving, setSaving] = useState<boolean>(false);
-
-    const [name, setName] = useState<string>("");
-    const [isActive, setIsActive] = useState<boolean>(true);
-
-    const open = (option: FinanceOption) => {
-        setEditing(option);
-        setName(option.name ?? "");
-        setIsActive(option.isActive ?? true);
-    };
-
-    const handleSave = async () => {
-        if (!name.trim()) return Toast.Warning("Give the option a name.");
-
-        setSaving(true);
-        await onSave({ id: editing?.id, name: name.trim(), isActive });
-        setSaving(false);
-        setEditing(null);
-    };
-
-    const move = (index: number, by: number) => {
-        const ids = options.map((o) => o.id ?? 0);
-        const [id] = ids.splice(index, 1);
-        ids.splice(index + by, 0, id);
-        onReorder(ids);
-    };
+    const list = useCatalogOptionList(options, FinanceOptionForm, onSave, onDelete, onReorder);
+    const { draft, change, editing, deleting } = list;
 
     return (
         <>
@@ -57,7 +31,7 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                 <Button
                     text="Add"
                     icon="fa-solid fa-plus"
-                    onClick={() => open({ isActive: true })}
+                    onClick={list.add}
                     className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                 />
             </div>
@@ -85,7 +59,7 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
 
                         <button
                             type="button"
-                            onClick={() => move(index, -1)}
+                            onClick={() => list.move(index, -1)}
                             disabled={index === 0}
                             aria-label="Move up"
                             className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100
@@ -95,7 +69,7 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                         </button>
                         <button
                             type="button"
-                            onClick={() => move(index, 1)}
+                            onClick={() => list.move(index, 1)}
                             disabled={index === options.length - 1}
                             aria-label="Move down"
                             className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100
@@ -106,12 +80,12 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                         <Button
                             text="Edit"
                             icon="fa-solid fa-pen"
-                            onClick={() => open(option)}
+                            onClick={() => list.open(option)}
                             className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                         />
                         <button
                             type="button"
-                            onClick={() => setDeleting(option)}
+                            onClick={() => list.setDeleting(option)}
                             aria-label="Delete option"
                             className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
                                 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
@@ -125,19 +99,19 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
             {editing && (
                 <Modal
                     title={editing.id ? "Edit financing option" : "New financing option"}
-                    onClose={() => setEditing(null)}
+                    onClose={list.close}
                     footer={
                         <>
                             <Button
                                 text="Cancel"
-                                onClick={() => setEditing(null)}
+                                onClick={list.close}
                                 className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                             />
                             <Button
                                 text="Save"
                                 icon="fa-solid fa-check"
-                                onClick={handleSave}
-                                loading={saving}
+                                onClick={list.save}
+                                loading={list.saving}
                             />
                         </>
                     }
@@ -145,16 +119,16 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                     <div className="space-y-3">
                         <TextField
                             label="Name"
-                            value={name}
-                            onChange={setName}
+                            value={draft.name}
+                            onChange={(value) => change({ name: value })}
                             maxLength={100}
                             placeholder="ex. 12 months SAC"
                         />
                         <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-zinc-100 px-3 dark:bg-zinc-700">
                             <input
                                 type="checkbox"
-                                checked={isActive}
-                                onChange={(e) => setIsActive(e.target.checked)}
+                                checked={draft.isActive}
+                                onChange={(e) => change({ isActive: e.target.checked })}
                                 className="h-5 w-5 accent-sky-600"
                             />
                             <span className="text-sm font-medium">Offered at checkout</span>
@@ -169,11 +143,8 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                     message={`Delete "${deleting.name}"? Sales already recorded with it keep its name.`}
                     confirmText="Delete"
                     destructive
-                    onConfirm={async () => {
-                        if (deleting.id) await onDelete(deleting.id);
-                        setDeleting(null);
-                    }}
-                    onCancel={() => setDeleting(null)}
+                    onConfirm={list.confirmDelete}
+                    onCancel={() => list.setDeleting(null)}
                 />
             )}
         </>

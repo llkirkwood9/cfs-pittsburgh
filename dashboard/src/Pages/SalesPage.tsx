@@ -1,5 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { useState } from "react";
 import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
@@ -14,58 +13,16 @@ import EditLineModal from "../Components/Sales/EditLineModal";
 import UpchargeModal from "../Components/Sales/UpchargeModal";
 import OrderLineList from "../Components/Sales/OrderLineList";
 import OrderTotals from "../Components/Sales/OrderTotals";
-import { useAuth } from "@shared/Context/AuthContext";
+import { useSalesFloor } from "@shared/Hooks/useSalesFloor";
 import { FormatCurrency } from "@shared/Lib/Format";
-import { Toast } from "../Lib/Toast";
-import type { DeliveryOption } from "@shared/Models/DeliveryOption";
-import type { Event } from "@shared/Models/Event";
-import type { Order } from "@shared/Models/Order";
-import type { OrderLine } from "@shared/Models/OrderLine";
-import type { OrderSummary } from "@shared/Models/OrderSummary";
-import type { Product } from "@shared/Models/Product";
-import { GetDeliveryOptions } from "@shared/Services/DeliveryOptionServices";
-import { GetActiveEvent } from "@shared/Services/EventServices";
-import {
-    AddOrder,
-    AddOrderLine,
-    DeleteOrder,
-    DeleteOrderLine,
-    GetDrafts,
-    GetOrder,
-    ReorderOrderLines,
-    SubmitOrder,
-    UpdateOrder,
-    UpdateOrderLine,
-} from "@shared/Services/OrderServices";
-import { GetProducts } from "@shared/Services/ProductServices";
-import { GetReps } from "@shared/Services/UserServices";
+import { SendToCheckoutBlock } from "@shared/Lib/Sales";
 
 /**
  * The sales floor. A rep keeps as many drafts open as they have customers, builds each one from
  * the catalog, then hands it to the checkout table with one button.
  */
 const SalesPage = () => {
-    const { user } = useAuth();
-
-    const [saleEvent, setSaleEvent] = useState<Event | null>(null);
-    const [products, setProducts] = useState<Product[]>([]);
-    const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOption[]>([]);
-    const [reps, setReps] = useState<string[]>([]);
-
-    const [drafts, setDrafts] = useState<OrderSummary[]>([]);
-    const [order, setOrder] = useState<Order | null>(null);
-
-    const [loading, setLoading] = useState<boolean>(true);
-    const [creating, setCreating] = useState<boolean>(false);
-    const [submitting, setSubmitting] = useState<boolean>(false);
     const [pane, setPane] = useState<"items" | "customer">("items");
-
-    const [showAddItem, setShowAddItem] = useState<boolean>(false);
-    const [editingLine, setEditingLine] = useState<OrderLine | null>(null);
-    const [servicingLine, setServicingLine] = useState<OrderLine | null>(null);
-    const [upchargingLine, setUpchargingLine] = useState<OrderLine | null>(null);
-    const [removingLine, setRemovingLine] = useState<OrderLine | null>(null);
-    const [discardingDraft, setDiscardingDraft] = useState<boolean>(false);
     const [showCustomerSheet, setShowCustomerSheet] = useState<boolean>(false);
 
     // Bumped only when the customer sheet writes back, which remounts the rep's form so it picks
@@ -73,136 +30,24 @@ const SalesPage = () => {
     // and pull focus out of the field the rep just moved into.
     const [formVersion, setFormVersion] = useState<number>(0);
 
-    const refreshDrafts = useCallback(async (eventId: number) => {
-        const list = await GetDrafts(eventId);
-        setDrafts(list);
-        return list;
-    }, []);
-
-    useEffect(() => {
-        const load = async () => {
-            setLoading(true);
-
-            const active = await GetActiveEvent();
-            setSaleEvent(active);
-
-            if (!active?.id) {
-                setLoading(false);
-                return;
-            }
-
-            const [catalog, options, repNames, draftList] = await Promise.all([
-                GetProducts(),
-                GetDeliveryOptions(),
-                GetReps(),
-                GetDrafts(active.id),
-            ]);
-
-            setProducts(catalog);
-            setDeliveryOptions(options);
-            setReps(repNames);
-            setDrafts(draftList);
-
-            if (draftList.length > 0 && draftList[0].id) {
-                const first = await GetOrder(draftList[0].id);
-                setOrder(first);
-            }
-
-            setLoading(false);
-        };
-
-        load();
-    }, []);
-
-    if (!user) return <Navigate to="/unauthorized" replace />;
-
-    const handleNewDraft = async () => {
-        if (!saleEvent?.id) return;
-
-        setCreating(true);
-        const created = await AddOrder(saleEvent.id);
-        setCreating(false);
-
-        if (!created) return;
-
-        setOrder(created);
-        setPane("customer");
-        await refreshDrafts(saleEvent.id);
-        Toast.Success("Order started.");
-    };
-
-    const handleSelectDraft = async (id: number) => {
-        const selected = await GetOrder(id);
-        if (selected) setOrder(selected);
-    };
-
-    /** Every mutation returns the recalculated order, so state and totals stay in lockstep. */
-    const applyResult = async (result: Order | null) => {
-        if (!result) return;
-        setOrder(result);
-        if (saleEvent?.id) await refreshDrafts(saleEvent.id);
-    };
-
-    const handleSaveOrder = async (changes: Order) => {
-        await applyResult(await UpdateOrder(changes));
-    };
-
-    const handleAddLine = async (line: OrderLine) => {
-        if (!order?.id) return;
-        await applyResult(await AddOrderLine(order.id, line));
-    };
-
-    const handleReorderLines = async (itemIds: number[]) => {
-        if (!order?.id) return;
-        await applyResult(await ReorderOrderLines(order.id, itemIds));
-    };
-
-    const handleUpdateLine = async (line: OrderLine) => {
-        await applyResult(await UpdateOrderLine(line));
-    };
-
-    const handleRemoveLine = async () => {
-        if (!removingLine?.id) return;
-        const result = await DeleteOrderLine(removingLine.id);
-        setRemovingLine(null);
-        await applyResult(result);
-    };
-
-    const handleDiscardDraft = async () => {
-        if (!order?.id || !saleEvent?.id) return;
-
-        const success = await DeleteOrder(order.id);
-        setDiscardingDraft(false);
-
-        if (!success) return;
-
-        const remaining = await refreshDrafts(saleEvent.id);
-        setOrder(remaining[0]?.id ? await GetOrder(remaining[0].id) : null);
-        Toast.Success("Draft discarded.");
-    };
-
-    const handleSendToCheckout = async () => {
-        if (!order?.id || !saleEvent?.id) return;
-
-        setSubmitting(true);
-        const result = await SubmitOrder(order.id);
-        setSubmitting(false);
-
-        if (!result) return;
-
-        Toast.Success(`Order #${result.orderNumber} is with checkout. Send the customer over.`);
-
-        const remaining = await refreshDrafts(saleEvent.id);
-        setOrder(remaining[0]?.id ? await GetOrder(remaining[0].id) : null);
-    };
-
-    // Stock moves as other orders complete, so the picker always opens on fresh counts.
-    const openAddItem = () => {
-        setShowAddItem(true);
-        GetProducts().then((catalog) => {
-            if (catalog.length) setProducts(catalog);
-        });
-    };
+    const {
+        saleEvent,
+        products,
+        deliveryOptions,
+        reps,
+        drafts,
+        order,
+        loading,
+        creating,
+        submitting,
+        newDraft,
+        selectDraft,
+        discardingDraft,
+        setDiscardingDraft,
+        discardDraft,
+        sendToCheckout,
+        editor,
+    } = useSalesFloor(() => setPane("customer"));
 
     if (loading) {
         return (
@@ -224,6 +69,8 @@ const SalesPage = () => {
         );
     }
 
+    const sendBlock = order ? SendToCheckoutBlock(order) : undefined;
+
     return (
         <div className="mx-auto max-w-(--breakpoint-2xl) p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-baseline justify-between gap-2">
@@ -236,8 +83,8 @@ const SalesPage = () => {
             <DraftTabs
                 drafts={drafts}
                 activeId={order?.id ?? null}
-                onSelect={handleSelectDraft}
-                onNew={handleNewDraft}
+                onSelect={selectDraft}
+                onNew={newDraft}
                 creating={creating}
             />
 
@@ -283,21 +130,19 @@ const SalesPage = () => {
                                 <Button
                                     text="Add item"
                                     icon="fa-solid fa-plus"
-                                    onClick={openAddItem}
+                                    onClick={editor.openAddItem}
                                     className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                                 />
                             </div>
 
                             <OrderLineList
                                 lines={order.lines ?? []}
-                                onEdit={setEditingLine}
-                                onAddService={setServicingLine}
-                                onAddUpcharge={setUpchargingLine}
-                                onReorder={handleReorderLines}
-                                onRemove={setRemovingLine}
-                                onQuantity={(line, quantity) =>
-                                    handleUpdateLine({ id: line.id, quantity })
-                                }
+                                onEdit={editor.setEditingLine}
+                                onAddService={editor.setServicingLine}
+                                onAddUpcharge={editor.setUpchargingLine}
+                                onReorder={editor.reorderLines}
+                                onRemove={editor.setRemovingLine}
+                                onQuantity={editor.changeQuantity}
                             />
                         </section>
 
@@ -315,7 +160,7 @@ const SalesPage = () => {
                                     key={`${order.id}-${formVersion}`}
                                     order={order}
                                     reps={reps}
-                                    onSave={handleSaveOrder}
+                                    onSave={editor.saveOrder}
                                 />
                             </div>
                         </section>
@@ -337,23 +182,10 @@ const SalesPage = () => {
                                 <Button
                                     text={`Complete ${FormatCurrency(order.total)}`}
                                     icon="fa-solid fa-circle-check"
-                                    onClick={handleSendToCheckout}
+                                    onClick={sendToCheckout}
                                     loading={submitting}
-                                    // The API rejects an empty or unnamed order anyway; greying
-                                    // the button out saves the rep a round trip to find out.
-                                    disabled={
-                                        (order.lines?.length ?? 0) === 0 ||
-                                        !order.billingFirstName?.trim() ||
-                                        !order.billingLastName?.trim()
-                                    }
-                                    title={
-                                        (order.lines?.length ?? 0) === 0
-                                            ? "Add at least one item first"
-                                            : !order.billingFirstName?.trim() ||
-                                                !order.billingLastName?.trim()
-                                              ? "Enter the customer's first and last name first"
-                                              : undefined
-                                    }
+                                    disabled={sendBlock !== undefined}
+                                    title={sendBlock}
                                     className="flex-1 bg-green-700 hover:bg-green-800 sm:flex-none dark:bg-green-600 dark:hover:bg-green-700"
                                 />
                             </div>
@@ -366,66 +198,64 @@ const SalesPage = () => {
                 <CustomerDetailsSheet
                     order={order}
                     onSave={async (changes) => {
-                        await handleSaveOrder(changes);
+                        await editor.saveOrder(changes);
                         setFormVersion((value) => value + 1);
                     }}
                     onClose={() => setShowCustomerSheet(false)}
                 />
             )}
 
-            {showAddItem && (
+            {editor.showAddItem && (
                 <AddItemModal
                     products={products}
-                    onAdd={handleAddLine}
-                    onClose={() => setShowAddItem(false)}
+                    onAdd={editor.addLine}
+                    onClose={editor.closeAddItem}
                 />
             )}
 
-            {editingLine?.lineType === "Upcharge" && (
+            {editor.editingLine?.lineType === "Upcharge" && (
                 <UpchargeModal
-                    line={editingLine}
-                    parentLine={
-                        order?.lines?.find((l) => l.id === editingLine.parentLineId) ?? editingLine
-                    }
-                    onSave={handleUpdateLine}
-                    onClose={() => setEditingLine(null)}
+                    line={editor.editingLine}
+                    parentLine={editor.upchargeParent(editor.editingLine)}
+                    onSave={editor.updateLine}
+                    onClose={() => editor.setEditingLine(null)}
                 />
             )}
 
-            {editingLine && editingLine.lineType !== "Upcharge" && (
+            {editor.editingLine && editor.editingLine.lineType !== "Upcharge" && (
                 <EditLineModal
-                    line={editingLine}
-                    onSave={handleUpdateLine}
-                    onClose={() => setEditingLine(null)}
+                    line={editor.editingLine}
+                    onSave={editor.updateLine}
+                    onClose={() => editor.setEditingLine(null)}
                 />
             )}
 
-            {upchargingLine && (
+            {editor.upchargingLine && (
                 <UpchargeModal
-                    parentLine={upchargingLine}
-                    onSave={handleAddLine}
-                    onClose={() => setUpchargingLine(null)}
+                    parentLine={editor.upchargingLine}
+                    onSave={editor.addLine}
+                    onClose={() => editor.setUpchargingLine(null)}
                 />
             )}
 
-            {servicingLine && (
+            {editor.servicingLine && (
                 <AddServiceModal
-                    parentLine={servicingLine}
+                    parentLine={editor.servicingLine}
                     options={deliveryOptions}
                     products={products}
-                    onAdd={handleAddLine}
-                    onClose={() => setServicingLine(null)}
+                    onAdd={editor.addLine}
+                    onClose={() => editor.setServicingLine(null)}
                 />
             )}
 
-            {removingLine && (
+            {editor.removingLine && (
                 <ConfirmationModal
                     title="Remove item"
-                    message={`Remove "${removingLine.description}" from this order?`}
+                    message={`Remove "${editor.removingLine.description}" from this order?`}
                     confirmText="Remove"
                     destructive
-                    onConfirm={handleRemoveLine}
-                    onCancel={() => setRemovingLine(null)}
+                    onConfirm={editor.removeLine}
+                    onCancel={() => editor.setRemovingLine(null)}
                 />
             )}
 
@@ -437,7 +267,7 @@ const SalesPage = () => {
                     }? This cannot be undone.`}
                     confirmText="Discard"
                     destructive
-                    onConfirm={handleDiscardDraft}
+                    onConfirm={discardDraft}
                     onCancel={() => setDiscardingDraft(false)}
                 />
             )}

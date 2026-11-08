@@ -1,44 +1,16 @@
-import { useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import TextField from "../Components/Elements/TextField";
-import { useAuth } from "@shared/Context/AuthContext";
-import { useTerritory } from "../Context/TerritoryContext";
+import { useTerritory } from "@shared/Context/TerritoryContext";
+import { useCrew } from "@shared/Hooks/useCrew";
+import { CrewRoleBlurbs, CrewTerritoryText, NeedsTerritory } from "@shared/Lib/Crew";
 import { FormatDateTime, FormatElapsed } from "@shared/Lib/Format";
-import { Toast } from "../Lib/Toast";
-import { IsCompanyWide, UserRoleLabels } from "@shared/Models/User";
-import type { User, UserRole } from "@shared/Models/User";
-import { AddUser, DeleteUser, GetUsers, UpdateUser } from "@shared/Services/UserServices";
+import { UserRoleLabels } from "@shared/Models/User";
 
-const roles: UserRole[] = ["Sales", "Checkout", "SalesCheckout", "Manager", "Admin", "SystemAdmin"];
-
-const roleBlurb: Record<UserRole, string> = {
-    Sales: "Takes orders on the floor",
-    Checkout: "Takes payment and prints receipts",
-    SalesCheckout: "Both tables, without the admin screens",
-    Manager: "Runs their territories: crew, events, catalog and settings",
-    Admin: "Every territory, plus the Territories screen",
-    SystemAdmin: "Everything, plus permanent deletes",
-};
-
-/** System Admins and administrators work across every territory; every other role belongs to one or more. */
-const needsTerritory = (role: UserRole) => !IsCompanyWide(role);
-
-/**
- * A random password for a new account or a reset, to hand to the crew member. They choose their
- * own at their first sign-in.
- * @returns 16 characters, avoiding ones that are easy to misread.
- */
-const MakePassword = (): string => {
-    const chars = "ABCDEFGHJKMNPQRSTUVWXYZabcdefghjkmnpqrstuvwxyz23456789";
-    const bytes = new Uint32Array(16);
-    crypto.getRandomValues(bytes);
-    return Array.from(bytes, (b) => chars[b % chars.length]).join("");
-};
+const randomValues = (bytes: Uint32Array<ArrayBuffer>) => crypto.getRandomValues(bytes);
 
 /**
  * Crew administration. Accounts are created here; there is no self-service signup, which keeps
@@ -48,156 +20,34 @@ const MakePassword = (): string => {
  * territory picked in the menu bar.
  */
 const CrewPage = () => {
-    const { user } = useAuth();
     const { territories, territoryId: territoryInView } = useTerritory();
-
-    const [users, setUsers] = useState<User[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [editing, setEditing] = useState<User | null>(null);
-    const [deactivating, setDeactivating] = useState<User | null>(null);
-    const [removing, setRemoving] = useState<User | null>(null);
-    const isSystemAdmin = user?.role === "SystemAdmin";
-    const companyWide = IsCompanyWide(user?.role);
-    const [saving, setSaving] = useState<boolean>(false);
-
-    const [name, setName] = useState<string>("");
-    const [username, setUsername] = useState<string>("");
-    const [email, setEmail] = useState<string>("");
-    const [role, setRole] = useState<UserRole>("Sales");
-    const [password, setPassword] = useState<string>("");
-    const [territoryIds, setTerritoryIds] = useState<number[]>([]);
-    const [isActive, setIsActive] = useState<boolean>(true);
-    const [unlock, setUnlock] = useState<boolean>(false);
-
-    const load = async () => {
-        setLoading(true);
-        setUsers(await GetUsers());
-        setLoading(false);
-    };
-
-    useEffect(() => {
-        load();
-    }, []);
-
-    if (!user) return <Navigate to="/unauthorized" replace />;
-
-    // Matches the API: system admins manage everyone, administrators everyone but system admins, managers only
-    // the Sales and Checkout crew of their own territories (and themselves, for their details).
-    const ownTerritoryIds = user.territoryIds ?? [];
-    const canManage = (crew: User): boolean => {
-        if (isSystemAdmin) return true;
-        if (user.role === "Admin") return crew.role !== "SystemAdmin";
-        if (crew.id === user.id) return true;
-        return (
-            (crew.territoryIds ?? []).some((id) => ownTerritoryIds.includes(id)) &&
-            (crew.role === "Sales" || crew.role === "Checkout" || crew.role === "SalesCheckout")
-        );
-    };
-
-    // The roles this user can give: never above their own, and a manager can't make managers.
-    const assignable = roles.filter((r) => {
-        if (r === "SystemAdmin") return isSystemAdmin;
-        if (r === "Admin") return companyWide;
-        if (r === "Manager") return companyWide;
-        return true;
-    });
-    // The territories this user can put people in: every switched-on one for system admins and
-    // administrators, a manager's own for a manager.
-    const activeTerritories = territories.filter((t) => t.isActive !== false);
-    // Someone with only one territory to offer doesn't need to choose.
-    const chooseTerritories = companyWide || activeTerritories.length > 1;
-
-    const open = (crew: User) => {
-        setEditing(crew);
-        setName(crew.name ?? "");
-        setUsername(crew.username ?? "");
-        setEmail(crew.email ?? "");
-        setRole(crew.role ?? "Sales");
-        setIsActive(crew.isActive ?? true);
-        setTerritoryIds(
-            crew.id
-                ? (crew.territoryIds ?? [])
-                : territoryInView != null
-                  ? [territoryInView]
-                  : activeTerritories.length === 1 && activeTerritories[0].id != null
-                    ? [activeTerritories[0].id]
-                    : []
-        );
-        setUnlock(false);
-        // A new account gets a ready-made password to hand over; an existing one keeps its own
-        // unless a new one is entered.
-        setPassword(crew.id ? "" : MakePassword());
-    };
-
-    const handleSave = async () => {
-        if (!name.trim()) return Toast.Warning("Enter the crew member's name.");
-        if (!username.trim()) return Toast.Warning("Enter a username.");
-
-        if (!editing?.id && !password) return Toast.Warning("Set a starting password.");
-
-        if (password && password.length < 8)
-            return Toast.Warning("The password must be at least 8 characters.");
-
-        // A manager's choices are only their own territories; any others the person works in stay.
-        const offered = activeTerritories.map((t) => t.id);
-        const elsewhere = territoryIds.filter((id) => !offered.includes(id));
-        const chosen = chooseTerritories
-            ? territoryIds
-            : [...elsewhere, ...offered.filter((id): id is number => id != null)];
-        if (needsTerritory(role) && chosen.length === 0)
-            return Toast.Warning("Pick at least one territory this person works in.");
-
-        const payload: User = {
-            id: editing?.id,
-            name: name.trim(),
-            username: username.trim(),
-            email: email.trim(),
-            role,
-            territoryIds: needsTerritory(role) ? chosen : [],
-            isActive,
-            password: password || undefined,
-            isLockedOut: unlock ? false : undefined,
-        };
-
-        setSaving(true);
-        const saved = editing?.id ? await UpdateUser(payload) : await AddUser(payload);
-        setSaving(false);
-
-        if (!saved) return;
-
-        Toast.Success(
-            password
-                ? `${saved.name} saved. Give them the password - they'll choose their own when they sign in.`
-                : `${saved.name} saved.`
-        );
-        setEditing(null);
-        await load();
-    };
-
-    const handleDeactivate = async () => {
-        if (!deactivating?.id) return;
-
-        const success = await DeleteUser(deactivating.id);
-        setDeactivating(null);
-
-        if (success) {
-            Toast.Success("Account deactivated.");
-            await load();
-        }
-    };
-
-    // System admin only: delete the account for good. Their sales stay; every place that named them is cleared.
-    const handleRemove = async () => {
-        if (!removing?.id) return;
-
-        const success = await DeleteUser(removing.id, true);
-        setRemoving(null);
-
-        if (success) {
-            Toast.Success("Account deleted.");
-            await load();
-        }
-    };
+    const {
+        user,
+        users,
+        loading,
+        isSystemAdmin,
+        assignable,
+        activeTerritories,
+        chooseTerritories,
+        canManage,
+        editing,
+        elsewhere,
+        editingSelf,
+        form,
+        setField,
+        toggleTerritory,
+        newPassword,
+        open,
+        close,
+        saving,
+        handleSave,
+        deactivating,
+        setDeactivating,
+        handleDeactivate,
+        removing,
+        setRemoving,
+        handleRemove,
+    } = useCrew(territories, territoryInView, randomValues);
 
     if (loading) {
         return (
@@ -253,11 +103,7 @@ const CrewPage = () => {
                             <p className="text-xs text-zinc-500 dark:text-zinc-400">
                                 {crew.username} &middot;{" "}
                                 {crew.role ? UserRoleLabels[crew.role] : ""}
-                                {crew.territoryNames?.length
-                                    ? ` · ${crew.territoryNames.join(", ")}`
-                                    : crew.role && !needsTerritory(crew.role)
-                                      ? " · All territories"
-                                      : ""}
+                                {CrewTerritoryText(crew)}
                                 {crew.email ? ` · ${crew.email}` : ""}
                             </p>
                             {/* Sign-in times are only sent to a system admin. */}
@@ -287,7 +133,7 @@ const CrewPage = () => {
                                 className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                             />
                         )}
-                        {isSystemAdmin && crew.id !== user.id && (
+                        {isSystemAdmin && crew.id !== user?.id && (
                             <button
                                 type="button"
                                 onClick={() => setRemoving(crew)}
@@ -299,7 +145,7 @@ const CrewPage = () => {
                                 <Icon icon="fa-solid fa-trash" />
                             </button>
                         )}
-                        {crew.isActive && crew.id !== user.id && canManage(crew) && (
+                        {crew.isActive && crew.id !== user?.id && canManage(crew) && (
                             <button
                                 type="button"
                                 onClick={() => setDeactivating(crew)}
@@ -317,12 +163,12 @@ const CrewPage = () => {
             {editing && (
                 <Modal
                     title={editing.id ? "Edit crew member" : "Add crew member"}
-                    onClose={() => setEditing(null)}
+                    onClose={close}
                     footer={
                         <>
                             <Button
                                 text="Cancel"
-                                onClick={() => setEditing(null)}
+                                onClick={close}
                                 className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                             />
                             <Button
@@ -335,17 +181,22 @@ const CrewPage = () => {
                     }
                 >
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <TextField label="Name" value={name} onChange={setName} maxLength={150} />
+                        <TextField
+                            label="Name"
+                            value={form.name}
+                            onChange={(v) => setField("name", v)}
+                            maxLength={150}
+                        />
                         <TextField
                             label="Username"
-                            value={username}
-                            onChange={setUsername}
+                            value={form.username}
+                            onChange={(v) => setField("username", v)}
                             maxLength={50}
                         />
                         <TextField
                             label="Email"
-                            value={email}
-                            onChange={setEmail}
+                            value={form.email}
+                            onChange={(v) => setField("email", v)}
                             type="email"
                             inputMode="email"
                             maxLength={200}
@@ -358,15 +209,15 @@ const CrewPage = () => {
                                             ? "New password (leave blank to keep)"
                                             : "Starting password"
                                     }
-                                    value={password}
-                                    onChange={setPassword}
+                                    value={form.password}
+                                    onChange={(v) => setField("password", v)}
                                     maxLength={128}
                                     autoComplete="off"
                                     className="min-w-0 flex-1"
                                 />
                                 <button
                                     type="button"
-                                    onClick={() => setPassword(MakePassword())}
+                                    onClick={newPassword}
                                     title="Make a random password"
                                     aria-label="Make a random password"
                                     className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-zinc-100
@@ -375,21 +226,22 @@ const CrewPage = () => {
                                     <Icon icon="fa-solid fa-dice" />
                                 </button>
                             </div>
-                            {password && editing.id !== user.id && (
+                            {form.password && !editingSelf && (
                                 <p className="text-[11px] text-zinc-500 dark:text-zinc-400">
                                     They&apos;ll be asked to choose their own at sign-in.
                                 </p>
                             )}
                         </div>
 
-                        {needsTerritory(role) && chooseTerritories && (
+                        {NeedsTerritory(form.role) && chooseTerritories && (
                             <fieldset className="flex flex-col gap-1 sm:col-span-2">
                                 <legend className="mb-1 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                                     Territories
                                 </legend>
                                 <div className="flex flex-wrap gap-2">
                                     {activeTerritories.map((t) => {
-                                        const checked = t.id != null && territoryIds.includes(t.id);
+                                        const checked =
+                                            t.id != null && form.territoryIds.includes(t.id);
                                         return (
                                             <label
                                                 key={t.id}
@@ -397,19 +249,15 @@ const CrewPage = () => {
                                                     checked
                                                         ? "border-sky-600 bg-sky-50 text-sky-900 dark:border-sky-400 dark:bg-sky-950/50 dark:text-sky-100"
                                                         : "border-zinc-300 bg-white dark:border-zinc-600 dark:bg-zinc-800"
-                                                } ${editing.id === user.id ? "pointer-events-none opacity-60" : ""}`}
+                                                } ${editingSelf ? "pointer-events-none opacity-60" : ""}`}
                                             >
                                                 <input
                                                     type="checkbox"
                                                     checked={checked}
-                                                    disabled={editing.id === user.id}
+                                                    disabled={editingSelf}
                                                     onChange={(e) =>
                                                         t.id != null &&
-                                                        setTerritoryIds((ids) =>
-                                                            e.target.checked
-                                                                ? [...ids, t.id!]
-                                                                : ids.filter((id) => id !== t.id)
-                                                        )
+                                                        toggleTerritory(t.id, e.target.checked)
                                                     }
                                                     className="h-5 w-5 accent-sky-600"
                                                 />
@@ -418,28 +266,14 @@ const CrewPage = () => {
                                         );
                                     })}
                                 </div>
-                                {!companyWide &&
-                                    (editing.territoryNames ?? []).some(
-                                        (_, i) =>
-                                            !activeTerritories.some(
-                                                (t) => t.id === editing.territoryIds?.[i]
-                                            )
-                                    ) && (
-                                        <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                                            Also works in{" "}
-                                            {(editing.territoryNames ?? [])
-                                                .filter(
-                                                    (_, i) =>
-                                                        !activeTerritories.some(
-                                                            (t) => t.id === editing.territoryIds?.[i]
-                                                        )
-                                                )
-                                                .join(", ")}
-                                            , which stays as it is.
-                                        </span>
-                                    )}
+                                {elsewhere.length > 0 && (
+                                    <span className="text-xs text-zinc-500 dark:text-zinc-400">
+                                        Also works in {elsewhere.join(", ")}, which stays as it is.
+                                    </span>
+                                )}
                                 <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                                    Someone in more than one territory picks which they&apos;re working in from the menu bar.
+                                    Someone in more than one territory picks which they&apos;re
+                                    working in from the menu bar.
                                 </span>
                             </fieldset>
                         )}
@@ -448,21 +282,21 @@ const CrewPage = () => {
                             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                                 Role
                             </p>
-                            {editing.id === user.id && (
+                            {editingSelf && (
                                 <p className="mb-2 text-xs text-zinc-500 dark:text-zinc-400">
                                     You can&apos;t change your own role.
                                 </p>
                             )}
                             <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                                {(editing.id === user.id ? [role] : assignable).map((r) => (
+                                {(editingSelf ? [form.role] : assignable).map((r) => (
                                     <button
                                         key={r}
                                         type="button"
-                                        disabled={editing.id === user.id}
-                                        onClick={() => setRole(r)}
+                                        disabled={editingSelf}
+                                        onClick={() => setField("role", r)}
                                         className={`flex min-h-[60px] flex-col items-start justify-center rounded-xl px-3 py-2
                                             text-left transition-colors ${
-                                                role === r
+                                                form.role === r
                                                     ? "bg-sky-700 text-white dark:bg-sky-600"
                                                     : "bg-zinc-100 text-zinc-800 hover:bg-zinc-200 dark:bg-zinc-700 dark:text-zinc-100 dark:hover:bg-zinc-600"
                                             }`}
@@ -471,7 +305,7 @@ const CrewPage = () => {
                                             {UserRoleLabels[r]}
                                         </span>
                                         <span className="text-[11px] opacity-80">
-                                            {roleBlurb[r]}
+                                            {CrewRoleBlurbs[r]}
                                         </span>
                                     </button>
                                 ))}
@@ -481,8 +315,8 @@ const CrewPage = () => {
                         <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-zinc-100 px-3 sm:col-span-2 dark:bg-zinc-700">
                             <input
                                 type="checkbox"
-                                checked={isActive}
-                                onChange={(e) => setIsActive(e.target.checked)}
+                                checked={form.isActive}
+                                onChange={(e) => setField("isActive", e.target.checked)}
                                 className="h-5 w-5 accent-sky-600"
                             />
                             <span className="text-sm font-medium">Can sign in</span>
@@ -492,8 +326,8 @@ const CrewPage = () => {
                             <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-red-50 px-3 sm:col-span-2 dark:bg-red-950/40">
                                 <input
                                     type="checkbox"
-                                    checked={unlock}
-                                    onChange={(e) => setUnlock(e.target.checked)}
+                                    checked={form.unlock}
+                                    onChange={(e) => setField("unlock", e.target.checked)}
                                     className="h-5 w-5 accent-sky-600"
                                 />
                                 <span className="text-sm font-medium">

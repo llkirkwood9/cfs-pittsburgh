@@ -1,6 +1,7 @@
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import { FormatCurrency } from "@shared/Lib/Format";
+import { DraftTabText } from "@shared/Lib/Sales";
 import type { OrderSummary } from "@shared/Models/OrderSummary";
 
 type Props = {
@@ -22,12 +23,7 @@ const DraftTabs = ({ drafts, activeId, onSelect, onNew, creating = false }: Prop
             <div className="-mx-1 flex flex-1 gap-2 overflow-x-auto px-1 pb-1">
                 {drafts.map((draft) => {
                     const active = draft.id === activeId;
-                    // A draft gets its number with its first item.
-                    const number = draft.orderNumber ? `#${draft.orderNumber} · ` : "";
-                    const label =
-                        draft.draftLabel ||
-                        draft.billingName ||
-                        (draft.orderNumber ? `#${draft.orderNumber}` : "New order");
+                    const { number, label } = DraftTabText(draft);
 
                     return (
                         <button

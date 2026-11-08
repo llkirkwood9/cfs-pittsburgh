@@ -1,4 +1,4 @@
-import { createContext, createElement, useContext, useEffect, useRef, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
 import {
     endSession,
@@ -116,7 +116,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         hasRole: (...roles) => HasRole(user?.role, ...roles),
     };
 
-    return createElement(AuthContext.Provider, { value }, children);
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
 
 /**

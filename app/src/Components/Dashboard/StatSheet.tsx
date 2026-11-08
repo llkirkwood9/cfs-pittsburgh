@@ -7,7 +7,8 @@ import { SHEET_WIDTH } from "../../Lib/SheetPdf";
 import type { DashboardStats } from "@shared/Models/DashboardStats";
 import type { Event } from "@shared/Models/Event";
 import type { Order } from "@shared/Models/Order";
-import type { PaymentMethod } from "@shared/Models/OrderPayment";
+import { MIN_LIST_ROWS, StatSheetAverageSale, StatSheetEntries } from "@shared/Lib/Stats";
+import type { StatSheetEntry } from "@shared/Lib/Stats";
 
 type Props = {
     saleEvent: Event | null;
@@ -17,17 +18,19 @@ type Props = {
     sheetRef?: Ref<View>;
 };
 
-type Entry = { key: string; label: string; amount: number };
-
-/** Minimum ruled lines per itemised column, so a quiet event still looks like the paper form. */
-const MIN_LIST_ROWS = 14;
-
 const BLACK = "#000";
 const RULE = "#a1a1aa";
 
 /** A column's heading, e.g. MATTRESSES. */
 const Heading = ({ label }: { label: string }) => (
-    <View style={{ borderBottomWidth: 1, borderColor: BLACK, paddingHorizontal: 4, paddingVertical: 2 }}>
+    <View
+        style={{
+            borderBottomWidth: 1,
+            borderColor: BLACK,
+            paddingHorizontal: 4,
+            paddingVertical: 2,
+        }}
+    >
         <SheetText size={9} bold align="center" style={{ textTransform: "uppercase" }}>
             {label}
         </SheetText>
@@ -36,7 +39,9 @@ const Heading = ({ label }: { label: string }) => (
 
 /** A column's TOTAL line. */
 const Total = ({ children }: { children: ReactNode }) => (
-    <View style={{ borderTopWidth: 1, borderColor: BLACK, paddingHorizontal: 4, paddingVertical: 2 }}>
+    <View
+        style={{ borderTopWidth: 1, borderColor: BLACK, paddingHorizontal: 4, paddingVertical: 2 }}
+    >
         <SheetText size={10} semibold>
             {children}
         </SheetText>
@@ -66,10 +71,25 @@ const Column = ({ children }: { children: ReactNode }) => (
 );
 
 /** A unit count: heading, the number, and its total. */
-const Count = ({ label, value, grow = false }: { label: string; value: number | undefined; grow?: boolean }) => (
+const Count = ({
+    label,
+    value,
+    grow = false,
+}: {
+    label: string;
+    value: number | undefined;
+    grow?: boolean;
+}) => (
     <View style={{ flexGrow: grow ? 1 : 0 }}>
         <Heading label={label} />
-        <View style={{ flexGrow: grow ? 1 : 0, alignItems: "center", justifyContent: "center", paddingVertical: 8 }}>
+        <View
+            style={{
+                flexGrow: grow ? 1 : 0,
+                alignItems: "center",
+                justifyContent: "center",
+                paddingVertical: 8,
+            }}
+        >
             <SheetText size={24} bold>
                 {value ?? 0}
             </SheetText>
@@ -79,7 +99,17 @@ const Count = ({ label, value, grow = false }: { label: string; value: number | 
 );
 
 /** An itemised list of payments, ruled down to at least a set number of lines. */
-const List = ({ label, rows, minRows, grow = false }: { label: string; rows: Entry[]; minRows: number; grow?: boolean }) => {
+const List = ({
+    label,
+    rows,
+    minRows,
+    grow = false,
+}: {
+    label: string;
+    rows: StatSheetEntry[];
+    minRows: number;
+    grow?: boolean;
+}) => {
     const total = rows.reduce((sum, r) => sum + r.amount, 0);
     const blanks = Math.max(0, minRows - rows.length);
 
@@ -116,7 +146,15 @@ const List = ({ label, rows, minRows, grow = false }: { label: string; rows: Ent
 };
 
 /** A line of the summary box: the label, then the value on a rule. */
-const SummaryLine = ({ label, value, bold = false }: { label: string; value: string | number; bold?: boolean }) => (
+const SummaryLine = ({
+    label,
+    value,
+    bold = false,
+}: {
+    label: string;
+    value: string | number;
+    bold?: boolean;
+}) => (
     <View style={{ flexDirection: "row", alignItems: "flex-end", gap: 12 }}>
         <SheetText size={12} bold align="right" style={{ width: 176 }}>
             {label}:
@@ -135,28 +173,13 @@ const SummaryLine = ({ label, value, bold = false }: { label: string; value: str
  * underneath, and the summary box at the bottom. Printed as the first page of an event's sheets.
  */
 const StatSheet = ({ saleEvent, stats, orders, sheetRef }: Props) => {
-    const entries = (method: PaymentMethod): Entry[] =>
-        orders.flatMap((order) =>
-            (order.payments ?? [])
-                .filter((p) => p.method === method)
-                .map((p, index) => ({
-                    key: `${order.id}-${p.id ?? index}`,
-                    label:
-                        method === "Check" && p.checkNumber
-                            ? `#${order.orderNumber} ck ${p.checkNumber}`
-                            : `#${order.orderNumber}`,
-                    amount: p.amount ?? 0,
-                }))
-        );
-
-    const financing = entries("Financing");
-    const checks = entries("Check");
-    const layaway = entries("Layaway");
-    const cash = entries("Cash");
+    const financing = StatSheetEntries(orders, "Financing");
+    const checks = StatSheetEntries(orders, "Check");
+    const layaway = StatSheetEntries(orders, "Layaway");
+    const cash = StatSheetEntries(orders, "Cash");
 
     const units = stats?.mattressAndBaseCount ?? 0;
-    // As on the paper sheet: total sales divided by the number of mattresses and bases.
-    const averageSale = units > 0 ? (stats?.totalSales ?? 0) / units : 0;
+    const averageSale = StatSheetAverageSale(stats);
     const misc = stats?.miscCount ?? 0;
 
     const summary: [string, string][] = [
@@ -173,13 +196,22 @@ const StatSheet = ({ saleEvent, stats, orders, sheetRef }: Props) => {
             collapsable={false}
             style={{ width: SHEET_WIDTH, backgroundColor: "#fff", padding: 24, overflow: "hidden" }}
         >
-            <View style={{ marginBottom: 12, flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between" }}>
+            <View
+                style={{
+                    marginBottom: 12,
+                    flexDirection: "row",
+                    alignItems: "flex-end",
+                    justifyContent: "space-between",
+                }}
+            >
                 <View style={{ gap: 2 }}>
                     <SheetText size={11} bold>
-                        ORGANIZATION: <SheetText size={13}>{saleEvent?.organization ?? ""}</SheetText>
+                        ORGANIZATION:{" "}
+                        <SheetText size={13}>{saleEvent?.organization ?? ""}</SheetText>
                     </SheetText>
                     <SheetText size={11} bold>
-                        DATE: <SheetText size={13}>{FormatShortDate(saleEvent?.eventDate)}</SheetText>
+                        DATE:{" "}
+                        <SheetText size={13}>{FormatShortDate(saleEvent?.eventDate)}</SheetText>
                     </SheetText>
                 </View>
                 <SheetText size={12} bold style={{ letterSpacing: 0.3 }}>
@@ -190,7 +222,11 @@ const StatSheet = ({ saleEvent, stats, orders, sheetRef }: Props) => {
             {/* Unit counts */}
             <View style={{ flexDirection: "row", marginLeft: 1 }}>
                 <Column>
-                    <Count label="Mattresses (incl. Purple/Helix)" value={stats?.mattressCount} grow />
+                    <Count
+                        label="Mattresses (incl. Purple/Helix)"
+                        value={stats?.mattressCount}
+                        grow
+                    />
                 </Column>
                 <Column>
                     <Count label="Purple" value={stats?.purpleCount} />
@@ -226,13 +262,25 @@ const StatSheet = ({ saleEvent, stats, orders, sheetRef }: Props) => {
             </View>
 
             {/* Summary box */}
-            <View style={{ marginTop: 16, borderWidth: 1, borderColor: BLACK, paddingHorizontal: 40, paddingVertical: 20 }}>
+            <View
+                style={{
+                    marginTop: 16,
+                    borderWidth: 1,
+                    borderColor: BLACK,
+                    paddingHorizontal: 40,
+                    paddingVertical: 20,
+                }}
+            >
                 <View style={{ width: "100%", maxWidth: 448, alignSelf: "center", gap: 8 }}>
                     {summary.map(([label, value]) => (
                         <SummaryLine key={label} label={label} value={value} />
                     ))}
                     <View style={{ height: 8 }} />
-                    <SummaryLine label="TOTAL SALES" value={FormatCurrency(stats?.totalSales)} bold />
+                    <SummaryLine
+                        label="TOTAL SALES"
+                        value={FormatCurrency(stats?.totalSales)}
+                        bold
+                    />
                     <SummaryLine label="# OF MATTS/ADJ. BASES" value={units} />
                     <SummaryLine label="AVERAGE SALE" value={FormatCurrency(averageSale)} />
                 </View>

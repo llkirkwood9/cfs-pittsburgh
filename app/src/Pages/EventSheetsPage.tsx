@@ -1,5 +1,5 @@
-import { Redirect, Stack, useLocalSearchParams } from "expo-router";
-import { createRef, useEffect, useMemo, useState } from "react";
+import { Stack, useLocalSearchParams } from "expo-router";
+import { createRef, useMemo, useState } from "react";
 import { ScrollView, View } from "react-native";
 import ReceiptSheet from "../Components/Checkout/ReceiptSheet";
 import SheetViewer from "../Components/Checkout/SheetViewer";
@@ -11,22 +11,14 @@ import LoadingPage from "../Components/Elements/LoadingPage";
 import Text from "../Components/Elements/Text";
 import InventoryNotesEditor from "../Components/Inventory/InventoryNotesEditor";
 import InventorySheet from "../Components/Inventory/InventorySheet";
-import { useAuth } from "@shared/Context/AuthContext";
 import { FormatCurrency, FormatShortDate } from "@shared/Lib/Format";
-import { BuildSalesCsv, DownloadCsv } from "../Lib/SalesExport";
+import { DownloadCsv } from "../Lib/SalesExport";
+import { useEventSheets } from "@shared/Hooks/useEventSheets";
+import { BuildSalesCsv, EventFileBase } from "@shared/Lib/SalesCsv";
 import { PdfUpload, PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
 import type { SheetRef } from "../Lib/SheetPdf";
 import { Toast } from "../Lib/Toast";
-import type { DashboardStats } from "@shared/Models/DashboardStats";
-import type { Event } from "@shared/Models/Event";
-import type { InventoryItem } from "@shared/Models/InventoryItem";
-import type { Order } from "@shared/Models/Order";
-import { GetStatsForEvent } from "@shared/Services/DashboardServices";
-import { EmailEventReport, GetEmailStatus } from "@shared/Services/EmailServices";
-import type { EmailStatus } from "@shared/Services/EmailServices";
-import { GetEvent } from "@shared/Services/EventServices";
-import { GetInventory } from "@shared/Services/InventoryServices";
-import { GetSalesSheetsForEvent } from "@shared/Services/OrderServices";
+import { EmailEventReport } from "@shared/Services/EmailServices";
 
 /**
  * Every completed sales sheet for one event, stacked one per printed page, between the stat sheet
@@ -36,15 +28,10 @@ import { GetSalesSheetsForEvent } from "@shared/Services/OrderServices";
  * paperwork.
  */
 const EventSheetsPage = () => {
-    const { user } = useAuth();
     const { eventId } = useLocalSearchParams<{ eventId: string }>();
+    const { saleEvent, orders, stats, inventory, loading, emailStatus, notesSaved } =
+        useEventSheets(Number(eventId));
 
-    const [saleEvent, setSaleEvent] = useState<Event | null>(null);
-    const [orders, setOrders] = useState<Order[]>([]);
-    const [stats, setStats] = useState<DashboardStats | null>(null);
-    const [inventory, setInventory] = useState<InventoryItem[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
     const [emailing, setEmailing] = useState<boolean>(false);
     const [printProgress, setPrintProgress] = useState<string | null>(null);
 
@@ -53,30 +40,6 @@ const EventSheetsPage = () => {
     const inventoryRef = useMemo<SheetRef>(() => createRef<View>(), []);
     const orderRefs = useMemo<SheetRef[]>(() => orders.map(() => createRef<View>()), [orders]);
 
-    useEffect(() => {
-        const load = async () => {
-            const id = Number(eventId);
-            if (!id) return setLoading(false);
-
-            const [found, sheets, figures, stock, status] = await Promise.all([
-                GetEvent(id),
-                GetSalesSheetsForEvent(id),
-                GetStatsForEvent(id),
-                GetInventory(id),
-                GetEmailStatus(),
-            ]);
-            setEmailStatus(status);
-            setSaleEvent(found);
-            setOrders(sheets);
-            setStats(figures);
-            setInventory(stock);
-            setLoading(false);
-        };
-
-        load();
-    }, [eventId]);
-
-    if (!user) return <Redirect href="/unauthorized" />;
     if (loading) return <LoadingPage />;
 
     const pages: SheetRef[] = [
@@ -85,16 +48,11 @@ const EventSheetsPage = () => {
         ...(inventory.length > 0 ? [inventoryRef] : []),
     ];
 
-    const slug = `${saleEvent?.organization || "event"}`
-        .trim()
-        .replace(/[^a-z0-9]+/gi, "-")
-        .replace(/^-|-$/g, "")
-        .toLowerCase();
-    const date = (saleEvent?.eventDate ?? "").slice(0, 10);
+    const fileBase = EventFileBase(saleEvent);
 
-    const handleDownload = () => {
+    const handleDownload = async () => {
         if (orders.length === 0) return Toast.Warning("There are no completed sales to export.");
-        DownloadCsv(`${slug}-${date}-sales.csv`, BuildSalesCsv(orders));
+        await DownloadCsv(`${fileBase}-sales.csv`, BuildSalesCsv(orders));
     };
 
     // Printed from the same PDF that email sends, so the sheets come out the same from any device.
@@ -102,9 +60,10 @@ const EventSheetsPage = () => {
         if (pages.length === 0) return Toast.Warning("There are no completed sales to print.");
 
         setPrintProgress("Making the PDF...");
-        await PrintSheetsPdf(pages, (page, total) =>
-            setPrintProgress(`Making the PDF: ${page} of ${total}...`),
-            `${slug}-${date}-sales-sheets`
+        await PrintSheetsPdf(
+            pages,
+            (page, total) => setPrintProgress(`Making the PDF: ${page} of ${total}...`),
+            `${fileBase}-sales-sheets`
         );
         setPrintProgress(null);
     };
@@ -193,11 +152,7 @@ const EventSheetsPage = () => {
                                     <InventoryNotesEditor
                                         eventId={saleEvent.id}
                                         notes={saleEvent.inventoryNotes}
-                                        onSaved={(notes) =>
-                                            setSaleEvent((current) =>
-                                                current ? { ...current, inventoryNotes: notes } : current
-                                            )
-                                        }
+                                        onSaved={notesSaved}
                                         className="w-full max-w-3xl"
                                     />
                                 )}

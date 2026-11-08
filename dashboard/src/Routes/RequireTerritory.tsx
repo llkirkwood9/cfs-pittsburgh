@@ -1,6 +1,8 @@
 import type { ReactNode } from "react";
 import Icon from "../Components/Elements/Icon";
-import { useTerritory } from "../Context/TerritoryContext";
+import { useTerritory } from "@shared/Context/TerritoryContext";
+import { HasOneTerritory } from "@shared/Lib/Screens";
+import { ActiveTerritories } from "@shared/Models/Territory";
 
 type Props = {
     children: ReactNode;
@@ -15,9 +17,9 @@ type Props = {
 const RequireTerritory = ({ children, purpose }: Props) => {
     const { territoryId, territories, canSwitch, allLabel, setTerritoryId } = useTerritory();
 
-    if (territoryId != null || !canSwitch) return <>{children}</>;
+    if (HasOneTerritory(territoryId, canSwitch)) return <>{children}</>;
 
-    const active = territories.filter((t) => t.isActive !== false);
+    const active = ActiveTerritories(territories);
 
     return (
         <div className="mx-auto max-w-lg p-4">
@@ -28,8 +30,8 @@ const RequireTerritory = ({ children, purpose }: Props) => {
                 />
                 <h1 className="mb-1 text-lg font-bold">Pick a territory</h1>
                 <p className="mb-4 text-sm text-zinc-500 dark:text-zinc-400">
-                    You&apos;re viewing {allLabel.toLowerCase()}. To {purpose}, choose which territory
-                    you&apos;re working in - you can switch any time from the menu bar.
+                    You&apos;re viewing {allLabel.toLowerCase()}. To {purpose}, choose which
+                    territory you&apos;re working in - you can switch any time from the menu bar.
                 </p>
                 {active.length === 0 ? (
                     <p className="text-sm text-zinc-500 dark:text-zinc-400">

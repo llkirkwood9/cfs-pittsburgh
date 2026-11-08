@@ -1,17 +1,14 @@
-import { useEffect, useRef, useState } from "react";
-import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useRef, useState } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import EmailDialog from "../Components/Elements/EmailDialog";
 import LoadingPage from "../Components/Elements/LoadingPage";
 import ReceiptSheet from "../Components/Checkout/ReceiptSheet";
 import { useAuth } from "@shared/Context/AuthContext";
-import { HomePathForRole } from "../Lib/RoleRoutes";
+import { useCheckoutReceipt } from "@shared/Hooks/useCheckoutReceipt";
+import { HomePathForRole } from "../Lib/ScreenLinks";
 import { FindSheets, PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
-import { Toast } from "../Lib/Toast";
-import type { Order } from "@shared/Models/Order";
-import { EmailReceipt, GetEmailStatus } from "@shared/Services/EmailServices";
-import type { EmailStatus } from "@shared/Services/EmailServices";
-import { GetOrder } from "@shared/Services/OrderServices";
+import { EmailReceipt } from "@shared/Services/EmailServices";
 
 /**
  * The printable copy of a sale. Unfinished orders are stamped as such by the sheet itself. Print
@@ -35,30 +32,11 @@ const ReceiptPage = () => {
     };
     const backLabel = from?.label ?? "Back";
 
-    const [order, setOrder] = useState<Order | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
-    const [emailing, setEmailing] = useState<boolean>(false);
+    const { order, loading, emailStatus, completed, emailing, startEmail, stopEmail } =
+        useCheckoutReceipt(orderId);
     const [printing, setPrinting] = useState<boolean>(false);
     const sheetRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        const load = async () => {
-            if (!orderId) return setLoading(false);
-
-            const [found, status] = await Promise.all([
-                GetOrder(Number(orderId)),
-                GetEmailStatus(),
-            ]);
-            setOrder(found);
-            setEmailStatus(status);
-            setLoading(false);
-        };
-
-        load();
-    }, [orderId]);
-
-    if (!user) return <Navigate to="/unauthorized" replace />;
     if (loading) return <LoadingPage />;
 
     if (!order) {
@@ -74,18 +52,6 @@ const ReceiptPage = () => {
             </div>
         );
     }
-
-    // Only a finished sale is a receipt worth emailing. When the server has no email settings the
-    // button still shows, and says so when tapped - a tooltip on a disabled button never shows on
-    // an iPad.
-    const completed = order.status === "Completed";
-    const startEmail = () => {
-        if (emailStatus?.configured) setEmailing(true);
-        else
-            Toast.Warning(
-                "Email isn't set up on this server yet. Ask whoever runs the app to add the email settings."
-            );
-    };
 
     // Printed from the same PDF that email sends, so the sheet comes out the same from any device.
     const handlePrint = async () => {
@@ -144,7 +110,7 @@ const ReceiptPage = () => {
                         progress("Sending...");
                         return EmailReceipt(order.id!, to, pdf);
                     }}
-                    onClose={() => setEmailing(false)}
+                    onClose={stopEmail}
                 />
             )}
         </div>

@@ -82,7 +82,8 @@ export const BuildSheetsPdf = async (
     if (folder.exists) folder.delete();
     folder.create({ intermediates: true });
 
-    const name = (title ?? "sheets").replace(/[^a-z0-9-]+/gi, "-").replace(/^-|-$/g, "") || "sheets";
+    const name =
+        (title ?? "sheets").replace(/[^a-z0-9-]+/gi, "-").replace(/^-|-$/g, "") || "sheets";
     const file = new File(folder, `${name}.pdf`);
     file.create();
     file.write(BuildImagePdf(pages, title));

@@ -36,6 +36,19 @@ export const HasRole = (role: UserRole | null | undefined, ...roles: UserRole[])
     return roles.some((r) => RoleRank[role] > RoleRank[r]);
 };
 
+/**
+ * The letters on someone's avatar: the first letters of their first two names.
+ * @param name Their name.
+ * @returns Up to two capitals, or "?" with no name.
+ */
+export const Initials = (name?: string | null): string =>
+    (name ?? "?")
+        .split(" ")
+        .map((part) => part.charAt(0))
+        .join("")
+        .slice(0, 2)
+        .toUpperCase();
+
 /** System admins and administrators work across every territory; everyone else belongs to one or more. */
 export const IsCompanyWide = (role?: UserRole | null): boolean =>
     role === "SystemAdmin" || role === "Admin";

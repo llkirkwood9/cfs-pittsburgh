@@ -17,7 +17,8 @@ export {
 } from "./api";
 export { Toast } from "./Toast";
 
-export const OFFLINE_MESSAGE = "Cannot reach the server. Check the cart's connection and try again.";
+export const OFFLINE_MESSAGE =
+    "Cannot reach the server. Check the cart's connection and try again.";
 
 let navigate: NavigateFunction | null = null;
 
@@ -38,4 +39,29 @@ export const ShowServerError = (details: ServerErrorDetails): boolean => {
     if (!navigate) return false;
     navigate("/error", { state: details });
     return true;
+};
+
+/** The dashboard is served by the API, or told its address when it is built. */
+export const HAS_SERVER = true;
+
+/**
+ * Small key/value storage on this device. Private browsing may refuse it: then nothing is
+ * remembered.
+ */
+export const DeviceStorage = {
+    get: (key: string): string | null => {
+        try {
+            return localStorage.getItem(key);
+        } catch {
+            return null;
+        }
+    },
+    set: (key: string, value: string | null): void => {
+        try {
+            if (value === null) localStorage.removeItem(key);
+            else localStorage.setItem(key, value);
+        } catch {
+            // Private browsing: just not remembered.
+        }
+    },
 };

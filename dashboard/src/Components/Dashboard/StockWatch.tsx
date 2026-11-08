@@ -3,9 +3,14 @@ import { useNavigate } from "react-router-dom";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import { useAuth } from "@shared/Context/AuthContext";
-import { useSettings } from "../../Context/SettingsContext";
+import { useSettings } from "@shared/Context/SettingsContext";
 import { IsOnline } from "@shared/Lib/Connection";
-import { InventoryRowKey, InventorySizeLabel } from "@shared/Lib/Inventory";
+import {
+    InventoryRowKey,
+    InventorySizeLabel,
+    StockLevelOf,
+    StockToWatch,
+} from "@shared/Lib/Inventory";
 import type { InventoryItem } from "@shared/Models/InventoryItem";
 import { GetInventory } from "@shared/Services/InventoryServices";
 
@@ -40,11 +45,7 @@ const StockWatch = () => {
     // Nothing is tracked, so there is nothing to watch.
     if (!items || items.length === 0) return null;
 
-    const watch = items
-        .filter((i) => (i.quantityOnHand ?? 0) <= LOW)
-        .sort((a, b) => (a.quantityOnHand ?? 0) - (b.quantityOnHand ?? 0));
-    const outCount = watch.filter((i) => (i.quantityOnHand ?? 0) <= 0).length;
-    const lowCount = watch.length - outCount;
+    const { watch, outCount, lowCount } = StockToWatch(items, LOW);
 
     return (
         <section className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
@@ -77,9 +78,12 @@ const StockWatch = () => {
                     <ul className="divide-y divide-zinc-100 dark:divide-zinc-700">
                         {watch.slice(0, SHOW).map((item) => {
                             const onHand = item.quantityOnHand ?? 0;
-                            const out = onHand <= 0;
+                            const out = StockLevelOf(onHand, LOW) === "out";
                             return (
-                                <li key={InventoryRowKey(item)} className="flex items-center gap-2 py-2">
+                                <li
+                                    key={InventoryRowKey(item)}
+                                    className="flex items-center gap-2 py-2"
+                                >
                                     <span className="min-w-0 flex-1 text-sm">
                                         <span className="font-medium">{item.productName}</span>{" "}
                                         <span className="text-zinc-500 dark:text-zinc-400">
@@ -109,7 +113,8 @@ const StockWatch = () => {
                     </ul>
                     {watch.length > SHOW && (
                         <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                            and {watch.length - SHOW} more size{watch.length - SHOW === 1 ? "" : "s"}
+                            and {watch.length - SHOW} more size
+                            {watch.length - SHOW === 1 ? "" : "s"}
                         </p>
                     )}
                 </>

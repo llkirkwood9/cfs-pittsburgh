@@ -27,6 +27,7 @@
       "@shared/*": ["../shared/*"],
       "@host": ["./src/Lib/Host.ts"],
       "react": ["./node_modules/@types/react"],
+      "react/*": ["./node_modules/@types/react/*"],
       "axios": ["./node_modules/axios"]
     }
   },

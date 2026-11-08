@@ -1,7 +1,8 @@
-import { Redirect, router } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { router } from "expo-router";
+import { useState } from "react";
 import { FlatList, RefreshControl, ScrollView, View } from "react-native";
 import ReopenOrderModal from "../Components/Admin/ReopenOrderModal";
+import EventFilter from "../Components/Dashboard/EventFilter";
 import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
@@ -12,27 +13,23 @@ import type { SwipeAction } from "../Components/Elements/SwipeRow";
 import TabButton from "../Components/Elements/TabButton";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
-import { useAuth } from "@shared/Context/AuthContext";
-import { useTerritory } from "../Context/TerritoryContext";
+import { useTerritory } from "@shared/Context/TerritoryContext";
 import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
-import { EventsForFilter, IsPastEvent } from "@shared/Lib/Events";
+import { useOrders } from "@shared/Hooks/useOrders";
 import { FormatCurrency, FormatShortDate, FormatTime } from "@shared/Lib/Format";
-import { Toast } from "../Lib/Toast";
-import type { Event } from "@shared/Models/Event";
+import {
+    CanReopenFromList,
+    CanVoidFromList,
+    DeleteOrderMessage,
+    OrderStatusFilters,
+    OrderStatusLabels,
+    SummarizeOrders,
+    VoidOrderMessage,
+} from "@shared/Lib/OrderList";
 import type { OrderStatus } from "@shared/Models/Order";
 import type { OrderSummary } from "@shared/Models/OrderSummary";
-import { GetActiveEvent, GetEvents } from "@shared/Services/EventServices";
-import {
-    DeleteOrder,
-    GetAllOrders,
-    GetOrdersForEvent,
-    ReopenOrder,
-    VoidOrder,
-} from "@shared/Services/OrderServices";
-
-type Scope = { kind: "event"; eventId: number } | { kind: "all" };
 
 const statusStyles: Record<OrderStatus, { box: string; text: string }> = {
     Draft: { box: "bg-zinc-200 dark:bg-zinc-700", text: "text-zinc-700 dark:text-zinc-200" },
@@ -47,145 +44,49 @@ const statusStyles: Record<OrderStatus, { box: string; text: string }> = {
     Voided: { box: "bg-red-100 dark:bg-red-900/50", text: "text-red-800 dark:text-red-300" },
 };
 
-const statusLabels: Record<OrderStatus, string> = {
-    Draft: "On the floor",
-    AwaitingCheckout: "At checkout",
-    Completed: "Completed",
-    Voided: "Voided",
-};
-
-/**
- * A line over the list: how many orders it holds, what they come to and what is still owed.
- * Voided orders are listed but not counted in the money.
- */
-const Summary = (orders: OrderSummary[]): string => {
-    const live = orders.filter((o) => o.status !== "Voided");
-    const total = live.reduce((sum, o) => sum + (o.total ?? 0), 0);
-    const owed = live.reduce((sum, o) => sum + (o.balanceDue ?? 0), 0);
-    return [
-        `${orders.length} order${orders.length === 1 ? "" : "s"}`,
-        `${FormatCurrency(total)} total`,
-        owed > 0 ? `${FormatCurrency(owed)} still owed` : null,
-    ]
-        .filter(Boolean)
-        .join(" · ");
-};
-
 /**
  * Past orders. Everyone can look back over the event they are working and open any sales sheet
- * for reprinting; an administrator can additionally search across every event that has ever run.
+ * for reprinting; a manager or above can additionally search across every event in their
+ * territories (a system admin or administrator, every territory).
  */
 const OrdersPage = () => {
-    const { user, hasRole } = useAuth();
-
-    const isManager = hasRole("Manager");
     const { canSwitch, territoryId: territoryInView } = useTerritory();
     // Viewing every territory, each order says which one it came from.
     const showTerritory = canSwitch && territoryInView == null;
-    const isSystemAdmin = user?.role === "SystemAdmin";
-    const [removing, setRemoving] = useState<OrderSummary | null>(null);
-
-    const [events, setEvents] = useState<Event[]>([]);
-    const [scope, setScope] = useState<Scope | null>(null);
-    const [orders, setOrders] = useState<OrderSummary[]>([]);
-    const [statusFilter, setStatusFilter] = useState<OrderStatus | "All">("All");
-    const [search, setSearch] = useState<string>("");
-    const [loading, setLoading] = useState<boolean>(true);
+    const {
+        isManager,
+        isSystemAdmin,
+        events,
+        scope,
+        orders,
+        statusFilter,
+        search,
+        setSearch,
+        loading,
+        switchScope,
+        switchStatus,
+        runSearch,
+        reopening,
+        setReopening,
+        handleReopen,
+        voiding,
+        setVoiding,
+        handleVoid,
+        removing,
+        setRemoving,
+        handleRemove,
+        activeId,
+        boot,
+        refresh,
+    } = useOrders();
     const [refreshing, setRefreshing] = useState<boolean>(false);
-    const [reopening, setReopening] = useState<OrderSummary | null>(null);
-    const [voiding, setVoiding] = useState<OrderSummary | null>(null);
-
-    const load = useCallback(async (target: Scope, status: OrderStatus | "All", term: string) => {
-        const rows =
-            target.kind === "all"
-                ? await GetAllOrders({
-                      status: status === "All" ? undefined : status,
-                      search: term,
-                  })
-                : await GetOrdersForEvent(target.eventId, status === "All" ? undefined : status);
-
-        // The per-event endpoint has no search of its own, so narrow it here rather than
-        // making every caller pay for a query parameter only this page uses.
-        // A phone number matches on its digits alone, however it was typed or stored.
-        const term_ = term.trim().toLowerCase();
-        const digits = term_.replace(/\D/g, "");
-        const phoneMatch = (value?: string | null) =>
-            digits.length >= 4 && (value ?? "").replace(/\D/g, "").includes(digits);
-        setOrders(
-            term_ && target.kind === "event"
-                ? rows.filter(
-                      (o) =>
-                          (o.billingName ?? "").toLowerCase().includes(term_) ||
-                          (o.cfsRepName ?? "").toLowerCase().includes(term_) ||
-                          (o.billingEmail ?? "").toLowerCase().includes(term_) ||
-                          String(o.orderNumber ?? "").includes(term_) ||
-                          phoneMatch(o.billingCell) ||
-                          phoneMatch(o.billingAlt)
-                  )
-                : rows
-        );
-    }, []);
-
-    const loadWith = useCallback(
-        async (target: Scope, status: OrderStatus | "All", term: string) => {
-            setLoading(true);
-            await load(target, status, term);
-            setLoading(false);
-        },
-        [load]
-    );
-
-    // The active event when the page last loaded, so a change of event can be noticed.
-    const [activeId, setActiveId] = useState<number | null | undefined>(undefined);
-
-    const boot = useCallback(async () => {
-        const [list, active] = await Promise.all([
-            isManager ? GetEvents() : Promise.resolve([]),
-            GetActiveEvent(),
-        ]);
-
-        setEvents(EventsForFilter(list));
-        setActiveId(active?.id ?? null);
-
-        // Between fundraisers there is no active event. A manager falls back to every event;
-        // everyone else has nothing current to show, and all-events history is for managers up.
-        if (!active?.id && !isManager) {
-            setScope(null);
-            setOrders([]);
-            setLoading(false);
-            return;
-        }
-
-        const target: Scope = active?.id ? { kind: "event", eventId: active.id } : { kind: "all" };
-
-        setScope(target);
-        await loadWith(target, "All", "");
-    }, [isManager, loadWith]);
-
-    useEffect(() => {
-        boot();
-    }, [boot]);
 
     const checkActiveEvent = useActiveEventChange(loading ? undefined : activeId, boot);
-
-    const switchScope = async (target: Scope) => {
-        setScope(target);
-        await loadWith(target, statusFilter, search);
-    };
-
-    const switchStatus = async (status: OrderStatus | "All") => {
-        setStatusFilter(status);
-        if (scope) await loadWith(scope, status, search);
-    };
-
-    const runSearch = async () => {
-        if (scope) await loadWith(scope, statusFilter, search);
-    };
 
     // A change of active event starts the screen again; otherwise the same list, read again.
     const reload = async () => {
         if (await checkActiveEvent()) return;
-        if (scope) await load(scope, statusFilter, search);
+        await refresh();
     };
 
     const handleRefresh = async () => {
@@ -197,33 +98,6 @@ const OrdersPage = () => {
 
     // Back on this screen: read it again.
     useRefreshOnFocus(reload);
-
-    if (!user) return <Redirect href="/unauthorized" />;
-
-    const handleReopen = async (to: "floor" | "checkout") => {
-        if (!reopening?.id) return;
-
-        const result = await ReopenOrder(reopening.id, to);
-        if (!result) return;
-
-        setReopening(null);
-        Toast.Success(
-            `Order #${result.orderNumber} sent ${to === "checkout" ? "to checkout" : "to the sales floor"}.`
-        );
-        await runSearch();
-    };
-
-    const handleVoid = async () => {
-        if (!voiding?.id) return;
-
-        const id = voiding.id;
-        setVoiding(null);
-        const result = await VoidOrder(id);
-        if (!result) return;
-
-        Toast.Info(`Order #${result.orderNumber} voided.`);
-        await runSearch();
-    };
 
     const header = (
         <View>
@@ -244,30 +118,15 @@ const OrdersPage = () => {
             </View>
 
             {isManager && (
-                <ScrollView
-                    horizontal
-                    showsHorizontalScrollIndicator={false}
+                <EventFilter
+                    events={events}
+                    allPicked={scope?.kind === "all"}
+                    pickedEventId={scope?.kind === "event" ? scope.eventId : null}
+                    showTerritory={showTerritory}
+                    onPickAll={() => switchScope({ kind: "all" })}
+                    onPickEvent={(eventId) => switchScope({ kind: "event", eventId })}
                     className="mb-3"
-                    contentContainerClassName="gap-2 pb-1"
-                >
-                    <TabButton
-                        text="All events"
-                        active={scope?.kind === "all"}
-                        onClick={() => switchScope({ kind: "all" })}
-                    />
-                    {events.map((event) => (
-                        <TabButton
-                            key={event.id}
-                            text={event.organization ?? ""}
-                            subtext={showTerritory ? (event.territoryName ?? undefined) : undefined}
-                            tag={IsPastEvent(event) ? "Past" : undefined}
-                            active={scope?.kind === "event" && scope.eventId === event.id}
-                            onClick={() =>
-                                event.id && switchScope({ kind: "event", eventId: event.id })
-                            }
-                        />
-                    ))}
-                </ScrollView>
+                />
             )}
 
             <ScrollView
@@ -276,10 +135,10 @@ const OrdersPage = () => {
                 className="mb-3"
                 contentContainerClassName="gap-2 pb-1"
             >
-                {(["All", "Completed", "AwaitingCheckout", "Draft", "Voided"] as const).map((s) => (
+                {OrderStatusFilters.map((s) => (
                     <TabButton
                         key={s}
-                        text={s === "All" ? "All" : statusLabels[s]}
+                        text={s === "All" ? "All" : OrderStatusLabels[s]}
                         active={statusFilter === s}
                         onClick={() => switchStatus(s)}
                     />
@@ -307,7 +166,7 @@ const OrdersPage = () => {
             {loading && <ListSkeleton rows={6} />}
             {!loading && scope && orders.length > 0 && (
                 <Text className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">
-                    {Summary(orders)}
+                    {SummarizeOrders(orders)}
                 </Text>
             )}
             {!loading && !scope && (
@@ -335,19 +194,14 @@ const OrdersPage = () => {
     const renderOrder = ({ item: order }: { item: OrderSummary }) => {
         const style = statusStyles[order.status ?? "Draft"];
         const actions: SwipeAction[] = [];
-        if (isManager && (order.status === "Draft" || order.status === "AwaitingCheckout"))
+        if (isManager && CanVoidFromList(order))
             actions.push({
                 label: "Void",
                 icon: "fa-solid fa-ban",
                 tone: "danger",
                 onPress: () => setVoiding(order),
             });
-        if (
-            isManager &&
-            (order.status === "Completed" ||
-                order.status === "AwaitingCheckout" ||
-                order.status === "Voided")
-        )
+        if (isManager && CanReopenFromList(order))
             actions.push({
                 label: "Reopen",
                 icon: "fa-solid fa-arrow-rotate-left",
@@ -372,7 +226,7 @@ const OrdersPage = () => {
                 }
                 actions={actions}
                 accessibilityLabel={`Order ${order.orderNumber}, ${order.billingName || "no name"}, ${
-                    statusLabels[order.status ?? "Draft"]
+                    OrderStatusLabels[order.status ?? "Draft"]
                 }, ${FormatCurrency(order.total)}. Opens the sales sheet`}
                 containerClassName="mb-2"
                 className="flex-row items-center gap-3 p-3"
@@ -406,7 +260,7 @@ const OrdersPage = () => {
                     )}
                     <View className={cx("rounded-full px-2.5 py-1", style.box)}>
                         <Text className={cx("text-xs font-semibold", style.text)}>
-                            {statusLabels[order.status ?? "Draft"]}
+                            {OrderStatusLabels[order.status ?? "Draft"]}
                         </Text>
                     </View>
                 </View>
@@ -433,20 +287,11 @@ const OrdersPage = () => {
             {removing && (
                 <ConfirmationModal
                     title={`Delete order #${removing.orderNumber}`}
-                    message={`Permanently delete order #${removing.orderNumber}${
-                        removing.billingName ? ` for ${removing.billingName}` : ""
-                    }, with its items and payments? It comes off every total and its sales sheet is gone. Stock that went home is not put back - reopen or void the sale first if it should be. This cannot be undone.`}
+                    message={DeleteOrderMessage(removing)}
                     confirmText="Delete for good"
                     confirmWord="DELETE"
                     destructive
-                    onConfirm={async () => {
-                        const id = removing.id;
-                        setRemoving(null);
-                        if (id && (await DeleteOrder(id, true))) {
-                            Toast.Success(`Order #${removing.orderNumber} deleted.`);
-                            if (scope) await load(scope, statusFilter, search);
-                        }
-                    }}
+                    onConfirm={handleRemove}
                     onCancel={() => setRemoving(null)}
                 />
             )}
@@ -454,13 +299,7 @@ const OrdersPage = () => {
             {voiding && (
                 <ConfirmationModal
                     title="Void order"
-                    message={`Void order #${voiding.orderNumber}${
-                        voiding.billingName ? ` for ${voiding.billingName}` : ""
-                    }? It ${
-                        voiding.status === "Draft"
-                            ? "comes off the sales floor"
-                            : "leaves the checkout queue"
-                    } and stays on file for the audit trail. It can be reopened later.`}
+                    message={VoidOrderMessage(voiding)}
                     confirmText="Void"
                     destructive
                     onConfirm={handleVoid}

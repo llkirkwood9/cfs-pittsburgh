@@ -4,8 +4,10 @@ import { View } from "react-native";
 import LoadingPage from "../../Components/Elements/LoadingPage";
 import ChangePasswordModal from "../../Components/Navbar/ChangePasswordModal";
 import { useAuth } from "@shared/Context/AuthContext";
-import { useTerritory } from "../../Context/TerritoryContext";
+import { useTerritory } from "@shared/Context/TerritoryContext";
 import { useCheckoutWaiting } from "../../Hooks/UseCheckoutWaiting";
+import { CanOpen, HasOneTerritory, Screens } from "@shared/Lib/Screens";
+import type { ScreenKey } from "@shared/Lib/Screens";
 
 /**
  * The native tab bar - Liquid Glass on iOS 26, Material on Android - in place of the dashboard's
@@ -17,11 +19,12 @@ import { useCheckoutWaiting } from "../../Hooks/UseCheckoutWaiting";
  */
 export default function TabsLayout() {
     const { user, loading, hasRole, logout } = useAuth();
+    const shows = (screen: ScreenKey) => CanOpen(screen, user?.role);
     // Customers waiting at the checkout table, on the Checkout tab's badge - in the territory in
     // view; with every territory in view there's no one checkout table to count.
     const { territoryId, canSwitch } = useTerritory();
     const waiting = useCheckoutWaiting(
-        Boolean(user) && hasRole("Checkout") && (territoryId != null || !canSwitch),
+        Boolean(user) && hasRole("Checkout") && HasOneTerritory(territoryId, canSwitch),
         territoryId
     );
 
@@ -39,15 +42,15 @@ export default function TabsLayout() {
 
     return (
         <NativeTabs minimizeBehavior="onScrollDown">
-            <NativeTabs.Trigger name="sales" hidden={!hasRole("Sales")}>
-                <NativeTabs.Trigger.Label>Sell</NativeTabs.Trigger.Label>
+            <NativeTabs.Trigger name="sales" hidden={!shows("sales")}>
+                <NativeTabs.Trigger.Label>{Screens.sales.title}</NativeTabs.Trigger.Label>
                 <NativeTabs.Trigger.Icon
                     sf={{ default: "cart.badge.plus", selected: "cart.fill.badge.plus" }}
                     md="add_shopping_cart"
                 />
             </NativeTabs.Trigger>
-            <NativeTabs.Trigger name="checkout" hidden={!hasRole("Checkout")}>
-                <NativeTabs.Trigger.Label>Checkout</NativeTabs.Trigger.Label>
+            <NativeTabs.Trigger name="checkout" hidden={!shows("checkout")}>
+                <NativeTabs.Trigger.Label>{Screens.checkout.title}</NativeTabs.Trigger.Label>
                 <NativeTabs.Trigger.Badge hidden={waiting === 0}>
                     {String(waiting)}
                 </NativeTabs.Trigger.Badge>
@@ -56,15 +59,15 @@ export default function TabsLayout() {
                     md="point_of_sale"
                 />
             </NativeTabs.Trigger>
-            <NativeTabs.Trigger name="orders">
-                <NativeTabs.Trigger.Label>Orders</NativeTabs.Trigger.Label>
+            <NativeTabs.Trigger name="orders" hidden={!shows("orders")}>
+                <NativeTabs.Trigger.Label>{Screens.orders.title}</NativeTabs.Trigger.Label>
                 <NativeTabs.Trigger.Icon
                     sf={{ default: "doc.text", selected: "doc.text.fill" }}
                     md="description"
                 />
             </NativeTabs.Trigger>
-            <NativeTabs.Trigger name="dashboard">
-                <NativeTabs.Trigger.Label>Dashboard</NativeTabs.Trigger.Label>
+            <NativeTabs.Trigger name="dashboard" hidden={!shows("dashboard")}>
+                <NativeTabs.Trigger.Label>{Screens.dashboard.title}</NativeTabs.Trigger.Label>
                 <NativeTabs.Trigger.Icon
                     sf={{ default: "chart.bar", selected: "chart.bar.fill" }}
                     md="bar_chart"

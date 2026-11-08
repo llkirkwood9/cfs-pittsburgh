@@ -1,10 +1,11 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
+import { HAS_SERVER } from "@host";
 import type { ReactNode } from "react";
-import { useAuth } from "@shared/Context/AuthContext";
+import { useAuth } from "./AuthContext";
 import { useTerritory } from "./TerritoryContext";
-import { DefaultGeneralSettings } from "@shared/Models/GeneralSettings";
-import type { GeneralSettings } from "@shared/Models/GeneralSettings";
-import { GetGeneralSettings, GetPublicSettings } from "@shared/Services/SettingsServices";
+import { DefaultGeneralSettings } from "../Models/GeneralSettings";
+import type { GeneralSettings } from "../Models/GeneralSettings";
+import { GetGeneralSettings, GetPublicSettings } from "../Services/SettingsServices";
 
 type SettingsContextValue = {
     /** The settings in force for the territory in view; the defaults until they arrive. */
@@ -21,7 +22,7 @@ const SettingsContext = createContext<SettingsContextValue | null>(null);
 
 /**
  * The business details and dashboard levels set under Settings, for every screen: the app name
- * in the menu bar and browser tab, the company and phone on the sales sheet, the dashboard's
+ * on the sign-in screen, the menu bar and the browser tab, the company and phone on the sales sheet, the dashboard's
  * stars and running-low level. Each territory can have its own, so they follow the territory in
  * view. Read when the app opens or the territory changes, and again whenever Settings saves.
  */
@@ -35,6 +36,8 @@ export const SettingsProvider = ({ children }: { children: ReactNode }) => {
 
     const refresh = useCallback(async () => {
         cache.current.clear();
+        // Nothing to read from an app built without a server.
+        if (!HAS_SERVER) return;
         if (!signedIn) {
             // Signed out, only the app name is public.
             const found = await GetPublicSettings();

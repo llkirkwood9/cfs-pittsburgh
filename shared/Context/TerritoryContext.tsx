@@ -1,13 +1,12 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { useAuth } from "@shared/Context/AuthContext";
-import { setTerritoryHeader } from "../Lib/api";
-import { GetItem, SetItem } from "../Lib/Storage";
-import { IsCompanyWide } from "@shared/Models/User";
-import type { Territory } from "@shared/Models/Territory";
-import { GetTerritories } from "@shared/Services/TerritoryServices";
-
-const STORAGE_KEY = "cfs.territory";
+import { useAuth } from "./AuthContext";
+import { SharedStorageKeys } from "../Lib/StorageKeys";
+import { DeviceStorage, setTerritoryHeader } from "@host";
+import { IsCompanyWide } from "../Models/User";
+import { ActiveTerritories } from "../Models/Territory";
+import type { Territory } from "../Models/Territory";
+import { GetTerritories } from "../Services/TerritoryServices";
 
 type TerritoryContextValue = {
     /** Territories the user can pick from: every one for system admins and administrators, their own for everyone else. */
@@ -29,15 +28,15 @@ type TerritoryContextValue = {
 const TerritoryContext = createContext<TerritoryContextValue | null>(null);
 
 const readStored = (): number | null => {
-    const raw = GetItem(STORAGE_KEY);
+    const raw = DeviceStorage.get(SharedStorageKeys.territory);
     return raw ? Number(raw) || null : null;
 };
 
 /**
- * Which territory the app is showing, as on the dashboard. Someone in one territory always sees
- * it. Anyone with more - system admins and administrators have every territory - picks one from
- * the menu bar, or all of theirs, and every request carries the choice, so lists, the dashboard
- * and the settings follow it. The choice is remembered on the device.
+ * Which territory the screens are showing. Someone in one territory always sees it. Anyone with
+ * more - system admins and administrators have every territory - picks one from the menu bar, or
+ * all of theirs, and every request carries the choice, so lists, the dashboard and the settings
+ * follow it. The choice is remembered on the device.
  */
 export const TerritoryProvider = ({ children }: { children: ReactNode }) => {
     const { user } = useAuth();
@@ -64,7 +63,7 @@ export const TerritoryProvider = ({ children }: { children: ReactNode }) => {
     // back to all of theirs.
     useEffect(() => {
         if (!canSwitch || selected == null || territories.length === 0) return;
-        if (!territories.some((t) => t.id === selected && t.isActive !== false)) setSelected(null);
+        if (!ActiveTerritories(territories).some((t) => t.id === selected)) setSelected(null);
     }, [canSwitch, selected, territories]);
 
     const territoryId = canSwitch ? selected : (own[0] ?? null);
@@ -75,7 +74,7 @@ export const TerritoryProvider = ({ children }: { children: ReactNode }) => {
 
     const setTerritoryId = useCallback((id: number | null) => {
         setSelected(id);
-        SetItem(STORAGE_KEY, id == null ? null : String(id));
+        DeviceStorage.set(SharedStorageKeys.territory, id == null ? null : String(id));
     }, []);
 
     const allLabel = companyWide ? "All territories" : "All my territories";

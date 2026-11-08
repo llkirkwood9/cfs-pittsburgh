@@ -9,10 +9,11 @@ import { GestureHandlerRootView } from "react-native-gesture-handler";
 import ConnectionBanner from "../Components/Elements/ConnectionBanner";
 import ToastHost from "../Components/Elements/ToastHost";
 import { AuthProvider } from "@shared/Context/AuthContext";
-import { SettingsProvider } from "../Context/SettingsContext";
-import { TerritoryProvider } from "../Context/TerritoryContext";
+import { SettingsProvider } from "@shared/Context/SettingsContext";
+import { TerritoryProvider } from "@shared/Context/TerritoryContext";
 import { ApplyStoredTheme, useTheme } from "../Hooks/UseTheme";
 import { LoadStorage } from "../Lib/Storage";
+import { Screens } from "@shared/Lib/Screens";
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
@@ -73,13 +74,17 @@ const Shell = () => {
                     <Stack.Screen name="(tabs)" options={{ animation: "fade" }} />
                     <Stack.Screen
                         name="receipt/[orderId]"
-                        options={{ headerShown: true, title: "Sales sheet", headerBackTitle: "Back" }}
+                        options={{
+                            headerShown: true,
+                            title: Screens.receipt.title,
+                            headerBackTitle: "Back",
+                        }}
                     />
                     <Stack.Screen
                         name="events/[eventId]/sheets"
                         options={{
                             headerShown: true,
-                            title: "Event sheets",
+                            title: Screens.eventSheets.title,
                             headerBackTitle: "Back",
                         }}
                     />

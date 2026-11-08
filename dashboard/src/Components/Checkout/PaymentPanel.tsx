@@ -1,15 +1,13 @@
-import { useEffect, useState } from "react";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import TextField from "../Elements/TextField";
-import { useSettingsFor } from "../../Context/SettingsContext";
-import { FormatCurrency, ParseMoney } from "@shared/Lib/Format";
+import { useSettingsFor } from "@shared/Context/SettingsContext";
+import { OTHER_FINANCE, useCheckoutPayment } from "@shared/Hooks/useCheckoutForms";
+import { CardFeePercent, PaymentMethods } from "@shared/Lib/Checkout";
+import { FormatCurrency } from "@shared/Lib/Format";
 import { FinancingText, PaymentMethodLabels } from "@shared/Lib/Orders";
-import { Toast } from "../../Lib/Toast";
-import type { FinanceOption } from "@shared/Models/FinanceOption";
 import type { Order } from "@shared/Models/Order";
 import type { OrderPayment, PaymentMethod } from "@shared/Models/OrderPayment";
-import { GetFinanceOptions } from "@shared/Services/FinanceOptionServices";
 
 type Props = {
     order: Order;
@@ -19,18 +17,6 @@ type Props = {
     /** Takes the card fee off the order, or puts it back. */
     onWaiveFee: (waive: boolean) => Promise<void>;
 };
-
-/** The financing type picker's value for Other. */
-const OTHER = "__other__";
-
-// Cash and check first: they are the common case at a school fundraiser and carry no card fee.
-const methods: { key: PaymentMethod; label: string; icon: string }[] = [
-    { key: "Cash", label: PaymentMethodLabels.Cash, icon: "fa-solid fa-money-bill-wave" },
-    { key: "Check", label: PaymentMethodLabels.Check, icon: "fa-solid fa-money-check" },
-    { key: "VisaMc", label: PaymentMethodLabels.VisaMc, icon: "fa-solid fa-credit-card" },
-    { key: "Financing", label: PaymentMethodLabels.Financing, icon: "fa-solid fa-file-signature" },
-    { key: "Layaway", label: PaymentMethodLabels.Layaway, icon: "fa-solid fa-box-archive" },
-];
 
 /**
  * The Payment Options box at the checkout table. An order can be split across several methods,
@@ -42,85 +28,34 @@ const methods: { key: PaymentMethod; label: string; icon: string }[] = [
 const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Props) => {
     // The finance options and Other setting of the territory the order was taken in.
     const allowOther = useSettingsFor(order.territoryId).allowOtherFinanceType;
-    const [financeOptions, setFinanceOptions] = useState<FinanceOption[]>([]);
-
-    useEffect(() => {
-        GetFinanceOptions(false, order.territoryId).then(setFinanceOptions);
-    }, [order.territoryId]);
-    // Cash is the default. It carries no card fee, so the selection shown always matches the
-    // total shown; an order already switched to card reopens on card.
-    const [method, setMethod] = useState<PaymentMethod>(
-        order.applyCcProcessingFee ? "VisaMc" : "Cash"
-    );
-    const [amount, setAmount] = useState<string>("");
-    const [checkNumber, setCheckNumber] = useState<string>("");
-    // An option's name, OTHER, or "" before anything is picked.
-    const [financeChoice, setFinanceChoice] = useState<string>("");
-    const [otherType, setOtherType] = useState<string>("");
-    const [financeNumber, setFinanceNumber] = useState<string>("");
-    const [saving, setSaving] = useState<boolean>(false);
-
-    const balance = order.balanceDue ?? 0;
-    const feeRate = order.ccProcessingFeeRate ?? 0;
-    // Shows the tick straight away while the order saves, then follows the saved order.
-    const [pendingWaive, setPendingWaive] = useState<boolean | null>(null);
-    const waiving = pendingWaive !== null;
-    const waived = pendingWaive ?? order.waiveCcProcessingFee ?? false;
-    // The No card fee box shows whenever a card is in play: picked now, or already paid with.
-    const cardInPlay =
-        method === "VisaMc" || (order.payments ?? []).some((p) => p.method === "VisaMc");
-
-    const toggleWaive = async (waive: boolean) => {
-        setPendingWaive(waive);
-        await onWaiveFee(waive);
-        setPendingWaive(null);
-    };
-
-    // Picking a method is what turns the card fee on and off, so the customer sees the real
-    // total before anything is keyed in rather than after.
-    const chooseMethod = async (next: PaymentMethod) => {
-        if (next === method) return;
-
-        setMethod(next);
-        setAmount("");
-        if (feeRate > 0) await onMethodChange(next);
-    };
-
-    const handleAdd = async () => {
-        const parsed = ParseMoney(amount);
-        if (parsed === null || parsed <= 0) return Toast.Warning("Enter an amount to record.");
-
-        if (method === "Check" && !checkNumber.trim())
-            return Toast.Warning("Enter the check number.");
-
-        const financing = method === "Financing";
-        const financeType = financeChoice === OTHER ? otherType : financeChoice;
-        if (financing && financeChoice === OTHER && !otherType.trim())
-            return Toast.Warning("Type in the kind of financing.");
-        if (financing && !financeType.trim()) return Toast.Warning("Choose the type of financing.");
-        if (financing && !financeNumber.trim()) return Toast.Warning("Enter the financing number.");
-
-        setSaving(true);
-        await onAdd({
-            method,
-            amount: parsed,
-            checkNumber: method === "Check" ? checkNumber.trim() : undefined,
-            financeType: financing ? financeType.trim() : undefined,
-            reference: financing ? financeNumber.trim() : undefined,
-        });
-        setSaving(false);
-
-        setAmount("");
-        setCheckNumber("");
-        setFinanceChoice("");
-        setOtherType("");
-        setFinanceNumber("");
-    };
+    const {
+        financeOptions,
+        method,
+        chooseMethod,
+        amount,
+        setAmount,
+        checkNumber,
+        setCheckNumber,
+        financeChoice,
+        setFinanceChoice,
+        otherType,
+        setOtherType,
+        financeNumber,
+        setFinanceNumber,
+        balance,
+        feeRate,
+        waiving,
+        waived,
+        toggleWaive,
+        cardInPlay,
+        saving,
+        add,
+    } = useCheckoutPayment(order, onAdd, onMethodChange, onWaiveFee);
 
     return (
         <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {methods.map((m) => (
+                {PaymentMethods.map((m) => (
                     <button
                         key={m.key}
                         type="button"
@@ -148,9 +83,9 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                     ) : (
                         method === "VisaMc" && (
                             <p>
-                                <Icon icon="fa-solid fa-circle-info" /> A{" "}
-                                {(feeRate * 100).toFixed(2).replace(/\.?0+$/, "")}% card processing
-                                fee of {FormatCurrency(order.ccProcessingFee)} is included.
+                                <Icon icon="fa-solid fa-circle-info" /> A {CardFeePercent(feeRate)}%
+                                card processing fee of {FormatCurrency(order.ccProcessingFee)} is
+                                included.
                             </p>
                         )
                     )}
@@ -206,7 +141,7 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                                         {option.name}
                                     </option>
                                 ))}
-                                {allowOther && <option value={OTHER}>Other</option>}
+                                {allowOther && <option value={OTHER_FINANCE}>Other</option>}
                             </select>
                         </label>
                     ) : (
@@ -214,7 +149,7 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                             <Icon icon="fa-solid fa-circle-info" /> No financing options are set up.
                         </p>
                     ))}
-                {method === "Financing" && financeChoice === OTHER && (
+                {method === "Financing" && financeChoice === OTHER_FINANCE && (
                     <TextField
                         label="Other financing type"
                         value={otherType}
@@ -247,7 +182,7 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                 <Button
                     text="Record payment"
                     icon="fa-solid fa-plus"
-                    onClick={handleAdd}
+                    onClick={add}
                     loading={saving}
                     className="flex-1 bg-green-700 hover:bg-green-800 sm:flex-none dark:bg-green-600 dark:hover:bg-green-700"
                 />
@@ -262,7 +197,7 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                         >
                             <div className="min-w-0 flex-1">
                                 <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">
-                                    {methods.find((m) => m.key === payment.method)?.label ??
+                                    {PaymentMethodLabels[payment.method as PaymentMethod] ??
                                         payment.method}
                                 </p>
                                 {payment.checkNumber && (

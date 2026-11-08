@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from "react";
-import { Navigate, useNavigate, useParams } from "react-router-dom";
+import { useState } from "react";
+import { useNavigate, useParams } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
@@ -15,42 +15,14 @@ import EditLineModal from "../Components/Sales/EditLineModal";
 import UpchargeModal from "../Components/Sales/UpchargeModal";
 import OrderLineList from "../Components/Sales/OrderLineList";
 import OrderTotals from "../Components/Sales/OrderTotals";
-import { useAuth } from "@shared/Context/AuthContext";
-import { FormatCurrency } from "@shared/Lib/Format";
-import { InitialsFor, IsAcknowledged, RequiredTerms } from "@shared/Lib/Orders";
-import { CheckoutQueueCounted } from "@shared/Lib/CheckoutWaiting";
-import { IsOnline } from "@shared/Lib/Connection";
-import { Toast } from "../Lib/Toast";
-import type { DeliveryOption } from "@shared/Models/DeliveryOption";
-import type { Event } from "@shared/Models/Event";
-import type { Order } from "@shared/Models/Order";
-import type { OrderLine } from "@shared/Models/OrderLine";
-import type { OrderPayment, PaymentMethod } from "@shared/Models/OrderPayment";
-import type { OrderSummary } from "@shared/Models/OrderSummary";
-import type { Product } from "@shared/Models/Product";
-import { GetDeliveryOptions } from "@shared/Services/DeliveryOptionServices";
-import { GetActiveEvent } from "@shared/Services/EventServices";
+import { useCheckoutQueue } from "@shared/Hooks/useCheckoutQueue";
 import {
-    AddOrderLine,
-    AddOrderPayment,
-    CompleteOrder,
-    DeleteOrderLine,
-    DeleteOrderPayment,
-    GetCheckoutQueue,
-    GetOrder,
-    ReopenOrder,
-    ReorderOrderLines,
-    UpdateOrder,
-    UpdateOrderLine,
-    VoidOrder,
-} from "@shared/Services/OrderServices";
-import { GetProducts } from "@shared/Services/ProductServices";
-
-/**
- * How often the queue re-polls, so a new hand-off shows up without anyone refreshing. It also
- * keeps the Checkout tab's count current while this screen is open.
- */
-const POLL_MS = 5000;
+    AcknowledgementChecks,
+    AcknowledgementStateOf,
+    BillingSummaryText,
+    DeliverToText,
+} from "@shared/Lib/Checkout";
+import { FormatCurrency } from "@shared/Lib/Format";
 
 /**
  * The checkout table. The queue on the left fills itself as reps complete orders; the panel on
@@ -58,235 +30,37 @@ const POLL_MS = 5000;
  * signature, then opens the receipt to print or email.
  */
 const CheckoutPage = () => {
-    const { user } = useAuth();
     const { orderId } = useParams();
     const navigate = useNavigate();
 
-    const [saleEvent, setSaleEvent] = useState<Event | null>(null);
-    const [queue, setQueue] = useState<OrderSummary[]>([]);
-    const [order, setOrder] = useState<Order | null>(null);
-    const [products, setProducts] = useState<Product[]>([]);
-    const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOption[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [completing, setCompleting] = useState<boolean>(false);
-    const [voiding, setVoiding] = useState<boolean>(false);
-
-    const [showAddItem, setShowAddItem] = useState<boolean>(false);
-    const [editingLine, setEditingLine] = useState<OrderLine | null>(null);
-    const [servicingLine, setServicingLine] = useState<OrderLine | null>(null);
-    const [upchargingLine, setUpchargingLine] = useState<OrderLine | null>(null);
-    const [removingLine, setRemovingLine] = useState<OrderLine | null>(null);
     const [showCustomerSheet, setShowCustomerSheet] = useState<boolean>(false);
     const [showAcknowledgements, setShowAcknowledgements] = useState<boolean>(false);
-    // Orders this device is completing, voiding or sending back, so the check below doesn't take
-    // its own work for someone else's.
-    const closedHere = useRef<Set<number>>(new Set());
 
-    const refreshQueue = useCallback(async (eventId: number) => {
-        const list = await GetCheckoutQueue(eventId);
-        setQueue(list);
-        if (IsOnline()) CheckoutQueueCounted(list.length);
-        return list;
-    }, []);
+    const {
+        saleEvent,
+        queue,
+        order,
+        products,
+        deliveryOptions,
+        loading,
+        openOrder,
+        completing,
+        complete,
+        sendBack,
+        voiding,
+        setVoiding,
+        voidOrder,
+        editor,
+    } = useCheckoutQueue(orderId ? Number(orderId) : undefined);
 
-    const openOrder = useCallback(async (id: number) => {
-        const loaded = await GetOrder(id);
-        if (loaded) setOrder(loaded);
-    }, []);
-
-    useEffect(() => {
-        const load = async () => {
-            setLoading(true);
-
-            const active = await GetActiveEvent();
-            setSaleEvent(active);
-
-            if (!active?.id) {
-                setLoading(false);
-                return;
-            }
-
-            const [list, catalog, options] = await Promise.all([
-                refreshQueue(active.id),
-                GetProducts(),
-                GetDeliveryOptions(),
-            ]);
-
-            setProducts(catalog);
-            setDeliveryOptions(options);
-
-            if (orderId) await openOrder(Number(orderId));
-            else if (list[0]?.id) await openOrder(list[0].id);
-
-            setLoading(false);
-        };
-
-        load();
-    }, [orderId, openOrder, refreshQueue]);
-
-    useEffect(() => {
-        if (!saleEvent?.id) return;
-
-        const timer = setInterval(() => {
-            // A poll that fails while the Wi-Fi is down keeps the queue on screen rather than
-            // emptying it.
-            GetCheckoutQueue(saleEvent.id!).then((list) => {
-                if (!IsOnline()) return;
-                setQueue(list);
-                CheckoutQueueCounted(list.length);
-            });
-        }, POLL_MS);
-
-        return () => clearInterval(timer);
-    }, [saleEvent?.id]);
-
-    // Someone else may finish the order on screen - complete or void it at another device, or
-    // send it back to the floor. Once it drops out of the queue, look it up and close it here too,
-    // so nobody keeps working on a sale that is already done.
-    useEffect(() => {
-        if (!order?.id || order.status !== "AwaitingCheckout") return;
-        if (queue.some((o) => o.id === order.id) || closedHere.current.has(order.id)) return;
-
-        let cancelled = false;
-        GetOrder(order.id).then((latest) => {
-            if (cancelled || !IsOnline() || latest?.status === "AwaitingCheckout") return;
-            const what =
-                latest?.status === "Completed"
-                    ? "completed"
-                    : latest?.status === "Voided"
-                      ? "voided"
-                      : latest?.status === "Draft"
-                        ? "sent back to the sales floor"
-                        : "removed";
-            Toast.Info(`Order #${order.orderNumber} was ${what} on another device.`);
-            setOrder(null);
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [queue, order?.id, order?.status, order?.orderNumber]);
-
-    if (!user) return <Navigate to="/unauthorized" replace />;
-
-    const applyResult = async (result: Order | null) => {
-        if (!result) return;
-        setOrder(result);
-        if (saleEvent?.id) await refreshQueue(saleEvent.id);
-    };
-
-    const saveOrder = async (changes: Order) => {
-        if (!order?.id) return;
-        await applyResult(await UpdateOrder({ ...changes, id: order.id }));
-    };
-
-    const handleAddLine = async (line: OrderLine) => {
-        if (!order?.id) return;
-        await applyResult(await AddOrderLine(order.id, line));
-    };
-
-    const handleReorderLines = async (itemIds: number[]) => {
-        if (!order?.id) return;
-        await applyResult(await ReorderOrderLines(order.id, itemIds));
-    };
-
-    const handleUpdateLine = async (line: OrderLine) => {
-        await applyResult(await UpdateOrderLine(line));
-    };
-
-    const handleRemoveLine = async () => {
-        if (!removingLine?.id) return;
-        const result = await DeleteOrderLine(removingLine.id);
-        setRemovingLine(null);
-        await applyResult(result);
-    };
-
-    const handleAddPayment = async (payment: OrderPayment) => {
-        if (!order?.id) return;
-        await applyResult(await AddOrderPayment(order.id, payment));
-    };
-
-    const handleRemovePayment = async (paymentId: number) => {
-        await applyResult(await DeleteOrderPayment(paymentId));
-    };
-
-    /** Choosing a card puts the card fee on the total; anything else takes it back off. */
-    const handleMethodChange = async (method: PaymentMethod) => {
-        if (!order?.id) return;
-        await saveOrder({ applyCcProcessingFee: method === "VisaMc" });
-    };
-
-    /** No card fee on this order, even when it is paid by card - or the fee back on. */
-    const handleWaiveFee = async (waive: boolean) => {
-        if (!order?.id) return;
-        await saveOrder({ waiveCcProcessingFee: waive });
-    };
-
-    const handleComplete = async () => {
-        if (!order?.id) return;
-        const closing = order.id;
-        closedHere.current.add(closing);
-
-        setCompleting(true);
-        const result = await CompleteOrder(order.id);
-        setCompleting(false);
-
-        if (!result) {
-            closedHere.current.delete(closing);
-            return;
-        }
-
-        Toast.Success(`Order #${result.orderNumber} completed.`);
-        navigate(`/receipt/${result.id}`, {
+    const openReceipt = (id?: number) =>
+        navigate(`/receipt/${id}`, {
             state: { from: "/checkout", label: "Back to checkout" },
         });
-    };
 
-    const handleSendBack = async () => {
-        if (!order?.id) return;
-        const closing = order.id;
-        closedHere.current.add(closing);
-
-        const result = await ReopenOrder(order.id);
-        if (!result) {
-            closedHere.current.delete(closing);
-            return;
-        }
-
-        Toast.Info(`Order #${result.orderNumber} sent back to the floor.`);
-
-        if (saleEvent?.id) {
-            const list = await refreshQueue(saleEvent.id);
-            setOrder(list[0]?.id ? await GetOrder(list[0].id) : null);
-        }
-    };
-
-    const handleVoid = async () => {
-        if (!order?.id) return;
-        const closing = order.id;
-        closedHere.current.add(closing);
-
-        const result = await VoidOrder(order.id);
-        setVoiding(false);
-
-        if (!result) {
-            closedHere.current.delete(closing);
-            return;
-        }
-
-        Toast.Info(`Order #${result.orderNumber} voided.`);
-
-        if (saleEvent?.id) {
-            const list = await refreshQueue(saleEvent.id);
-            setOrder(list[0]?.id ? await GetOrder(list[0].id) : null);
-        }
-    };
-
-    // Stock moves as other orders complete, so the picker always opens on fresh counts.
-    const openAddItem = () => {
-        setShowAddItem(true);
-        GetProducts().then((catalog) => {
-            if (catalog.length) setProducts(catalog);
-        });
+    const handleComplete = async () => {
+        const result = await complete();
+        if (result) openReceipt(result.id);
     };
 
     if (loading) {
@@ -309,18 +83,10 @@ const CheckoutPage = () => {
         );
     }
 
-    const closed = order?.status === "Completed" || order?.status === "Voided";
-    const signed = Boolean(order?.customerSignature);
-    // Only the statements this order needs: a take-home sale skips some of them.
-    const required = order ? RequiredTerms(order) : [];
-    const detailsNeeded = required.includes("customerInfo");
-    const confirmed = !detailsNeeded || Boolean(order?.customerInfoInitials);
-    const initialsNeeded = required.filter((key) => key !== "customerInfo");
-    const initialled = Boolean(order) && initialsNeeded.every((key) => InitialsFor(order!, key));
-    const initialsText = order
-        ? initialsNeeded.map((key) => InitialsFor(order, key)).join(", ")
-        : "";
-    const acknowledged = order ? IsAcknowledged(order) : false;
+    const ack = AcknowledgementStateOf(order);
+    const { closed, signed, confirmed, initialled, acknowledged } = ack;
+    const checks = order ? AcknowledgementChecks(order, ack) : null;
+    const deliverTo = order ? DeliverToText(order) : null;
 
     return (
         <div className="mx-auto max-w-(--breakpoint-2xl) p-3 sm:p-4">
@@ -368,7 +134,7 @@ const CheckoutPage = () => {
                                             <Button
                                                 text="Add item"
                                                 icon="fa-solid fa-plus"
-                                                onClick={openAddItem}
+                                                onClick={editor.openAddItem}
                                                 className="min-h-[40px] bg-green-700 px-3 text-sm hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                                             />
                                         )}
@@ -381,14 +147,12 @@ const CheckoutPage = () => {
                                 <OrderLineList
                                     lines={order.lines ?? []}
                                     readOnly={closed}
-                                    onEdit={setEditingLine}
-                                    onAddService={setServicingLine}
-                                    onAddUpcharge={setUpchargingLine}
-                                    onReorder={handleReorderLines}
-                                    onRemove={setRemovingLine}
-                                    onQuantity={(line, quantity) =>
-                                        handleUpdateLine({ id: line.id, quantity })
-                                    }
+                                    onEdit={editor.setEditingLine}
+                                    onAddService={editor.setServicingLine}
+                                    onAddUpcharge={editor.setUpchargingLine}
+                                    onReorder={editor.reorderLines}
+                                    onRemove={editor.setRemovingLine}
+                                    onQuantity={editor.changeQuantity}
                                 />
 
                                 <div className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
@@ -409,24 +173,11 @@ const CheckoutPage = () => {
                                     />
                                 </div>
                                 <p className="text-sm text-zinc-600 dark:text-zinc-400">
-                                    {order.billingName || "No name yet"}
-                                    {order.billingAddress ? ` · ${order.billingAddress}` : ""}
-                                    {order.billingCity ? `, ${order.billingCity}` : ""}
-                                    {order.billingState ? ` ${order.billingState}` : ""}
-                                    {order.billingZip ? ` ${order.billingZip}` : ""}
+                                    {BillingSummaryText(order)}
                                 </p>
-                                {!(order.deliverySameAsBilling ?? true) && (
+                                {deliverTo !== null && (
                                     <p className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">
-                                        <Icon icon="fa-solid fa-truck" /> Deliver to{" "}
-                                        {[
-                                            order.deliveryName,
-                                            order.deliveryAddress,
-                                            order.deliveryCity,
-                                            order.deliveryState,
-                                            order.deliveryZip,
-                                        ]
-                                            .filter(Boolean)
-                                            .join(", ")}
+                                        <Icon icon="fa-solid fa-truck" /> Deliver to {deliverTo}
                                     </p>
                                 )}
                                 {order.referralName && (
@@ -440,7 +191,7 @@ const CheckoutPage = () => {
                                 key={order.id}
                                 order={order}
                                 readOnly={closed}
-                                onSave={saveOrder}
+                                onSave={editor.saveOrder}
                             />
 
                             <div className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
@@ -450,10 +201,10 @@ const CheckoutPage = () => {
                                 <PaymentPanel
                                     key={order.id}
                                     order={order}
-                                    onAdd={handleAddPayment}
-                                    onRemove={handleRemovePayment}
-                                    onMethodChange={handleMethodChange}
-                                    onWaiveFee={handleWaiveFee}
+                                    onAdd={editor.addPayment}
+                                    onRemove={editor.removePayment}
+                                    onMethodChange={editor.changeMethod}
+                                    onWaiveFee={editor.waiveFee}
                                 />
                             </div>
 
@@ -473,59 +224,29 @@ const CheckoutPage = () => {
                                 </div>
 
                                 <div className="flex flex-wrap items-center gap-4">
-                                    <span
-                                        className={`inline-flex items-center gap-2 text-sm font-medium ${
-                                            confirmed
-                                                ? "text-green-700 dark:text-green-400"
-                                                : "text-zinc-500 dark:text-zinc-400"
-                                        }`}
-                                    >
-                                        <Icon
-                                            icon={
-                                                confirmed
-                                                    ? "fa-solid fa-circle-check"
-                                                    : "fa-regular fa-circle"
-                                            }
-                                        />
-                                        {detailsNeeded
-                                            ? `Details confirmed${confirmed ? ` (${order.customerInfoInitials})` : ""}`
-                                            : "Details not needed"}
-                                    </span>
-
-                                    <span
-                                        className={`inline-flex items-center gap-2 text-sm font-medium ${
-                                            initialled
-                                                ? "text-green-700 dark:text-green-400"
-                                                : "text-zinc-500 dark:text-zinc-400"
-                                        }`}
-                                    >
-                                        <Icon
-                                            icon={
-                                                initialled
-                                                    ? "fa-solid fa-circle-check"
-                                                    : "fa-regular fa-circle"
-                                            }
-                                        />
-                                        Initials
-                                        {initialled && initialsText && ` (${initialsText})`}
-                                    </span>
-
-                                    <span
-                                        className={`inline-flex items-center gap-2 text-sm font-medium ${
-                                            signed
-                                                ? "text-green-700 dark:text-green-400"
-                                                : "text-zinc-500 dark:text-zinc-400"
-                                        }`}
-                                    >
-                                        <Icon
-                                            icon={
-                                                signed
-                                                    ? "fa-solid fa-circle-check"
-                                                    : "fa-regular fa-circle"
-                                            }
-                                        />
-                                        Signature
-                                    </span>
+                                    {[
+                                        { done: confirmed, text: checks?.details },
+                                        { done: initialled, text: checks?.initials },
+                                        { done: signed, text: "Signature" },
+                                    ].map((check) => (
+                                        <span
+                                            key={check.text}
+                                            className={`inline-flex items-center gap-2 text-sm font-medium ${
+                                                check.done
+                                                    ? "text-green-700 dark:text-green-400"
+                                                    : "text-zinc-500 dark:text-zinc-400"
+                                            }`}
+                                        >
+                                            <Icon
+                                                icon={
+                                                    check.done
+                                                        ? "fa-solid fa-circle-check"
+                                                        : "fa-regular fa-circle"
+                                                }
+                                            />
+                                            {check.text}
+                                        </span>
+                                    ))}
                                 </div>
 
                                 {signed && (
@@ -552,14 +273,7 @@ const CheckoutPage = () => {
                                         <Button
                                             text="Print sales sheet"
                                             icon="fa-solid fa-print"
-                                            onClick={() =>
-                                                navigate(`/receipt/${order.id}`, {
-                                                    state: {
-                                                        from: "/checkout",
-                                                        label: "Back to checkout",
-                                                    },
-                                                })
-                                            }
+                                            onClick={() => openReceipt(order.id)}
                                             className="flex-1 sm:flex-none"
                                         />
                                     ) : (
@@ -567,7 +281,7 @@ const CheckoutPage = () => {
                                             <Button
                                                 text="Send back"
                                                 icon="fa-solid fa-arrow-rotate-left"
-                                                onClick={handleSendBack}
+                                                onClick={sendBack}
                                                 className="min-h-[52px]! flex-col gap-0.5! px-1! text-xs! sm:flex-row sm:gap-2! sm:px-5! sm:text-base! bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                                             />
                                             <Button
@@ -611,66 +325,64 @@ const CheckoutPage = () => {
                 </section>
             </div>
 
-            {showAddItem && (
+            {editor.showAddItem && (
                 <AddItemModal
                     products={products}
-                    onAdd={handleAddLine}
-                    onClose={() => setShowAddItem(false)}
+                    onAdd={editor.addLine}
+                    onClose={editor.closeAddItem}
                 />
             )}
 
-            {editingLine?.lineType === "Upcharge" && (
+            {editor.editingLine?.lineType === "Upcharge" && (
                 <UpchargeModal
-                    line={editingLine}
-                    parentLine={
-                        order?.lines?.find((l) => l.id === editingLine.parentLineId) ?? editingLine
-                    }
-                    onSave={handleUpdateLine}
-                    onClose={() => setEditingLine(null)}
+                    line={editor.editingLine}
+                    parentLine={editor.upchargeParent(editor.editingLine)}
+                    onSave={editor.updateLine}
+                    onClose={() => editor.setEditingLine(null)}
                 />
             )}
 
-            {editingLine && editingLine.lineType !== "Upcharge" && (
+            {editor.editingLine && editor.editingLine.lineType !== "Upcharge" && (
                 <EditLineModal
-                    line={editingLine}
-                    onSave={handleUpdateLine}
-                    onClose={() => setEditingLine(null)}
+                    line={editor.editingLine}
+                    onSave={editor.updateLine}
+                    onClose={() => editor.setEditingLine(null)}
                 />
             )}
 
-            {upchargingLine && (
+            {editor.upchargingLine && (
                 <UpchargeModal
-                    parentLine={upchargingLine}
-                    onSave={handleAddLine}
-                    onClose={() => setUpchargingLine(null)}
+                    parentLine={editor.upchargingLine}
+                    onSave={editor.addLine}
+                    onClose={() => editor.setUpchargingLine(null)}
                 />
             )}
 
-            {servicingLine && (
+            {editor.servicingLine && (
                 <AddServiceModal
-                    parentLine={servicingLine}
+                    parentLine={editor.servicingLine}
                     options={deliveryOptions}
                     products={products}
-                    onAdd={handleAddLine}
-                    onClose={() => setServicingLine(null)}
+                    onAdd={editor.addLine}
+                    onClose={() => editor.setServicingLine(null)}
                 />
             )}
 
-            {removingLine && (
+            {editor.removingLine && (
                 <ConfirmationModal
                     title="Remove item"
-                    message={`Remove "${removingLine.description}" from this order?`}
+                    message={`Remove "${editor.removingLine.description}" from this order?`}
                     confirmText="Remove"
                     destructive
-                    onConfirm={handleRemoveLine}
-                    onCancel={() => setRemovingLine(null)}
+                    onConfirm={editor.removeLine}
+                    onCancel={() => editor.setRemovingLine(null)}
                 />
             )}
 
             {showCustomerSheet && order && (
                 <CustomerDetailsSheet
                     order={order}
-                    onSave={saveOrder}
+                    onSave={editor.saveOrder}
                     onClose={() => setShowCustomerSheet(false)}
                 />
             )}
@@ -678,7 +390,7 @@ const CheckoutPage = () => {
             {showAcknowledgements && order && (
                 <AcknowledgementSheet
                     order={order}
-                    onSave={saveOrder}
+                    onSave={editor.saveOrder}
                     onClose={() => setShowAcknowledgements(false)}
                 />
             )}
@@ -689,7 +401,7 @@ const CheckoutPage = () => {
                     message={`Void order #${order?.orderNumber}? It stays on file for the audit trail but drops out of the day's totals.`}
                     confirmText="Void"
                     destructive
-                    onConfirm={handleVoid}
+                    onConfirm={voidOrder}
                     onCancel={() => setVoiding(false)}
                 />
             )}

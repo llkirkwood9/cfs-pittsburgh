@@ -1,35 +1,30 @@
-import { useCallback, useEffect, useState } from "react";
-import { Navigate } from "react-router-dom";
+import { useState } from "react";
 import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import EventBreakdown from "../Components/Dashboard/EventBreakdown";
+import EventFilter from "../Components/Dashboard/EventFilter";
 import SalesByHourChart from "../Components/Dashboard/SalesByHourChart";
 import SalesStars from "../Components/Dashboard/SalesStars";
 import StockWatch from "../Components/Dashboard/StockWatch";
 import TerritoryComparison from "../Components/Dashboard/TerritoryComparison";
 import StatCard from "../Components/Elements/StatCard";
-import TabButton from "../Components/Elements/TabButton";
-import { useAuth } from "@shared/Context/AuthContext";
-import { useTerritory } from "../Context/TerritoryContext";
-import { CategoryNames } from "@shared/Lib/Catalog";
-import { EventsForFilter, IsPastEvent } from "@shared/Lib/Events";
+import { useTerritory } from "@shared/Context/TerritoryContext";
+import { useDashboard } from "@shared/Hooks/useDashboard";
+import {
+    BEST_SELLERS,
+    DASHBOARD_POLL_MS,
+    DashboardTitle,
+    RankingCategoryOptions,
+    RankingEmptyText,
+    RankProducts,
+    TakenBy,
+    UnitsSold,
+    WORST_SELLERS,
+} from "@shared/Lib/Dashboard";
 import { FormatCurrency } from "@shared/Lib/Format";
-import { IsOnline } from "@shared/Lib/Connection";
-import type { DashboardStats, ProductTally } from "@shared/Models/DashboardStats";
-import type { Event } from "@shared/Models/Event";
+import type { ProductTally } from "@shared/Models/DashboardStats";
 import type { ProductCategory } from "@shared/Models/Product";
-import { GetStatsForAllEvents, GetStatsForEvent } from "@shared/Services/DashboardServices";
-import { GetActiveEvent, GetEvents } from "@shared/Services/EventServices";
-
-/** How often the figures refresh while the page is open. */
-const POLL_MS = 15000;
-
-/** How many best sellers an event lists; the overview of every event lists every item sold. */
-const BEST_SELLERS = 15;
-
-/** How many worst sellers the overview of every event lists. */
-const WORST_SELLERS = 20;
 
 /**
  * A titled list of products with the units each sold, in the order given, narrowed to one
@@ -48,9 +43,7 @@ const ProductRanking = ({
     limit?: number;
 }) => {
     const [category, setCategory] = useState<ProductCategory | "All">("All");
-    const shown = products
-        .filter((p) => category === "All" || p.category === category)
-        .slice(0, limit);
+    const shown = RankProducts(products, category, limit);
 
     return (
         <section className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
@@ -65,19 +58,16 @@ const ProductRanking = ({
                     className="min-h-[36px] rounded-lg border border-zinc-300 bg-white px-2 text-sm
                     dark:border-zinc-600 dark:bg-zinc-800 dark:scheme-dark"
                 >
-                    <option value="All">All categories</option>
-                    {(Object.keys(CategoryNames) as ProductCategory[]).map((c) => (
-                        <option key={c} value={c}>
-                            {CategoryNames[c]}
+                    {RankingCategoryOptions.map((o) => (
+                        <option key={o.value} value={o.value}>
+                            {o.label}
                         </option>
                     ))}
                 </select>
             </div>
             {shown.length === 0 ? (
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">
-                    {category === "All"
-                        ? empty
-                        : `No ${CategoryNames[category].toLowerCase()} yet.`}
+                    {RankingEmptyText(category, empty)}
                 </p>
             ) : (
                 <ul className="space-y-1">
@@ -116,60 +106,11 @@ const ProductRanking = ({
  * them side by side.
  */
 const DashboardPage = () => {
-    const { user } = useAuth();
     const { canSwitch, territoryId: territoryInView, territoryName } = useTerritory();
     const viewingAll = canSwitch && territoryInView == null;
 
-    const [events, setEvents] = useState<Event[]>([]);
-    const [scope, setScope] = useState<"event" | "all">("event");
-    const [eventId, setEventId] = useState<number | null>(null);
-    const [stats, setStats] = useState<DashboardStats | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
-
-    /**
-     * Shows a scope's figures. The scope changes together with its figures, so one scope is never
-     * shown with another's - the overview's net sales lighting up an event's stars.
-     */
-    const show = useCallback(async (nextScope: "event" | "all", id: number | null) => {
-        const result =
-            nextScope === "all"
-                ? await GetStatsForAllEvents()
-                : id
-                  ? await GetStatsForEvent(id)
-                  : null;
-        // Keep the last figures up while the server cannot be reached, rather than showing zeros.
-        if (!result && !IsOnline()) return;
-        setScope(nextScope);
-        setEventId(id);
-        setStats(result);
-    }, []);
-
-    useEffect(() => {
-        const load = async () => {
-            setLoading(true);
-
-            const [all, active] = await Promise.all([GetEvents(), GetActiveEvent()]);
-            const list = EventsForFilter(all);
-            setEvents(list);
-
-            await show("event", active?.id ?? list[0]?.id ?? null);
-
-            setLoading(false);
-        };
-
-        load();
-    }, [show]);
-
-    useEffect(() => {
-        const timer = setInterval(() => show(scope, eventId), POLL_MS);
-        return () => clearInterval(timer);
-    }, [scope, eventId, show]);
-
-    if (!user) return <Navigate to="/unauthorized" replace />;
-
-    const switchScope = (next: "event" | "all") => show(next, eventId);
-
-    const switchEvent = (id: number) => show("event", id);
+    const { events, scope, eventId, stats, loading, refresh, switchScope, switchEvent } =
+        useDashboard();
 
     if (loading) {
         return (
@@ -179,72 +120,31 @@ const DashboardPage = () => {
         );
     }
 
-    const units: { label: string; value: number; icon: string }[] = [
-        { label: "Mattresses", value: stats?.mattressCount ?? 0, icon: "fa-solid fa-bed" },
-        {
-            label: "Adjustable bases",
-            value: stats?.adjustableBaseCount ?? 0,
-            icon: "fa-solid fa-sliders",
-        },
-        { label: "Purple", value: stats?.purpleCount ?? 0, icon: "fa-solid fa-star" },
-        { label: "Helix", value: stats?.helixCount ?? 0, icon: "fa-solid fa-star" },
-        {
-            label: "Protectors",
-            value: stats?.mattressProtectorCount ?? 0,
-            icon: "fa-solid fa-shield",
-        },
-        { label: "Pillows", value: stats?.pillowCount ?? 0, icon: "fa-solid fa-cloud" },
-        { label: "Sheets", value: stats?.sheetCount ?? 0, icon: "fa-solid fa-layer-group" },
-        { label: "Frames", value: stats?.frameCount ?? 0, icon: "fa-solid fa-border-all" },
-        { label: "Bean bags", value: stats?.beanBagChairCount ?? 0, icon: "fa-solid fa-couch" },
-        { label: "Other", value: stats?.miscCount ?? 0, icon: "fa-solid fa-box" },
-    ];
-
-    const payments: { label: string; value: number }[] = [
-        { label: "Credit/debit cards", value: stats?.creditCardTotal ?? 0 },
-        { label: "Cash", value: stats?.cashTotal ?? 0 },
-        { label: "Checks", value: stats?.checkTotal ?? 0 },
-        { label: "Financing balance", value: stats?.financingTotal ?? 0 },
-        { label: "Layaway balance", value: stats?.layawayTotal ?? 0 },
-    ];
-
     return (
         <div className="mx-auto max-w-(--breakpoint-2xl) p-3 sm:p-4">
             <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h1 className="text-xl font-bold">
-                    {scope === "all"
-                        ? viewingAll
-                            ? "All events in every territory"
-                            : `All ${territoryName ? `${territoryName} ` : ""}events`
-                        : stats?.organization}
+                    {DashboardTitle(scope, viewingAll, territoryName, stats)}
                 </h1>
                 <Button
                     text="Refresh"
                     icon="fa-solid fa-rotate"
-                    onClick={() => show(scope, eventId)}
+                    onClick={refresh}
                     className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                 />
             </div>
 
-            {viewingAll && <TerritoryComparison pollMs={POLL_MS} />}
+            {viewingAll && <TerritoryComparison pollMs={DASHBOARD_POLL_MS} />}
 
-            <div className="-mx-1 mb-4 flex gap-2 overflow-x-auto px-1 pb-1">
-                <TabButton
-                    text="All events"
-                    active={scope === "all"}
-                    onClick={() => switchScope("all")}
-                />
-                {events.map((event) => (
-                    <TabButton
-                        key={event.id}
-                        text={event.organization ?? ""}
-                        subtext={viewingAll ? (event.territoryName ?? undefined) : undefined}
-                        tag={IsPastEvent(event) ? "Past" : undefined}
-                        active={scope === "event" && event.id === eventId}
-                        onClick={() => event.id && switchEvent(event.id)}
-                    />
-                ))}
-            </div>
+            <EventFilter
+                events={events}
+                allPicked={scope === "all"}
+                pickedEventId={eventId}
+                showTerritory={viewingAll}
+                onPickAll={() => switchScope("all")}
+                onPickEvent={switchEvent}
+                className="mb-4"
+            />
 
             <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
                 <StatCard
@@ -289,7 +189,7 @@ const DashboardPage = () => {
                         Units sold
                     </h2>
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
-                        {units.map((unit) => (
+                        {UnitsSold(stats).map((unit) => (
                             <div
                                 key={unit.label}
                                 className="rounded-lg bg-zinc-100 p-3 text-center dark:bg-zinc-700"
@@ -312,7 +212,7 @@ const DashboardPage = () => {
                         Taken by
                     </h2>
                     <dl className="space-y-2">
-                        {payments.map((row) => (
+                        {TakenBy(stats).map((row) => (
                             <div
                                 key={row.label}
                                 className="flex items-baseline justify-between gap-4"

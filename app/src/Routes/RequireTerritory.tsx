@@ -3,26 +3,28 @@ import { Pressable, View } from "react-native";
 import Icon from "../Components/Elements/Icon";
 import Page from "../Components/Elements/Page";
 import Text from "../Components/Elements/Text";
-import { useTerritory } from "../Context/TerritoryContext";
+import { useTerritory } from "@shared/Context/TerritoryContext";
+import { useInMoreStack } from "./InMoreStack";
+import { HasOneTerritory } from "@shared/Lib/Screens";
+import { ActiveTerritories } from "@shared/Models/Territory";
 
 type Props = {
     children: ReactNode;
     /** What the screen is for, e.g. "take orders". */
     purpose: string;
-    /** A screen opened within More has its own header, so no menu bar. */
-    inStack?: boolean;
 };
 
 /**
  * For screens that work in one territory at a time - selling, checkout, stock counts, the catalog.
  * Someone with one territory is always in it; anyone viewing all of theirs is asked to pick one.
  */
-const RequireTerritory = ({ children, purpose, inStack = false }: Props) => {
+const RequireTerritory = ({ children, purpose }: Props) => {
+    const inStack = useInMoreStack();
     const { territoryId, territories, canSwitch, allLabel, setTerritoryId } = useTerritory();
 
-    if (territoryId != null || !canSwitch) return <>{children}</>;
+    if (HasOneTerritory(territoryId, canSwitch)) return <>{children}</>;
 
-    const active = territories.filter((t) => t.isActive !== false);
+    const active = ActiveTerritories(territories);
 
     return (
         <Page navbar={!inStack} edges={inStack ? ["left", "right"] : undefined}>
@@ -33,8 +35,8 @@ const RequireTerritory = ({ children, purpose, inStack = false }: Props) => {
                 />
                 <Text className="mb-1 text-lg font-bold">Pick a territory</Text>
                 <Text className="mb-4 text-center text-sm text-zinc-500 dark:text-zinc-400">
-                    You&apos;re viewing {allLabel.toLowerCase()}. To {purpose}, choose which one you&apos;re
-                    working in.
+                    You&apos;re viewing {allLabel.toLowerCase()}. To {purpose}, choose which one
+                    you&apos;re working in.
                 </Text>
                 {active.length === 0 ? (
                     <Text className="text-center text-sm text-zinc-500 dark:text-zinc-400">

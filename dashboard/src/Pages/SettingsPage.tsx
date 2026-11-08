@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useState } from "react";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import BusinessDetailsSettings from "../Components/Settings/BusinessDetailsSettings";
@@ -8,21 +7,8 @@ import NewEventSettings from "../Components/Settings/NewEventSettings";
 import ReceiptEmailSettings from "../Components/Settings/ReceiptEmailSettings";
 import { SettingsScopeContext } from "@shared/Context/SettingsScope";
 import TermsSettings from "../Components/Settings/TermsSettings";
-import { useAuth } from "@shared/Context/AuthContext";
-import { useSettings } from "../Context/SettingsContext";
-import { useTerritory } from "../Context/TerritoryContext";
-import type { GeneralSettings } from "@shared/Models/GeneralSettings";
-import { IsCompanyWide } from "@shared/Models/User";
-import { GetGeneralSettings } from "@shared/Services/SettingsServices";
-
-const sections = [
-    { id: "business", label: "Business details", icon: "fa-solid fa-building" },
-    { id: "terms", label: "Sales sheet terms", icon: "fa-solid fa-file-signature" },
-    { id: "receipt-email", label: "Receipt email", icon: "fa-solid fa-envelope" },
-    { id: "financing", label: "Financing", icon: "fa-solid fa-file-invoice-dollar" },
-    { id: "events", label: "New events", icon: "fa-solid fa-calendar-plus" },
-    { id: "dashboard", label: "Dashboard", icon: "fa-solid fa-chart-column" },
-];
+import { useSettingsPage } from "@shared/Hooks/useSettingsPage";
+import { SettingsSections } from "@shared/Lib/SettingsCards";
 
 /**
  * Settings: the business details printed on sheets and emails, the terms customers initial, the
@@ -32,38 +18,8 @@ const sections = [
  * card saves on its own.
  */
 const SettingsPage = () => {
-    const { refresh: refreshInView } = useSettings();
-    const { user } = useAuth();
-    const { territories, territoryId: territoryInView, canSwitch, territoryName } = useTerritory();
-    const companyWide = IsCompanyWide(user?.role);
-
-    // Start on the territory in view. Viewing every territory, system admins and administrators
-    // start on the company-wide settings; a manager with several territories on their first.
-    const [scopeId, setScopeId] = useState<number | null>(
-        territoryInView ?? (companyWide ? null : (user?.territoryIds?.[0] ?? null))
-    );
-    const [settings, setSettings] = useState<GeneralSettings | null>(null);
-
-    const load = useCallback(async (id: number | null) => {
-        setSettings(null);
-        setSettings(await GetGeneralSettings(id));
-    }, []);
-
-    useEffect(() => {
-        load(scopeId);
-    }, [scopeId, load]);
-
-    const apply = (next: GeneralSettings) => {
-        setSettings(next);
-        // Whatever is on screen elsewhere picks the change up too.
-        refreshInView();
-    };
-
-    const scopeName =
-        scopeId == null
-            ? "Company-wide"
-            : (territories.find((t) => t.id === scopeId)?.name ?? territoryName);
-    const active = territories.filter((t) => t.isActive !== false);
+    const { canSwitch, companyWide, territories, scopeId, setScopeId, scopeName, scope } =
+        useSettingsPage();
 
     return (
         <div className="mx-auto max-w-6xl p-3 sm:p-4">
@@ -82,7 +38,7 @@ const SettingsPage = () => {
                             dark:border-zinc-600 dark:bg-zinc-800 dark:scheme-dark"
                     >
                         {companyWide && <option value="">Company-wide settings</option>}
-                        {active.map((t) => (
+                        {territories.map((t) => (
                             <option key={t.id} value={t.id}>
                                 {t.name}
                             </option>
@@ -98,7 +54,7 @@ const SettingsPage = () => {
             </p>
 
             <nav aria-label="Settings sections" className="mb-4 flex flex-wrap gap-2">
-                {sections.map((s) => (
+                {SettingsSections.map((s) => (
                     <a
                         key={s.id}
                         href={`#${s.id}`}
@@ -116,14 +72,11 @@ const SettingsPage = () => {
                 ))}
             </nav>
 
-            {settings == null ? (
+            {scope == null ? (
                 <ListSkeleton rows={6} />
             ) : (
                 // Keyed so switching scope starts every card afresh with that scope's values.
-                <SettingsScopeContext.Provider
-                    key={scopeId ?? "company"}
-                    value={{ territoryId: scopeId, scopeName, settings, apply }}
-                >
+                <SettingsScopeContext.Provider key={scopeId ?? "company"} value={scope}>
                     <div className="space-y-4">
                         <BusinessDetailsSettings />
                         <TermsSettings />

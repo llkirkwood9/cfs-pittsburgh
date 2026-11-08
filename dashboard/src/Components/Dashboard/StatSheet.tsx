@@ -3,18 +3,14 @@ import { FormatCurrency, FormatShortDate } from "@shared/Lib/Format";
 import type { DashboardStats } from "@shared/Models/DashboardStats";
 import type { Event } from "@shared/Models/Event";
 import type { Order } from "@shared/Models/Order";
-import type { PaymentMethod } from "@shared/Models/OrderPayment";
+import { MIN_LIST_ROWS, StatSheetAverageSale, StatSheetEntries } from "@shared/Lib/Stats";
+import type { StatSheetEntry } from "@shared/Lib/Stats";
 
 type Props = {
     saleEvent: Event | null;
     stats: DashboardStats | null;
     orders: Order[];
 };
-
-type Entry = { key: string; label: string; amount: number };
-
-/** Minimum ruled lines per itemised column, so a quiet event still looks like the paper form. */
-const MIN_LIST_ROWS = 14;
 
 const box = "border border-black";
 const heading = "border-b border-black px-1 py-[2px] text-center text-[9px] font-bold uppercase";
@@ -26,28 +22,13 @@ const totalRow = "border-t border-black px-1 py-[2px] text-[10px] font-semibold"
  * underneath, and the summary box at the bottom. Printed as the first page of an event's sheets.
  */
 const StatSheet = ({ saleEvent, stats, orders }: Props) => {
-    const entries = (method: PaymentMethod): Entry[] =>
-        orders.flatMap((order) =>
-            (order.payments ?? [])
-                .filter((p) => p.method === method)
-                .map((p, index) => ({
-                    key: `${order.id}-${p.id ?? index}`,
-                    label:
-                        method === "Check" && p.checkNumber
-                            ? `#${order.orderNumber} ck ${p.checkNumber}`
-                            : `#${order.orderNumber}`,
-                    amount: p.amount ?? 0,
-                }))
-        );
-
-    const financing = entries("Financing");
-    const checks = entries("Check");
-    const layaway = entries("Layaway");
-    const cash = entries("Cash");
+    const financing = StatSheetEntries(orders, "Financing");
+    const checks = StatSheetEntries(orders, "Check");
+    const layaway = StatSheetEntries(orders, "Layaway");
+    const cash = StatSheetEntries(orders, "Cash");
 
     const units = stats?.mattressAndBaseCount ?? 0;
-    // As on the paper sheet: total sales divided by the number of mattresses and bases.
-    const averageSale = units > 0 ? (stats?.totalSales ?? 0) / units : 0;
+    const averageSale = StatSheetAverageSale(stats);
 
     const count = (label: string, value: number | undefined, grow = false) => (
         <div className={`flex flex-col ${grow ? "flex-1" : ""}`}>
@@ -61,7 +42,7 @@ const StatSheet = ({ saleEvent, stats, orders }: Props) => {
         </div>
     );
 
-    const list = (label: string, rows: Entry[], minRows: number, grow = false) => {
+    const list = (label: string, rows: StatSheetEntry[], minRows: number, grow = false) => {
         const total = rows.reduce((sum, r) => sum + r.amount, 0);
         const blanks = Math.max(0, minRows - rows.length);
 

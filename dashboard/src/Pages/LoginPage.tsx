@@ -5,8 +5,8 @@ import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "@shared/Context/AuthContext";
-import { useSettings } from "../Context/SettingsContext";
-import { HomePathForRole } from "../Lib/RoleRoutes";
+import { useSettings } from "@shared/Context/SettingsContext";
+import { HomePathForRole } from "../Lib/ScreenLinks";
 import { Toast } from "../Lib/Toast";
 
 /**

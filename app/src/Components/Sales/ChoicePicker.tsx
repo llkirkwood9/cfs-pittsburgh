@@ -27,7 +27,11 @@ const ChoicePicker = ({ option, picked, onPick, stockFor, hidePrice = false }: P
                 {option.name}
                 {!required && <Text className="text-xs font-normal normal-case"> (optional)</Text>}
             </Text>
-            <View accessibilityRole="radiogroup" accessibilityLabel={option.name} className="flex-row flex-wrap gap-2">
+            <View
+                accessibilityRole="radiogroup"
+                accessibilityLabel={option.name}
+                className="flex-row flex-wrap gap-2"
+            >
                 {(option.choices ?? []).map((choice) => {
                     const stock = stockFor?.(choice.id ?? 0) ?? null;
                     const active = picked === choice.id;

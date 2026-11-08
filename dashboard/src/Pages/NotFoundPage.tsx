@@ -19,7 +19,7 @@ const NotFoundPage = () => {
                 <Button
                     text="Back to selling"
                     icon="fa-solid fa-arrow-left"
-                    onClick={() => navigate("/sales")}
+                    onClick={() => navigate("/")}
                     className="mt-5"
                 />
             </div>

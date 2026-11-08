@@ -5,10 +5,15 @@ import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import Text from "../Elements/Text";
 import { useAuth } from "@shared/Context/AuthContext";
-import { useSettings } from "../../Context/SettingsContext";
+import { useSettings } from "@shared/Context/SettingsContext";
 import { cx } from "../../Lib/ClassNames";
 import { IsOnline } from "@shared/Lib/Connection";
-import { InventoryRowKey, InventorySizeLabel } from "@shared/Lib/Inventory";
+import {
+    InventoryRowKey,
+    InventorySizeLabel,
+    StockLevelOf,
+    StockToWatch,
+} from "@shared/Lib/Inventory";
 import type { InventoryItem } from "@shared/Models/InventoryItem";
 import { GetInventory } from "@shared/Services/InventoryServices";
 
@@ -47,11 +52,7 @@ const StockWatch = ({ refreshKey = 0 }: Props) => {
     // Nothing is tracked, so there is nothing to watch.
     if (!items || items.length === 0) return null;
 
-    const watch = items
-        .filter((i) => (i.quantityOnHand ?? 0) <= LOW)
-        .sort((a, b) => (a.quantityOnHand ?? 0) - (b.quantityOnHand ?? 0));
-    const outCount = watch.filter((i) => (i.quantityOnHand ?? 0) <= 0).length;
-    const lowCount = watch.length - outCount;
+    const { watch, outCount, lowCount } = StockToWatch(items, LOW);
 
     return (
         <View className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
@@ -71,7 +72,10 @@ const StockWatch = ({ refreshKey = 0 }: Props) => {
 
             {watch.length === 0 ? (
                 <View className="flex-row items-center gap-2">
-                    <Icon icon="fa-solid fa-circle-check" className="text-sm text-green-700 dark:text-green-400" />
+                    <Icon
+                        icon="fa-solid fa-circle-check"
+                        className="text-sm text-green-700 dark:text-green-400"
+                    />
                     <Text className="flex-1 text-sm text-green-700 dark:text-green-400">
                         Every counted size has more than {LOW} on hand.
                     </Text>
@@ -85,8 +89,10 @@ const StockWatch = ({ refreshKey = 0 }: Props) => {
                     </Text>
                     {watch.slice(0, SHOW).map((item, index) => {
                         const onHand = item.quantityOnHand ?? 0;
-                        const out = onHand <= 0;
-                        const color = out ? "text-red-700 dark:text-red-400" : "text-amber-700 dark:text-amber-400";
+                        const out = StockLevelOf(onHand, LOW) === "out";
+                        const color = out
+                            ? "text-red-700 dark:text-red-400"
+                            : "text-amber-700 dark:text-amber-400";
                         return (
                             <View
                                 key={InventoryRowKey(item)}
@@ -104,7 +110,11 @@ const StockWatch = ({ refreshKey = 0 }: Props) => {
                                 {/* Status carries an icon and a word, never color alone. */}
                                 <View className="flex-row items-center gap-1">
                                     <Icon
-                                        icon={out ? "fa-solid fa-circle-xmark" : "fa-solid fa-triangle-exclamation"}
+                                        icon={
+                                            out
+                                                ? "fa-solid fa-circle-xmark"
+                                                : "fa-solid fa-triangle-exclamation"
+                                        }
                                         className={cx("text-xs", color)}
                                     />
                                     <Text className={cx("text-xs font-semibold", color)}>
@@ -116,7 +126,8 @@ const StockWatch = ({ refreshKey = 0 }: Props) => {
                     })}
                     {watch.length > SHOW && (
                         <Text className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-                            and {watch.length - SHOW} more size{watch.length - SHOW === 1 ? "" : "s"}
+                            and {watch.length - SHOW} more size
+                            {watch.length - SHOW === 1 ? "" : "s"}
                         </Text>
                     )}
                 </>

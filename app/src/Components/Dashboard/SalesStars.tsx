@@ -1,7 +1,7 @@
 import { View } from "react-native";
 import Icon from "../Elements/Icon";
 import Text from "../Elements/Text";
-import { useSettings } from "../../Context/SettingsContext";
+import { useSettings } from "@shared/Context/SettingsContext";
 import { FormatCurrency } from "@shared/Lib/Format";
 
 /** Past this many, the rest are shown as a number so the card never overflows. */
@@ -36,12 +36,17 @@ const SalesStars = ({ net }: Props) => {
     const label = `${stars} star${stars === 1 ? "" : "s"}: net sales passed ${FormatCurrency(passed)}. Next star at ${FormatCurrency(passed + every)}.`;
 
     return (
-        <View className="flex-row items-center gap-0.5" accessible accessibilityRole="image" accessibilityLabel={label}>
+        <View
+            className="flex-row items-center gap-0.5"
+            accessible
+            accessibilityRole="image"
+            accessibilityLabel={label}
+        >
             {Array.from({ length: Math.min(stars, MAX_DRAWN) }).map((_, i) => (
                 <Icon key={i} icon="fa-solid fa-star" className="text-sm text-amber-500" />
             ))}
             {stars > MAX_DRAWN && (
-                <Text className="ml-0.5 text-xs font-bold tabular-nums text-amber-600 dark:text-amber-400">
+                <Text className="ml-0.5 text-xs font-bold text-amber-600 tabular-nums dark:text-amber-400">
                     +{stars - MAX_DRAWN}
                 </Text>
             )}

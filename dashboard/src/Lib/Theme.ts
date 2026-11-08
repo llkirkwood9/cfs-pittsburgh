@@ -1,4 +1,6 @@
-export type Theme = "light" | "dark" | "system";
+import type { Theme } from "@shared/Lib/Themes";
+
+export type { Theme };
 
 export const THEME_STORAGE_KEY = "theme";
 
@@ -48,7 +50,6 @@ export const subscribeThemeChanged = (listener: (theme: Theme) => void): (() => 
         listeners = listeners.filter((l) => l !== listener);
     };
 };
-
 
 /**
  * Stores a new preference, applies it and tells every useTheme.

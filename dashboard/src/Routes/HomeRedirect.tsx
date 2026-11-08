@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
 import LoadingPage from "../Components/Elements/LoadingPage";
 import { useAuth } from "@shared/Context/AuthContext";
-import { HomePathForRole } from "../Lib/RoleRoutes";
+import { HomePathForRole } from "../Lib/ScreenLinks";
 
 /**
  * The root path sends each crew member to the screen their role actually uses, rather than

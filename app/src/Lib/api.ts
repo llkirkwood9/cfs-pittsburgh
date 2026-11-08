@@ -52,7 +52,9 @@ const client = CreateApiClient({
     forget: () => SetItem(StorageKeys.refreshToken, null),
     headersFor: (url) => {
         // Changing the password keeps this device signed in; the API knows it by its refresh token.
-        const stored = /\/api\/auth\/change-password/i.test(url) ? GetItem(StorageKeys.refreshToken) : null;
+        const stored = /\/api\/auth\/change-password/i.test(url)
+            ? GetItem(StorageKeys.refreshToken)
+            : null;
         return stored ? sessionHeaders(stored) : { "X-CFS-Client": CLIENT };
     },
 });

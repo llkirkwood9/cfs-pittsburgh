@@ -1,4 +1,3 @@
-import { useMemo, useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import Button from "../Elements/Button";
 import Checkbox from "../Elements/Checkbox";
@@ -9,16 +8,10 @@ import TabButton from "../Elements/TabButton";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
 import { cx } from "../../Lib/ClassNames";
-import { Toast } from "../../Lib/Toast";
-import type { Product, ProductCategory } from "@shared/Models/Product";
-import type { ProductVariant } from "@shared/Models/ProductVariant";
-
-export type BundlePick = {
-    product: Product;
-    variant: ProductVariant;
-    quantity: number;
-    matchSizes: boolean;
-};
+import { useProductBundlePicker } from "@shared/Hooks/useProductBundlePicker";
+import { CategoryShortNames, VariantLabel } from "@shared/Lib/Catalog";
+import type { BundlePick } from "@shared/Lib/ProductDraft";
+import type { Product } from "@shared/Models/Product";
 
 type Props = {
     catalog: Product[];
@@ -27,17 +20,6 @@ type Props = {
     configuration?: string | null;
     onPick: (pick: BundlePick) => void;
     onClose: () => void;
-};
-
-const categoryLabels: Record<ProductCategory, string> = {
-    AdjustableBase: "Bases",
-    Mattress: "Mattresses",
-    Pillow: "Pillows",
-    Sheets: "Sheets",
-    MattressProtector: "Protectors",
-    Frame: "Frames",
-    BeanBagChair: "Bean Bags",
-    Misc: "Other",
 };
 
 /**
@@ -54,58 +36,8 @@ const BundlePickerModal = ({
     onPick,
     onClose,
 }: Props) => {
-    // Bundles cannot contain bundles, so only items sold on their own are offered.
-    const choices = useMemo(
-        () =>
-            catalog
-                .filter((p) => p.id !== excludeProductId)
-                .map((p) => ({
-                    ...p,
-                    variants: (p.variants ?? []).filter((v) => (v.components ?? []).length === 0),
-                }))
-                .filter((p) => p.variants.length > 0),
-        [catalog, excludeProductId]
-    );
-
-    const categories = useMemo(() => {
-        const present = new Set(choices.map((p) => p.category));
-        return (Object.keys(categoryLabels) as ProductCategory[]).filter((c) => present.has(c));
-    }, [choices]);
-
-    const [tab, setTab] = useState<ProductCategory>(
-        categories.includes("AdjustableBase") ? "AdjustableBase" : (categories[0] ?? "Misc")
-    );
-    const [search, setSearch] = useState<string>("");
-    const [product, setProduct] = useState<Product | null>(null);
-    const [variantId, setVariantId] = useState<number | null>(null);
-    const [quantity, setQuantity] = useState<number>(1);
-    const [matchSizes, setMatchSizes] = useState<boolean>(true);
-
-    const filtered = choices.filter((p) => {
-        if (p.category !== tab) return false;
-        const term = search.trim().toLowerCase();
-        return (
-            !term ||
-            (p.name ?? "").toLowerCase().includes(term) ||
-            (p.brand ?? "").toLowerCase().includes(term)
-        );
-    });
-
-    const choose = (picked: Product) => {
-        setProduct(picked);
-        // Start on the same size as the bundle, which is nearly always the right one.
-        const sameSize = picked.variants?.find(
-            (v) => (v.size ?? "").toLowerCase() === (size ?? "").toLowerCase()
-        );
-        setVariantId(sameSize?.id ?? picked.variants?.[0]?.id ?? null);
-    };
-
-    const handleAdd = () => {
-        const variant = product?.variants?.find((v) => v.id === variantId);
-        if (!product || !variant) return Toast.Warning("Pick a size.");
-        onPick({ product, variant, quantity, matchSizes });
-        onClose();
-    };
+    const picker = useProductBundlePicker(catalog, excludeProductId, size, onPick, onClose);
+    const { product, variantId, filtered } = picker;
 
     return (
         <Modal
@@ -118,13 +50,13 @@ const BundlePickerModal = ({
                         <Button
                             text="Back"
                             icon="fa-solid fa-arrow-left"
-                            onClick={() => setProduct(null)}
+                            onClick={picker.unchoose}
                             className="bg-zinc-500 dark:bg-zinc-600"
                         />
                         <Button
                             text="Include"
                             icon="fa-solid fa-plus"
-                            onClick={handleAdd}
+                            onClick={picker.add}
                             className="bg-green-700 dark:bg-green-600"
                         />
                     </>
@@ -139,19 +71,19 @@ const BundlePickerModal = ({
                         className="mb-3"
                         contentContainerClassName="gap-2 pb-1"
                     >
-                        {categories.map((c) => (
+                        {picker.categories.map((c) => (
                             <TabButton
                                 key={c}
-                                text={categoryLabels[c]}
-                                active={tab === c}
-                                onClick={() => setTab(c)}
+                                text={CategoryShortNames[c]}
+                                active={picker.tab === c}
+                                onClick={() => picker.setTab(c)}
                             />
                         ))}
                     </ScrollView>
                     <TextField
                         label="Search"
-                        value={search}
-                        onChange={setSearch}
+                        value={picker.search}
+                        onChange={picker.setSearch}
                         placeholder="Name or brand"
                         autoCapitalize="none"
                         className="mb-3"
@@ -165,10 +97,9 @@ const BundlePickerModal = ({
                             {filtered.map((p) => (
                                 <Pressable
                                     key={p.id}
-                                    onPress={() => choose(p)}
+                                    onPress={() => picker.choose(p)}
                                     accessibilityRole="button"
-                                    className="min-h-[60px] justify-center rounded-xl bg-zinc-100 px-4 py-2 active:bg-zinc-200
-                                        dark:bg-zinc-700 dark:active:bg-zinc-600"
+                                    className="min-h-[60px] justify-center rounded-xl bg-zinc-100 px-4 py-2 active:bg-zinc-200 dark:bg-zinc-700 dark:active:bg-zinc-600"
                                 >
                                     <Text className="font-semibold">{p.name}</Text>
                                     <Text className="text-xs text-zinc-500 dark:text-zinc-400">
@@ -192,7 +123,7 @@ const BundlePickerModal = ({
                                 return (
                                     <Pressable
                                         key={v.id}
-                                        onPress={() => setVariantId(v.id ?? null)}
+                                        onPress={() => picker.setVariantId(v.id ?? null)}
                                         accessibilityRole="radio"
                                         accessibilityState={{ checked: selected }}
                                         className={cx(
@@ -205,10 +136,12 @@ const BundlePickerModal = ({
                                         <Text
                                             className={cx(
                                                 "text-sm font-semibold",
-                                                selected ? "text-white" : "text-zinc-800 dark:text-zinc-100"
+                                                selected
+                                                    ? "text-white"
+                                                    : "text-zinc-800 dark:text-zinc-100"
                                             )}
                                         >
-                                            {v.configuration ? `${v.size} - ${v.configuration}` : v.size}
+                                            {VariantLabel(v)}
                                         </Text>
                                     </Pressable>
                                 );
@@ -219,8 +152,8 @@ const BundlePickerModal = ({
                     <View className="flex-row flex-wrap items-end gap-4">
                         <Stepper
                             label="Quantity per bundle"
-                            value={quantity}
-                            onChange={setQuantity}
+                            value={picker.quantity}
+                            onChange={picker.setQuantity}
                             min={1}
                             max={20}
                         />
@@ -228,8 +161,8 @@ const BundlePickerModal = ({
                             label={`Also include it on every other size${
                                 configuration ? ` of "${configuration}"` : ""
                             }, matching sizes`}
-                            checked={matchSizes}
-                            onChange={setMatchSizes}
+                            checked={picker.matchSizes}
+                            onChange={picker.setMatchSizes}
                             className="min-w-[240px] flex-1"
                         />
                     </View>

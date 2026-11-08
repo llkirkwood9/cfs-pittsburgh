@@ -8,6 +8,7 @@ import { cx } from "../../Lib/ClassNames";
 import { FormatCurrency } from "@shared/Lib/Format";
 import { PrintsOnSalesSheet, SortLinesForPrint } from "@shared/Lib/Orders";
 import { ChoicesText, CleanDiscount, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
+import { BaseRowParents, GroupLines, MoveItem, RepDiscountText } from "@shared/Lib/Sales";
 import type { OrderLine } from "@shared/Models/OrderLine";
 
 type Props = {
@@ -25,8 +26,24 @@ type Props = {
 
 /** A small coloured label in a line's detail row. */
 const Badge = ({ text, className }: { text: string; className: string }) => (
-    <View className={cx("rounded px-1.5 py-0.5", className.split(" ").filter((c) => c.includes("bg-")).join(" "))}>
-        <Text className={cx("text-xs font-semibold", className.split(" ").filter((c) => !c.includes("bg-")).join(" "))}>
+    <View
+        className={cx(
+            "rounded px-1.5 py-0.5",
+            className
+                .split(" ")
+                .filter((c) => c.includes("bg-"))
+                .join(" ")
+        )}
+    >
+        <Text
+            className={cx(
+                "text-xs font-semibold",
+                className
+                    .split(" ")
+                    .filter((c) => !c.includes("bg-"))
+                    .join(" ")
+            )}
+        >
             {text}
         </Text>
     </View>
@@ -77,34 +94,27 @@ const OrderLineList = ({
     const ordered = SortLinesForPrint(lines);
 
     // The items in sales sheet order, each followed by its own rows, which move with it.
-    const isItem = (l: OrderLine) => !l.parentLineId || !lines.some((p) => p.id === l.parentLineId);
-    const groups: OrderLine[][] = [];
-    for (const line of ordered) {
-        if (isItem(line) || groups.length === 0) groups.push([line]);
-        else groups[groups.length - 1].push(line);
-    }
+    const groups = GroupLines(lines);
 
     // For screen readers, which can't drag: moves an item, with its own rows, up or down one place.
-    const groupIndex = (line: OrderLine) => groups.findIndex((g) => g[0].id === line.id);
-    const move = (index: number, by: number) => {
-        const ids = groups.map((g) => g[0].id ?? 0);
-        const [id] = ids.splice(index, 1);
-        ids.splice(index + by, 0, id);
-        onReorder?.(ids);
-    };
     const moveActions = (line: OrderLine) => {
-        const index = groupIndex(line);
+        const index = groups.findIndex((g) => g[0].id === line.id);
         if (!onReorder || readOnly || index < 0) return [];
+        const move = (by: number) =>
+            onReorder(
+                MoveItem(
+                    groups.map((g) => g[0].id ?? 0),
+                    index,
+                    by
+                )
+            );
         return [
-            ...(index > 0 ? [{ label: "Move up", onPress: () => move(index, -1) }] : []),
-            ...(index < groups.length - 1 ? [{ label: "Move down", onPress: () => move(index, 1) }] : []),
+            ...(index > 0 ? [{ label: "Move up", onPress: () => move(-1) }] : []),
+            ...(index < groups.length - 1 ? [{ label: "Move down", onPress: () => move(1) }] : []),
         ];
     };
 
-    // Sets sold since the base got its own row do not need the badge as well; older orders still do.
-    const hasBaseRow = new Set(
-        lines.filter((l) => l.lineType === "Included").map((l) => l.parentLineId)
-    );
+    const hasBaseRow = BaseRowParents(lines);
 
     if (ordered.length === 0) {
         return (
@@ -185,10 +195,14 @@ const OrderLineList = ({
                         </Text>
                         <View className="mt-0.5 flex-row flex-wrap items-center gap-x-2 gap-y-1">
                             {line.brand ? (
-                                <Text className="text-xs text-zinc-500 dark:text-zinc-400">{line.brand}</Text>
+                                <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+                                    {line.brand}
+                                </Text>
                             ) : null}
                             {line.size ? (
-                                <Text className="text-xs text-zinc-500 dark:text-zinc-400">{line.size}</Text>
+                                <Text className="text-xs text-zinc-500 dark:text-zinc-400">
+                                    {line.size}
+                                </Text>
                             ) : null}
                             {choices ? (
                                 <Text className="text-xs font-medium text-zinc-700 dark:text-zinc-300">
@@ -218,11 +232,7 @@ const OrderLineList = ({
                             )}
                             {HasDiscount(discount) && (
                                 <Badge
-                                    text={`-${DiscountText(discount)}${
-                                        (line.discountAmount ?? 0) > 0 && !(line.discountPercent ?? 0)
-                                            ? " ea"
-                                            : ""
-                                    }`}
+                                    text={RepDiscountText(line)}
                                     className="bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300"
                                 />
                             )}
@@ -288,7 +298,9 @@ const OrderLineList = ({
         );
     };
 
-    const renderGroup = (group: OrderLine[]) => <View className="gap-2">{group.map(renderLine)}</View>;
+    const renderGroup = (group: OrderLine[]) => (
+        <View className="gap-2">{group.map(renderLine)}</View>
+    );
 
     if (onReorder && !readOnly) {
         return (

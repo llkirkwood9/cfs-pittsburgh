@@ -1,11 +1,10 @@
-import { useState } from "react";
 import Button from "../Elements/Button";
 import Grid, { Cell } from "../Elements/Grid";
 import Modal from "../Elements/Modal";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
-import { FormatCurrency, ParseMoney } from "@shared/Lib/Format";
-import { Toast } from "../../Lib/Toast";
+import { useUpchargeEditor } from "@shared/Hooks/useSalesForms";
+import { FormatCurrency } from "@shared/Lib/Format";
 import type { OrderLine } from "@shared/Models/OrderLine";
 
 type Props = {
@@ -23,34 +22,8 @@ type Props = {
  * follows the item's quantity, and it is taxed when the item is.
  */
 const UpchargeModal = ({ parentLine, line, onSave, onClose }: Props) => {
-    const [reason, setReason] = useState<string>(line?.description ?? "");
-    const [amount, setAmount] = useState<string>(line?.unitPrice ? String(line.unitPrice) : "");
-    const [saving, setSaving] = useState<boolean>(false);
-
-    const quantity = parentLine.quantity ?? 1;
-    const parsed = ParseMoney(amount) ?? 0;
-    const valid = parsed > 0;
-
-    const handleSave = async () => {
-        if (!reason.trim()) return Toast.Warning("Enter the reason for the upcharge.");
-        if (!valid) return Toast.Warning("Enter the upcharge amount.");
-
-        setSaving(true);
-        await onSave(
-            line
-                ? { id: line.id, description: reason.trim(), unitPrice: parsed }
-                : {
-                      lineType: "Upcharge",
-                      parentLineId: parentLine.id,
-                      description: reason.trim(),
-                      unitPrice: parsed,
-                  }
-        );
-        setSaving(false);
-        onClose();
-    };
-
-    const total = valid ? parsed * quantity : 0;
+    const { reason, setReason, amount, setAmount, quantity, parsed, valid, total, saving, save } =
+        useUpchargeEditor(parentLine, line, onSave, onClose);
 
     return (
         <Modal
@@ -58,7 +31,11 @@ const UpchargeModal = ({ parentLine, line, onSave, onClose }: Props) => {
             onClose={onClose}
             footer={
                 <>
-                    <Button text="Cancel" onClick={onClose} className="bg-zinc-500 dark:bg-zinc-600" />
+                    <Button
+                        text="Cancel"
+                        onClick={onClose}
+                        className="bg-zinc-500 dark:bg-zinc-600"
+                    />
                     <Button
                         text={
                             line
@@ -68,7 +45,7 @@ const UpchargeModal = ({ parentLine, line, onSave, onClose }: Props) => {
                                   : "Add upcharge"
                         }
                         icon={line ? "fa-solid fa-check" : "fa-solid fa-plus"}
-                        onClick={handleSave}
+                        onClick={save}
                         loading={saving}
                         className={line ? undefined : "bg-green-700 dark:bg-green-600"}
                     />
@@ -98,7 +75,9 @@ const UpchargeModal = ({ parentLine, line, onSave, onClose }: Props) => {
                 {quantity > 1 && valid
                     ? `${FormatCurrency(parsed)} × ${quantity} = ${FormatCurrency(total)}. `
                     : ""}
-                {parentLine.isTaxable === false ? "Not taxed, like the item." : "Taxed, like the item."}
+                {parentLine.isTaxable === false
+                    ? "Not taxed, like the item."
+                    : "Taxed, like the item."}
                 {quantity > 1 && " Charged for each one, so it follows the item's quantity."}
             </Text>
         </Modal>

@@ -1,5 +1,5 @@
 import Icon from "../Elements/Icon";
-import { useSettings } from "../../Context/SettingsContext";
+import { useSettings } from "@shared/Context/SettingsContext";
 import { FormatCurrency } from "@shared/Lib/Format";
 
 /** Past this many, the rest are shown as a number so the card never overflows. */

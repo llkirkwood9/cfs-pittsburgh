@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Pressable, ScrollView, TextInput, View } from "react-native";
 import type { KeyboardTypeOptions } from "react-native";
 import Button from "../Elements/Button";
@@ -7,8 +6,13 @@ import Grid, { Cell } from "../Elements/Grid";
 import Icon from "../Elements/Icon";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
-import { NormalizeCustomer } from "@shared/Lib/Orders";
-import { Toast } from "../../Lib/Toast";
+import { useCustomerSheet } from "@shared/Hooks/useSalesForms";
+import {
+    CustomerBillingFields,
+    CustomerDeliveryFields,
+    CustomerReferralField,
+    type CustomerSheetField,
+} from "@shared/Lib/Sales";
 import type { Order } from "@shared/Models/Order";
 
 type Props = {
@@ -16,100 +20,6 @@ type Props = {
     onSave: (changes: Order) => Promise<void>;
     onClose: () => void;
 };
-
-type Field = {
-    key: keyof Order;
-    label: string;
-    hint?: string;
-    /** Columns out of 2 on a phone and 6 from a small tablet up, like the dashboard's spans. */
-    span: { base: number; sm: number };
-    type?: "text" | "tel" | "email";
-    autoCapitalize?: "words" | "characters" | "none";
-};
-
-const billingFields: Field[] = [
-    { key: "billingFirstName", label: "First name", span: { base: 1, sm: 3 }, autoCapitalize: "words" },
-    { key: "billingLastName", label: "Last name", span: { base: 1, sm: 3 }, autoCapitalize: "words" },
-    {
-        key: "billingAddress",
-        label: "Street address",
-        span: { base: 2, sm: 6 },
-        autoCapitalize: "words",
-    },
-    { key: "billingUnit", label: "Unit #", hint: "Optional", span: { base: 1, sm: 2 } },
-    { key: "billingFloor", label: "Floor", hint: "Optional", span: { base: 1, sm: 2 } },
-    { key: "billingSuite", label: "Suite #", hint: "Optional", span: { base: 2, sm: 2 } },
-    { key: "billingCity", label: "City", span: { base: 2, sm: 3 }, autoCapitalize: "words" },
-    { key: "billingState", label: "State", span: { base: 1, sm: 1 }, autoCapitalize: "characters" },
-    { key: "billingZip", label: "ZIP code", span: { base: 1, sm: 2 }, type: "tel" },
-    { key: "billingCell", label: "Cell phone", span: { base: 2, sm: 3 }, type: "tel" },
-    {
-        key: "billingAlt",
-        label: "Alternate phone",
-        hint: "Optional",
-        span: { base: 2, sm: 3 },
-        type: "tel",
-    },
-    {
-        key: "billingEmail",
-        label: "Email",
-        span: { base: 2, sm: 6 },
-        type: "email",
-        autoCapitalize: "none",
-    },
-];
-
-// Only asked for when the bed is going somewhere other than the billing address - a gift, a
-// college dorm, a second home.
-const deliveryFields: Field[] = [
-    {
-        key: "deliveryName",
-        label: "Who is receiving it?",
-        span: { base: 2, sm: 6 },
-        autoCapitalize: "words",
-    },
-    {
-        key: "deliveryAddress",
-        label: "Delivery street address",
-        span: { base: 2, sm: 6 },
-        autoCapitalize: "words",
-    },
-    { key: "deliveryUnit", label: "Unit #", hint: "Optional", span: { base: 1, sm: 2 } },
-    { key: "deliveryFloor", label: "Floor", hint: "Optional", span: { base: 1, sm: 2 } },
-    { key: "deliverySuite", label: "Suite #", hint: "Optional", span: { base: 2, sm: 2 } },
-    { key: "deliveryCity", label: "City", span: { base: 2, sm: 3 }, autoCapitalize: "words" },
-    {
-        key: "deliveryState",
-        label: "State",
-        span: { base: 1, sm: 1 },
-        autoCapitalize: "characters",
-    },
-    { key: "deliveryZip", label: "ZIP code", span: { base: 1, sm: 2 }, type: "tel" },
-    {
-        key: "deliveryCell",
-        label: "Phone at that address",
-        hint: "Optional",
-        span: { base: 2, sm: 3 },
-        type: "tel",
-    },
-    {
-        key: "deliveryAlt",
-        label: "Alternate phone",
-        hint: "Optional",
-        span: { base: 2, sm: 3 },
-        type: "tel",
-    },
-];
-
-const referralField: Field = {
-    key: "referralName",
-    label: "Who sent you?",
-    hint: "The student or family who invited you, so they get the credit",
-    span: { base: 2, sm: 6 },
-    autoCapitalize: "words",
-};
-
-const deliveryKeys = [...deliveryFields.map((f) => f.key), "deliveryEmail"] as const;
 
 const keyboards: Record<string, KeyboardTypeOptions> = {
     tel: "phone-pad",
@@ -123,52 +33,13 @@ const keyboards: Record<string, KeyboardTypeOptions> = {
  * no navigation, and it can't be swiped away. Everything is saved in one go when they tap Done.
  */
 const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
-    const [form, setForm] = useState<Order>(order);
-    const [saving, setSaving] = useState<boolean>(false);
-    const [elsewhere, setElsewhere] = useState<boolean>(!(order.deliverySameAsBilling ?? true));
+    const { value, set, elsewhere, setElsewhere, saving, done } = useCustomerSheet(
+        order,
+        onSave,
+        onClose
+    );
 
-    const set = (key: keyof Order, value: string) =>
-        setForm((current) => ({ ...current, [key]: value }));
-
-    const handleDone = async () => {
-        if (!(form.billingFirstName ?? "").trim() || !(form.billingLastName ?? "").trim())
-            return Toast.Warning("Please enter your first and last name.");
-
-        if (elsewhere && !(form.deliveryAddress ?? "").trim())
-            return Toast.Warning("Please enter the delivery address.");
-
-        // Delivering to the billing address leaves the sheet's delivery block empty, as the
-        // paper form expects, so any address typed and then abandoned is cleared.
-        const delivery = Object.fromEntries(
-            deliveryKeys.map((key) => [key, elsewhere ? ((form[key] as string | null) ?? "") : ""])
-        );
-
-        setSaving(true);
-        await onSave(
-            NormalizeCustomer({
-                id: order.id,
-                deliverySameAsBilling: !elsewhere,
-                ...delivery,
-                billingFirstName: form.billingFirstName ?? "",
-                billingLastName: form.billingLastName ?? "",
-                billingAddress: form.billingAddress ?? "",
-                billingUnit: form.billingUnit ?? "",
-                billingFloor: form.billingFloor ?? "",
-                billingSuite: form.billingSuite ?? "",
-                billingCity: form.billingCity ?? "",
-                billingState: form.billingState ?? "",
-                billingZip: form.billingZip ?? "",
-                billingCell: form.billingCell ?? "",
-                billingAlt: form.billingAlt ?? "",
-                billingEmail: form.billingEmail ?? "",
-                referralName: form.referralName ?? "",
-            })
-        );
-        setSaving(false);
-        onClose();
-    };
-
-    const renderField = (field: Field) => (
+    const renderField = (field: CustomerSheetField) => (
         <Cell key={field.key} span={field.span}>
             <View className="gap-1.5">
                 <Text className="text-base font-semibold text-zinc-800 dark:text-zinc-100">
@@ -181,22 +52,20 @@ const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
                     )}
                 </Text>
                 <TextInput
-                    value={(form[field.key] as string | null | undefined) ?? ""}
-                    onChangeText={(value) => set(field.key, value)}
-                    keyboardType={keyboards[field.type ?? "text"]}
+                    value={value(field.key)}
+                    onChangeText={(text) => set(field.key, text)}
+                    keyboardType={keyboards[field.keyboard ?? "text"]}
                     autoCapitalize={field.autoCapitalize ?? "sentences"}
                     autoCorrect={false}
                     textContentType={
-                        field.type === "email"
+                        field.keyboard === "email"
                             ? "emailAddress"
-                            : field.type === "tel"
+                            : field.keyboard === "tel"
                               ? "telephoneNumber"
                               : undefined
                     }
                     accessibilityLabel={field.label}
-                    className="min-h-[60px] w-full rounded-2xl border-2 border-zinc-300 bg-white px-4
-                        text-lg text-zinc-900 focus:border-sky-600
-                        dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                    className="min-h-[60px] w-full rounded-2xl border-2 border-zinc-300 bg-white px-4 text-lg text-zinc-900 focus:border-sky-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                 />
             </View>
         </Cell>
@@ -228,7 +97,7 @@ const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
                     <Button
                         text="Done"
                         icon="fa-solid fa-check"
-                        onClick={handleDone}
+                        onClick={done}
                         loading={saving}
                         className="min-h-[60px] flex-1 bg-green-700 text-lg dark:bg-green-600"
                     />
@@ -242,7 +111,7 @@ const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
             >
                 <View className="mx-auto w-full max-w-3xl">
                     <Grid columns={{ base: 2, sm: 6 }} gap={16}>
-                        {billingFields.map(renderField)}
+                        {CustomerBillingFields.map(renderField)}
 
                         <Cell span={{ base: 2, sm: 6 }}>
                             <View className="mt-2">
@@ -295,9 +164,9 @@ const CustomerDetailsSheet = ({ order, onSave, onClose }: Props) => {
                             </View>
                         </Cell>
 
-                        {elsewhere && deliveryFields.map(renderField)}
+                        {elsewhere && CustomerDeliveryFields.map(renderField)}
 
-                        {renderField(referralField)}
+                        {renderField(CustomerReferralField)}
                     </Grid>
                 </View>
             </ScrollView>

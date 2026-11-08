@@ -67,7 +67,9 @@ const SettingsCard = ({
                         <Text className="text-lg font-semibold">{title}</Text>
                     </View>
                     {typeof description === "string" ? (
-                        <Text className="text-sm text-zinc-600 dark:text-zinc-400">{description}</Text>
+                        <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                            {description}
+                        </Text>
                     ) : (
                         description
                     )}

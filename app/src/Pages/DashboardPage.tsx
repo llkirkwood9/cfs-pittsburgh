@@ -1,7 +1,7 @@
-import { Redirect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
-import { ScrollView, View } from "react-native";
+import { useState } from "react";
+import { View } from "react-native";
 import EventBreakdown from "../Components/Dashboard/EventBreakdown";
+import EventFilter from "../Components/Dashboard/EventFilter";
 import SalesByHourChart from "../Components/Dashboard/SalesByHourChart";
 import SalesStars from "../Components/Dashboard/SalesStars";
 import StockWatch from "../Components/Dashboard/StockWatch";
@@ -12,31 +12,26 @@ import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Page from "../Components/Elements/Page";
 import SelectField from "../Components/Elements/SelectField";
 import StatCard from "../Components/Elements/StatCard";
-import TabButton from "../Components/Elements/TabButton";
 import Text from "../Components/Elements/Text";
-import { useAuth } from "@shared/Context/AuthContext";
-import { useTerritory } from "../Context/TerritoryContext";
+import { useTerritory } from "@shared/Context/TerritoryContext";
 import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
-import { IsOnline } from "@shared/Lib/Connection";
-import { CategoryNames } from "@shared/Lib/Catalog";
-import { EventsForFilter, IsPastEvent } from "@shared/Lib/Events";
+import { useDashboard } from "@shared/Hooks/useDashboard";
+import {
+    BEST_SELLERS,
+    DASHBOARD_POLL_MS,
+    DashboardTitle,
+    RankingCategoryOptions,
+    RankingEmptyText,
+    RankProducts,
+    TakenBy,
+    UnitsSold,
+    WORST_SELLERS,
+} from "@shared/Lib/Dashboard";
 import { FormatCurrency } from "@shared/Lib/Format";
-import type { DashboardStats, ProductTally } from "@shared/Models/DashboardStats";
-import type { Event } from "@shared/Models/Event";
+import type { ProductTally } from "@shared/Models/DashboardStats";
 import type { ProductCategory } from "@shared/Models/Product";
-import { GetStatsForAllEvents, GetStatsForEvent } from "@shared/Services/DashboardServices";
-import { GetActiveEvent, GetEvents } from "@shared/Services/EventServices";
-
-/** How often the figures refresh while the page is open. */
-const POLL_MS = 15000;
-
-/** How many best sellers an event lists; the overview of every event lists every item sold. */
-const BEST_SELLERS = 15;
-
-/** How many worst sellers the overview of every event lists. */
-const WORST_SELLERS = 20;
 
 /** A section card with an uppercase heading. */
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -63,9 +58,7 @@ const ProductRanking = ({
     limit?: number;
 }) => {
     const [category, setCategory] = useState<ProductCategory | "All">("All");
-    const shown = products
-        .filter((p) => category === "All" || p.category === category)
-        .slice(0, limit);
+    const shown = RankProducts(products, category, limit);
 
     return (
         <View className="gap-3">
@@ -73,19 +66,11 @@ const ProductRanking = ({
                 label="Category"
                 value={category}
                 onChange={setCategory}
-                options={[
-                    { value: "All", label: "All categories" },
-                    ...(Object.keys(CategoryNames) as ProductCategory[]).map((c) => ({
-                        value: c,
-                        label: CategoryNames[c],
-                    })),
-                ]}
+                options={RankingCategoryOptions}
             />
             {shown.length === 0 ? (
                 <Text className="text-sm text-zinc-500 dark:text-zinc-400">
-                    {category === "All"
-                        ? empty
-                        : `No ${CategoryNames[category].toLowerCase()} yet.`}
+                    {RankingEmptyText(category, empty)}
                 </Text>
             ) : (
                 <View className="gap-1">
@@ -127,79 +112,31 @@ const ProductRanking = ({
  * Pull down to refresh; it also refreshes itself every few seconds.
  */
 const DashboardPage = () => {
-    const { user } = useAuth();
     const { canSwitch, territoryId: territoryInView, territoryName } = useTerritory();
     const viewingAll = canSwitch && territoryInView == null;
 
-    const [events, setEvents] = useState<Event[]>([]);
-    const [scope, setScope] = useState<"event" | "all">("event");
-    const [eventId, setEventId] = useState<number | null>(null);
-    const [stats, setStats] = useState<DashboardStats | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
+    const {
+        events,
+        activeId,
+        scope,
+        eventId,
+        stats,
+        loading,
+        load,
+        refresh,
+        switchScope,
+        switchEvent,
+    } = useDashboard();
     const [refreshing, setRefreshing] = useState<boolean>(false);
     const [refreshKey, setRefreshKey] = useState<number>(0);
-
-    // The active event when the page last loaded, so a change of event can be noticed.
-    const [activeId, setActiveId] = useState<number | null | undefined>(undefined);
-
-    const fetchStats = useCallback(
-        (currentScope: "event" | "all", id: number | null) =>
-            currentScope === "all"
-                ? GetStatsForAllEvents()
-                : id
-                  ? GetStatsForEvent(id)
-                  : Promise.resolve(null),
-        []
-    );
-
-    /**
-     * Shows a scope's figures. The scope changes together with its figures, so one scope is never
-     * shown with another's - the overview's net sales lighting up an event's stars.
-     */
-    const show = useCallback(
-        async (nextScope: "event" | "all", id: number | null) => {
-            const result = await fetchStats(nextScope, id);
-            // Keep the last figures up while the server cannot be reached, rather than showing zeros.
-            if (!result && !IsOnline()) return;
-            setScope(nextScope);
-            setEventId(id);
-            setStats(result);
-        },
-        [fetchStats]
-    );
-
-    // Opens on the active event, or the latest one when none is active; the overview stays put.
-    const load = useCallback(
-        async (currentScope: "event" | "all") => {
-            const [all, active] = await Promise.all([GetEvents(), GetActiveEvent()]);
-            const list = EventsForFilter(all);
-            setEvents(list);
-            setActiveId(active?.id ?? null);
-            await show(currentScope, active?.id ?? list[0]?.id ?? null);
-        },
-        [show]
-    );
-
-    useEffect(() => {
-        load("event").finally(() => setLoading(false));
-    }, [load]);
 
     const checkActiveEvent = useActiveEventChange(loading ? undefined : activeId, () =>
         load(scope)
     );
 
-    useEffect(() => {
-        const timer = setInterval(() => show(scope, eventId), POLL_MS);
-        return () => clearInterval(timer);
-    }, [scope, eventId, show]);
-
-    const switchScope = (next: "event" | "all") => show(next, eventId);
-
-    const switchEvent = (id: number) => show("event", id);
-
     // A change of active event opens on it; otherwise the same figures, read again.
     const reload = async () => {
-        if (!(await checkActiveEvent())) await show(scope, eventId);
+        if (!(await checkActiveEvent())) await refresh();
         setRefreshKey((k) => k + 1);
     };
 
@@ -212,8 +149,6 @@ const DashboardPage = () => {
     // Back on this screen: read it again.
     useRefreshOnFocus(reload);
 
-    if (!user) return <Redirect href="/unauthorized" />;
-
     if (loading) {
         return (
             <Page navbar>
@@ -222,69 +157,25 @@ const DashboardPage = () => {
         );
     }
 
-    const units: { label: string; value: number; icon: string }[] = [
-        { label: "Mattresses", value: stats?.mattressCount ?? 0, icon: "fa-solid fa-bed" },
-        {
-            label: "Adjustable bases",
-            value: stats?.adjustableBaseCount ?? 0,
-            icon: "fa-solid fa-sliders",
-        },
-        { label: "Purple", value: stats?.purpleCount ?? 0, icon: "fa-solid fa-star" },
-        { label: "Helix", value: stats?.helixCount ?? 0, icon: "fa-solid fa-star" },
-        {
-            label: "Protectors",
-            value: stats?.mattressProtectorCount ?? 0,
-            icon: "fa-solid fa-shield",
-        },
-        { label: "Pillows", value: stats?.pillowCount ?? 0, icon: "fa-solid fa-cloud" },
-        { label: "Sheets", value: stats?.sheetCount ?? 0, icon: "fa-solid fa-layer-group" },
-        { label: "Frames", value: stats?.frameCount ?? 0, icon: "fa-solid fa-border-all" },
-        { label: "Bean bags", value: stats?.beanBagChairCount ?? 0, icon: "fa-solid fa-couch" },
-        { label: "Other", value: stats?.miscCount ?? 0, icon: "fa-solid fa-box" },
-    ];
-
-    const payments: { label: string; value: number }[] = [
-        { label: "Credit/debit cards", value: stats?.creditCardTotal ?? 0 },
-        { label: "Cash", value: stats?.cashTotal ?? 0 },
-        { label: "Checks", value: stats?.checkTotal ?? 0 },
-        { label: "Financing balance", value: stats?.financingTotal ?? 0 },
-        { label: "Layaway balance", value: stats?.layawayTotal ?? 0 },
-    ];
-
     return (
         <Page navbar onRefresh={handleRefresh} refreshing={refreshing} className="p-3 sm:p-4">
             <Text className="mb-3 text-xl font-bold">
-                {scope === "all"
-                    ? viewingAll
-                        ? "All events in every territory"
-                        : `All ${territoryName ? `${territoryName} ` : ""}events`
-                    : stats?.organization}
+                {DashboardTitle(scope, viewingAll, territoryName, stats)}
             </Text>
 
-            {viewingAll && <TerritoryComparison pollMs={POLL_MS} refreshKey={refreshKey} />}
+            {viewingAll && (
+                <TerritoryComparison pollMs={DASHBOARD_POLL_MS} refreshKey={refreshKey} />
+            )}
 
-            <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
+            <EventFilter
+                events={events}
+                allPicked={scope === "all"}
+                pickedEventId={eventId}
+                showTerritory={viewingAll}
+                onPickAll={() => switchScope("all")}
+                onPickEvent={switchEvent}
                 className="mb-4"
-                contentContainerClassName="gap-2 pb-1"
-            >
-                <TabButton
-                    text="All events"
-                    active={scope === "all"}
-                    onClick={() => switchScope("all")}
-                />
-                {events.map((event) => (
-                    <TabButton
-                        key={event.id}
-                        text={event.organization ?? ""}
-                        subtext={viewingAll ? (event.territoryName ?? undefined) : undefined}
-                        tag={IsPastEvent(event) ? "Past" : undefined}
-                        active={scope === "event" && event.id === eventId}
-                        onClick={() => event.id && switchEvent(event.id)}
-                    />
-                ))}
-            </ScrollView>
+            />
 
             <Grid columns={{ base: 2, lg: 4 }} className="mb-4">
                 <StatCard
@@ -327,7 +218,7 @@ const DashboardPage = () => {
                 <Cell span={{ base: 1, lg: 2 }}>
                     <Section title="Units sold">
                         <Grid columns={{ base: 2, sm: 5 }}>
-                            {units.map((unit) => (
+                            {UnitsSold(stats).map((unit) => (
                                 <View
                                     key={unit.label}
                                     className="items-center rounded-lg bg-zinc-100 p-3 dark:bg-zinc-700"
@@ -350,7 +241,7 @@ const DashboardPage = () => {
 
                 <Section title="Taken by">
                     <View className="gap-2">
-                        {payments.map((row) => (
+                        {TakenBy(stats).map((row) => (
                             <View
                                 key={row.label}
                                 className="flex-row items-baseline justify-between gap-4"

@@ -4,6 +4,7 @@ import Icon from "../Elements/Icon";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
 import { FormatCurrency } from "@shared/Lib/Format";
+import { DraftTabText } from "@shared/Lib/Sales";
 import type { OrderSummary } from "@shared/Models/OrderSummary";
 
 type Props = {
@@ -30,12 +31,7 @@ const DraftTabs = ({ drafts, activeId, onSelect, onNew, creating = false }: Prop
             >
                 {drafts.map((draft) => {
                     const active = draft.id === activeId;
-                    // A draft gets its number with its first item.
-                    const number = draft.orderNumber ? `#${draft.orderNumber} · ` : "";
-                    const label =
-                        draft.draftLabel ||
-                        draft.billingName ||
-                        (draft.orderNumber ? `#${draft.orderNumber}` : "New order");
+                    const { number, label } = DraftTabText(draft);
                     const color = active ? "text-white" : "text-zinc-800 dark:text-zinc-100";
 
                     return (
@@ -51,13 +47,17 @@ const DraftTabs = ({ drafts, activeId, onSelect, onNew, creating = false }: Prop
                                     : "bg-white active:bg-zinc-200 dark:bg-zinc-800 dark:active:bg-zinc-700"
                             )}
                         >
-                            <Text className={cx("max-w-[160px] text-sm font-semibold", color)} numberOfLines={1}>
+                            <Text
+                                className={cx("max-w-[160px] text-sm font-semibold", color)}
+                                numberOfLines={1}
+                            >
                                 {label}
                             </Text>
                             <Text className={cx("text-xs opacity-80", color)}>
                                 {number}
                                 {draft.itemCount ?? 0} item
-                                {(draft.itemCount ?? 0) === 1 ? "" : "s"} · {FormatCurrency(draft.total)}
+                                {(draft.itemCount ?? 0) === 1 ? "" : "s"} ·{" "}
+                                {FormatCurrency(draft.total)}
                             </Text>
                         </Pressable>
                     );
@@ -65,7 +65,10 @@ const DraftTabs = ({ drafts, activeId, onSelect, onNew, creating = false }: Prop
 
                 {drafts.length === 0 && (
                     <View className="min-h-[56px] flex-row items-center gap-2">
-                        <Icon icon="fa-solid fa-arrow-right" className="text-sm text-zinc-500 dark:text-zinc-400" />
+                        <Icon
+                            icon="fa-solid fa-arrow-right"
+                            className="text-sm text-zinc-500 dark:text-zinc-400"
+                        />
                         <Text className="text-sm text-zinc-500 dark:text-zinc-400">
                             Start an order to begin
                         </Text>

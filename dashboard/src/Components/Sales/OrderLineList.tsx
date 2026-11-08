@@ -3,6 +3,7 @@ import Icon from "../Elements/Icon";
 import { FormatCurrency } from "@shared/Lib/Format";
 import { PrintsOnSalesSheet, SortLinesForPrint } from "@shared/Lib/Orders";
 import { ChoicesText, CleanDiscount, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
+import { BaseRowParents, GroupLines, MoveItem, RepDiscountText } from "@shared/Lib/Sales";
 import type { OrderLine } from "@shared/Models/OrderLine";
 
 type Props = {
@@ -35,21 +36,11 @@ const OrderLineList = ({
     const ordered = SortLinesForPrint(lines);
 
     // The items in sales sheet order; each one's own rows move with it.
-    const itemIds = ordered
-        .filter((l) => !l.parentLineId || !lines.some((p) => p.id === l.parentLineId))
-        .map((l) => l.id ?? 0);
-    const move = (line: OrderLine, by: number) => {
-        const ids = [...itemIds];
-        const index = ids.indexOf(line.id ?? 0);
-        ids.splice(index, 1);
-        ids.splice(index + by, 0, line.id ?? 0);
-        onReorder?.(ids);
-    };
+    const itemIds = GroupLines(lines).map((group) => group[0].id ?? 0);
+    const move = (line: OrderLine, by: number) =>
+        onReorder?.(MoveItem(itemIds, itemIds.indexOf(line.id ?? 0), by));
 
-    // Sets sold since the base got its own row do not need the badge as well; older orders still do.
-    const hasBaseRow = new Set(
-        lines.filter((l) => l.lineType === "Included").map((l) => l.parentLineId)
-    );
+    const hasBaseRow = BaseRowParents(lines);
 
     if (ordered.length === 0) {
         return (
@@ -134,17 +125,7 @@ const OrderLineList = ({
                                         CleanDiscount(line.discountPercent, line.discountAmount)
                                     ) && (
                                         <span className="rounded-sm bg-green-100 px-1.5 py-0.5 font-semibold text-green-800 dark:bg-green-900/50 dark:text-green-300">
-                                            -
-                                            {DiscountText(
-                                                CleanDiscount(
-                                                    line.discountPercent,
-                                                    line.discountAmount
-                                                )
-                                            )}
-                                            {(line.discountAmount ?? 0) > 0 &&
-                                            !(line.discountPercent ?? 0)
-                                                ? " ea"
-                                                : ""}
+                                            {RepDiscountText(line)}
                                         </span>
                                     )}
                                     {!PrintsOnSalesSheet(line) && (

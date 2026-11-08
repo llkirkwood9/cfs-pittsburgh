@@ -1,19 +1,16 @@
-import { useState } from "react";
 import { View } from "react-native";
 import Button from "../Elements/Button";
 import Checkbox from "../Elements/Checkbox";
 import DiscountInput from "../Elements/DiscountInput";
-import type { DiscountMode } from "../Elements/DiscountInput";
 import Grid, { Cell } from "../Elements/Grid";
 import Modal from "../Elements/Modal";
 import Stepper from "../Elements/Stepper";
 import Text from "../Elements/Text";
 import TextArea from "../Elements/TextArea";
 import TextField from "../Elements/TextField";
-import { FormatCurrency, ParseMoney } from "@shared/Lib/Format";
-import { TakeWithBlocked } from "@shared/Lib/Inventory";
-import { ChoicesText, CleanDiscount, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
-import { Toast } from "../../Lib/Toast";
+import { useLineEditor } from "@shared/Hooks/useSalesForms";
+import { FormatCurrency } from "@shared/Lib/Format";
+import { DiscountText, HasDiscount } from "@shared/Lib/Pricing";
 import type { OrderLine } from "@shared/Models/OrderLine";
 
 type Props = {
@@ -27,73 +24,34 @@ type Props = {
  * Discount columns of the paper sheet can hold is editable here.
  */
 const EditLineModal = ({ line, onSave, onClose }: Props) => {
-    const [brand, setBrand] = useState<string>(line.brand ?? "");
-    const [size, setSize] = useState<string>(line.size ?? "");
-    const [description, setDescription] = useState<string>(line.description ?? "");
-    const [quantity, setQuantity] = useState<number>(line.quantity ?? 1);
-    const [takeWith, setTakeWith] = useState<boolean>(line.takeWith ?? false);
-    const [unitPrice, setUnitPrice] = useState<string>(String(line.unitPrice ?? 0));
-    // The rep's own discount: a percent, or a fixed amount off each item.
-    const [discountMode, setDiscountMode] = useState<DiscountMode>(
-        (line.discountAmount ?? 0) > 0 && !(line.discountPercent ?? 0) ? "amount" : "percent"
-    );
-    const [discount, setDiscount] = useState<string>(
-        line.discountPercent
-            ? String(line.discountPercent)
-            : line.discountAmount
-              ? String(line.discountAmount)
-              : ""
-    );
-    // The catalog sale it was added with; the rep's discount comes off on top.
-    const sale = CleanDiscount(line.saleDiscountPercent, line.saleDiscountAmount);
-    const choices = ChoicesText(line.choices);
-    const [isTaxable, setIsTaxable] = useState<boolean>(line.isTaxable ?? true);
-    const [notes, setNotes] = useState<string>(line.notes ?? "");
-    const [saving, setSaving] = useState<boolean>(false);
-
-    // A tracked accessory can only go home today while the cart has enough of it.
-    const stockBlock = TakeWithBlocked(line.quantityOnHand, quantity, line.notKeptAtCart);
-
-    const handleSave = async () => {
-        if (!description.trim()) return Toast.Warning("The description cannot be blank.");
-
-        const price = ParseMoney(unitPrice);
-        if (price === null || price < 0) return Toast.Warning("Enter a valid unit price.");
-
-        const discountValue = ParseMoney(discount);
-        if (discount.trim() !== "" && (discountValue === null || discountValue < 0))
-            return Toast.Warning("Enter the discount as a number.");
-        if (discountMode === "percent" && (discountValue ?? 0) > 100)
-            return Toast.Warning("The discount must be between 0 and 100 percent.");
-
-        if (takeWith && stockBlock)
-            return Toast.Warning(`${stockBlock} for Take With. Lower the quantity or ship it instead.`);
-
-        setSaving(true);
-        await onSave({
-            id: line.id,
-            brand: brand.trim(),
-            size: size.trim(),
-            description: description.trim(),
-            quantity,
-            takeWith,
-            unitPrice: price,
-            // Sending one style clears the other on the server.
-            ...(discountMode === "percent"
-                ? { discountPercent: discountValue ?? 0 }
-                : { discountAmount: discountValue ?? 0 }),
-            isTaxable,
-            notes: line.lineType === "Delivery" ? undefined : notes.trim(),
-        });
-        setSaving(false);
-        onClose();
-    };
-
-    const stockNote =
-        stockBlock ??
-        (line.quantityOnHand !== null && line.quantityOnHand !== undefined
-            ? `${line.quantityOnHand} in stock`
-            : null);
+    const {
+        brand,
+        setBrand,
+        size,
+        setSize,
+        description,
+        setDescription,
+        quantity,
+        setQuantity,
+        takeWith,
+        setTakeWith,
+        unitPrice,
+        setUnitPrice,
+        discountMode,
+        setDiscountMode,
+        discount,
+        setDiscount,
+        isTaxable,
+        setIsTaxable,
+        notes,
+        setNotes,
+        sale,
+        choices,
+        stockBlock,
+        stockNote,
+        saving,
+        save,
+    } = useLineEditor(line, onSave, onClose);
 
     return (
         <Modal
@@ -101,8 +59,12 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
             onClose={onClose}
             footer={
                 <>
-                    <Button text="Cancel" onClick={onClose} className="bg-zinc-500 dark:bg-zinc-600" />
-                    <Button text="Save" icon="fa-solid fa-check" onClick={handleSave} loading={saving} />
+                    <Button
+                        text="Cancel"
+                        onClick={onClose}
+                        className="bg-zinc-500 dark:bg-zinc-600"
+                    />
+                    <Button text="Save" icon="fa-solid fa-check" onClick={save} loading={saving} />
                 </>
             }
         >
@@ -138,7 +100,8 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
                             {HasDiscount(sale) && (
                                 <Text className="text-sm">
                                     On sale at {DiscountText(sale)} off
-                                    {(line.unitPrice ?? 0) > 0 && ` (from ${FormatCurrency(line.unitPrice)})`}
+                                    {(line.unitPrice ?? 0) > 0 &&
+                                        ` (from ${FormatCurrency(line.unitPrice)})`}
                                     .
                                 </Text>
                             )}

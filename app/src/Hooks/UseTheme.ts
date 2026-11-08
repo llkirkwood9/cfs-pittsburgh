@@ -1,10 +1,12 @@
 import { colorScheme, useColorScheme } from "nativewind";
 import { useEffect, useState } from "react";
 import { GetItem, SetItem } from "../Lib/Storage";
+import { StorageKeys } from "../Lib/StorageKeys";
 
-export type Theme = "light" | "dark" | "system";
+import type { Theme } from "@shared/Lib/Themes";
 
-const STORAGE_KEY = "theme";
+export type { Theme };
+
 
 let listeners: ((theme: Theme) => void)[] = [];
 
@@ -13,7 +15,7 @@ let listeners: ((theme: Theme) => void)[] = [];
  * @returns The stored theme, defaulting to "system".
  */
 const readStoredTheme = (): Theme => {
-    const stored = GetItem(STORAGE_KEY);
+    const stored = GetItem(StorageKeys.theme);
     return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
 };
 
@@ -48,7 +50,7 @@ export const useTheme = () => {
     useEffect(() => subscribeThemeChanged(setThemeState), []);
 
     const setTheme = (next: Theme) => {
-        SetItem(STORAGE_KEY, next);
+        SetItem(StorageKeys.theme, next);
         colorScheme.set(next);
         setThemeState(next);
         listeners.forEach((listener) => listener(next));

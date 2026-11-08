@@ -1,4 +1,4 @@
-import type { Order } from "../Models/Order";
+import type { Order, OrderStatus } from "../Models/Order";
 import type { OrderLine } from "../Models/OrderLine";
 import type { OrderPayment, PaymentMethod } from "../Models/OrderPayment";
 import type { SalesTermKey } from "../Models/GeneralSettings";
@@ -231,3 +231,45 @@ export const NormalizeCustomer = (changes: Order): Order =>
             typeof value === "string" ? NormalizeCustomerField(key, value) : value,
         ])
     ) as Order;
+
+/**
+ * The total paid on an order by one method. Also used by the sales export.
+ * @param order The order.
+ * @param method The payment method.
+ * @returns The amount, or null when nothing was paid that way.
+ */
+export const PaidBy = (order: Order, method: PaymentMethod): number | null => {
+    const paid = (order.payments ?? []).filter((p) => p.method === method);
+    return paid.length === 0 ? null : paid.reduce((sum, p) => sum + (p.amount ?? 0), 0);
+};
+
+/** Where a reopened order goes. */
+export type ReopenTarget = "floor" | "checkout";
+
+/**
+ * Where an admin can send an order back to: the checkout table (to fix a payment) or the sales
+ * floor (to change what was sold) - wherever it isn't already.
+ * @param status The order's status.
+ * @returns The choices, in the order shown.
+ */
+export const ReopenChoices = (
+    status: OrderStatus | null | undefined
+): { to: ReopenTarget; title: string; detail: string; icon: string }[] =>
+    [
+        {
+            to: "checkout" as const,
+            title: "Send to checkout",
+            detail: "Fix a payment, the initials or the signature. The items stay as they are.",
+            icon: "fa-solid fa-cash-register",
+            show: status !== "AwaitingCheckout",
+        },
+        {
+            to: "floor" as const,
+            title: "Send to the sales floor",
+            detail: "Change what was sold. It opens as a draft for the rep who wrote it up.",
+            icon: "fa-solid fa-cart-plus",
+            show: status !== "Draft",
+        },
+    ]
+        .filter((c) => c.show)
+        .map(({ to, title, detail, icon }) => ({ to, title, detail, icon }));

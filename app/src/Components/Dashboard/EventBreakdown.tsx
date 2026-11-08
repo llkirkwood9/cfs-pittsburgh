@@ -77,7 +77,8 @@ const EventBreakdown = ({ events, onSelect }: Props) => {
                                     )}
                                 </View>
                                 <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                                    {FormatShortDate(event.eventDate)} · {event.completedOrderCount ?? 0} sale
+                                    {FormatShortDate(event.eventDate)} ·{" "}
+                                    {event.completedOrderCount ?? 0} sale
                                     {event.completedOrderCount === 1 ? "" : "s"} ·{" "}
                                     {event.mattressAndBaseCount ?? 0} matts/bases · average{" "}
                                     {FormatCurrency(event.averageSale)}
@@ -91,12 +92,17 @@ const EventBreakdown = ({ events, onSelect }: Props) => {
                                 </View>
                             </View>
                             <View className="ml-auto w-28 items-end">
-                                <Text className="font-bold tabular-nums">{FormatCurrency(total)}</Text>
-                                <Text className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                                <Text className="font-bold tabular-nums">
+                                    {FormatCurrency(total)}
+                                </Text>
+                                <Text className="text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
                                     Net {FormatCurrency(event.netSales)}
                                 </Text>
                             </View>
-                            <Icon icon="fa-solid fa-chevron-right" className="text-xs text-zinc-400" />
+                            <Icon
+                                icon="fa-solid fa-chevron-right"
+                                className="text-xs text-zinc-400"
+                            />
                         </Pressable>
                     );
                 })

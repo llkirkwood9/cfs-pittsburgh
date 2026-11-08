@@ -61,8 +61,7 @@ const CommentsCard = ({ order, readOnly = false, onSave }: Props) => {
                     placeholderTextColor="#a1a1aa"
                     accessibilityLabel="Comments"
                     style={{ minHeight: 92 }}
-                    className="w-full rounded-xl border border-zinc-300 bg-white p-3 text-base text-zinc-900
-                        focus:border-sky-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-zinc-300 bg-white p-3 text-base text-zinc-900 focus:border-sky-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                 />
             )}
         </View>

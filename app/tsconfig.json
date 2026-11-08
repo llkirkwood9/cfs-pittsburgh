@@ -14,6 +14,9 @@
       ],
       "axios": [
         "./node_modules/axios"
+      ],
+      "react/*": [
+        "./node_modules/@types/react/*"
       ]
     }
   },
@@ -23,6 +26,7 @@
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
     "nativewind-env.d.ts",
-    "../shared/**/*.ts"
+    "../shared/**/*.ts",
+    "../shared/**/*.tsx"
   ]
 }

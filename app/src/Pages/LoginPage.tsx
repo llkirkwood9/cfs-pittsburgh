@@ -8,10 +8,11 @@ import KeyboardAvoider from "../Components/Elements/KeyboardAvoider";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "@shared/Context/AuthContext";
-import { useSettings } from "../Context/SettingsContext";
-import { HomePathForRole } from "../Lib/RoleRoutes";
+import { useSettings } from "@shared/Context/SettingsContext";
+import { HomePathForRole } from "../Lib/ScreenLinks";
 import { GetServerUrl } from "../Lib/Server";
 import { GetItem, SetItem } from "../Lib/Storage";
+import { StorageKeys } from "../Lib/StorageKeys";
 import { Toast } from "../Lib/Toast";
 
 /**
@@ -24,7 +25,7 @@ const LoginPage = () => {
     const { user, loading, login } = useAuth();
     const { settings } = useSettings();
 
-    const [username, setUsername] = useState<string>(() => GetItem("cfs.lastUsername") ?? "");
+    const [username, setUsername] = useState<string>(() => GetItem(StorageKeys.lastUsername) ?? "");
     // Only the username is remembered on the device, never the password.
     const [password, setPassword] = useState<string>("");
     const [showPassword, setShowPassword] = useState<boolean>(false);
@@ -45,7 +46,7 @@ const LoginPage = () => {
         setSubmitting(false);
 
         if (signedIn) {
-            SetItem("cfs.lastUsername", username.trim());
+            SetItem(StorageKeys.lastUsername, username.trim());
             router.replace(HomePathForRole(signedIn.role));
         } else {
             setPassword("");

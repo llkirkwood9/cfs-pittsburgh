@@ -3,7 +3,7 @@ import ProtectedRoute from "../../Routes/ProtectedRoute";
 
 export default function Screen() {
     return (
-        <ProtectedRoute roles={["Checkout"]} territory="work the checkout table">
+        <ProtectedRoute screen="checkout">
             <CheckoutPage />
         </ProtectedRoute>
     );

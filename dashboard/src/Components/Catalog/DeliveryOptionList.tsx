@@ -1,13 +1,13 @@
-import { useState } from "react";
 import Button from "../Elements/Button";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
 import TextField from "../Elements/TextField";
-import SaleEditor, { FromSaleDraft, SaleProblem, ToSaleDraft, type SaleDraft } from "./SaleEditor";
-import { FormatCurrency, ParseMoney } from "@shared/Lib/Format";
+import SaleEditor from "./SaleEditor";
+import { useCatalogOptionList } from "@shared/Hooks/useCatalogOptionList";
+import { DeliveryOptionForm } from "@shared/Lib/CatalogOptions";
+import { FormatCurrency } from "@shared/Lib/Format";
 import { CleanDiscount, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
-import { Toast } from "../../Lib/Toast";
 import type { DeliveryOption } from "@shared/Models/DeliveryOption";
 
 type Props = {
@@ -32,63 +32,8 @@ const DeliveryOptionList = ({
     onReorder,
     permanentDelete = false,
 }: Props) => {
-    const [editing, setEditing] = useState<DeliveryOption | null>(null);
-    const [deleting, setDeleting] = useState<DeliveryOption | null>(null);
-    const [saving, setSaving] = useState<boolean>(false);
-
-    const [name, setName] = useState<string>("");
-    const [price, setPrice] = useState<string>("");
-    const [isTaxable, setIsTaxable] = useState<boolean>(true);
-    const [isTakeWith, setIsTakeWith] = useState<boolean>(false);
-    const [showOnSalesSheet, setShowOnSalesSheet] = useState<boolean>(true);
-    const [isActive, setIsActive] = useState<boolean>(true);
-    const [sale, setSale] = useState<SaleDraft>({ mode: "none", text: "" });
-
-    const open = (option: DeliveryOption) => {
-        setEditing(option);
-        setName(option.name ?? "");
-        setPrice(option.price === undefined ? "" : String(option.price));
-        setIsTaxable(option.isTaxable ?? true);
-        setIsTakeWith(option.isTakeWith ?? false);
-        setShowOnSalesSheet(option.showOnSalesSheet ?? true);
-        setIsActive(option.isActive ?? true);
-        setSale(ToSaleDraft(option.saleDiscountPercent, option.saleDiscountAmount));
-    };
-
-    const handleSave = async () => {
-        if (!name.trim()) return Toast.Warning("Give the option a name.");
-
-        const parsed = ParseMoney(price) ?? 0;
-        if (parsed < 0) return Toast.Warning("The price cannot be negative.");
-
-        const saleProblem = SaleProblem(sale);
-        if (saleProblem) return Toast.Warning(saleProblem);
-        const saleOff = FromSaleDraft(sale);
-
-        setSaving(true);
-        await onSave({
-            id: editing?.id,
-            name: name.trim(),
-            price: parsed,
-            isTaxable,
-            isTakeWith,
-            showOnSalesSheet,
-            isActive,
-            // A new option goes to the end of the list.
-            sortOrder: editing?.sortOrder,
-            saleDiscountPercent: saleOff.percent,
-            saleDiscountAmount: saleOff.amount,
-        });
-        setSaving(false);
-        setEditing(null);
-    };
-
-    const move = (index: number, by: number) => {
-        const ids = options.map((o) => o.id ?? 0);
-        const [id] = ids.splice(index, 1);
-        ids.splice(index + by, 0, id);
-        onReorder(ids);
-    };
+    const list = useCatalogOptionList(options, DeliveryOptionForm, onSave, onDelete, onReorder);
+    const { draft, change, editing, deleting } = list;
 
     return (
         <>
@@ -97,9 +42,7 @@ const DeliveryOptionList = ({
                 <Button
                     text="Add"
                     icon="fa-solid fa-plus"
-                    onClick={() =>
-                        open({ price: 0, isTaxable: true, isActive: true, showOnSalesSheet: true })
-                    }
+                    onClick={list.add}
                     className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                 />
             </div>
@@ -146,7 +89,7 @@ const DeliveryOptionList = ({
 
                         <button
                             type="button"
-                            onClick={() => move(index, -1)}
+                            onClick={() => list.move(index, -1)}
                             disabled={index === 0}
                             aria-label="Move up"
                             className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100
@@ -156,7 +99,7 @@ const DeliveryOptionList = ({
                         </button>
                         <button
                             type="button"
-                            onClick={() => move(index, 1)}
+                            onClick={() => list.move(index, 1)}
                             disabled={index === options.length - 1}
                             aria-label="Move down"
                             className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-600 hover:bg-zinc-100
@@ -167,12 +110,12 @@ const DeliveryOptionList = ({
                         <Button
                             text="Edit"
                             icon="fa-solid fa-pen"
-                            onClick={() => open(option)}
+                            onClick={() => list.open(option)}
                             className="min-h-[40px] bg-zinc-500 px-3 text-sm hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                         />
                         <button
                             type="button"
-                            onClick={() => setDeleting(option)}
+                            onClick={() => list.setDeleting(option)}
                             aria-label="Delete option"
                             className="flex h-10 w-10 items-center justify-center rounded-lg text-red-700
                                 hover:bg-red-100 dark:text-red-400 dark:hover:bg-red-950/40"
@@ -186,37 +129,42 @@ const DeliveryOptionList = ({
             {editing && (
                 <Modal
                     title={editing.id ? "Edit delivery option" : "New delivery option"}
-                    onClose={() => setEditing(null)}
+                    onClose={list.close}
                     footer={
                         <>
                             <Button
                                 text="Cancel"
-                                onClick={() => setEditing(null)}
+                                onClick={list.close}
                                 className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                             />
                             <Button
                                 text="Save"
                                 icon="fa-solid fa-check"
-                                onClick={handleSave}
-                                loading={saving}
+                                onClick={list.save}
+                                loading={list.saving}
                             />
                         </>
                     }
                 >
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        <TextField label="Name" value={name} onChange={setName} maxLength={100} />
+                        <TextField
+                            label="Name"
+                            value={draft.name}
+                            onChange={(value) => change({ name: value })}
+                            maxLength={100}
+                        />
                         <TextField
                             label="Price"
-                            value={price}
-                            onChange={setPrice}
+                            value={draft.price}
+                            onChange={(value) => change({ price: value })}
                             inputMode="decimal"
                         />
 
                         <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-zinc-100 px-3 dark:bg-zinc-700">
                             <input
                                 type="checkbox"
-                                checked={isTaxable}
-                                onChange={(e) => setIsTaxable(e.target.checked)}
+                                checked={draft.isTaxable}
+                                onChange={(e) => change({ isTaxable: e.target.checked })}
                                 className="h-5 w-5 accent-sky-600"
                             />
                             <span className="text-sm font-medium">Taxable</span>
@@ -225,8 +173,8 @@ const DeliveryOptionList = ({
                         <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-zinc-100 px-3 dark:bg-zinc-700">
                             <input
                                 type="checkbox"
-                                checked={isTakeWith}
-                                onChange={(e) => setIsTakeWith(e.target.checked)}
+                                checked={draft.isTakeWith}
+                                onChange={(e) => change({ isTakeWith: e.target.checked })}
                                 className="h-5 w-5 accent-sky-600"
                             />
                             <span className="text-sm font-medium">Ticks the Take With box</span>
@@ -235,8 +183,8 @@ const DeliveryOptionList = ({
                         <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-zinc-100 px-3 sm:col-span-2 dark:bg-zinc-700">
                             <input
                                 type="checkbox"
-                                checked={showOnSalesSheet}
-                                onChange={(e) => setShowOnSalesSheet(e.target.checked)}
+                                checked={draft.showOnSalesSheet}
+                                onChange={(e) => change({ showOnSalesSheet: e.target.checked })}
                                 className="h-5 w-5 accent-sky-600"
                             />
                             <span className="text-sm">
@@ -247,8 +195,8 @@ const DeliveryOptionList = ({
                         <label className="flex min-h-[48px] cursor-pointer items-center gap-3 rounded-xl bg-zinc-100 px-3 sm:col-span-2 dark:bg-zinc-700">
                             <input
                                 type="checkbox"
-                                checked={isActive}
-                                onChange={(e) => setIsActive(e.target.checked)}
+                                checked={draft.isActive}
+                                onChange={(e) => change({ isActive: e.target.checked })}
                                 className="h-5 w-5 accent-sky-600"
                             />
                             <span className="text-sm font-medium">Offered on the floor</span>
@@ -256,8 +204,8 @@ const DeliveryOptionList = ({
 
                         <div className="sm:col-span-2">
                             <SaleEditor
-                                draft={sale}
-                                onChange={setSale}
+                                draft={draft.sale}
+                                onChange={(value) => change({ sale: value })}
                                 label="Sale on this option"
                             />
                         </div>
@@ -276,11 +224,8 @@ const DeliveryOptionList = ({
                     confirmWord={permanentDelete ? "DELETE" : undefined}
                     confirmText="Delete"
                     destructive
-                    onConfirm={async () => {
-                        if (deleting.id) await onDelete(deleting.id);
-                        setDeleting(null);
-                    }}
-                    onCancel={() => setDeleting(null)}
+                    onConfirm={list.confirmDelete}
+                    onCancel={() => list.setDeleting(null)}
                 />
             )}
         </>

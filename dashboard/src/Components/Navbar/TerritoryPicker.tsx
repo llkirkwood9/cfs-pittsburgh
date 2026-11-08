@@ -1,5 +1,5 @@
 import Icon from "../Elements/Icon";
-import { useTerritory } from "../../Context/TerritoryContext";
+import { useTerritory } from "@shared/Context/TerritoryContext";
 
 /**
  * The territory in view, in the menu bar. Anyone with more than one territory - system admins and
@@ -7,7 +7,8 @@ import { useTerritory } from "../../Context/TerritoryContext";
  * territory just sees which it is.
  */
 const TerritoryPicker = () => {
-    const { territories, territoryId, territoryName, canSwitch, allLabel, setTerritoryId } = useTerritory();
+    const { territories, territoryId, territoryName, canSwitch, allLabel, setTerritoryId } =
+        useTerritory();
 
     if (!canSwitch) {
         if (!territoryName) return null;

@@ -4,45 +4,19 @@ import type { Ref } from "react";
 import { Text, View } from "react-native";
 import { Blank, Cell, FieldLabel, Row, SheetText } from "./SheetTable";
 import { RenderTermText } from "../Elements/TermText";
-import { useSettingsFor } from "../../Context/SettingsContext";
+import { useSettingsFor } from "@shared/Context/SettingsContext";
 import { FormatCurrency, FormatShortDate, FormatStampDate } from "@shared/Lib/Format";
-import { FinancingComments, PaymentMethodLabels, PrintedInitials, PrintsOnSalesSheet, SortLinesForPrint } from "@shared/Lib/Orders";
+import { PrintedInitials } from "@shared/Lib/Orders";
+import { ReceiptModel } from "@shared/Lib/Receipt";
 import { ChoicesText, LineDiscountText, LineHasDiscount } from "@shared/Lib/Pricing";
 import { SHEET_WIDTH } from "../../Lib/SheetPdf";
-import { TermFor } from "@shared/Models/GeneralSettings";
-import type { SalesTerm, SalesTermKey } from "@shared/Models/GeneralSettings";
-import type { Order, OrderStatus } from "@shared/Models/Order";
-import type { PaymentMethod } from "@shared/Models/OrderPayment";
+import type { SalesTermKey } from "@shared/Models/GeneralSettings";
+import type { Order } from "@shared/Models/Order";
 
 type Props = {
     order: Order;
     /** The sheet itself, for capturing into a PDF. */
     sheetRef?: Ref<View>;
-};
-
-/** Blank rows are padded out to this many so the printed grid matches the paper form. */
-const MIN_ITEM_ROWS = 14;
-
-/** Height of one item row on the paper form. The grid never grows taller than 14 of these. */
-const ROW_PX = 20;
-
-/** The shortest a row can get and still be readable. */
-const MIN_ROW_PX = 12;
-
-/** What a sheet for an unfinished order is stamped with, on screen and on paper. */
-const unfinished: Partial<Record<OrderStatus, { stamp: string; detail: string }>> = {
-    Draft: {
-        stamp: "NOT COMPLETED",
-        detail: "This order is still being written up on the sales floor.",
-    },
-    AwaitingCheckout: {
-        stamp: "NOT COMPLETED",
-        detail: "This order is waiting at the checkout table and has not been paid.",
-    },
-    Voided: {
-        stamp: "VOIDED",
-        detail: "This order was voided and is not a valid sale.",
-    },
 };
 
 /** The item grid's columns, as on the paper form; the description takes what is left. */
@@ -66,52 +40,25 @@ const COLUMNS = {
 const ReceiptSheet = ({ order, sheetRef }: Props) => {
     // The business details of the territory the sale was taken in.
     const settings = useSettingsFor(order.territoryId);
-    // A completed sale shows the wording the customer initialled; anything else, today's.
-    const terms: SalesTerm[] = order.terms?.length ? order.terms : settings.terms;
-    const term = (key: SalesTermKey) => TermFor(terms, key);
-    const lines = SortLinesForPrint(order.lines ?? []).filter(PrintsOnSalesSheet);
-    const notice = unfinished[order.status ?? "Draft"];
-    const blanks = Math.max(0, MIN_ITEM_ROWS - lines.length - lines.filter((l) => l.notes).length);
-
-    const noteRows = lines.filter((l) => l.notes).length;
-    const rows = Math.max(lines.length + noteRows, MIN_ITEM_ROWS);
-    const rowPx = Math.max(MIN_ROW_PX, Math.min(ROW_PX, Math.floor((MIN_ITEM_ROWS * ROW_PX) / rows)));
-    const compact = rowPx < ROW_PX;
-    const rowFont = rowPx >= ROW_PX ? 11 : rowPx >= 15 ? 10 : 9;
-
-    const paidBy = (method: PaymentMethod): string => {
-        const paid = (order.payments ?? []).filter((p) => p.method === method);
-        if (paid.length === 0) return "";
-        return FormatCurrency(paid.reduce((sum, p) => sum + (p.amount ?? 0), 0));
-    };
-
-    // The rep who wrote the sale and whoever checked the customer out. One name when they are
-    // the same person, or before checkout has happened.
-    const salesName = order.cfsRepName?.trim() ?? "";
-    const checkoutName = order.completedByName?.trim() ?? "";
-    const showCheckout =
-        checkoutName !== "" && checkoutName.toLowerCase() !== salesName.toLowerCase();
-
-    const hasLayaway = (order.payments ?? []).some((p) => p.method === "Layaway");
-
-    const checkNumbers = (order.payments ?? [])
-        .filter((p) => p.method === "Check" && p.checkNumber)
-        .map((p) => p.checkNumber)
-        .join(", ");
-
-    // Each financing payment's type, number and amount, printed under the comments.
-    const financing = FinancingComments(order);
-
-    const cardFee =
-        (order.ccProcessingFee ?? 0) > 0
-            ? FormatCurrency(order.ccProcessingFee)
-            : order.waiveCcProcessingFee && (order.payments ?? []).some((p) => p.method === "VisaMc")
-              ? "Waived"
-              : "—";
+    const {
+        term,
+        lines,
+        notice,
+        blanks,
+        rowPx,
+        compact,
+        rowFont,
+        salesName,
+        checkoutName,
+        showCheckout,
+        financing,
+        paymentRows,
+    } = ReceiptModel(order, settings.terms);
 
     const addressBlock = (side: "billing" | "delivery") => {
         const get = (key: string): string =>
-            ((order as unknown as Record<string, string | null | undefined>)[side + key] ?? "") || "";
+            ((order as unknown as Record<string, string | null | undefined>)[side + key] ?? "") ||
+            "";
         const field = (labelText: string, value: string, size = 10) => (
             <SheetText size={size}>
                 <FieldLabel>{labelText}</FieldLabel>
@@ -122,33 +69,59 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
         return (
             <View>
                 <Row>
-                    <Cell flex={1} height={22}>{field("Name:", get("Name"), 11)}</Cell>
+                    <Cell flex={1} height={22}>
+                        {field("Name:", get("Name"), 11)}
+                    </Cell>
                 </Row>
                 <Row>
-                    <Cell flex={1} height={22}>{field("Address:", get("Address"), 11)}</Cell>
+                    <Cell flex={1} height={22}>
+                        {field("Address:", get("Address"), 11)}
+                    </Cell>
                 </Row>
                 <Row>
-                    <Cell width="33.4%" height={20}>{field("Unit #:", get("Unit"))}</Cell>
-                    <Cell width="33.3%" height={20}>{field("Floor:", get("Floor"))}</Cell>
-                    <Cell flex={1} height={20}>{field("Suite #:", get("Suite"))}</Cell>
+                    <Cell width="33.4%" height={20}>
+                        {field("Unit #:", get("Unit"))}
+                    </Cell>
+                    <Cell width="33.3%" height={20}>
+                        {field("Floor:", get("Floor"))}
+                    </Cell>
+                    <Cell flex={1} height={20}>
+                        {field("Suite #:", get("Suite"))}
+                    </Cell>
                 </Row>
                 <Row>
-                    <Cell width="33.4%" height={20}>{field("City:", get("City"))}</Cell>
-                    <Cell width="33.3%" height={20}>{field("State:", get("State"))}</Cell>
-                    <Cell flex={1} height={20}>{field("Zip:", get("Zip"))}</Cell>
+                    <Cell width="33.4%" height={20}>
+                        {field("City:", get("City"))}
+                    </Cell>
+                    <Cell width="33.3%" height={20}>
+                        {field("State:", get("State"))}
+                    </Cell>
+                    <Cell flex={1} height={20}>
+                        {field("Zip:", get("Zip"))}
+                    </Cell>
                 </Row>
                 <Row>
-                    <Cell width="66.7%" height={20}>{field("Cell #:", get("Cell"))}</Cell>
-                    <Cell flex={1} height={20}>{field("Alt. #:", get("Alt"))}</Cell>
+                    <Cell width="66.7%" height={20}>
+                        {field("Cell #:", get("Cell"))}
+                    </Cell>
+                    <Cell flex={1} height={20}>
+                        {field("Alt. #:", get("Alt"))}
+                    </Cell>
                 </Row>
                 <Row>
-                    <Cell flex={1} height={20}>{field("Email:", get("Email"))}</Cell>
+                    <Cell flex={1} height={20}>
+                        {field("Email:", get("Email"))}
+                    </Cell>
                 </Row>
             </View>
         );
     };
 
-    const initialled = (key: SalesTermKey, initials: string | null | undefined, align?: "right") => (
+    const initialled = (
+        key: SalesTermKey,
+        initials: string | null | undefined,
+        align?: "right"
+    ) => (
         <SheetText size={9} serif align={align} style={{ lineHeight: 11.25 }}>
             {term(key).heading ? (
                 <Text style={{ fontWeight: "700", textDecorationLine: "underline" }}>
@@ -181,20 +154,18 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
     );
 
     const item = (text: React.ReactNode, align?: "left" | "center" | "right", bold = false) => (
-        <SheetText size={rowFont} align={align} semibold={bold} style={{ lineHeight: rowFont * 1.1 }}>
+        <SheetText
+            size={rowFont}
+            align={align}
+            semibold={bold}
+            style={{ lineHeight: rowFont * 1.1 }}
+        >
             {text}
         </SheetText>
     );
 
     // The comments, payments and totals block: comments on the left, then four columns - method,
     // amount, total label, total - so each payment row lines up with the headings above it.
-    const paymentRows: [string, string, string, string, boolean?][] = [
-        [PaymentMethodLabels.VisaMc, paidBy("VisaMc"), "Sales Tax", FormatCurrency(order.taxAmount)],
-        ["Cash", paidBy("Cash"), "Total", FormatCurrency((order.subtotal ?? 0) + (order.taxAmount ?? 0)), true],
-        [`Check #${checkNumbers ? ` ${checkNumbers}` : ""}`, paidBy("Check"), "CC Processing Fee", cardFee],
-        ["Financing", paidBy("Financing"), "Balance Due", FormatCurrency(order.total), true],
-    ];
-    if (hasLayaway) paymentRows.push(["Layaway", paidBy("Layaway"), "", ""]);
     // Widths within the right-hand part, which is 54% of the sheet.
     const pw = { method: "27.8%", amount: "20.4%", label: "27.8%" } as const;
 
@@ -250,7 +221,12 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
                     <SheetText size={15} bold color="#dc2626">
                         N
                     </SheetText>
-                    <SheetText size={9} bold color="#dc2626" style={{ textDecorationLine: "underline" }}>
+                    <SheetText
+                        size={9}
+                        bold
+                        color="#dc2626"
+                        style={{ textDecorationLine: "underline" }}
+                    >
                         o
                     </SheetText>
                     <SheetText size={15} bold color="#dc2626">
@@ -261,7 +237,15 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
             </View>
 
             {notice && (
-                <View style={{ marginTop: 4, borderWidth: 2, borderColor: "#dc2626", paddingHorizontal: 8, paddingVertical: 4 }}>
+                <View
+                    style={{
+                        marginTop: 4,
+                        borderWidth: 2,
+                        borderColor: "#dc2626",
+                        paddingHorizontal: 8,
+                        paddingVertical: 4,
+                    }}
+                >
                     <SheetText size={11} bold color="#b91c1c" align="center">
                         {notice.stamp} - NOT A FINAL SALES SHEET. {notice.detail}
                     </SheetText>
@@ -278,7 +262,12 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
                         ["Referral Name", "22%"],
                         ["CFS Rep Name", undefined],
                     ].map(([text, width]) => (
-                        <Cell key={text} width={width as `${number}%` | undefined} flex={width ? undefined : 1} align="center">
+                        <Cell
+                            key={text}
+                            width={width as `${number}%` | undefined}
+                            flex={width ? undefined : 1}
+                            align="center"
+                        >
                             <SheetText semibold>{text}</SheetText>
                         </Cell>
                     ))}
@@ -301,12 +290,16 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
                             <>
                                 {salesName ? (
                                     <SheetText size={11} align="center">
-                                        <SheetText size={8} bold>SALES: </SheetText>
+                                        <SheetText size={8} bold>
+                                            SALES:{" "}
+                                        </SheetText>
                                         {salesName}
                                     </SheetText>
                                 ) : null}
                                 <SheetText size={11} align="center">
-                                    <SheetText size={8} bold>CHECKOUT: </SheetText>
+                                    <SheetText size={8} bold>
+                                        CHECKOUT:{" "}
+                                    </SheetText>
                                     {checkoutName}
                                 </SheetText>
                             </>
@@ -323,10 +316,14 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
             <View style={{ marginTop: 4 }}>
                 <Row>
                     <Cell width="50%" align="center">
-                        <SheetText size={11} semibold>Customer Billing Name and Address</SheetText>
+                        <SheetText size={11} semibold>
+                            Customer Billing Name and Address
+                        </SheetText>
                     </Cell>
                     <Cell flex={1} align="center">
-                        <SheetText size={11} semibold>Delivery Address (If different from billing)</SheetText>
+                        <SheetText size={11} semibold>
+                            Delivery Address (If different from billing)
+                        </SheetText>
                     </Cell>
                 </Row>
                 <Row>
@@ -345,23 +342,38 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
             {/* Line items */}
             <View style={{ marginTop: 4 }}>
                 <Row>
-                    <Cell width={COLUMNS.brand} align="center"><SheetText semibold>Brand</SheetText></Cell>
-                    <Cell width={COLUMNS.size} align="center"><SheetText semibold>Size</SheetText></Cell>
+                    <Cell width={COLUMNS.brand} align="center">
+                        <SheetText semibold>Brand</SheetText>
+                    </Cell>
+                    <Cell width={COLUMNS.size} align="center">
+                        <SheetText semibold>Size</SheetText>
+                    </Cell>
                     <Cell flex={1} align="center">
                         <SheetText semibold>
-                            Description <SheetText size={7}>(model name, type, matt, box)</SheetText>
+                            Description{" "}
+                            <SheetText size={7}>(model name, type, matt, box)</SheetText>
                         </SheetText>
                     </Cell>
-                    <Cell width={COLUMNS.qty} align="center"><SheetText semibold>Qty</SheetText></Cell>
+                    <Cell width={COLUMNS.qty} align="center">
+                        <SheetText semibold>Qty</SheetText>
+                    </Cell>
                     <Cell width={COLUMNS.takeWith} align="center">
                         <SheetText size={8} semibold align="center" style={{ lineHeight: 8 }}>
                             Take{"\n"}With
                         </SheetText>
                     </Cell>
-                    <Cell width={COLUMNS.unit} align="center"><SheetText semibold>Unit Price</SheetText></Cell>
-                    <Cell width={COLUMNS.discount} align="center"><SheetText semibold>Discount</SheetText></Cell>
-                    <Cell width={COLUMNS.sale} align="center"><SheetText semibold>Sale Price</SheetText></Cell>
-                    <Cell width={COLUMNS.total} align="center"><SheetText semibold>Total</SheetText></Cell>
+                    <Cell width={COLUMNS.unit} align="center">
+                        <SheetText semibold>Unit Price</SheetText>
+                    </Cell>
+                    <Cell width={COLUMNS.discount} align="center">
+                        <SheetText semibold>Discount</SheetText>
+                    </Cell>
+                    <Cell width={COLUMNS.sale} align="center">
+                        <SheetText semibold>Sale Price</SheetText>
+                    </Cell>
+                    <Cell width={COLUMNS.total} align="center">
+                        <SheetText semibold>Total</SheetText>
+                    </Cell>
                 </Row>
 
                 {lines.map((line) => (
@@ -373,17 +385,27 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
                                 item(
                                     <>
                                         {line.lineType === "Delivery" && (
-                                            <SheetText size={8} bold>SHIP: </SheetText>
+                                            <SheetText size={8} bold>
+                                                SHIP:{" "}
+                                            </SheetText>
                                         )}
                                         {line.lineType === "Upcharge" && (
-                                            <SheetText size={8} bold>UPCHARGE: </SheetText>
+                                            <SheetText size={8} bold>
+                                                UPCHARGE:{" "}
+                                            </SheetText>
                                         )}
                                         {line.description}
                                         {ChoicesText(line.choices) ? (
-                                            <Text style={{ fontWeight: "600" }}> - {ChoicesText(line.choices)}</Text>
+                                            <Text style={{ fontWeight: "600" }}>
+                                                {" "}
+                                                - {ChoicesText(line.choices)}
+                                            </Text>
                                         ) : null}
                                         {line.lineType === "Included" && (
-                                            <SheetText size={9} italic> (included)</SheetText>
+                                            <SheetText size={9} italic>
+                                                {" "}
+                                                (included)
+                                            </SheetText>
                                         )}
                                     </>
                                 ),
@@ -396,22 +418,40 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
                                 COLUMNS.qty,
                                 "center"
                             )}
-                            {itemCell(item(line.takeWith ? "X" : "", "center"), COLUMNS.takeWith, "center")}
                             {itemCell(
-                                item(line.lineType === "Included" ? "Incl." : FormatCurrency(line.unitPrice), "right"),
+                                item(line.takeWith ? "X" : "", "center"),
+                                COLUMNS.takeWith,
+                                "center"
+                            )}
+                            {itemCell(
+                                item(
+                                    line.lineType === "Included"
+                                        ? "Incl."
+                                        : FormatCurrency(line.unitPrice),
+                                    "right"
+                                ),
                                 COLUMNS.unit,
                                 "right"
                             )}
                             {/* A catalog sale and the rep's own discount both show, e.g. "20% + $100". */}
-                            {itemCell(item(LineDiscountText(line), "center"), COLUMNS.discount, "center")}
                             {itemCell(
-                                item(LineHasDiscount(line) ? FormatCurrency(line.salePrice) : "", "right"),
+                                item(LineDiscountText(line), "center"),
+                                COLUMNS.discount,
+                                "center"
+                            )}
+                            {itemCell(
+                                item(
+                                    LineHasDiscount(line) ? FormatCurrency(line.salePrice) : "",
+                                    "right"
+                                ),
                                 COLUMNS.sale,
                                 "right"
                             )}
                             {itemCell(
                                 item(
-                                    line.lineType === "Included" ? "Incl." : FormatCurrency(line.lineTotal),
+                                    line.lineType === "Included"
+                                        ? "Incl."
+                                        : FormatCurrency(line.lineTotal),
                                     "right",
                                     true
                                 ),
@@ -425,7 +465,9 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
                                 <Cell width={COLUMNS.size} />
                                 <Cell flex={1} style={{ paddingLeft: 16 }}>
                                     <SheetText size={rowFont} italic>
-                                        <SheetText size={8} bold>NOTE: </SheetText>
+                                        <SheetText size={8} bold>
+                                            NOTE:{" "}
+                                        </SheetText>
                                         {line.notes}
                                     </SheetText>
                                 </Cell>
@@ -436,11 +478,24 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
 
                 {Array.from({ length: blanks }).map((_, index) => (
                     <Row key={`blank-${index}`}>
-                        {[COLUMNS.brand, COLUMNS.size, undefined, COLUMNS.qty, COLUMNS.takeWith, COLUMNS.unit, COLUMNS.discount, COLUMNS.sale, COLUMNS.total].map(
-                            (width, col) => (
-                                <Cell key={col} width={width} flex={width ? undefined : 1} height={rowPx} />
-                            )
-                        )}
+                        {[
+                            COLUMNS.brand,
+                            COLUMNS.size,
+                            undefined,
+                            COLUMNS.qty,
+                            COLUMNS.takeWith,
+                            COLUMNS.unit,
+                            COLUMNS.discount,
+                            COLUMNS.sale,
+                            COLUMNS.total,
+                        ].map((width, col) => (
+                            <Cell
+                                key={col}
+                                width={width}
+                                flex={width ? undefined : 1}
+                                height={rowPx}
+                            />
+                        ))}
                     </Row>
                 ))}
             </View>
@@ -449,7 +504,9 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
             <View style={{ marginTop: 4, flexDirection: "row" }}>
                 <View style={{ width: "46%" }}>
                     <Row>
-                        <Cell flex={1} align="center"><SheetText semibold>Comments:</SheetText></Cell>
+                        <Cell flex={1} align="center">
+                            <SheetText semibold>Comments:</SheetText>
+                        </Cell>
                     </Row>
                     <Row style={{ flex: 1 }}>
                         <Cell flex={1}>
@@ -464,20 +521,35 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
                 </View>
                 <View style={{ flex: 1 }}>
                     <Row>
-                        <Cell width="48.2%" align="center"><SheetText semibold>Payment Options</SheetText></Cell>
-                        <Cell width={pw.label}><SheetText semibold>Subtotal</SheetText></Cell>
-                        <Cell flex={1} align="right"><SheetText>{FormatCurrency(order.subtotal)}</SheetText></Cell>
+                        <Cell width="48.2%" align="center">
+                            <SheetText semibold>Payment Options</SheetText>
+                        </Cell>
+                        <Cell width={pw.label}>
+                            <SheetText semibold>Subtotal</SheetText>
+                        </Cell>
+                        <Cell flex={1} align="right">
+                            <SheetText>{FormatCurrency(order.subtotal)}</SheetText>
+                        </Cell>
                     </Row>
-                    {paymentRows.map(([method, amount, totalLabel, total, bold]) => (
+                    {paymentRows.map(({ method, amount, totalLabel, total, bold }) => (
                         <Row key={method}>
-                            <Cell width={pw.method} align="center"><SheetText semibold>{method}</SheetText></Cell>
-                            <Cell width={pw.amount} align="right"><SheetText>{amount}</SheetText></Cell>
+                            <Cell width={pw.method} align="center">
+                                <SheetText semibold>{method}</SheetText>
+                            </Cell>
+                            <Cell width={pw.amount} align="right">
+                                <SheetText>{amount}</SheetText>
+                            </Cell>
                             <Cell width={pw.label}>
-                                <SheetText size={totalLabel === "CC Processing Fee" ? 9 : 10} semibold>
+                                <SheetText
+                                    size={totalLabel === "CC Processing Fee" ? 9 : 10}
+                                    semibold
+                                >
                                     {totalLabel || " "}
                                 </SheetText>
                             </Cell>
-                            <Cell flex={1} align="right"><SheetText bold={bold}>{total}</SheetText></Cell>
+                            <Cell flex={1} align="right">
+                                <SheetText bold={bold}>{total}</SheetText>
+                            </Cell>
                         </Row>
                     ))}
                 </View>
@@ -493,8 +565,14 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
             {/* Signature row */}
             <View style={{ marginTop: 4 }}>
                 <Row>
-                    <Cell width="45%" height={34} style={{ flexDirection: "row", justifyContent: "space-between" }}>
-                        <SheetText><FieldLabel>Customer Signature:</FieldLabel></SheetText>
+                    <Cell
+                        width="45%"
+                        height={34}
+                        style={{ flexDirection: "row", justifyContent: "space-between" }}
+                    >
+                        <SheetText>
+                            <FieldLabel>Customer Signature:</FieldLabel>
+                        </SheetText>
                         {order.customerSignature ? (
                             <Image
                                 source={{ uri: order.customerSignature }}
@@ -521,11 +599,15 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
             <View style={{ marginTop: 6, flexDirection: "row", gap: 16 }}>
                 <View style={{ flex: 1, flexDirection: "row", alignItems: "flex-end" }}>
                     <SheetText bold>RECEIVED BY: </SheetText>
-                    <View style={{ flex: 1, borderBottomWidth: 1, borderColor: "#000", height: 12 }} />
+                    <View
+                        style={{ flex: 1, borderBottomWidth: 1, borderColor: "#000", height: 12 }}
+                    />
                 </View>
                 <View style={{ flex: 1, flexDirection: "row", alignItems: "flex-end" }}>
                     <SheetText bold>Date: </SheetText>
-                    <View style={{ flex: 1, borderBottomWidth: 1, borderColor: "#000", height: 12 }} />
+                    <View
+                        style={{ flex: 1, borderBottomWidth: 1, borderColor: "#000", height: 12 }}
+                    />
                 </View>
             </View>
         </View>
