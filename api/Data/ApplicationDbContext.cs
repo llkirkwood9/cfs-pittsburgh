@@ -193,8 +193,9 @@ namespace api.Data
                     .HasForeignKey(c => c.BundleVariantId)
                     .OnDelete(DeleteBehavior.Cascade);
 
-                // A second cascade path into ProductVariants is refused by SQL Server, and a
-                // component still in use by a bundle should not vanish silently anyway.
+                // No second cascade path into ProductVariants (the schema dates from SQL Server,
+                // which refuses one), and a component still in use by a bundle should not vanish
+                // silently anyway.
                 entity.HasOne(c => c.ComponentVariant)
                     .WithMany()
                     .HasForeignKey(c => c.ComponentVariantId)
@@ -283,8 +284,9 @@ namespace api.Data
                     .HasForeignKey(p => p.OrderId)
                     .OnDelete(DeleteBehavior.Cascade);
 
-                // Restrict rather than SetNull: SQL Server refuses two nullable FKs from Orders
-                // to Users as separate cascade paths, and accounts are deactivated, never deleted.
+                // Restrict rather than SetNull: accounts are deactivated, never deleted. (The schema
+                // dates from SQL Server, which refuses two nullable FKs from Orders to Users as
+                // separate cascade paths.)
                 entity.HasOne(o => o.CreatedByUser)
                     .WithMany()
                     .HasForeignKey(o => o.CreatedByUserId)

@@ -1,3 +1,4 @@
+using System.Linq.Expressions;
 using api.Data;
 using api.Models;
 using Microsoft.EntityFrameworkCore;
@@ -8,7 +9,7 @@ namespace api.Utils
     /// Stock rules for Take With sales. A tracked item can only go home with the customer when the
     /// cart has enough of it, and a size left out of inventory - not kept at the cart - never can;
     /// otherwise it has to be shipped. Stock is kept per territory - each territory's cart carries
-    /// its own, even of global catalog items - and is drawn down when the sale is completed and
+    /// its own - and is drawn down when the sale is completed and
     /// put back if a completed sale is reopened or voided. Within a territory it is kept per size,
     /// or per size and combination of choices for selections that count stock (such as sheet
     /// colors), so each demand is keyed by both.
@@ -88,6 +89,41 @@ namespace api.Utils
         }
 
         /// <summary>
+        /// Records a change to a stock row, after the row has been changed: what changed, by how
+        /// much, what it came to and who did it. The caller saves.
+        /// </summary>
+        /// <param name="db">EF context</param>
+        /// <param name="stock">The stock row, already changed</param>
+        /// <param name="kind">What sort of change</param>
+        /// <param name="change">Units added (or taken away, when negative)</param>
+        /// <param name="userId">Crew member making the change</param>
+        /// <param name="userName">Their name</param>
+        /// <param name="note">A note for the history, if any</param>
+        /// <param name="orderId">The order behind it, if any</param>
+        /// <param name="eventId">The event it happened at, if any</param>
+        /// <returns>The new history row.</returns>
+        public static InventoryAdjustment Record(ApplicationDbContext db, InventoryStock stock, InventoryChangeKind kind, int change,
+            int? userId, string? userName, string? note, int? orderId = null, int? eventId = null)
+        {
+            var row = new InventoryAdjustment
+            {
+                TerritoryId = stock.TerritoryId,
+                ProductVariantId = stock.ProductVariantId,
+                StockKey = stock.StockKey,
+                Kind = kind,
+                Change = change,
+                QuantityAfter = stock.QuantityOnHand,
+                OrderId = orderId,
+                EventId = eventId,
+                UserId = userId,
+                UserName = userName,
+                Note = note,
+            };
+            db.InventoryAdjustments.Add(row);
+            return row;
+        }
+
+        /// <summary>
         /// Checks that every tracked Take With item on the order is in stock in the territory.
         /// </summary>
         /// <param name="db">EF context</param>
@@ -143,6 +179,21 @@ namespace api.Utils
         }
 
         /// <summary>
+        /// Whether a size's stock is counted: its product tracks inventory and the size isn't left
+        /// out of it.
+        /// </summary>
+        public static readonly Expression<Func<ProductVariant, bool>> Tracked =
+            v => v.Product!.TrackInventory && !v.ExcludeFromInventory;
+
+        /// <summary>
+        /// Whether a size's stock is counted (see Tracked), for a size already loaded.
+        /// </summary>
+        /// <param name="variant">The size, with its product loaded; null for anything else</param>
+        /// <returns>True when its stock is counted.</returns>
+        public static bool IsTracked(ProductVariant? variant) =>
+            variant is { ExcludeFromInventory: false, Product.TrackInventory: true };
+
+        /// <summary>
         /// Whether a size is left out of its tracked product's inventory - not kept at the cart, so
         /// it can't be a Take With.
         /// </summary>
@@ -168,7 +219,8 @@ namespace api.Utils
 
             var ids = demand.Keys.Select(k => k.VariantId).Distinct().ToList();
             var tracked = await db.ProductVariants
-                .Where(v => ids.Contains(v.Id) && v.Product!.TrackInventory && !v.ExcludeFromInventory)
+                .Where(Tracked)
+                .Where(v => ids.Contains(v.Id))
                 .Select(v => v.Id)
                 .ToListAsync();
 
@@ -179,21 +231,8 @@ namespace api.Utils
 
                 var stock = await StockRowAsync(db, territoryId, variantId, key);
                 stock.QuantityOnHand -= quantity;
-
-                db.InventoryAdjustments.Add(new InventoryAdjustment
-                {
-                    TerritoryId = territoryId,
-                    ProductVariantId = variantId,
-                    StockKey = key,
-                    Kind = InventoryChangeKind.Sale,
-                    Change = -quantity,
-                    QuantityAfter = stock.QuantityOnHand,
-                    OrderId = order.Id,
-                    EventId = order.EventId,
-                    UserId = userId,
-                    UserName = userName,
-                    Note = $"Order #{order.OrderNumber}",
-                });
+                Record(db, stock, InventoryChangeKind.Sale, -quantity, userId, userName, $"Order #{order.OrderNumber}",
+                    order.Id, order.EventId);
             }
         }
 
@@ -225,21 +264,8 @@ namespace api.Utils
                 var into = item.TerritoryId ?? territoryId;
                 var stock = await StockRowAsync(db, into, item.ProductVariantId, item.StockKey);
                 stock.QuantityOnHand += quantity;
-
-                db.InventoryAdjustments.Add(new InventoryAdjustment
-                {
-                    TerritoryId = into,
-                    ProductVariantId = item.ProductVariantId,
-                    StockKey = item.StockKey,
-                    Kind = InventoryChangeKind.Return,
-                    Change = quantity,
-                    QuantityAfter = stock.QuantityOnHand,
-                    OrderId = order.Id,
-                    EventId = order.EventId,
-                    UserId = userId,
-                    UserName = userName,
-                    Note = $"Order #{order.OrderNumber} {reason}",
-                });
+                Record(db, stock, InventoryChangeKind.Return, quantity, userId, userName, $"Order #{order.OrderNumber} {reason}",
+                    order.Id, order.EventId);
             }
         }
 
@@ -256,7 +282,8 @@ namespace api.Utils
                 .Include(v => v.Product)
                 .ThenInclude(p => p!.Options)
                 .ThenInclude(o => o.Choices)
-                .Where(v => ids.Contains(v.Id) && v.Product!.TrackInventory && !v.ExcludeFromInventory)
+                .Where(Tracked)
+                .Where(v => ids.Contains(v.Id))
                 .ToListAsync();
 
         /// <summary>

@@ -51,7 +51,13 @@ namespace api.Utils
         /// user's. Null means every territory (a system admin or administrator viewing them all).
         /// </summary>
         public List<int>? VisibleTerritoryIds =>
-            TerritoryId is { } one ? [one] : IsCompanyWide ? null : MemberTerritoryIds.ToList();
+            TerritoryId is { } one ? [one] : OwnTerritoryIds;
+
+        /// <summary>
+        /// All the user's territories, whichever one is picked in the menu bar. Null means every
+        /// territory (a system admin or administrator).
+        /// </summary>
+        public List<int>? OwnTerritoryIds => IsCompanyWide ? null : MemberTerritoryIds.ToList();
 
         #endregion
 

@@ -1,6 +1,6 @@
 using api.Models;
 
-namespace api.Utils
+namespace api.Orders
 {
     /// <summary>
     /// Keeps an order's lines in sales sheet order: each item, then the rows that belong to it -

@@ -1,10 +1,10 @@
-using api.Controllers;
+using Microsoft.EntityFrameworkCore;
 using api.Data;
 using api.Dtos;
 using api.Models;
-using Microsoft.EntityFrameworkCore;
+using api.Utils;
 
-namespace api.Utils
+namespace api.Catalog
 {
     /// <summary>
     /// Thrown when a catalog file can't be restored; the message is meant for the system admin.
@@ -73,17 +73,7 @@ namespace api.Utils
 
             var products = await db.Products
                 .AsNoTracking()
-                .Include(p => p.Territory)
-                .Include(p => p.Variants)
-                .ThenInclude(v => v.Components)
-                .ThenInclude(c => c.ComponentVariant)
-                .ThenInclude(cv => cv!.Product)
-                .ThenInclude(cp => cp!.Territory)
-                .Include(p => p.DeliveryOptions)
-                .ThenInclude(d => d.DeliveryOption)
-                .Include(p => p.Options)
-                .ThenInclude(o => o.Choices)
-                .AsSplitQuery()
+                .WithEverything()
                 .OrderBy(p => p.Category)
                 .ThenBy(p => p.SortOrder)
                 .ThenBy(p => p.Name)
@@ -228,12 +218,7 @@ namespace api.Utils
                 await ImportFinanceOptionsAsync(db, file.FinanceOptions, replace, TerritoryOf, result);
 
             var existing = await db.Products
-                .Include(p => p.Variants)
-                .ThenInclude(v => v.Components)
-                .Include(p => p.DeliveryOptions)
-                .Include(p => p.Options)
-                .ThenInclude(o => o.Choices)
-                .AsSplitQuery()
+                .ForEditing()
                 .ToListAsync();
 
             // Two products can share a brand and name (an archived one and its replacement, say), so
@@ -309,9 +294,9 @@ namespace api.Utils
             foreach (var d in deliveryOptions)
             {
                 var name = d.Name?.Trim() ?? "";
-                if (name.Length is 0 or > 100)
+                if (name.Length is 0 or > CatalogRules.MaxDeliveryNameLength)
                     return "Every delivery option needs a name of up to 100 characters.";
-                if (d.Price is null or < 0 or > 100_000)
+                if (d.Price is null or < 0 or > CatalogRules.MaxDeliveryPrice)
                     return $"Delivery option \"{name}\": the price must be 0 or more.";
                 if (d.SaleDiscountPercent is < 0 or > 100 || d.SaleDiscountAmount < 0)
                     return $"Delivery option \"{name}\": a sale must be 0 to 100 percent, or an amount of 0 or more.";
@@ -322,9 +307,9 @@ namespace api.Utils
                 var name = p.Name?.Trim() ?? "";
                 var brand = p.Brand?.Trim() ?? "";
                 var label = brand.Length == 0 ? name : $"{brand} {name}";
-                if (name.Length is 0 or > 150)
+                if (name.Length is 0 or > CatalogRules.MaxProductNameLength)
                     return "Every product needs a name of up to 150 characters.";
-                if (brand.Length > 100)
+                if (brand.Length > CatalogRules.MaxBrandLength)
                     return $"{label}: the brand can be at most 100 characters.";
                 if (!Enum.TryParse<ProductCategory>(p.Category, true, out _))
                     return $"{label}: \"{p.Category}\" isn't a category.";
@@ -347,7 +332,7 @@ namespace api.Utils
                 if (variants.SelectMany(v => v.Includes ?? []).Any(c => c.Quantity is < 1 or > 20))
                     return $"{label}: an included item's quantity must be between 1 and 20.";
 
-                var optionError = ProductController.ValidateOptions(ToOptionDtos(p.Options, null));
+                var optionError = ProductOptions.Validate(ToOptionDtos(p.Options, null));
                 if (optionError != null)
                     return $"{label}: {optionError}";
             }
@@ -401,7 +386,7 @@ namespace api.Utils
                 option.IsActive = dto.IsActive ?? true;
                 option.SortOrder = index + 1;
                 (option.SaleDiscountPercent, option.SaleDiscountAmount) =
-                    ProductController.CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount);
+                    CatalogRules.CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount);
             }
 
             await db.SaveChangesAsync();
@@ -489,10 +474,10 @@ namespace api.Utils
             product.IsActive = dto.IsActive ?? true;
             product.TrackInventory = dto.TrackInventory ?? false;
             // A file from before warranties were recorded goes by category.
-            product.HasWarranty = dto.HasWarranty ?? ProductController.WarrantyByDefault(product.Category);
-            product.WarrantyLength = ProductController.CleanWarrantyLength(dto.WarrantyLength);
+            product.HasWarranty = dto.HasWarranty ?? CatalogRules.WarrantyByDefault(product.Category);
+            product.WarrantyLength = CatalogRules.CleanWarrantyLength(dto.WarrantyLength);
             (product.SaleDiscountPercent, product.SaleDiscountAmount) =
-                ProductController.CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount);
+                CatalogRules.CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount);
 
             // Sizes: matches are updated (each existing size at most once, in order), new ones added.
             // A size no longer in the file is removed, or archived when it has been sold or another
@@ -540,10 +525,10 @@ namespace api.Utils
                 variant.SortOrder = index + 1;
                 variant.IsActive = v.IsActive ?? true;
                 variant.ExcludeFromInventory = v.ExcludeFromInventory ?? false;
-                variant.Notes = ProductController.CleanSizeNotes(v.Notes);
+                variant.Notes = CatalogRules.CleanSizeNotes(v.Notes);
                 variant.HasOwnSale = v.HasOwnSale ?? false;
                 (variant.SaleDiscountPercent, variant.SaleDiscountAmount) = variant.HasOwnSale
-                    ? ProductController.CleanSale(v.SaleDiscountPercent, v.SaleDiscountAmount)
+                    ? CatalogRules.CleanSale(v.SaleDiscountPercent, v.SaleDiscountAmount)
                     : (null, null);
 
                 // Rebuilt from the file once every product is in place.
@@ -576,8 +561,8 @@ namespace api.Utils
                     PriceOverride = d.PriceOverride is < 0 ? null : d.PriceOverride,
                     IsDefault = d.IsDefault ?? false,
                     HasOwnSale = d.HasOwnSale ?? false,
-                    SaleDiscountPercent = d.HasOwnSale == true ? ProductController.CleanSale(d.SaleDiscountPercent, d.SaleDiscountAmount).Percent : null,
-                    SaleDiscountAmount = d.HasOwnSale == true ? ProductController.CleanSale(d.SaleDiscountPercent, d.SaleDiscountAmount).Amount : null,
+                    SaleDiscountPercent = d.HasOwnSale == true ? CatalogRules.CleanSale(d.SaleDiscountPercent, d.SaleDiscountAmount).Percent : null,
+                    SaleDiscountAmount = d.HasOwnSale == true ? CatalogRules.CleanSale(d.SaleDiscountPercent, d.SaleDiscountAmount).Amount : null,
                 });
             }
 
@@ -585,9 +570,9 @@ namespace api.Utils
             // counted per choice carries on.
             var options = ToOptionDtos(dto.Options, product);
             if (product.Id == 0)
-                ProductController.SyncOptions(product, options);
+                ProductOptions.AddTo(product, options);
             else
-                await ProductController.ReplaceOptionsAsync(db, product, options);
+                await ProductOptions.ReplaceAsync(db, product, options);
 
             return pairs;
         }

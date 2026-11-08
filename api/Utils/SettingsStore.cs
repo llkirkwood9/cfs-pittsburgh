@@ -2,6 +2,7 @@ using System.Globalization;
 using System.Text.Json;
 using api.Data;
 using api.Models;
+using api.Orders;
 using Microsoft.EntityFrameworkCore;
 
 namespace api.Utils
@@ -34,10 +35,10 @@ namespace api.Utils
         public const int DefaultLowStockAt = 2;
 
         /// <summary>A new event's sales tax rate when none is set: 7%.</summary>
-        public const decimal DefaultSalesTaxRate = 0.07m;
+        public const decimal DefaultSalesTaxRate = Event.DefaultSalesTaxRate;
 
         /// <summary>A new event's card processing fee when none is set: 2%.</summary>
-        public const decimal DefaultCcProcessingFeeRate = 0.02m;
+        public const decimal DefaultCcProcessingFeeRate = Event.DefaultCcProcessingFeeRate;
 
         /// <summary>Longest app name: it has to fit in the menu bar.</summary>
         public const int MaxAppNameLength = 30;
@@ -75,22 +76,22 @@ namespace api.Utils
         /// </summary>
         public static readonly IReadOnlyList<SalesTerm> DefaultTerms =
         [
-            new("customerInfo", "Check your details", "",
+            new(Acknowledgements.CustomerInfoKey, "Check your details", "",
                 "Customer confirms the name, address, phone, email and delivery details above are correct.",
                 Acknowledgements.Shipped),
-            new("warranty", "Warranty & mattress protectors", "Customer Service & Warranty Information",
+            new(Acknowledgements.WarrantyKey, "Warranty & mattress protectors", "Customer Service & Warranty Information",
                 "All products come with a manufacturer warranty. Customer service and warranty issues are the responsibility of the manufacturer. " +
                 "All manufacturers require the use of mattress protectors. They reserve the right to refuse service or invalidate the warranty if there are " +
                 "any stains or soils present even if the product is defective. Customer has been notified that sleep sets must be clean, free of tears, " +
                 "burns, odors, pet hair and stains of any kind for the warranty to be valid. In addition, manufacturer warranties only cover the cost of " +
                 "the replacement item, not additional expenses such as delivery or set-up.",
                 Acknowledgements.Warranty),
-            new("dropShip", "How your bed arrives", "Drop Ship Delivery",
+            new(Acknowledgements.DropShipKey, "How your bed arrives", "Drop Ship Delivery",
                 "**ALL ITEMS WILL BE DROP SHIPPED DIRECTLY TO THE CUSTOMER UNLESS OTHERWISE NOTED.** Items do not require a signature when delivered. " +
                 "The mattress will be compressed, vacuum sealed and boxed. The product may be heavy and may require additional persons to move it. " +
                 "Once open, the bed will completely recover within 24-48 hours, however, sleeping on it sooner will not damage the bed.",
                 Acknowledgements.Shipped),
-            new("advisory", "All sales are final", "Advisory",
+            new(Acknowledgements.AdvisoryKey, "All sales are final", "Advisory",
                 "Customer acknowledges and understands that this is a sanctioned fundraising event with a portion of the proceeds allocated " +
                 "directly to the above mentioned organization and therefore, **__ALL SALES AND TRANSACTIONS ARE FINAL__**.",
                 Acknowledgements.Always),
@@ -159,6 +160,44 @@ namespace api.Utils
             }
 
             return rows;
+        }
+
+        /// <summary>The keys of the receipt email's subject and wording.</summary>
+        public static readonly string[] ReceiptEmailKeys = [AppSettingKeys.ReceiptEmailBody, AppSettingKeys.ReceiptEmailSubject];
+
+        /// <summary>
+        /// The receipt email's subject and wording in force for a territory (or company-wide); null
+        /// for either means the built-in wording.
+        /// </summary>
+        /// <param name="db">EF context</param>
+        /// <param name="territoryId">The territory, or null for company-wide</param>
+        /// <returns>The subject and body.</returns>
+        public static async Task<(string? Subject, string? Body)> LoadReceiptEmailAsync(ApplicationDbContext db, int? territoryId)
+        {
+            var rows = await RowsAsync(db, territoryId, ReceiptEmailKeys);
+            return (rows.GetValueOrDefault(AppSettingKeys.ReceiptEmailSubject), rows.GetValueOrDefault(AppSettingKeys.ReceiptEmailBody));
+        }
+
+        /// <summary>
+        /// One scope's own rows for some keys, with who changed them and when: the company-wide
+        /// rows, or a territory's - without falling back from one to the other.
+        /// </summary>
+        /// <param name="db">EF context</param>
+        /// <param name="territoryId">The territory, or null for company-wide</param>
+        /// <param name="keys">Which settings</param>
+        /// <returns>The rows that exist.</returns>
+        public static async Task<List<(string Key, string Value, DateTime UpdatedAt, string? UpdatedBy)>> OwnRowsAsync(
+            ApplicationDbContext db, int? territoryId, IReadOnlyCollection<string> keys)
+        {
+            return territoryId == null
+                ? (await db.AppSettings.AsNoTracking()
+                    .Where(s => keys.Contains(s.Key))
+                    .ToListAsync())
+                    .Select(s => (s.Key, s.Value, s.UpdatedAt, s.UpdatedBy)).ToList()
+                : (await db.TerritorySettings.AsNoTracking()
+                    .Where(s => s.TerritoryId == territoryId && keys.Contains(s.Key))
+                    .ToListAsync())
+                    .Select(s => (s.Key, s.Value, s.UpdatedAt, s.UpdatedBy)).ToList();
         }
 
         /// <summary>

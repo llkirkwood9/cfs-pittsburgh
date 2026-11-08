@@ -226,6 +226,8 @@ app.UseRateLimiter();
 // so a switched-off account or territory stops working straight away.
 app.UseMiddleware<AccessScopeMiddleware>();
 app.UseAuthorization();
+// One answer for any failure an endpoint doesn't handle itself.
+app.UseMiddleware<ApiExceptionMiddleware>();
 app.MapControllers();
 
 app.MapGet("/health", () => "Healthy").AllowAnonymous();
@@ -244,8 +246,8 @@ using (var scope = app.Services.CreateScope())
     var tokenService = scope.ServiceProvider.GetRequiredService<TokenService>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
-    // The database can still be starting when the API comes up (SQL Server shares the container in
-    // the Docker image; a managed database may be waking), so give it a minute before giving up.
+    // The database can still be starting when the API comes up (a PostgreSQL container started
+    // alongside it, or a managed database waking), so give it a minute before giving up.
     var attempts = int.TryParse(builder.Configuration["Startup:DatabaseAttempts"], out var configured)
         ? Math.Max(1, configured)
         : 12;
@@ -258,7 +260,7 @@ using (var scope = app.Services.CreateScope())
 
             // Every territory has its own catalog now: a database from before gives each territory
             // its own copy of what used to be global. Does nothing once that's done.
-            await api.Utils.CatalogCopy.SplitGlobalItemsAsync(db, message => logger.LogWarning("{Message}", message));
+            await api.Catalog.CatalogCopy.SplitGlobalItemsAsync(db, message => logger.LogWarning("{Message}", message));
 
             // SKIP_SEED_DATA in the Docker .env (Seed:Skip) leaves out the sample catalog,
             // delivery options and event.

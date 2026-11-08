@@ -1,8 +1,9 @@
+using Microsoft.EntityFrameworkCore;
 using api.Data;
 using api.Models;
-using Microsoft.EntityFrameworkCore;
+using api.Utils;
 
-namespace api.Utils
+namespace api.Catalog
 {
     /// <summary>
     /// Copies catalog items from one territory's catalog into another's. Each territory has its own
@@ -148,7 +149,7 @@ namespace api.Utils
             if (territories.Count == 0)
             {
                 // Global items with nowhere to go: give them a first territory.
-                var first = new Territory { Name = "Pittsburgh" };
+                var first = new Territory { Name = Territory.FirstTerritoryName };
                 db.Territories.Add(first);
                 await db.SaveChangesAsync();
                 territories.Add(first);
@@ -273,12 +274,7 @@ namespace api.Utils
 
         #region Private Methods
 
-        private static IQueryable<Product> LoadProducts(ApplicationDbContext db) =>
-            db.Products
-                .Include(p => p.Variants).ThenInclude(v => v.Components)
-                .Include(p => p.Options).ThenInclude(o => o.Choices)
-                .Include(p => p.DeliveryOptions)
-                .AsSplitQuery();
+        private static IQueryable<Product> LoadProducts(ApplicationDbContext db) => db.Products.ForEditing();
 
         private static DeliveryOption CloneDeliveryOption(DeliveryOption source, int territoryId) => new()
         {
@@ -424,15 +420,14 @@ namespace api.Utils
             if (string.IsNullOrEmpty(key))
                 return key;
 
-            var parts = new List<(int Option, int Choice)>();
-            foreach (var part in key.Split('|'))
+            var parts = new List<(int OptionId, int ChoiceId)>();
+            foreach (var part in StockKeys.Parts(key))
             {
-                var pair = part.Split(':');
-                if (pair.Length != 2 || !int.TryParse(pair[0], out var option) || !int.TryParse(pair[1], out var choice))
+                if (part is not var (option, choice))
                     return key;
                 parts.Add((optionIds.GetValueOrDefault(option, option), choiceIds.GetValueOrDefault(choice, choice)));
             }
-            return string.Join("|", parts.OrderBy(p => p.Option).Select(p => $"{p.Option}:{p.Choice}"));
+            return StockKeys.Build(parts);
         }
 
         /// <summary>

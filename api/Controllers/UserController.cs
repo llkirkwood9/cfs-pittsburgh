@@ -19,11 +19,9 @@ namespace api.Controllers
     [Route("api/[controller]")]
     public class UserController(
         ApplicationDbContext db,
-        IHttpClientFactory httpClientFactory,
-        IConfiguration config,
         ILogger<BasicController> logger,
         TokenService tokenService)
-        : BasicController(db, httpClientFactory, config, logger, tokenService)
+        : BasicController(db, logger)
     {
         #region Private Fields
 
@@ -42,59 +40,52 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> AddUser([FromBody] UserDto request)
         {
-            try
+            if (!IsAtLeast(UserRole.Manager))
+                return Forbidden(ManagersOnly);
+
+            if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Username))
+                return BadRequest(new { error = "Enter a name and a username." });
+
+            if (request.Name.Trim().Length > 150 || request.Username.Trim().Length > 50)
+                return BadRequest(new { error = "The name or username is too long." });
+
+            var username = request.Username.Trim();
+            if (!username.All(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_' or '@'))
+                return BadRequest(new { error = "Usernames can use letters, numbers and . - _ @ only." });
+
+            var lower = username.ToLower();
+            if (await DB.Users.AnyAsync(u => u.Username.ToLower() == lower))
+                return BadRequest(new { error = "That username is already taken." });
+
+            var role = Enum.TryParse<UserRole>(request.Role, true, out var parsed) ? parsed : UserRole.Sales;
+            var requested = RequestedTerritories(request) ?? (Scope.TerritoryId is { } inView ? [inView] : null);
+            var (territoryIds, problem) = await CheckRoleAndTerritoriesAsync(role, requested, []);
+            if (problem != null)
+                return problem;
+
+            var user = new User
             {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden(ManagersOnly);
+                Name = request.Name.Trim(),
+                Username = username,
+                Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
+                Role = role,
+                Territories = territoryIds.Select(t => new UserTerritory { TerritoryId = t }).ToList(),
+                IsActive = request.IsActive ?? true,
+            };
 
-                if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Username))
-                    return BadRequest(new { error = "Enter a name and a username." });
+            var weak = PasswordPolicy.Check(request.Password, user.Username, user.Name);
+            if (weak != null)
+                return BadRequest(new { error = weak });
 
-                if (request.Name.Trim().Length > 150 || request.Username.Trim().Length > 50)
-                    return BadRequest(new { error = "The name or username is too long." });
+            // They choose their own at the first sign-in, so whoever set this never knows it for long.
+            Passwords.Set(tokenService, user, request.Password!, mustChange: true);
 
-                var username = request.Username.Trim();
-                if (!username.All(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_' or '@'))
-                    return BadRequest(new { error = "Usernames can use letters, numbers and . - _ @ only." });
+            DB.Users.Add(user);
+            await DB.SaveChangesAsync();
+            await LoadTerritoriesAsync(user);
 
-                var lower = username.ToLower();
-                if (await DB.Users.AnyAsync(u => u.Username.ToLower() == lower))
-                    return BadRequest(new { error = "That username is already taken." });
-
-                var role = Enum.TryParse<UserRole>(request.Role, true, out var parsed) ? parsed : UserRole.Sales;
-                var requested = RequestedTerritories(request) ?? (Scope.TerritoryId is { } inView ? [inView] : null);
-                var (territoryIds, problem) = await CheckRoleAndTerritoriesAsync(role, requested, []);
-                if (problem != null)
-                    return problem;
-
-                var user = new User
-                {
-                    Name = request.Name.Trim(),
-                    Username = username,
-                    Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim(),
-                    Role = role,
-                    Territories = territoryIds.Select(t => new UserTerritory { TerritoryId = t }).ToList(),
-                    IsActive = request.IsActive ?? true,
-                };
-
-                var weak = PasswordPolicy.Check(request.Password, user.Username, user.Name);
-                if (weak != null)
-                    return BadRequest(new { error = weak });
-
-                // They choose their own at the first sign-in, so whoever set this never knows it for long.
-                Passwords.Set(TokenService, user, request.Password!, mustChange: true);
-
-                DB.Users.Add(user);
-                await DB.SaveChangesAsync();
-                await LoadTerritoriesAsync(user);
-
-                Trace(TraceEventType.Information, $"{GetCurrentUserName()} added {user.Username} ({user.Role}).");
-                return Ok(UserMapper.ToDto(user, IsSystemAdmin()));
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while adding the user.", e);
-            }
+            Trace(TraceEventType.Information, $"{GetCurrentUserName()} added {user.Username} ({user.Role}).");
+            return Ok(UserMapper.ToDto(user, IsSystemAdmin()));
         }
 
         #endregion
@@ -111,27 +102,19 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetUsers()
         {
-            try
-            {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden(ManagersOnly);
+            if (!IsAtLeast(UserRole.Manager))
+                return Forbidden(ManagersOnly);
 
-                var visible = Scope.VisibleTerritoryIds;
-                var query = DB.Users
-                    .Include(u => u.Territories).ThenInclude(t => t.Territory)
-                    .AsNoTracking()
-                    .Where(u => visible == null || u.Territories.Any(t => visible.Contains(t.TerritoryId)));
+            var query = DB.Users
+                .Include(u => u.Territories).ThenInclude(t => t.Territory)
+                .AsNoTracking()
+                .VisibleTo(Scope);
 
-                var users = await query.OrderBy(u => u.Name).ToListAsync();
+            var users = await query.OrderBy(u => u.Name).ToListAsync();
 
-                // Sign-in times are for the system admin's eyes only.
-                var systemAdmin = IsSystemAdmin();
-                return Ok(users.Select(u => UserMapper.ToDto(u, systemAdmin)).ToList());
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while getting users.", e);
-            }
+            // Sign-in times are for the system admin's eyes only.
+            var systemAdmin = IsSystemAdmin();
+            return Ok(users.Select(u => UserMapper.ToDto(u, systemAdmin)).ToList());
         }
 
         /// <summary>
@@ -144,32 +127,25 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetReps([FromQuery] int? eventId = null)
         {
-            try
+            var territories = Scope.VisibleTerritoryIds;
+            if (eventId != null)
             {
-                var territories = Scope.VisibleTerritoryIds;
-                if (eventId != null)
-                {
-                    var saleEvent = await DB.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == eventId.Value);
-                    if (!CanSee(saleEvent))
-                        return NotFound(new { error = "Event not found." });
-                    territories = [saleEvent!.TerritoryId];
-                }
-
-                var names = await DB.Users
-                    .Where(u => u.IsActive
-                                && (territories == null
-                                    || !u.Territories.Any()
-                                    || u.Territories.Any(t => territories.Contains(t.TerritoryId))))
-                    .OrderBy(u => u.Name)
-                    .Select(u => u.Name)
-                    .ToListAsync();
-
-                return Ok(names);
+                var saleEvent = (await DB.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == eventId.Value)).IfVisibleTo(Scope);
+                if (saleEvent == null)
+                    return NotFound(new { error = "Event not found." });
+                territories = [saleEvent.TerritoryId];
             }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while getting reps.", e);
-            }
+
+            var names = await DB.Users
+                .Where(u => u.IsActive
+                            && (territories == null
+                                || !u.Territories.Any()
+                                || u.Territories.Any(t => territories.Contains(t.TerritoryId))))
+                .OrderBy(u => u.Name)
+                .Select(u => u.Name)
+                .ToListAsync();
+
+            return Ok(names);
         }
 
         #endregion
@@ -186,108 +162,101 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> UpdateUser([FromBody] UserDto request)
         {
-            try
+            if (!IsAtLeast(UserRole.Manager))
+                return Forbidden(ManagersOnly);
+
+            if (request.Id == null)
+                return BadRequest(new { error = "Missing parameter." });
+
+            var user = await DB.Users
+                .Include(u => u.Territories).ThenInclude(t => t.Territory)
+                .FirstOrDefaultAsync(u => u.Id == request.Id.Value);
+            if (user == null)
+                return NotFound(new { error = "User not found." });
+            if (!CanManage(user))
+                return Forbidden(CannotManage(user));
+
+            var self = user.Id == GetCurrentUserId();
+            var role = !string.IsNullOrWhiteSpace(request.Role) && Enum.TryParse<UserRole>(request.Role, true, out var r) ? r : user.Role;
+            var current = user.Territories.Select(t => t.TerritoryId).ToList();
+            var requested = RequestedTerritories(request);
+            var territoryChange = requested != null && !requested.ToHashSet().SetEquals(current);
+
+            if (role != user.Role || territoryChange)
             {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden(ManagersOnly);
+                if (self)
+                    return BadRequest(new { error = "You cannot change your own role or territories." });
 
-                if (request.Id == null)
-                    return BadRequest(new { error = "Missing parameter." });
+                var (territoryIds, problem) = await CheckRoleAndTerritoriesAsync(role, requested ?? current, current);
+                if (problem != null)
+                    return problem;
 
-                var user = await DB.Users
-                    .Include(u => u.Territories).ThenInclude(t => t.Territory)
-                    .FirstOrDefaultAsync(u => u.Id == request.Id.Value);
-                if (user == null)
-                    return NotFound(new { error = "User not found." });
-                if (!CanManage(user))
-                    return Forbidden(CannotManage(user));
-
-                var self = user.Id == GetCurrentUserId();
-                var role = !string.IsNullOrWhiteSpace(request.Role) && Enum.TryParse<UserRole>(request.Role, true, out var r) ? r : user.Role;
-                var current = user.Territories.Select(t => t.TerritoryId).ToList();
-                var requested = RequestedTerritories(request);
-                var territoryChange = requested != null && !requested.ToHashSet().SetEquals(current);
-
-                if (role != user.Role || territoryChange)
-                {
-                    if (self)
-                        return BadRequest(new { error = "You cannot change your own role or territories." });
-
-                    var (territoryIds, problem) = await CheckRoleAndTerritoriesAsync(role, requested ?? current, current);
-                    if (problem != null)
-                        return problem;
-
-                    user.Role = role;
-                    user.Territories.RemoveAll(t => !territoryIds.Contains(t.TerritoryId));
-                    foreach (var id in territoryIds.Where(id => !current.Contains(id)))
-                        user.Territories.Add(new UserTerritory { TerritoryId = id });
-                }
-
-                if (!string.IsNullOrWhiteSpace(request.Username) && request.Username.Trim() != user.Username)
-                {
-                    var username = request.Username.Trim();
-                    if (username.Length > 50 || !username.All(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_' or '@'))
-                        return BadRequest(new { error = "Usernames can use letters, numbers and . - _ @ only, up to 50 characters." });
-
-                    var lower = username.ToLower();
-                    if (await DB.Users.AnyAsync(u => u.Username.ToLower() == lower && u.Id != user.Id))
-                        return BadRequest(new { error = "That username is already taken." });
-
-                    user.Username = username;
-                }
-
-                if (!string.IsNullOrWhiteSpace(request.Name))
-                {
-                    if (request.Name.Trim().Length > 150)
-                        return BadRequest(new { error = "The name is too long." });
-
-                    user.Name = request.Name.Trim();
-                }
-
-                if (request.Email != null)
-                    user.Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
-
-                var endSessions = false;
-                if (request.IsActive != null && request.IsActive.Value != user.IsActive)
-                {
-                    if (self)
-                        return BadRequest(new { error = "You cannot deactivate your own account." });
-
-                    user.IsActive = request.IsActive.Value;
-                    endSessions |= !user.IsActive;
-                }
-
-                if (request.IsLockedOut == false)
-                {
-                    user.LockoutUntil = null;
-                    user.FailedLoginCount = 0;
-                }
-
-                if (!string.IsNullOrEmpty(request.Password))
-                {
-                    var weak = PasswordPolicy.Check(request.Password, user.Username, user.Name);
-                    if (weak != null)
-                        return BadRequest(new { error = weak });
-
-                    Passwords.Set(TokenService, user, request.Password, mustChange: !self);
-                    endSessions = true;
-                }
-
-                // A role or territory change takes effect at the user's next request anyway; ending
-                // their sessions makes sure a deactivated or reset account can't renew.
-                if (endSessions)
-                    await DB.UserSessions.Where(s => s.UserId == user.Id).ExecuteDeleteAsync();
-
-                await DB.SaveChangesAsync();
-                await LoadTerritoriesAsync(user);
-
-                Trace(TraceEventType.Information, $"{GetCurrentUserName()} updated {user.Username}.");
-                return Ok(UserMapper.ToDto(user, IsSystemAdmin()));
+                user.Role = role;
+                user.Territories.RemoveAll(t => !territoryIds.Contains(t.TerritoryId));
+                foreach (var id in territoryIds.Where(id => !current.Contains(id)))
+                    user.Territories.Add(new UserTerritory { TerritoryId = id });
             }
-            catch (Exception e)
+
+            if (!string.IsNullOrWhiteSpace(request.Username) && request.Username.Trim() != user.Username)
             {
-                return ServerError("Internal error occurred while updating the user.", e);
+                var username = request.Username.Trim();
+                if (username.Length > 50 || !username.All(c => char.IsLetterOrDigit(c) || c is '.' or '-' or '_' or '@'))
+                    return BadRequest(new { error = "Usernames can use letters, numbers and . - _ @ only, up to 50 characters." });
+
+                var lower = username.ToLower();
+                if (await DB.Users.AnyAsync(u => u.Username.ToLower() == lower && u.Id != user.Id))
+                    return BadRequest(new { error = "That username is already taken." });
+
+                user.Username = username;
             }
+
+            if (!string.IsNullOrWhiteSpace(request.Name))
+            {
+                if (request.Name.Trim().Length > 150)
+                    return BadRequest(new { error = "The name is too long." });
+
+                user.Name = request.Name.Trim();
+            }
+
+            if (request.Email != null)
+                user.Email = string.IsNullOrWhiteSpace(request.Email) ? null : request.Email.Trim();
+
+            var endSessions = false;
+            if (request.IsActive != null && request.IsActive.Value != user.IsActive)
+            {
+                if (self)
+                    return BadRequest(new { error = "You cannot deactivate your own account." });
+
+                user.IsActive = request.IsActive.Value;
+                endSessions |= !user.IsActive;
+            }
+
+            if (request.IsLockedOut == false)
+            {
+                user.LockoutUntil = null;
+                user.FailedLoginCount = 0;
+            }
+
+            if (!string.IsNullOrEmpty(request.Password))
+            {
+                var weak = PasswordPolicy.Check(request.Password, user.Username, user.Name);
+                if (weak != null)
+                    return BadRequest(new { error = weak });
+
+                Passwords.Set(tokenService, user, request.Password, mustChange: !self);
+                endSessions = true;
+            }
+
+            // A role or territory change takes effect at the user's next request anyway; ending
+            // their sessions makes sure a deactivated or reset account can't renew.
+            if (endSessions)
+                await DB.UserSessions.Where(s => s.UserId == user.Id).ExecuteDeleteAsync();
+
+            await DB.SaveChangesAsync();
+            await LoadTerritoriesAsync(user);
+
+            Trace(TraceEventType.Information, $"{GetCurrentUserName()} updated {user.Username}.");
+            return Ok(UserMapper.ToDto(user, IsSystemAdmin()));
         }
 
         #endregion
@@ -305,40 +274,33 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> DeleteUser(int id, [FromQuery] bool permanent = false)
         {
-            try
+            if (!IsAtLeast(UserRole.Manager))
+                return Forbidden(ManagersOnly);
+
+            if (permanent && !IsSystemAdmin())
+                return Forbidden("Only a system admin can delete an account permanently.");
+
+            var user = await DB.Users.Include(u => u.Territories).FirstOrDefaultAsync(u => u.Id == id);
+            if (user == null)
+                return NotFound(new { error = "User not found." });
+
+            if (GetCurrentUserId() == id)
+                return BadRequest(new { error = "You cannot deactivate or delete your own account." });
+
+            if (!CanManage(user))
+                return Forbidden(CannotManage(user));
+
+            if (permanent)
             {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden(ManagersOnly);
-
-                if (permanent && !IsSystemAdmin())
-                    return Forbidden("Only a system admin can delete an account permanently.");
-
-                var user = await DB.Users.Include(u => u.Territories).FirstOrDefaultAsync(u => u.Id == id);
-                if (user == null)
-                    return NotFound(new { error = "User not found." });
-
-                if (GetCurrentUserId() == id)
-                    return BadRequest(new { error = "You cannot deactivate or delete your own account." });
-
-                if (!CanManage(user))
-                    return Forbidden(CannotManage(user));
-
-                if (permanent)
-                {
-                    await PermanentDelete.UserAsync(DB, user);
-                    return Ok(new { deleted = true });
-                }
-
-                user.IsActive = false;
-                await DB.UserSessions.Where(s => s.UserId == user.Id).ExecuteDeleteAsync();
-                await DB.SaveChangesAsync();
-
-                return Ok();
+                await PermanentDelete.UserAsync(DB, user);
+                return Ok(new { deleted = true });
             }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while deactivating the user.", e);
-            }
+
+            user.IsActive = false;
+            await DB.UserSessions.Where(s => s.UserId == user.Id).ExecuteDeleteAsync();
+            await DB.SaveChangesAsync();
+
+            return Ok();
         }
 
         #endregion

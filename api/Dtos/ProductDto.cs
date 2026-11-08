@@ -12,7 +12,7 @@ namespace api.Dtos
         public int? Id { get; set; }
 
         /// <summary>
-        /// The territory this product belongs to; null for a global product offered everywhere
+        /// The territory whose catalog this product is in
         /// </summary>
         public int? TerritoryId { get; set; }
 

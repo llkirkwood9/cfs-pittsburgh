@@ -1,4 +1,5 @@
 using System.Text.Json;
+using api.Catalog;
 using api.Models;
 
 namespace api.Utils
@@ -50,10 +51,9 @@ namespace api.Utils
         public static string KeyFor(IEnumerable<LineChoice> chosen, IEnumerable<ProductOption> counted)
         {
             var countedIds = counted.Select(o => o.Id).ToHashSet();
-            return string.Join("|", chosen
+            return StockKeys.Build(chosen
                 .Where(c => countedIds.Contains(c.OptionId))
-                .OrderBy(c => c.OptionId)
-                .Select(c => $"{c.OptionId}:{c.ChoiceId}"));
+                .Select(c => (c.OptionId, c.ChoiceId)));
         }
 
         /// <summary>
@@ -78,7 +78,7 @@ namespace api.Utils
             }
 
             return combos.Select(combo => (
-                string.Join("|", combo.OrderBy(x => x.Option.Id).Select(x => $"{x.Option.Id}:{x.Choice.Id}")),
+                StockKeys.Build(combo.Select(x => (x.Option.Id, x.Choice.Id))),
                 string.Join(" / ", combo.Select(x => x.Choice.Name))
             )).ToList();
         }
@@ -95,10 +95,9 @@ namespace api.Utils
                 return "";
 
             var parts = new List<(int Sort, int OptionId, string Name)>();
-            foreach (var pair in key.Split('|', StringSplitOptions.RemoveEmptyEntries))
+            foreach (var part in StockKeys.Parts(key))
             {
-                var bits = pair.Split(':');
-                if (bits.Length != 2 || !int.TryParse(bits[0], out var optionId) || !int.TryParse(bits[1], out var choiceId))
+                if (part is not var (optionId, choiceId))
                     continue;
                 var option = product.Options.FirstOrDefault(o => o.Id == optionId);
                 var choice = option?.Choices.FirstOrDefault(c => c.Id == choiceId);
@@ -169,12 +168,6 @@ namespace api.Utils
             }
         }
 
-        /// <summary>
-        /// The selections as one line of text for the sheet, e.g. "Color: Gray, Pattern: Striped".
-        /// </summary>
-        public static string Describe(IEnumerable<LineChoice> chosen) =>
-            string.Join(", ", chosen.Select(c => $"{c.Option}: {c.Choice}"));
-
         #endregion
 
         #region Sales
@@ -191,7 +184,7 @@ namespace api.Utils
                 ? (variant.SaleDiscountPercent, variant.SaleDiscountAmount)
                 : (variant.Product?.SaleDiscountPercent, variant.Product?.SaleDiscountAmount);
 
-            return Clean(percent, amount);
+            return CatalogRules.CleanSale(percent, amount);
         }
 
         /// <summary>
@@ -204,17 +197,8 @@ namespace api.Utils
         public static (decimal? Percent, decimal? Amount) DeliverySaleFor(DeliveryOption option, ProductDeliveryOption? forProduct)
         {
             return forProduct is { HasOwnSale: true }
-                ? Clean(forProduct.SaleDiscountPercent, forProduct.SaleDiscountAmount)
-                : Clean(option.SaleDiscountPercent, option.SaleDiscountAmount);
-        }
-
-        private static (decimal? Percent, decimal? Amount) Clean(decimal? percent, decimal? amount)
-        {
-            if (percent is > 0)
-                return (Math.Min(percent.Value, 100m), null);
-            if (amount is > 0)
-                return (null, amount);
-            return (null, null);
+                ? CatalogRules.CleanSale(forProduct.SaleDiscountPercent, forProduct.SaleDiscountAmount)
+                : CatalogRules.CleanSale(option.SaleDiscountPercent, option.SaleDiscountAmount);
         }
 
         #endregion

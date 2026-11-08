@@ -3,6 +3,7 @@ using System.Net;
 using System.Text;
 using System.Text.RegularExpressions;
 using api.Models;
+using api.Orders;
 
 namespace api.Utils
 {
@@ -188,6 +189,13 @@ namespace api.Utils
             return slug.Length == 0 ? fallback : slug.Length > 40 ? slug[..40].TrimEnd('-') : slug;
         }
 
+        /// <summary>
+        /// The receipt PDF's file name as the customer sees it attached, e.g. "CFS-Receipt-1001.pdf".
+        /// </summary>
+        /// <param name="order">The order</param>
+        /// <returns>The file name.</returns>
+        public static string ReceiptAttachmentName(Order order) => $"CFS-Receipt-{order.OrderNumber}.pdf";
+
         #endregion
 
         #region Private Methods
@@ -199,7 +207,7 @@ namespace api.Utils
         /// </summary>
         private static List<string> WhatHappensNext(Order order)
         {
-            var products = order.Lines.Where(l => l.LineType is OrderLineType.Product or OrderLineType.Custom).ToList();
+            var products = order.Lines.Where(OrderRules.IsChosenItem).ToList();
             var leaving = products.Where(l => !l.TakeWith).ToList();
             var takenHome = products.Any(l => l.TakeWith);
             var mattress = products.Any(l => l.Category == ProductCategory.Mattress);

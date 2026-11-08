@@ -7,7 +7,7 @@ namespace api.Models
     /// row through the billing and delivery blocks, the line items, the payment box and the
     /// three acknowledgement initials at the bottom.
     /// </summary>
-    public class Order
+    public class Order : ITerritoryOwned
     {
         #region Identity
 
@@ -25,6 +25,11 @@ namespace api.Models
         /// Navigation property
         /// </summary>
         public Event? Event { get; set; }
+
+        /// <summary>
+        /// The event's territory - only known when the event was loaded with the order.
+        /// </summary>
+        int? ITerritoryOwned.TerritoryId => Event?.TerritoryId;
 
         /// <summary>
         /// Sequential number printed in the top right corner of the sheet. A new draft has none

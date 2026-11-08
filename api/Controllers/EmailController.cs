@@ -20,12 +20,9 @@ namespace api.Controllers
     [Route("api/[controller]")]
     public class EmailController(
         ApplicationDbContext db,
-        IHttpClientFactory httpClientFactory,
-        IConfiguration config,
         ILogger<BasicController> logger,
-        TokenService tokenService,
         EmailService email)
-        : BasicController(db, httpClientFactory, config, logger, tokenService)
+        : BasicController(db, logger)
     {
         #region Private Fields
 
@@ -70,47 +67,41 @@ namespace api.Controllers
         [RequestFormLimits(MultipartBodyLengthLimit = MaxPdfBytes + 1024 * 1024)]
         public async Task<IActionResult> SendReceipt(int orderId, [FromForm] EmailRequestDto request)
         {
-            try
-            {
-                if (!email.IsConfigured)
-                    return BadRequest(new { error = NotConfigured });
+            if (!email.IsConfigured)
+                return BadRequest(new { error = NotConfigured });
 
-                var order = await DB.Orders.AsNoTracking()
-                    .Include(o => o.Event)
-                    .Include(o => o.Lines)
-                    .FirstOrDefaultAsync(o => o.Id == orderId);
-                if (order == null || !CanSee(order.Event))
-                    return NotFound(new { error = "Order not found." });
-                if (order.Status != OrderStatus.Completed)
-                    return BadRequest(new { error = "Only a completed sale has a receipt to send." });
+            var order = await DB.Orders.AsNoTracking()
+                .Include(o => o.Event)
+                .Include(o => o.Lines)
+                .FirstOrDefaultAsync(o => o.Id == orderId);
+            order = order.IfVisibleTo(Scope);
+            if (order == null)
+                return NotFound(new { error = "Order not found." });
+            if (order.Status != OrderStatus.Completed)
+                return BadRequest(new { error = "Only a completed sale has a receipt to send." });
 
-                var to = string.IsNullOrWhiteSpace(request.To) ? order.BillingEmail : request.To;
-                if (!EmailService.TryParseRecipients(to, out var recipients))
-                    return BadRequest(new { error = string.IsNullOrWhiteSpace(to)
-                        ? "This customer has no email address. Enter one to send the receipt to."
-                        : "Check the email address - it doesn't look right." });
+            var to = string.IsNullOrWhiteSpace(request.To) ? order.BillingEmail : request.To;
+            if (!EmailService.TryParseRecipients(to, out var recipients))
+                return BadRequest(new { error = string.IsNullOrWhiteSpace(to)
+                    ? "This customer has no email address. Enter one to send the receipt to."
+                    : "Check the email address - it doesn't look right." });
 
-                var (pdf, problem) = await ReadPdfAsync(request.Pdf);
-                if (problem != null)
-                    return problem;
+            var (pdf, problem) = await ReadPdfAsync(request.Pdf);
+            if (problem != null)
+                return problem;
 
-                // The wording and business details are the order's territory's; the sender is the app.
-                var territoryId = order.Event!.TerritoryId;
-                var settings = await SettingsStore.LoadAsync(DB, territoryId);
-                var (savedSubject, savedBody) = await SettingsController.LoadReceiptEmailAsync(DB, territoryId);
-                var (subject, html, text) = EmailTemplates.ReceiptMessage(order, order.Event, settings, savedBody, savedSubject);
-                var attachment = ($"CFS-Receipt-{order.OrderNumber}.pdf", "application/pdf", pdf!);
-                var failure = await TrySendAsync(() => email.SendAsync(recipients, subject, html, text, [attachment], fromName: settings.AppName));
-                if (failure != null)
-                    return failure;
+            // The wording and business details are the order's territory's; the sender is the app.
+            var territoryId = order.Event!.TerritoryId;
+            var settings = await SettingsStore.LoadAsync(DB, territoryId);
+            var (savedSubject, savedBody) = await SettingsStore.LoadReceiptEmailAsync(DB, territoryId);
+            var (subject, html, text) = EmailTemplates.ReceiptMessage(order, order.Event, settings, savedBody, savedSubject);
+            var attachment = (EmailTemplates.ReceiptAttachmentName(order), "application/pdf", pdf!);
+            var failure = await TrySendAsync(() => email.SendAsync(recipients, subject, html, text, [attachment], fromName: settings.AppName));
+            if (failure != null)
+                return failure;
 
-                Trace(TraceEventType.Information, $"Receipt for order #{order.OrderNumber} emailed by {GetCurrentUserName()}.");
-                return Ok(new { sentTo = recipients.Select(r => r.Address).ToList() });
-            }
-            catch (Exception e)
-            {
-                return ServerError("The receipt couldn't be sent.", e);
-            }
+            Trace(TraceEventType.Information, $"Receipt for order #{order.OrderNumber} emailed by {GetCurrentUserName()}.");
+            return Ok(new { sentTo = recipients.Select(r => r.Address).ToList() });
         }
 
         /// <summary>
@@ -127,48 +118,41 @@ namespace api.Controllers
         [RequestFormLimits(MultipartBodyLengthLimit = MaxPdfBytes + 1024 * 1024)]
         public async Task<IActionResult> SendEventReport(int eventId, [FromForm] EmailRequestDto request)
         {
-            try
-            {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or system admin may email an event report.");
-                if (!email.IsConfigured)
-                    return BadRequest(new { error = NotConfigured });
+            if (!IsAtLeast(UserRole.Manager))
+                return Forbidden("Only a manager, administrator or system admin may email an event report.");
+            if (!email.IsConfigured)
+                return BadRequest(new { error = NotConfigured });
 
-                var saleEvent = await DB.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == eventId);
-                if (saleEvent == null || !CanSee(saleEvent))
-                    return NotFound(new { error = "Event not found." });
+            var saleEvent = (await DB.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == eventId)).IfVisibleTo(Scope);
+            if (saleEvent == null)
+                return NotFound(new { error = "Event not found." });
 
-                if (!EmailService.TryParseRecipients(request.To, out var recipients))
-                    return BadRequest(new { error = string.IsNullOrWhiteSpace(request.To)
-                        ? "Enter at least one email address."
-                        : "Check the email addresses - separate them with commas, up to 10." });
+            if (!EmailService.TryParseRecipients(request.To, out var recipients))
+                return BadRequest(new { error = string.IsNullOrWhiteSpace(request.To)
+                    ? "Enter at least one email address."
+                    : "Check the email addresses - separate them with commas, up to 10." });
 
-                var (pdf, problem) = await ReadPdfAsync(request.Pdf);
-                if (problem != null)
-                    return problem;
+            var (pdf, problem) = await ReadPdfAsync(request.Pdf);
+            if (problem != null)
+                return problem;
 
-                var message = request.Message?.Trim();
-                if (message?.Length > 2000)
-                    message = message[..2000];
+            var message = request.Message?.Trim();
+            if (message?.Length > 2000)
+                message = message[..2000];
 
-                // Described from the database, matching what the sheets page puts in the PDF.
-                var salesSheets = await DB.Orders.CountAsync(o => o.EventId == eventId && o.Status == OrderStatus.Completed);
-                var hasInventory = (await InventoryController.LoadItemsAsync(DB, saleEvent.TerritoryId, eventId, null)).Count > 0;
+            // Described from the database, matching what the sheets page puts in the PDF.
+            var salesSheets = await DB.Orders.CountAsync(o => o.EventId == eventId && o.Status == OrderStatus.Completed);
+            var hasInventory = (await InventorySheet.LoadItemsAsync(DB, saleEvent.TerritoryId, eventId, null)).Count > 0;
 
-                var settings = await SettingsStore.LoadAsync(DB, saleEvent.TerritoryId);
-                var (subject, html, text) = EmailTemplates.ReportMessage(saleEvent, salesSheets, hasInventory, message, GetCurrentUserName(), settings.AppName);
-                var name = $"{EmailTemplates.Slug(saleEvent.Organization, "event")}-{saleEvent.EventDate:yyyy-MM-dd}-sheets.pdf";
-                var failure = await TrySendAsync(() => email.SendAsync(recipients, subject, html, text, [(name, "application/pdf", pdf!)], fromName: settings.AppName));
-                if (failure != null)
-                    return failure;
+            var settings = await SettingsStore.LoadAsync(DB, saleEvent.TerritoryId);
+            var (subject, html, text) = EmailTemplates.ReportMessage(saleEvent, salesSheets, hasInventory, message, GetCurrentUserName(), settings.AppName);
+            var name = $"{EmailTemplates.Slug(saleEvent.Organization, "event")}-{saleEvent.EventDate:yyyy-MM-dd}-sheets.pdf";
+            var failure = await TrySendAsync(() => email.SendAsync(recipients, subject, html, text, [(name, "application/pdf", pdf!)], fromName: settings.AppName));
+            if (failure != null)
+                return failure;
 
-                Trace(TraceEventType.Information, $"Sheets for event {eventId} emailed by {GetCurrentUserName()}.");
-                return Ok(new { sentTo = recipients.Select(r => r.Address).ToList() });
-            }
-            catch (Exception e)
-            {
-                return ServerError("The report couldn't be sent.", e);
-            }
+            Trace(TraceEventType.Information, $"Sheets for event {eventId} emailed by {GetCurrentUserName()}.");
+            return Ok(new { sentTo = recipients.Select(r => r.Address).ToList() });
         }
 
         #endregion

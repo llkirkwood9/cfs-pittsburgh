@@ -24,11 +24,10 @@ namespace api.Controllers
     [EnableRateLimiting(RateLimits.SignIn)]
     public class AuthController(
         ApplicationDbContext db,
-        IHttpClientFactory httpClientFactory,
         IConfiguration config,
         ILogger<BasicController> logger,
         TokenService tokenService)
-        : BasicController(db, httpClientFactory, config, logger, tokenService)
+        : BasicController(db, logger)
     {
         #region Private Fields
 
@@ -64,76 +63,69 @@ namespace api.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login([FromBody] LoginDto request)
         {
-            try
+            if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrEmpty(request.Password))
+                return BadRequest(new { error = "Enter your username and password." });
+
+            if (request.Username.Length > 50 || request.Password.Length > PasswordPolicy.MaxLength)
+                return Unauthorized(new { error = WrongPassword });
+
+            // Usernames are matched without regard to case on every database.
+            var username = request.Username.Trim().ToLower();
+            var user = await DB.Users
+                .Include(u => u.Territories).ThenInclude(t => t.Territory)
+                .FirstOrDefaultAsync(u => u.Username.ToLower() == username);
+
+            if (user == null || !user.IsActive)
             {
-                if (string.IsNullOrWhiteSpace(request.Username) || string.IsNullOrEmpty(request.Password))
-                    return BadRequest(new { error = "Enter your username and password." });
+                // Spend the same time hashing as a real check, so response times don't reveal
+                // which usernames exist.
+                tokenService.VerifyPassword(new User { PasswordHash = DummyHash }, request.Password, out _);
+                return Unauthorized(new { error = WrongPassword });
+            }
 
-                if (request.Username.Length > 50 || request.Password.Length > PasswordPolicy.MaxLength)
-                    return Unauthorized(new { error = WrongPassword });
+            if (user.LockoutUntil > DateTime.UtcNow)
+            {
+                var minutes = (int)Math.Ceiling((user.LockoutUntil.Value - DateTime.UtcNow).TotalMinutes);
+                return StatusCode(429, new { error = $"Too many wrong passwords. Try again in {minutes} minute{(minutes == 1 ? "" : "s")}, or ask a manager to reset your password." });
+            }
 
-                // Usernames are matched without regard to case on every database.
-                var username = request.Username.Trim().ToLower();
-                var user = await DB.Users
-                    .Include(u => u.Territories).ThenInclude(t => t.Territory)
-                    .FirstOrDefaultAsync(u => u.Username.ToLower() == username);
+            var matched = tokenService.VerifyPassword(user, request.Password, out var rehash);
+            var viaOldPin = false;
+            if (!matched && user.PasswordHash == null && AllowLegacyPins())
+            {
+                matched = tokenService.VerifyLegacyPin(request.Password, user.PinSalt, user.PinHash);
+                viaOldPin = matched;
+            }
 
-                if (user == null || !user.IsActive)
+            if (!matched)
+            {
+                user.FailedLoginCount++;
+                if (user.FailedLoginCount >= MaxFailedAttempts())
                 {
-                    // Spend the same time hashing as a real check, so response times don't reveal
-                    // which usernames exist.
-                    TokenService.VerifyPassword(new User { PasswordHash = DummyHash }, request.Password, out _);
-                    return Unauthorized(new { error = WrongPassword });
+                    user.LockoutUntil = DateTime.UtcNow.AddMinutes(LockoutMinutes());
+                    user.FailedLoginCount = 0;
+                    Trace(TraceEventType.Warning, $"Account {user.Username} locked after repeated wrong passwords.");
                 }
-
-                if (user.LockoutUntil > DateTime.UtcNow)
-                {
-                    var minutes = (int)Math.Ceiling((user.LockoutUntil.Value - DateTime.UtcNow).TotalMinutes);
-                    return StatusCode(429, new { error = $"Too many wrong passwords. Try again in {minutes} minute{(minutes == 1 ? "" : "s")}, or ask a manager to reset your password." });
-                }
-
-                var matched = TokenService.VerifyPassword(user, request.Password, out var rehash);
-                var viaOldPin = false;
-                if (!matched && user.PasswordHash == null && AllowLegacyPins())
-                {
-                    matched = TokenService.VerifyLegacyPin(request.Password, user.PinSalt, user.PinHash);
-                    viaOldPin = matched;
-                }
-
-                if (!matched)
-                {
-                    user.FailedLoginCount++;
-                    if (user.FailedLoginCount >= MaxFailedAttempts())
-                    {
-                        user.LockoutUntil = DateTime.UtcNow.AddMinutes(LockoutMinutes());
-                        user.FailedLoginCount = 0;
-                        Trace(TraceEventType.Warning, $"Account {user.Username} locked after repeated wrong passwords.");
-                    }
-                    await DB.SaveChangesAsync();
-                    return Unauthorized(new { error = WrongPassword });
-                }
-
-                if (AllTerritoriesOff(user))
-                    return StatusCode(403, new { error = "Your territory has been switched off. Ask an administrator." });
-
-                user.FailedLoginCount = 0;
-                user.LockoutUntil = null;
-                user.LastLoginAt = DateTime.UtcNow;
-                if (rehash)
-                    user.PasswordHash = TokenService.HashPassword(user, request.Password);
-                // A PIN is far too easy to guess on the open internet: it gets one use, to set a password.
-                if (viaOldPin)
-                    user.MustChangePassword = true;
-
-                var refreshToken = await OpenSessionAsync(user);
                 await DB.SaveChangesAsync();
+                return Unauthorized(new { error = WrongPassword });
+            }
 
-                return Issue(user, refreshToken);
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while signing in.", e);
-            }
+            if (AllTerritoriesOff(user))
+                return Forbidden("Your territory has been switched off. Ask an administrator.");
+
+            user.FailedLoginCount = 0;
+            user.LockoutUntil = null;
+            user.LastLoginAt = DateTime.UtcNow;
+            if (rehash)
+                user.PasswordHash = tokenService.HashPassword(user, request.Password);
+            // A PIN is far too easy to guess on the open internet: it gets one use, to set a password.
+            if (viaOldPin)
+                user.MustChangePassword = true;
+
+            var refreshToken = await OpenSessionAsync(user);
+            await DB.SaveChangesAsync();
+
+            return Issue(user, refreshToken);
         }
 
         /// <summary>
@@ -143,47 +135,40 @@ namespace api.Controllers
         [HttpPost("refresh")]
         public async Task<IActionResult> Refresh()
         {
-            try
+            if (!Request.Headers.ContainsKey(ClientHeader))
+                return BadRequest(new { error = "Missing client header." });
+
+            var token = IncomingRefreshToken();
+            if (string.IsNullOrEmpty(token))
+                return Unauthorized(new { error = "Please sign in." });
+
+            var hash = TokenService.HashRefreshToken(token);
+            var session = await DB.UserSessions
+                .Include(s => s.User)
+                .ThenInclude(u => u!.Territories).ThenInclude(t => t.Territory)
+                .FirstOrDefaultAsync(s => s.TokenHash == hash);
+
+            var user = session?.User;
+            if (session == null || user == null || session.ExpiresAt < DateTime.UtcNow
+                || !user.IsActive || AllTerritoriesOff(user))
             {
-                if (!Request.Headers.ContainsKey(ClientHeader))
-                    return BadRequest(new { error = "Missing client header." });
-
-                var token = IncomingRefreshToken();
-                if (string.IsNullOrEmpty(token))
-                    return Unauthorized(new { error = "Please sign in." });
-
-                var hash = TokenService.HashRefreshToken(token);
-                var session = await DB.UserSessions
-                    .Include(s => s.User)
-                    .ThenInclude(u => u!.Territories).ThenInclude(t => t.Territory)
-                    .FirstOrDefaultAsync(s => s.TokenHash == hash);
-
-                var user = session?.User;
-                if (session == null || user == null || session.ExpiresAt < DateTime.UtcNow
-                    || !user.IsActive || AllTerritoriesOff(user))
+                if (session != null)
                 {
-                    if (session != null)
-                    {
-                        DB.UserSessions.Remove(session);
-                        await DB.SaveChangesAsync();
-                    }
-                    ClearRefreshCookie();
-                    return Unauthorized(new { error = "Session expired. Please sign in again." });
+                    DB.UserSessions.Remove(session);
+                    await DB.SaveChangesAsync();
                 }
-
-                // Each refresh token works once; the next one replaces it.
-                var next = TokenService.CreateRefreshToken();
-                session.TokenHash = TokenService.HashRefreshToken(next);
-                session.ExpiresAt = TokenService.GetRefreshTokenExpiry();
-                session.LastUsedAt = DateTime.UtcNow;
-                await DB.SaveChangesAsync();
-
-                return Issue(user, next);
+                ClearRefreshCookie();
+                return Unauthorized(new { error = "Session expired. Please sign in again." });
             }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while refreshing the session.", e);
-            }
+
+            // Each refresh token works once; the next one replaces it.
+            var next = tokenService.CreateRefreshToken();
+            session.TokenHash = TokenService.HashRefreshToken(next);
+            session.ExpiresAt = tokenService.GetRefreshTokenExpiry();
+            session.LastUsedAt = DateTime.UtcNow;
+            await DB.SaveChangesAsync();
+
+            return Issue(user, next);
         }
 
         /// <summary>
@@ -197,45 +182,38 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto request)
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                if (userId == null)
-                    return Unauthorized(new { error = "Not signed in." });
+            var userId = GetCurrentUserId();
+            if (userId == null)
+                return Unauthorized(new { error = "Not signed in." });
 
-                if (string.IsNullOrEmpty(request.CurrentPassword) || string.IsNullOrEmpty(request.NewPassword))
-                    return BadRequest(new { error = "Enter your current password and a new one." });
+            if (string.IsNullOrEmpty(request.CurrentPassword) || string.IsNullOrEmpty(request.NewPassword))
+                return BadRequest(new { error = "Enter your current password and a new one." });
 
-                var user = await DB.Users.Include(u => u.Territories).ThenInclude(t => t.Territory).FirstOrDefaultAsync(u => u.Id == userId.Value);
-                if (user == null || !user.IsActive)
-                    return NotFound(new { error = "User not found." });
+            var user = await DB.Users.Include(u => u.Territories).ThenInclude(t => t.Territory).FirstOrDefaultAsync(u => u.Id == userId.Value);
+            if (user == null || !user.IsActive)
+                return NotFound(new { error = "User not found." });
 
-                var current = TokenService.VerifyPassword(user, request.CurrentPassword, out _)
-                              || (user.PasswordHash == null && TokenService.VerifyLegacyPin(request.CurrentPassword, user.PinSalt, user.PinHash));
-                if (!current)
-                    return BadRequest(new { error = "Your current password is not right." });
+            var current = tokenService.VerifyPassword(user, request.CurrentPassword, out _)
+                          || (user.PasswordHash == null && tokenService.VerifyLegacyPin(request.CurrentPassword, user.PinSalt, user.PinHash));
+            if (!current)
+                return BadRequest(new { error = "Your current password is not right." });
 
-                if (request.NewPassword == request.CurrentPassword)
-                    return BadRequest(new { error = "The new password is the same as the current one." });
+            if (request.NewPassword == request.CurrentPassword)
+                return BadRequest(new { error = "The new password is the same as the current one." });
 
-                var problem = PasswordPolicy.Check(request.NewPassword, user.Username, user.Name);
-                if (problem != null)
-                    return BadRequest(new { error = problem });
+            var problem = PasswordPolicy.Check(request.NewPassword, user.Username, user.Name);
+            if (problem != null)
+                return BadRequest(new { error = problem });
 
-                Passwords.Set(TokenService, user, request.NewPassword, mustChange: false);
+            Passwords.Set(tokenService, user, request.NewPassword, mustChange: false);
 
-                // Keep this device signed in; sign every other one out.
-                var keep = IncomingRefreshToken() is { Length: > 0 } thisDevice ? TokenService.HashRefreshToken(thisDevice) : "";
-                await DB.UserSessions.Where(s => s.UserId == user.Id && s.TokenHash != keep).ExecuteDeleteAsync();
-                await DB.SaveChangesAsync();
+            // Keep this device signed in; sign every other one out.
+            var keep = IncomingRefreshToken() is { Length: > 0 } thisDevice ? TokenService.HashRefreshToken(thisDevice) : "";
+            await DB.UserSessions.Where(s => s.UserId == user.Id && s.TokenHash != keep).ExecuteDeleteAsync();
+            await DB.SaveChangesAsync();
 
-                Trace(TraceEventType.Information, $"{user.Username} changed their password.");
-                return Ok(UserMapper.ToDto(user));
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while changing the password.", e);
-            }
+            Trace(TraceEventType.Information, $"{user.Username} changed their password.");
+            return Ok(UserMapper.ToDto(user));
         }
 
         /// <summary>
@@ -246,25 +224,18 @@ namespace api.Controllers
         [HttpPost("logout")]
         public async Task<IActionResult> Logout()
         {
-            try
-            {
-                if (!Request.Headers.ContainsKey(ClientHeader))
-                    return BadRequest(new { error = "Missing client header." });
+            if (!Request.Headers.ContainsKey(ClientHeader))
+                return BadRequest(new { error = "Missing client header." });
 
-                var token = IncomingRefreshToken();
-                if (!string.IsNullOrEmpty(token))
-                {
-                    var hash = TokenService.HashRefreshToken(token);
-                    await DB.UserSessions.Where(s => s.TokenHash == hash).ExecuteDeleteAsync();
-                }
-
-                ClearRefreshCookie();
-                return Ok();
-            }
-            catch (Exception e)
+            var token = IncomingRefreshToken();
+            if (!string.IsNullOrEmpty(token))
             {
-                return ServerError("Internal error occurred while signing out.", e);
+                var hash = TokenService.HashRefreshToken(token);
+                await DB.UserSessions.Where(s => s.TokenHash == hash).ExecuteDeleteAsync();
             }
+
+            ClearRefreshCookie();
+            return Ok();
         }
 
         #endregion
@@ -279,22 +250,15 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetCurrentUser()
         {
-            try
-            {
-                var userId = GetCurrentUserId();
-                if (userId == null)
-                    return Unauthorized(new { error = "Not signed in." });
+            var userId = GetCurrentUserId();
+            if (userId == null)
+                return Unauthorized(new { error = "Not signed in." });
 
-                var user = await DB.Users.Include(u => u.Territories).ThenInclude(t => t.Territory).AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId.Value);
-                if (user == null || !user.IsActive)
-                    return NotFound(new { error = "User not found." });
+            var user = await DB.Users.Include(u => u.Territories).ThenInclude(t => t.Territory).AsNoTracking().FirstOrDefaultAsync(u => u.Id == userId.Value);
+            if (user == null || !user.IsActive)
+                return NotFound(new { error = "User not found." });
 
-                return Ok(UserMapper.ToDto(user));
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while loading the profile.", e);
-            }
+            return Ok(UserMapper.ToDto(user));
         }
 
         /// <summary>
@@ -317,8 +281,8 @@ namespace api.Controllers
 
         private AuthResponseDto Respond(User user) => new()
         {
-            AccessToken = TokenService.CreateAccessToken(user),
-            ExpiresIn = TokenService.AccessTokenMinutes() * 60,
+            AccessToken = tokenService.CreateAccessToken(user),
+            ExpiresIn = tokenService.AccessTokenMinutes() * 60,
             User = UserMapper.ToDto(user),
         };
 
@@ -356,13 +320,13 @@ namespace api.Controllers
             // Sessions that have run out are tidied up as people sign in.
             await DB.UserSessions.Where(s => s.UserId == user.Id && s.ExpiresAt < DateTime.UtcNow).ExecuteDeleteAsync();
 
-            var token = TokenService.CreateRefreshToken();
+            var token = tokenService.CreateRefreshToken();
             var agent = Request.Headers.UserAgent.ToString();
             DB.UserSessions.Add(new UserSession
             {
                 UserId = user.Id,
                 TokenHash = TokenService.HashRefreshToken(token),
-                ExpiresAt = TokenService.GetRefreshTokenExpiry(),
+                ExpiresAt = tokenService.GetRefreshTokenExpiry(),
                 UserAgent = agent.Length > 200 ? agent[..200] : agent,
             });
             return token;
@@ -376,7 +340,7 @@ namespace api.Controllers
                 Secure = SecureCookies(),
                 SameSite = SameSiteMode.Strict,
                 Path = "/api/auth",
-                Expires = TokenService.GetRefreshTokenExpiry(),
+                Expires = tokenService.GetRefreshTokenExpiry(),
                 IsEssential = true,
             });
         }
@@ -397,7 +361,7 @@ namespace api.Controllers
         /// left unset it follows the request, so a cloud host behind HTTPS always gets a secure
         /// cookie while a cart's Pi on plain HTTP still works.
         /// </summary>
-        private bool SecureCookies() => Config["Auth:SecureCookies"]?.Trim().ToLowerInvariant() switch
+        private bool SecureCookies() => config["Auth:SecureCookies"]?.Trim().ToLowerInvariant() switch
         {
             "true" => true,
             "false" => false,
@@ -411,11 +375,11 @@ namespace api.Controllers
         private static bool AllTerritoriesOff(User user) =>
             AccessScope.NeedsTerritory(user.Role) && !user.Territories.Any(t => t.Territory is { IsActive: true });
 
-        private bool AllowLegacyPins() => !string.Equals(Config["Auth:AllowLegacyPins"], "false", StringComparison.OrdinalIgnoreCase);
+        private bool AllowLegacyPins() => !string.Equals(config["Auth:AllowLegacyPins"], "false", StringComparison.OrdinalIgnoreCase);
 
-        private int MaxFailedAttempts() => int.TryParse(Config["Auth:MaxFailedAttempts"], out var n) ? Math.Clamp(n, 3, 20) : 5;
+        private int MaxFailedAttempts() => int.TryParse(config["Auth:MaxFailedAttempts"], out var n) ? Math.Clamp(n, 3, 20) : 5;
 
-        private int LockoutMinutes() => int.TryParse(Config["Auth:LockoutMinutes"], out var n) ? Math.Clamp(n, 1, 1440) : 15;
+        private int LockoutMinutes() => int.TryParse(config["Auth:LockoutMinutes"], out var n) ? Math.Clamp(n, 1, 1440) : 15;
 
         #endregion
     }

@@ -1,8 +1,9 @@
 using System.Text.Json;
+using Microsoft.EntityFrameworkCore;
+using api.Catalog;
 using api.Models;
 using api.Services;
 using api.Utils;
-using Microsoft.EntityFrameworkCore;
 
 namespace api.Data
 {
@@ -153,7 +154,7 @@ namespace api.Data
 
             var territory = new Territory
             {
-                Name = string.IsNullOrWhiteSpace(seed.Territory) ? "Pittsburgh" : seed.Territory.Trim(),
+                Name = string.IsNullOrWhiteSpace(seed.Territory) ? Territory.FirstTerritoryName : seed.Territory.Trim(),
                 IsActive = true,
             };
             db.Territories.Add(territory);
@@ -180,9 +181,9 @@ namespace api.Data
                 Organization = seed.Event.Organization ?? "New Fundraiser",
                 CartName = seed.Event.CartName,
                 EventDate = DateTime.Today,
-                SalesTaxRate = seed.Event.SalesTaxRate ?? 0.07m,
-                CcProcessingFeeRate = seed.Event.CcProcessingFeeRate ?? 0.02m,
-                NextOrderNumber = seed.Event.NextOrderNumber ?? 1001,
+                SalesTaxRate = seed.Event.SalesTaxRate ?? Event.DefaultSalesTaxRate,
+                CcProcessingFeeRate = seed.Event.CcProcessingFeeRate ?? Event.DefaultCcProcessingFeeRate,
+                NextOrderNumber = seed.Event.NextOrderNumber ?? Event.FirstOrderNumber,
                 IsActive = true,
             });
 
@@ -276,7 +277,7 @@ namespace api.Data
                     SortOrder = p.SortOrder ?? 0,
                     IsActive = true,
                     TrackInventory = p.TrackInventory ?? false,
-                    HasWarranty = p.HasWarranty ?? api.Controllers.ProductController.WarrantyByDefault(category),
+                    HasWarranty = p.HasWarranty ?? CatalogRules.WarrantyByDefault(category),
                     WarrantyLength = p.WarrantyLength,
                 };
 

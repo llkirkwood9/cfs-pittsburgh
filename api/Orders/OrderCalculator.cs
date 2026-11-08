@@ -1,6 +1,6 @@
 using api.Models;
 
-namespace api.Utils
+namespace api.Orders
 {
     /// <summary>
     /// Recomputes line and order money fields. Kept in one place so the sales floor, the checkout

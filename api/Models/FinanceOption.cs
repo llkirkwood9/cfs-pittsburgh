@@ -7,7 +7,7 @@ namespace api.Models
     /// the catalog beside the delivery options. A financing payment stores the name it was recorded
     /// with, so renaming or removing an option never changes a past sale.
     /// </summary>
-    public class FinanceOption
+    public class FinanceOption : ITerritoryOwned
     {
         /// <summary>
         /// Primary Key - ID of finance option

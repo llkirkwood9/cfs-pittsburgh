@@ -6,7 +6,7 @@ namespace api.Models
     /// A catalog product: one mattress model, pillow, sheet set, protector, frame or misc item.
     /// Pricing lives on the child ProductVariant rows, one per size/configuration.
     /// </summary>
-    public class Product
+    public class Product : ITerritoryOwned
     {
         /// <summary>
         /// Primary Key - ID of product

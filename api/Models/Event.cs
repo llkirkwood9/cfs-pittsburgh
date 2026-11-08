@@ -6,8 +6,17 @@ namespace api.Models
     /// A single fundraiser: one organization on one day, run by one cart crew. Every order belongs
     /// to exactly one event
     /// </summary>
-    public class Event
+    public class Event : ITerritoryOwned
     {
+        /// <summary>A new event's sales tax rate when nothing else is set: 7%.</summary>
+        public const decimal DefaultSalesTaxRate = 0.07m;
+
+        /// <summary>A new event's card processing fee rate when nothing else is set: 2%.</summary>
+        public const decimal DefaultCcProcessingFeeRate = 0.02m;
+
+        /// <summary>A new event's first order number, as on the pre-printed paper sheets.</summary>
+        public const int FirstOrderNumber = 1001;
+
         /// <summary>
         /// Primary Key - ID of event
         /// </summary>
@@ -17,6 +26,9 @@ namespace api.Models
         /// The territory running the event. Only that territory's crew sees it.
         /// </summary>
         public int TerritoryId { get; set; }
+
+        /// <inheritdoc />
+        int? ITerritoryOwned.TerritoryId => TerritoryId;
 
         /// <summary>
         /// Navigation to the territory
@@ -51,17 +63,17 @@ namespace api.Models
         /// <summary>
         /// Sales tax rate applied to taxable lines, stored as a decimal fraction (0.07 = 7%)
         /// </summary>
-        public decimal SalesTaxRate { get; set; } = 0.07m;
+        public decimal SalesTaxRate { get; set; } = DefaultSalesTaxRate;
 
         /// <summary>
         /// Credit card processing fee rate, stored as a decimal fraction. 0 disables the fee. (0.02 = 2%)
         /// </summary>
-        public decimal CcProcessingFeeRate { get; set; } = 0.02m;
+        public decimal CcProcessingFeeRate { get; set; } = DefaultCcProcessingFeeRate;
 
         /// <summary>
         /// Next order number to hand out. Mirrors the pre-printed number on the paper sheets.
         /// </summary>
-        public int NextOrderNumber { get; set; } = 1001;
+        public int NextOrderNumber { get; set; } = FirstOrderNumber;
 
         /// <summary>
         /// Only one event is active at a time; the floor app defaults to it

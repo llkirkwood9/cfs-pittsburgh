@@ -1,6 +1,7 @@
 using api.Models;
+using api.Utils;
 
-namespace api.Utils
+namespace api.Orders
 {
     /// <summary>
     /// Which of the statements a customer initials an order actually needs. Each statement says
@@ -18,6 +19,18 @@ namespace api.Utils
 
         /// <summary>Ask only when at least one item has a manufacturer warranty.</summary>
         public const string Warranty = "warranty";
+
+        /// <summary>The statement confirming the customer's details.</summary>
+        public const string CustomerInfoKey = "customerInfo";
+
+        /// <summary>The warranty and mattress protector statement.</summary>
+        public const string WarrantyKey = "warranty";
+
+        /// <summary>The drop ship delivery statement.</summary>
+        public const string DropShipKey = "dropShip";
+
+        /// <summary>The all-sales-are-final statement.</summary>
+        public const string AdvisoryKey = "advisory";
 
         /// <summary>Every value a statement's AskWhen may take.</summary>
         public static readonly IReadOnlyList<string> AskWhenValues = [Always, Shipped, Warranty];
@@ -48,7 +61,7 @@ namespace api.Utils
         /// <param name="order">Order entity with lines loaded</param>
         /// <returns>True when at least one item leaves some other way than with the customer.</returns>
         public static bool SomethingShips(Order order) =>
-            order.Lines.Any(l => IsItem(l) && !l.TakeWith);
+            order.Lines.Any(l => OrderRules.IsItem(l) && !l.TakeWith);
 
         /// <summary>
         /// Whether any item on the order comes with a manufacturer warranty.
@@ -56,7 +69,7 @@ namespace api.Utils
         /// <param name="order">Order entity with lines loaded</param>
         /// <returns>True when at least one item has one.</returns>
         public static bool HasWarranty(Order order) =>
-            order.Lines.Any(l => IsItem(l) && l.HasWarranty);
+            order.Lines.Any(l => OrderRules.IsItem(l) && l.HasWarranty);
 
         private static bool Applies(string? askWhen, Order order) => askWhen switch
         {
@@ -65,16 +78,12 @@ namespace api.Utils
             _ => true,
         };
 
-        // Shipping rows and upcharges are charges on an item, not items.
-        private static bool IsItem(OrderLine line) =>
-            line.LineType is not (OrderLineType.Delivery or OrderLineType.Upcharge);
-
         private static string? InitialsFor(Order order, string key) => key switch
         {
-            "customerInfo" => order.CustomerInfoInitials,
-            "warranty" => order.WarrantyInitials,
-            "dropShip" => order.DropShipInitials,
-            "advisory" => order.AdvisoryInitials,
+            CustomerInfoKey => order.CustomerInfoInitials,
+            WarrantyKey => order.WarrantyInitials,
+            DropShipKey => order.DropShipInitials,
+            AdvisoryKey => order.AdvisoryInitials,
             _ => null,
         };
     }

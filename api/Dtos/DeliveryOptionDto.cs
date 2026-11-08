@@ -11,7 +11,7 @@ namespace api.Dtos
         public int? Id { get; set; }
 
         /// <summary>
-        /// The territory this delivery option belongs to; null for a global delivery option offered everywhere
+        /// The territory whose catalog this delivery option is in
         /// </summary>
         public int? TerritoryId { get; set; }
 
@@ -21,7 +21,7 @@ namespace api.Dtos
         public string? TerritoryName { get; set; }
 
         /// <summary>
-        /// Whether the signed-in user may change it (returned, not saved) - a manager can't change global ones
+        /// Whether the signed-in user may change it (returned, not saved) - a manager only their own territories
         /// </summary>
         public bool? CanEdit { get; set; }
 
