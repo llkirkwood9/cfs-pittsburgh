@@ -17,7 +17,6 @@ import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
 import { useInventory } from "@shared/Hooks/useInventory";
-import { CategoryNames } from "@shared/Lib/Catalog";
 import { FormatDateTime, FormatTime } from "@shared/Lib/Format";
 import {
     InventoryKindLabels,
@@ -194,7 +193,7 @@ const InventoryPage = () => {
                             {categories.map((c) => (
                                 <TabButton
                                     key={c}
-                                    text={CategoryNames[c]}
+                                    text={c}
                                     active={tab === c}
                                     onClick={() => setTab(c)}
                                 />
@@ -220,7 +219,7 @@ const InventoryPage = () => {
                             {groups.map((group) => (
                                 <View key={group.category}>
                                     <Text className="mb-2 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                                        {CategoryNames[group.category]}
+                                        {group.category}
                                     </Text>
 
                                     <View className="gap-3">

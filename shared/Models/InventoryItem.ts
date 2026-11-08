@@ -1,11 +1,10 @@
-import type { ProductCategory } from "./Product";
-
 export type InventoryItem = {
     productVariantId?: number;
     productId?: number;
     productName?: string;
     brand?: string;
-    category?: ProductCategory;
+    /** The name of the category the product is listed under. */
+    category?: string;
     size?: string;
     configuration?: string | null;
     quantityOnHand?: number;

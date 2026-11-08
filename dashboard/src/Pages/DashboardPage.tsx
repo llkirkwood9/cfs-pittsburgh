@@ -23,7 +23,7 @@ import {
 } from "@shared/Lib/Dashboard";
 import { FormatCurrency } from "@shared/Lib/Format";
 import type { ProductTally } from "@shared/Models/DashboardStats";
-import type { ProductCategory } from "@shared/Models/Product";
+import type { StatColumn } from "@shared/Models/Product";
 
 /**
  * A titled list of products with the units each sold, in the order given, narrowed to one
@@ -41,7 +41,7 @@ const ProductRanking = ({
     /** How many to show; leave out to show them all. */
     limit?: number;
 }) => {
-    const [category, setCategory] = useState<ProductCategory | "All">("All");
+    const [category, setCategory] = useState<StatColumn | "All">("All");
     const shown = RankProducts(products, category, limit);
 
     return (
@@ -52,7 +52,7 @@ const ProductRanking = ({
                 </h2>
                 <select
                     value={category}
-                    onChange={(e) => setCategory(e.target.value as ProductCategory | "All")}
+                    onChange={(e) => setCategory(e.target.value as StatColumn | "All")}
                     aria-label={`${title} category`}
                     className="min-h-[36px] rounded-lg border border-zinc-300 bg-white px-2 text-sm
                     dark:border-zinc-600 dark:bg-zinc-800 dark:scheme-dark"

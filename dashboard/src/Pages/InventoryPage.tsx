@@ -8,7 +8,6 @@ import TabButton from "../Components/Elements/TabButton";
 import TextField from "../Components/Elements/TextField";
 import { useSettings } from "@shared/Context/SettingsContext";
 import { useInventory } from "@shared/Hooks/useInventory";
-import { CategoryNames } from "@shared/Lib/Catalog";
 import { FormatDateTime, FormatTime } from "@shared/Lib/Format";
 import {
     InventoryKindLabels,
@@ -167,7 +166,7 @@ const InventoryPage = () => {
                         {categories.map((c) => (
                             <TabButton
                                 key={c}
-                                text={CategoryNames[c]}
+                                text={c}
                                 active={tab === c}
                                 onClick={() => setTab(c)}
                             />
@@ -192,7 +191,7 @@ const InventoryPage = () => {
                         {groups.map((group) => (
                             <section key={group.category}>
                                 <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                                    {CategoryNames[group.category]}
+                                    {group.category}
                                 </h2>
 
                                 <div className="space-y-3">

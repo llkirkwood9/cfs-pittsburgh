@@ -2,7 +2,11 @@ import type { ProductDeliveryOption } from "./ProductDeliveryOption";
 import type { ProductOption } from "./ProductOption";
 import type { ProductVariant } from "./ProductVariant";
 
-export type ProductCategory =
+/**
+ * The stat-sheet column an item counts in. Every category says which one its items count in;
+ * it also decides the warranty default and which items the receipt email treats as mattresses.
+ */
+export type StatColumn =
     | "Mattress"
     | "AdjustableBase"
     | "Pillow"
@@ -21,7 +25,10 @@ export type Product = {
     canEdit?: boolean;
     name?: string;
     brand?: string;
-    category?: ProductCategory;
+    /** The name of the category it's listed under, one of its territory's. */
+    category?: string;
+    /** The stat-sheet column its category counts in (returned, not saved). */
+    statColumn?: StatColumn;
     notes?: string | null;
     sortOrder?: number;
     isActive?: boolean;

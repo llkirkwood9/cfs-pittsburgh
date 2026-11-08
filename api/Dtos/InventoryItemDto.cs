@@ -26,7 +26,7 @@ namespace api.Dtos
         public string? Brand { get; set; }
 
         /// <summary>
-        /// Product category name
+        /// The name of the category the product is listed under
         /// </summary>
         public string? Category { get; set; }
 

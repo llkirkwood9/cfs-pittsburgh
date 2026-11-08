@@ -76,6 +76,15 @@ namespace api.Utils
                 ? query.Where(f => f.TerritoryId != null)
                 : query.Where(f => f.TerritoryId != null && territoryIds.Contains(f.TerritoryId.Value));
 
+        /// <summary>The categories of the territories given, or every territory's when null.</summary>
+        /// <param name="query">Categories</param>
+        /// <param name="territoryIds">The territories, or null for all</param>
+        /// <returns>The filtered query.</returns>
+        public static IQueryable<Category> InTerritories(this IQueryable<Category> query, IReadOnlyCollection<int>? territoryIds) =>
+            territoryIds == null
+                ? query.Where(c => c.TerritoryId != null)
+                : query.Where(c => c.TerritoryId != null && territoryIds.Contains(c.TerritoryId.Value));
+
         /// <summary>The users belonging to any of the territories the request covers.</summary>
         /// <param name="query">Users</param>
         /// <param name="scope">The request's access scope</param>

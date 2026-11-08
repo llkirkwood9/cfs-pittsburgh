@@ -16,8 +16,8 @@ namespace api.Catalog
         #region Public Methods
 
         /// <summary>
-        /// Copies a territory's whole catalog - delivery options, financing options and products,
-        /// with their sizes, prices, sales, selections, bundles and delivery choices - into another
+        /// Copies a territory's whole catalog - categories, delivery options, financing options and
+        /// products, with their sizes, prices, sales, selections, bundles and delivery choices - into another
         /// territory. Stock counts are not copied.
         /// </summary>
         /// <param name="db">EF context</param>
@@ -26,7 +26,15 @@ namespace api.Catalog
         /// <returns>How many products were copied.</returns>
         public static async Task<int> CopyCatalogAsync(ApplicationDbContext db, int fromTerritoryId, int toTerritoryId)
         {
-            var batch = new Batch(toTerritoryId);
+            var batch = new Batch(db, toTerritoryId);
+
+            // Every category, empty ones too, in the same order.
+            var categories = await db.Categories.AsNoTracking()
+                .Where(c => c.TerritoryId == fromTerritoryId)
+                .OrderBy(c => c.SortOrder).ThenBy(c => c.Id)
+                .ToListAsync();
+            foreach (var category in categories)
+                await batch.Categories.ForAsync(toTerritoryId, category.Name, category.StatColumn);
 
             var deliveryOptions = await db.DeliveryOptions.AsNoTracking()
                 .Where(d => d.TerritoryId == fromTerritoryId)
@@ -46,7 +54,7 @@ namespace api.Catalog
                 .Where(p => p.TerritoryId == fromTerritoryId)
                 .ToListAsync();
             foreach (var product in products)
-                db.Products.Add(CloneProduct(product, batch));
+                db.Products.Add(await CloneProductAsync(product, batch));
 
             // Bundles can only include items from their own catalog, all of which were just copied.
             ResolveComponents(batch, _ => null);
@@ -56,7 +64,8 @@ namespace api.Catalog
         }
 
         /// <summary>
-        /// Copies one product into another territory's catalog. The delivery options it offers are
+        /// Copies one product into another territory's catalog. Its category is matched by name, and
+        /// added there when that catalog has none of that name. The delivery options it offers are
         /// matched by name in that catalog, and copied there when it has none of that name; the items
         /// a bundle includes are matched by brand, name, size and configuration, and left out when
         /// that catalog doesn't sell them.
@@ -70,7 +79,7 @@ namespace api.Catalog
         {
             var notes = new List<string>();
             var source = await LoadProducts(db).AsNoTracking().FirstAsync(p => p.Id == productId);
-            var batch = new Batch(toTerritoryId);
+            var batch = new Batch(db, toTerritoryId);
 
             // The delivery options it offers, in the target catalog.
             var sourceOptionIds = source.DeliveryOptions.Select(d => d.DeliveryOptionId).Distinct().ToList();
@@ -92,8 +101,9 @@ namespace api.Catalog
                 notes.Add($"The delivery option \"{option.Name}\" was added too.");
             }
 
-            var product = CloneProduct(source, batch);
+            var product = await CloneProductAsync(source, batch);
             db.Products.Add(product);
+            notes.AddRange(batch.Categories.Added.Select(name => $"The category \"{name}\" was added too."));
 
             // What its bundles include, in the target catalog.
             var wanted = batch.PendingComponents.Select(p => p.Source.ComponentVariantId).Distinct().ToList();
@@ -163,13 +173,13 @@ namespace api.Catalog
 
             foreach (var territory in territories.Skip(1))
             {
-                var batch = new Batch(territory.Id);
+                var batch = new Batch(db, territory.Id);
                 foreach (var option in globalOptions)
                     batch.DeliveryOptions[option.Id] = Target<DeliveryOption>.New(db.DeliveryOptions.Add(CloneDeliveryOption(option, territory.Id)).Entity);
                 foreach (var option in globalFinance)
                     db.FinanceOptions.Add(CloneFinanceOption(option, territory.Id));
                 foreach (var product in globalProducts)
-                    db.Products.Add(CloneProduct(product, batch));
+                    db.Products.Add(await CloneProductAsync(product, batch));
                 ResolveComponents(batch, _ => null);
 
                 // The territory's own items offered global delivery options and could include global
@@ -260,9 +270,10 @@ namespace api.Catalog
         /// <summary>
         /// What one copy has made so far, by the id of what it was copied from.
         /// </summary>
-        private sealed class Batch(int territoryId)
+        private sealed class Batch(ApplicationDbContext db, int territoryId)
         {
             public int TerritoryId { get; } = territoryId;
+            public CategoryLookup Categories { get; } = new(db);
             public Dictionary<int, Target<DeliveryOption>> DeliveryOptions { get; } = new();
             public Dictionary<int, Target<ProductVariant>> Variants { get; } = new();
             public Dictionary<int, ProductOption> Options { get; } = new();
@@ -299,18 +310,21 @@ namespace api.Catalog
         };
 
         /// <summary>
-        /// A new product like the source, in the batch's territory. Its delivery choices point at the
+        /// A new product like the source, in the batch's territory. It goes in that territory's
+        /// category of the same name, added when there's none; its delivery choices point at the
         /// batch's delivery options (left out when there's none); bundle contents wait for
         /// ResolveComponents, since what they point at may be copied later in the batch.
         /// </summary>
-        private static Product CloneProduct(Product source, Batch batch)
+        /// <param name="source">The product, with its category and editable parts loaded</param>
+        /// <param name="batch">The copy</param>
+        private static async Task<Product> CloneProductAsync(Product source, Batch batch)
         {
             var copy = new Product
             {
                 TerritoryId = batch.TerritoryId,
                 Name = source.Name,
                 Brand = source.Brand,
-                Category = source.Category,
+                Category = await batch.Categories.ForAsync(batch.TerritoryId, source.Category!.Name, source.Category.StatColumn),
                 Notes = source.Notes,
                 SortOrder = source.SortOrder,
                 IsActive = source.IsActive,

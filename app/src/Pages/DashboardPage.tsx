@@ -30,7 +30,7 @@ import {
 } from "@shared/Lib/Dashboard";
 import { FormatCurrency } from "@shared/Lib/Format";
 import type { ProductTally } from "@shared/Models/DashboardStats";
-import type { ProductCategory } from "@shared/Models/Product";
+import type { StatColumn } from "@shared/Models/Product";
 
 /** A section card with an uppercase heading. */
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -56,12 +56,12 @@ const ProductRanking = ({
     /** How many to show; leave out to show them all. */
     limit?: number;
 }) => {
-    const [category, setCategory] = useState<ProductCategory | "All">("All");
+    const [category, setCategory] = useState<StatColumn | "All">("All");
     const shown = RankProducts(products, category, limit);
 
     return (
         <View className="gap-3">
-            <SelectField<ProductCategory | "All">
+            <SelectField<StatColumn | "All">
                 label="Category"
                 value={category}
                 onChange={setCategory}

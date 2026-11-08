@@ -1,4 +1,4 @@
-import type { ProductCategory } from "./Product";
+import type { StatColumn } from "./Product";
 import type { IncludedChoices, LineChoice } from "./ProductOption";
 
 export type OrderLineType = "Product" | "Delivery" | "Custom" | "Included" | "Upcharge";
@@ -6,7 +6,8 @@ export type OrderLineType = "Product" | "Delivery" | "Custom" | "Included" | "Up
 export type OrderLine = {
     id?: number;
     lineType?: OrderLineType;
-    category?: ProductCategory;
+    /** The stat-sheet column it counts in, kept from its category when sold. */
+    category?: StatColumn;
     productVariantId?: number | null;
     deliveryOptionId?: number | null;
     parentLineId?: number | null;

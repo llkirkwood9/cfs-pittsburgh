@@ -1,7 +1,8 @@
 import { FormatCurrency } from "./Format";
 import { DiscountText, HasDiscount, SaleFor } from "./Pricing";
 import { LowestPrice } from "./ProductSort";
-import type { Product, ProductCategory } from "../Models/Product";
+import type { Category } from "../Models/Category";
+import type { Product, StatColumn } from "../Models/Product";
 import { ActiveTerritories } from "../Models/Territory";
 import type { Territory } from "../Models/Territory";
 import type { ProductVariant } from "../Models/ProductVariant";
@@ -22,8 +23,8 @@ export const VariantLabel = (variant: ProductVariant): string =>
 export const NeedsPrice = (variant: ProductVariant): boolean =>
     variant.price === null || variant.price === undefined;
 
-/** Full, plural category names for headings, e.g. on the inventory sheet. */
-export const CategoryNames: Record<ProductCategory, string> = {
+/** Each stat-sheet column's name, as the dashboard and the category form show it. */
+export const StatColumnNames: Record<StatColumn, string> = {
     Mattress: "Mattresses",
     AdjustableBase: "Adjustable Bases",
     Pillow: "Pillows",
@@ -34,34 +35,63 @@ export const CategoryNames: Record<ProductCategory, string> = {
     Misc: "Other",
 };
 
-/** Each category's short name, for tabs and filters. */
-export const CategoryShortNames: Record<ProductCategory, string> = {
-    Mattress: "Mattresses",
-    AdjustableBase: "Bases",
-    Pillow: "Pillows",
-    Sheets: "Sheets",
-    MattressProtector: "Protectors",
-    Frame: "Frames",
-    BeanBagChair: "Bean Bags",
-    Misc: "Other",
+/**
+ * The categories of one territory's catalog, in tab order - or, with no territory, every
+ * category name once, as a list of several territories' items shows them.
+ * @param categories Every category in view, each territory's in tab order.
+ * @param territoryId The territory, or null for every one in view.
+ * @returns The categories.
+ */
+export const CategoriesFor = (
+    categories: Category[],
+    territoryId: number | null | undefined
+): Category[] =>
+    territoryId == null
+        ? categories.filter((c, i) => categories.findIndex((o) => o.name === c.name) === i)
+        : categories.filter((c) => c.territoryId === territoryId);
+
+/**
+ * The category names products are listed under, in the order the products come (the server
+ * lists them in tab order), each once.
+ * @param products The products.
+ * @returns The names.
+ */
+export const CategoryOrder = (products: { category?: string }[]): string[] =>
+    Array.from(new Set(products.map((p) => p.category ?? "")));
+
+/**
+ * The bundle picker's category tabs: those of the items on offer, in tab order, with any that
+ * count as adjustable bases first, because a base is the usual thing to include.
+ * @param products The items that can be included.
+ * @returns The category names.
+ */
+export const BundleCategories = (products: Product[]): string[] => {
+    const isBase = (name: string) =>
+        products.some((p) => p.category === name && p.statColumn === "AdjustableBase");
+    const order = CategoryOrder(products);
+    return [...order.filter(isBase), ...order.filter((c) => !isBase(c))];
 };
 
-/** The bundle picker's category tabs, bases first because that is the usual thing to include. */
-export const BundleCategories: ProductCategory[] = [
-    "AdjustableBase",
-    ...(Object.keys(CategoryShortNames) as ProductCategory[]).filter((c) => c !== "AdjustableBase"),
-];
+/** The tab that lists every product. */
+export const AllTab = "All";
 
-/** A tab on the Catalog screen: every product, one category, or the delivery or financing lists. */
-export type CatalogTab = ProductCategory | "All" | "Delivery" | "Financing";
+/** The Catalog screen's tabs that aren't a category's, keyed so no category name can clash. */
+export const CatalogListTabs = {
+    Delivery: "#delivery",
+    Financing: "#financing",
+    Categories: "#categories",
+} as const;
+
+/** A tab on the Catalog screen: every product, one category's, or one of the other lists. */
+export type CatalogTab = string;
 
 /**
  * Whether a catalog tab lists products.
  * @param tab The tab.
- * @returns False for the delivery and financing lists.
+ * @returns False for the delivery, financing and category lists.
  */
-export const IsProductTab = (tab: CatalogTab): tab is ProductCategory | "All" =>
-    tab !== "Delivery" && tab !== "Financing";
+export const IsProductTab = (tab: CatalogTab): boolean =>
+    !(Object.values(CatalogListTabs) as string[]).includes(tab);
 
 /**
  * The products a catalog tab shows: its category's (or all of them), matching the search by name
@@ -74,7 +104,7 @@ export const IsProductTab = (tab: CatalogTab): tab is ProductCategory | "All" =>
 export const CatalogMatches = (products: Product[], tab: CatalogTab, search: string): Product[] => {
     const term = search.trim().toLowerCase();
     return products.filter((product) => {
-        if (tab !== "All" && IsProductTab(tab) && product.category !== tab) return false;
+        if (tab !== AllTab && IsProductTab(tab) && product.category !== tab) return false;
         if (!term) return true;
         return (
             (product.name ?? "").toLowerCase().includes(term) ||
@@ -143,14 +173,23 @@ export const DeliveryCountText = (product: Product): string => {
 };
 
 /**
- * A blank product for New product: in the territory in view, and in the tab's category.
+ * A blank product for New product: in the territory in view, and in the tab's category - or,
+ * from the All tab, the first one that counts as Other.
  * @param tab The tab New product was pressed on.
  * @param territoryId The territory in view.
+ * @param categories That territory's categories.
  * @returns The product to edit.
  */
-export const NewProduct = (tab: ProductCategory | "All", territoryId: number | null): Product => ({
+export const NewProduct = (
+    tab: CatalogTab,
+    territoryId: number | null,
+    categories: Category[]
+): Product => ({
     territoryId,
-    category: tab === "All" ? "Misc" : tab,
+    category:
+        tab !== AllTab && IsProductTab(tab)
+            ? tab
+            : (categories.find((c) => c.statColumn === "Misc") ?? categories[0])?.name,
     isActive: true,
     variants: [],
     deliveryOptions: [],

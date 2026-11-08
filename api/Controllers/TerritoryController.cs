@@ -110,9 +110,19 @@ namespace api.Controllers
             DB.Territories.Add(territory);
             await DB.SaveChangesAsync();
 
-            // Its catalog starts as a copy of another territory's: products, sizes, prices,
-            // sales, selections, bundles, delivery and financing options - but no stock.
-            var copied = copyFrom != null ? await CatalogCopy.CopyCatalogAsync(DB, copyFrom.Value, territory.Id) : 0;
+            // Its catalog starts as a copy of another territory's: categories, products, sizes,
+            // prices, sales, selections, bundles, delivery and financing options - but no stock.
+            // Otherwise it starts empty, with the default categories.
+            var copied = 0;
+            if (copyFrom != null)
+            {
+                copied = await CatalogCopy.CopyCatalogAsync(DB, copyFrom.Value, territory.Id);
+            }
+            else
+            {
+                await new CategoryLookup(DB).AddDefaultsAsync(territory.Id);
+                await DB.SaveChangesAsync();
+            }
 
             Trace(TraceEventType.Information, $"Territory {territory.Name} added by {GetCurrentUserName()}"
                 + (copyFrom != null ? $", with {copied} products copied." : "."));
@@ -215,6 +225,7 @@ namespace api.Controllers
             await DB.InventoryAdjustments.Where(a => a.TerritoryId == id).ExecuteDeleteAsync();
             // A territory's own finance options are only names; they go with it.
             await DB.FinanceOptions.Where(f => f.TerritoryId == id).ExecuteDeleteAsync();
+            await DB.Categories.Where(c => c.TerritoryId == id).ExecuteDeleteAsync();
             DB.Territories.Remove(territory);
             await DB.SaveChangesAsync();
 

@@ -4,12 +4,15 @@ import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import TabButton from "../Components/Elements/TabButton";
 import TextField from "../Components/Elements/TextField";
+import CategoryList from "../Components/Catalog/CategoryList";
 import DeliveryOptionList from "../Components/Catalog/DeliveryOptionList";
 import EditProductForm from "../Components/Catalog/EditProductForm";
 import FinanceOptionList from "../Components/Catalog/FinanceOptionList";
 import ImportCatalogModal from "../Components/Catalog/ImportCatalogModal";
 import { useCatalog } from "@shared/Hooks/useCatalog";
 import {
+    AllTab,
+    CatalogListTabs,
     DeliveryCountText,
     IsProductTab,
     PriceRangeText,
@@ -38,8 +41,8 @@ const DownloadJson = (fileName: string, text: string) => {
 
 /**
  * Catalog administration. Everything the floor can sell is defined here: products, the sizes and
- * configurations they come in, their prices, which delivery services each one offers, and the
- * kinds of financing offered at checkout. Every territory has its own catalog; this is the one of
+ * configurations they come in, their prices, the categories they're listed under, which delivery
+ * services each one offers, and the kinds of financing offered at checkout. Every territory has its own catalog; this is the one of
  * the territory picked in the menu bar. Someone with more than one territory can copy items
  * across from another territory's catalog when adding one.
  */
@@ -90,8 +93,8 @@ const CatalogPage = () => {
             </div>
 
             <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
-                <TabButton text="All" active={tab === "All"} onClick={() => setTab("All")} />
-                {catalog.categories.map((category) => (
+                <TabButton text="All" active={tab === AllTab} onClick={() => setTab(AllTab)} />
+                {catalog.categoryTabs.map((category) => (
                     <TabButton
                         key={category}
                         text={category}
@@ -101,27 +104,40 @@ const CatalogPage = () => {
                     />
                 ))}
                 <TabButton
+                    text="Categories"
+                    active={tab === CatalogListTabs.Categories}
+                    onClick={() => setTab(CatalogListTabs.Categories)}
+                    badge={catalog.categories.length}
+                />
+                <TabButton
                     text="Delivery"
-                    active={tab === "Delivery"}
-                    onClick={() => setTab("Delivery")}
+                    active={tab === CatalogListTabs.Delivery}
+                    onClick={() => setTab(CatalogListTabs.Delivery)}
                     badge={catalog.deliveryOptions.length}
                 />
                 <TabButton
                     text="Financing Options"
-                    active={tab === "Financing"}
-                    onClick={() => setTab("Financing")}
+                    active={tab === CatalogListTabs.Financing}
+                    onClick={() => setTab(CatalogListTabs.Financing)}
                     badge={catalog.financeOptions.length}
                 />
             </div>
 
-            {tab === "Financing" ? (
+            {tab === CatalogListTabs.Categories ? (
+                <CategoryList
+                    categories={catalog.categories}
+                    onSave={catalog.saveCategory}
+                    onDelete={catalog.deleteCategory}
+                    onReorder={catalog.reorderCategories}
+                />
+            ) : tab === CatalogListTabs.Financing ? (
                 <FinanceOptionList
                     options={catalog.financeOptions}
                     onSave={catalog.saveFinanceOption}
                     onDelete={catalog.deleteFinanceOption}
                     onReorder={catalog.reorderFinanceOptions}
                 />
-            ) : tab === "Delivery" ? (
+            ) : tab === CatalogListTabs.Delivery ? (
                 <DeliveryOptionList
                     options={catalog.deliveryOptions}
                     onSave={catalog.saveDeliveryOption}
@@ -229,7 +245,7 @@ const CatalogPage = () => {
                 <EditProductForm
                     product={editing}
                     catalog={catalog.activeProducts}
-                    categories={catalog.categories}
+                    categories={catalog.categoriesFor(editing.territoryId)}
                     deliveryOptions={catalog.activeDeliveryOptions}
                     onSave={catalog.saveProduct}
                     onClose={() => catalog.setEditing(null)}

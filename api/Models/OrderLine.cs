@@ -29,9 +29,9 @@ namespace api.Models
         public OrderLineType LineType { get; set; }
 
         /// <summary>
-        /// Category snapshot, used for the dashboard tallies
+        /// The stat-sheet column it counts in, kept from its category when sold, for the dashboard tallies
         /// </summary>
-        public ProductCategory Category { get; set; }
+        public StatColumn Category { get; set; }
 
         /// <summary>
         /// FK to the catalog variant, when the row came from the catalog

@@ -21,6 +21,8 @@ export const Limits = {
     optionName: 50,
     /** A delivery or financing option's name. */
     optionListName: 100,
+    /** A catalog category's name. */
+    categoryName: 60,
     /** A territory's name. */
     territoryName: 100,
     /** An event's organization. */

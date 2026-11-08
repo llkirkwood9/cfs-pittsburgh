@@ -17,14 +17,16 @@ import { useProductDraft } from "@shared/Hooks/useProductDraft";
 import { SaleOffText } from "@shared/Lib/CatalogDrafts";
 import { CleanDiscount } from "@shared/Lib/Pricing";
 import type { DeliveryOption } from "@shared/Models/DeliveryOption";
-import type { Product, ProductCategory } from "@shared/Models/Product";
+import type { Category } from "@shared/Models/Category";
+import type { Product } from "@shared/Models/Product";
 import type { Territory } from "@shared/Models/Territory";
 import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     product: Product;
     catalog: Product[];
-    categories: ProductCategory[];
+    /** The product's territory's categories. */
+    categories: Category[];
     deliveryOptions: DeliveryOption[];
     onSave: (product: Product) => Promise<void>;
     onClose: () => void;
@@ -53,7 +55,7 @@ const EditProductForm = ({
     copySources = [],
     onCopied,
 }: Props) => {
-    const form = useProductDraft(product, onSave, onClose);
+    const form = useProductDraft(product, categories, onSave, onClose);
     const { draft, change, setVariant, bundlingIndex } = form;
 
     return (
@@ -99,7 +101,7 @@ const EditProductForm = ({
                     <SelectField
                         label="Category"
                         value={draft.category}
-                        options={categories.map((c) => ({ value: c, label: c }))}
+                        options={form.categoryNames.map((c) => ({ value: c, label: c }))}
                         onChange={(value) => change({ category: value })}
                     />
                     <View className="flex-1 justify-end">

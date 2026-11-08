@@ -26,9 +26,14 @@ namespace api.Models
         public string Brand { get; set; } = string.Empty;
 
         /// <summary>
-        /// Category used for stat-sheet tallies
+        /// The category it is listed under, one of its territory's
         /// </summary>
-        public ProductCategory Category { get; set; }
+        public int CategoryId { get; set; }
+
+        /// <summary>
+        /// Navigation to the category, which also says which stat-sheet column it counts in
+        /// </summary>
+        public Category? Category { get; set; }
 
         /// <summary>
         /// Optional sales notes shown to the rep, e.g. "25% off sale"

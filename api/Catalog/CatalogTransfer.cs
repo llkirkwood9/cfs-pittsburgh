@@ -38,17 +38,18 @@ namespace api.Catalog
         public const string FileFormat = "cfs-catalog";
 
         /// <summary>
-        /// The layout version this code writes and reads
+        /// The layout version this code writes and reads. Version 2 added named categories; a
+        /// version 1 file's products name a stat-sheet column, which finds its category.
         /// </summary>
-        public const int FileVersion = 1;
+        public const int FileVersion = 2;
 
         #endregion
 
         #region Public Methods
 
         /// <summary>
-        /// The whole catalog as a file: every product, archived ones included, the delivery options
-        /// list and the financing options.
+        /// The whole catalog as a file: every product, archived ones included, the categories, the
+        /// delivery options list and the financing options.
         /// </summary>
         /// <param name="db">EF context</param>
         /// <returns>The file's contents.</returns>
@@ -71,10 +72,19 @@ namespace api.Catalog
                 .ThenBy(f => f.Name)
                 .ToListAsync();
 
+            var categories = await db.Categories
+                .AsNoTracking()
+                .Include(c => c.Territory)
+                .OrderBy(c => c.Territory!.Name)
+                .ThenBy(c => c.SortOrder)
+                .ThenBy(c => c.Name)
+                .ToListAsync();
+
             var products = await db.Products
                 .AsNoTracking()
                 .WithEverything()
-                .OrderBy(p => p.Category)
+                .OrderBy(p => p.Category!.SortOrder)
+                .ThenBy(p => p.Category!.Name)
                 .ThenBy(p => p.SortOrder)
                 .ThenBy(p => p.Name)
                 .ThenBy(p => p.Id)
@@ -85,6 +95,12 @@ namespace api.Catalog
                 Format = FileFormat,
                 Version = FileVersion,
                 ExportedAt = DateTime.UtcNow,
+                Categories = categories.Select(c => new CatalogCategoryDto
+                {
+                    Name = c.Name,
+                    StatColumn = c.StatColumn.ToString(),
+                    Territory = c.Territory?.Name,
+                }).ToList(),
                 FinanceOptions = financeOptions.Select(f => new CatalogFinanceOptionDto
                 {
                     Name = f.Name,
@@ -108,7 +124,7 @@ namespace api.Catalog
                     Territory = p.Territory?.Name,
                     Name = p.Name,
                     Brand = p.Brand,
-                    Category = p.Category.ToString(),
+                    Category = p.Category?.Name,
                     Notes = p.Notes,
                     SortOrder = p.SortOrder,
                     IsActive = p.IsActive,
@@ -213,6 +229,12 @@ namespace api.Catalog
 
             var deliveryOptions = await ImportDeliveryOptionsAsync(db, file.DeliveryOptions ?? [], TerritoryOf, result);
 
+            // A file from before categories could be named has none: its products find theirs by
+            // stat-sheet column.
+            var categories = new CategoryLookup(db);
+            if (file.Categories != null)
+                await ImportCategoriesAsync(db, file.Categories, replace, TerritoryOf, categories);
+
             // A file from before financing options were exported has none, and leaves them alone.
             if (file.FinanceOptions != null)
                 await ImportFinanceOptionsAsync(db, file.FinanceOptions, replace, TerritoryOf, result);
@@ -248,6 +270,7 @@ namespace api.Catalog
                 }
 
                 product.TerritoryId = territoryId;
+                product.Category = await categories.ForAsync(territoryId, dto.Category);
                 var variants = await ApplyProductAsync(db, product, dto, deliveryOptions, result);
                 imported.Add(new Restored(dto, product, variants));
             }
@@ -291,6 +314,21 @@ namespace api.Catalog
             if (repeated != null)
                 return $"The financing option \"{repeated.First().Name!.Trim()}\" is in the file more than once.";
 
+            var categories = file.Categories ?? [];
+            if (categories.Count > 500)
+                return "This catalog file is too large.";
+            foreach (var c in categories)
+            {
+                var name = c.Name?.Trim() ?? "";
+                if (name.Length is 0 or > CatalogRules.MaxCategoryNameLength || CatalogRules.SameName(name, CatalogRules.AllCategoriesTab))
+                    return $"Every category needs a name of up to {CatalogRules.MaxCategoryNameLength} characters, other than \"All\".";
+                if (!Enum.TryParse<StatColumn>(c.StatColumn, true, out var column) || !Enum.IsDefined(column))
+                    return $"Category \"{name}\": \"{c.StatColumn}\" isn't a stat sheet column.";
+            }
+            var repeatedCategory = categories.GroupBy(c => (Key(c.Territory), Key(c.Name))).FirstOrDefault(g => g.Count() > 1);
+            if (repeatedCategory != null)
+                return $"The category \"{repeatedCategory.First().Name!.Trim()}\" is in the file more than once.";
+
             foreach (var d in deliveryOptions)
             {
                 var name = d.Name?.Trim() ?? "";
@@ -311,8 +349,8 @@ namespace api.Catalog
                     return "Every product needs a name of up to 150 characters.";
                 if (brand.Length > CatalogRules.MaxBrandLength)
                     return $"{label}: the brand can be at most 100 characters.";
-                if (!Enum.TryParse<ProductCategory>(p.Category, true, out _))
-                    return $"{label}: \"{p.Category}\" isn't a category.";
+                if ((p.Category?.Trim().Length ?? 0) is 0 or > CatalogRules.MaxCategoryNameLength || CatalogRules.SameName(p.Category, CatalogRules.AllCategoriesTab))
+                    return $"{label}: the category needs a name of up to {CatalogRules.MaxCategoryNameLength} characters.";
                 if (p.Notes is { Length: > 500 })
                     return $"{label}: the notes can be at most 500 characters.";
 
@@ -394,6 +432,43 @@ namespace api.Catalog
         }
 
         /// <summary>
+        /// Brings the categories in line with the file: a match by territory and name takes the
+        /// file's stat-sheet column and place, and anything new is added. A clear and replace
+        /// deletes every territory's first (their products are already gone); otherwise categories
+        /// not in the file are kept, after the file's ones.
+        /// </summary>
+        private static async Task ImportCategoriesAsync(
+            ApplicationDbContext db, List<CatalogCategoryDto> categories, bool replace,
+            Func<string?, int> territoryOf, CategoryLookup lookup)
+        {
+            if (replace)
+                await db.Categories.ExecuteDeleteAsync();
+
+            var fromFile = new List<Category>();
+            foreach (var dto in categories)
+            {
+                var column = Enum.Parse<StatColumn>(dto.StatColumn!, true);
+                var category = await lookup.ForAsync(territoryOf(dto.Territory), dto.Name, column);
+                category.StatColumn = column;
+                fromFile.Add(category);
+            }
+            await db.SaveChangesAsync();
+
+            foreach (var territory in fromFile.Select(c => c.TerritoryId).Distinct())
+            {
+                var kept = await db.Categories
+                    .Where(c => c.TerritoryId == territory)
+                    .OrderBy(c => c.SortOrder)
+                    .ThenBy(c => c.Id)
+                    .ToListAsync();
+                var ordered = fromFile.Where(c => c.TerritoryId == territory).Concat(kept.Except(fromFile)).ToList();
+                foreach (var (category, index) in ordered.Select((c, i) => (c, i)))
+                    category.SortOrder = index + 1;
+            }
+            await db.SaveChangesAsync();
+        }
+
+        /// <summary>
         /// Brings the financing options in line with the file, in the file's order within each list
         /// (global, or a territory's own): a match by territory and name is updated and anything new
         /// is added. A clear and replace deletes every territory's first; otherwise options not in
@@ -453,8 +528,8 @@ namespace api.Catalog
         }
 
         /// <summary>
-        /// Makes one product look like its entry in the file, apart from what it includes as a
-        /// bundle, which is done once every product is in place.
+        /// Makes one product look like its entry in the file, apart from its category, which the
+        /// caller sets, and what it includes as a bundle, which is done once every product is in place.
         /// </summary>
         /// <returns>Each size in the file with the size it became.</returns>
         private static async Task<List<(CatalogVariantDto File, ProductVariant Variant)>> ApplyProductAsync(
@@ -468,13 +543,12 @@ namespace api.Catalog
 
             product.Name = dto.Name!.Trim();
             product.Brand = dto.Brand?.Trim() ?? string.Empty;
-            product.Category = Enum.Parse<ProductCategory>(dto.Category!, true);
             product.Notes = string.IsNullOrWhiteSpace(dto.Notes) ? null : dto.Notes.Trim();
             product.SortOrder = dto.SortOrder ?? 0;
             product.IsActive = dto.IsActive ?? true;
             product.TrackInventory = dto.TrackInventory ?? false;
             // A file from before warranties were recorded goes by category.
-            product.HasWarranty = dto.HasWarranty ?? CatalogRules.WarrantyByDefault(product.Category);
+            product.HasWarranty = dto.HasWarranty ?? CatalogRules.WarrantyByDefault(product.Category!.StatColumn);
             product.WarrantyLength = CatalogRules.CleanWarrantyLength(dto.WarrantyLength);
             (product.SaleDiscountPercent, product.SaleDiscountAmount) =
                 CatalogRules.CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount);

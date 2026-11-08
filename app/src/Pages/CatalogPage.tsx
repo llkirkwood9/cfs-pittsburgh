@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { ScrollView, View } from "react-native";
+import CategoryList from "../Components/Catalog/CategoryList";
 import DeliveryOptionList from "../Components/Catalog/DeliveryOptionList";
 import EditProductForm from "../Components/Catalog/EditProductForm";
 import FinanceOptionList from "../Components/Catalog/FinanceOptionList";
@@ -17,6 +18,8 @@ import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { ShareTextFile } from "../Lib/Files";
 import { useCatalog } from "@shared/Hooks/useCatalog";
 import {
+    AllTab,
+    CatalogListTabs,
     DeliveryCountText,
     IsProductTab,
     PriceRangeText,
@@ -97,8 +100,8 @@ const CatalogPage = () => {
                 className="mb-3"
                 contentContainerClassName="gap-2 pb-1"
             >
-                <TabButton text="All" active={tab === "All"} onClick={() => setTab("All")} />
-                {catalog.categories.map((category) => (
+                <TabButton text="All" active={tab === AllTab} onClick={() => setTab(AllTab)} />
+                {catalog.categoryTabs.map((category) => (
                     <TabButton
                         key={category}
                         text={category}
@@ -108,27 +111,40 @@ const CatalogPage = () => {
                     />
                 ))}
                 <TabButton
+                    text="Categories"
+                    active={tab === CatalogListTabs.Categories}
+                    onClick={() => setTab(CatalogListTabs.Categories)}
+                    badge={catalog.categories.length}
+                />
+                <TabButton
                     text="Delivery"
-                    active={tab === "Delivery"}
-                    onClick={() => setTab("Delivery")}
+                    active={tab === CatalogListTabs.Delivery}
+                    onClick={() => setTab(CatalogListTabs.Delivery)}
                     badge={catalog.deliveryOptions.length}
                 />
                 <TabButton
                     text="Financing Options"
-                    active={tab === "Financing"}
-                    onClick={() => setTab("Financing")}
+                    active={tab === CatalogListTabs.Financing}
+                    onClick={() => setTab(CatalogListTabs.Financing)}
                     badge={catalog.financeOptions.length}
                 />
             </ScrollView>
 
-            {tab === "Financing" ? (
+            {tab === CatalogListTabs.Categories ? (
+                <CategoryList
+                    categories={catalog.categories}
+                    onSave={catalog.saveCategory}
+                    onDelete={catalog.deleteCategory}
+                    onReorder={catalog.reorderCategories}
+                />
+            ) : tab === CatalogListTabs.Financing ? (
                 <FinanceOptionList
                     options={catalog.financeOptions}
                     onSave={catalog.saveFinanceOption}
                     onDelete={catalog.deleteFinanceOption}
                     onReorder={catalog.reorderFinanceOptions}
                 />
-            ) : tab === "Delivery" ? (
+            ) : tab === CatalogListTabs.Delivery ? (
                 <DeliveryOptionList
                     options={catalog.deliveryOptions}
                     onSave={catalog.saveDeliveryOption}
@@ -247,7 +263,7 @@ const CatalogPage = () => {
                 <EditProductForm
                     product={editing}
                     catalog={catalog.activeProducts}
-                    categories={catalog.categories}
+                    categories={catalog.categoriesFor(editing.territoryId)}
                     deliveryOptions={catalog.activeDeliveryOptions}
                     onSave={catalog.saveProduct}
                     onClose={() => catalog.setEditing(null)}

@@ -16,7 +16,7 @@ namespace api.Dtos
         public string? LineType { get; set; }
 
         /// <summary>
-        /// Category snapshot used for dashboard tallies
+        /// The stat-sheet column it counts in, for the dashboard tallies
         /// </summary>
         public string? Category { get; set; }
 

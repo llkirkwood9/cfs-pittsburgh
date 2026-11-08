@@ -12,7 +12,6 @@ import {
 import type { Event } from "../Models/Event";
 import type { InventoryAdjustment } from "../Models/InventoryAdjustment";
 import type { InventoryItem } from "../Models/InventoryItem";
-import type { ProductCategory } from "../Models/Product";
 import { GetActiveEvent } from "../Services/EventServices";
 import { AdjustInventory, GetInventory, GetInventoryHistory } from "../Services/InventoryServices";
 
@@ -25,7 +24,7 @@ export const useInventory = () => {
     const [saleEvent, setSaleEvent] = useState<Event | null>(null);
     const [loading, setLoading] = useState<boolean>(true);
     const [search, setSearch] = useState<string>("");
-    const [tab, setTab] = useState<ProductCategory | "All">("All");
+    const [tab, setTab] = useState<string>("All");
     const [busyId, setBusyId] = useState<string | null>(null);
 
     const [counting, setCounting] = useState<InventoryItem | null>(null);

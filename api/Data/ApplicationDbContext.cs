@@ -21,6 +21,11 @@ namespace api.Data
         public DbSet<Product> Products => Set<Product>();
 
         /// <summary>
+        /// The headings each territory's products are listed under
+        /// </summary>
+        public DbSet<Category> Categories => Set<Category>();
+
+        /// <summary>
         /// Priced size/configuration rows
         /// </summary>
         public DbSet<ProductVariant> ProductVariants => Set<ProductVariant>();
@@ -149,8 +154,14 @@ namespace api.Data
 
             modelBuilder.Entity<Product>(entity =>
             {
-                entity.HasIndex(p => new { p.Category, p.SortOrder });
+                entity.HasIndex(p => new { p.CategoryId, p.SortOrder });
                 entity.HasIndex(p => p.TerritoryId);
+
+                // A category with products in it can't be deleted; they're moved first.
+                entity.HasOne(p => p.Category)
+                    .WithMany(c => c.Products)
+                    .HasForeignKey(p => p.CategoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
 
                 entity.HasOne(p => p.Territory)
                     .WithMany()
@@ -207,6 +218,16 @@ namespace api.Data
                 entity.HasOne(d => d.Territory)
                     .WithMany()
                     .HasForeignKey(d => d.TerritoryId)
+                    .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            modelBuilder.Entity<Category>(entity =>
+            {
+                entity.HasIndex(c => new { c.TerritoryId, c.SortOrder });
+
+                entity.HasOne(c => c.Territory)
+                    .WithMany()
+                    .HasForeignKey(c => c.TerritoryId)
                     .OnDelete(DeleteBehavior.Restrict);
             });
 

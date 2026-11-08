@@ -161,6 +161,9 @@ namespace api.Seeding
             };
             db.Territories.Add(territory);
             await db.SaveChangesAsync();
+
+            await new CategoryLookup(db).AddDefaultsAsync(territory.Id);
+            await db.SaveChangesAsync();
             return territory.Id;
         }
 
@@ -257,6 +260,7 @@ namespace api.Seeding
                 .ToListAsync();
 
             var known = new HashSet<string>(existingNames, StringComparer.OrdinalIgnoreCase);
+            var categories = new CategoryLookup(db);
 
             foreach (var p in seed.Products)
             {
@@ -267,19 +271,19 @@ namespace api.Seeding
                 if (!known.Add(key))
                     continue;
 
+                // The seed file names stat-sheet columns ("Mattress"), which find their categories.
+                var category = await categories.ForAsync(territoryId, p.Category);
                 var product = new Product
                 {
                     TerritoryId = territoryId,
                     Name = p.Name,
                     Brand = p.Brand ?? string.Empty,
-                    Category = Enum.TryParse<ProductCategory>(p.Category, true, out var category)
-                        ? category
-                        : ProductCategory.Misc,
+                    Category = category,
                     Notes = p.Notes,
                     SortOrder = p.SortOrder ?? 0,
                     IsActive = true,
                     TrackInventory = p.TrackInventory ?? false,
-                    HasWarranty = p.HasWarranty ?? CatalogRules.WarrantyByDefault(category),
+                    HasWarranty = p.HasWarranty ?? CatalogRules.WarrantyByDefault(category.StatColumn),
                     WarrantyLength = p.WarrantyLength,
                 };
 
@@ -436,7 +440,7 @@ namespace api.Seeding
             /// <summary>Manufacturer.</summary>
             public string? Brand { get; set; }
 
-            /// <summary>Category enum name.</summary>
+            /// <summary>The category by name, or a stat-sheet column's enum name.</summary>
             public string? Category { get; set; }
 
             /// <summary>Sales notes.</summary>

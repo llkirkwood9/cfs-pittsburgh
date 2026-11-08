@@ -3,7 +3,6 @@ import type { Ref } from "react";
 import { View } from "react-native";
 import type { DimensionValue } from "react-native";
 import { Cell, Row, SheetText } from "../Checkout/SheetTable";
-import { CategoryNames } from "@shared/Lib/Catalog";
 import { FormatShortDate } from "@shared/Lib/Format";
 import {
     GroupInventory,
@@ -108,7 +107,7 @@ const InventorySheet = ({ saleEvent, items, sheetRef }: Props) => {
                 groups.map((group) => (
                     <View key={group.category} style={{ marginTop: 20 }}>
                         <SheetText size={14} bold style={{ marginBottom: 4 }}>
-                            {CategoryNames[group.category]}
+                            {group.category}
                         </SheetText>
 
                         <Row>

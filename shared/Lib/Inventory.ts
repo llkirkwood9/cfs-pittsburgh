@@ -1,8 +1,8 @@
 import type { InventoryItem } from "../Models/InventoryItem";
-import type { ProductCategory } from "../Models/Product";
 
 export type InventoryGroup = {
-    category: ProductCategory;
+    /** The category's name, the group's heading. */
+    category: string;
     products: {
         productId: number;
         name: string;
@@ -20,7 +20,7 @@ export const GroupInventory = (items: InventoryItem[]): InventoryGroup[] => {
     const groups: InventoryGroup[] = [];
 
     for (const item of items) {
-        const category = item.category ?? "Misc";
+        const category = item.category ?? "";
         let group = groups.find((g) => g.category === category);
         if (!group) {
             group = { category, products: [] };
@@ -127,19 +127,19 @@ export const StockToWatch = (
  * @param items Inventory rows.
  * @returns The categories.
  */
-export const InventoryCategories = (items: InventoryItem[]): ProductCategory[] =>
-    Array.from(new Set(items.map((i) => i.category ?? "Misc"))) as ProductCategory[];
+export const InventoryCategories = (items: InventoryItem[]): string[] =>
+    Array.from(new Set(items.map((i) => i.category ?? "")));
 
 /**
  * The inventory rows in a category tab that match a search on product, brand or size.
  * @param items Inventory rows.
- * @param tab The category, or "All".
+ * @param tab The category's name, or "All".
  * @param search What was typed.
  * @returns The matching rows.
  */
 export const FilterInventory = (
     items: InventoryItem[],
-    tab: ProductCategory | "All",
+    tab: string,
     search: string
 ): InventoryItem[] => {
     const term = search.trim().toLowerCase();

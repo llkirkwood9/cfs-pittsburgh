@@ -4,9 +4,9 @@ import type {
     ProductTally,
     SaleMoment,
 } from "../Models/DashboardStats";
-import type { ProductCategory } from "../Models/Product";
+import type { StatColumn } from "../Models/Product";
 import type { TerritoryStats } from "../Models/Territory";
-import { CategoryNames } from "./Catalog";
+import { StatColumnNames } from "./Catalog";
 import { DateKey, IsPastEvent, IsUpcomingEvent } from "./Events";
 import { FormatCurrency, ParseServerTime } from "./Format";
 
@@ -121,11 +121,11 @@ export const TakenBy = (stats: DashboardStats | null): { label: string; value: n
 ];
 
 /** The category filter's choices on a best or worst sellers list. */
-export const RankingCategoryOptions: { value: ProductCategory | "All"; label: string }[] = [
+export const RankingCategoryOptions: { value: StatColumn | "All"; label: string }[] = [
     { value: "All", label: "All categories" },
-    ...(Object.keys(CategoryNames) as ProductCategory[]).map((c) => ({
+    ...(Object.keys(StatColumnNames) as StatColumn[]).map((c) => ({
         value: c,
-        label: CategoryNames[c],
+        label: StatColumnNames[c],
     })),
 ];
 
@@ -138,7 +138,7 @@ export const RankingCategoryOptions: { value: ProductCategory | "All"; label: st
  */
 export const RankProducts = (
     products: ProductTally[],
-    category: ProductCategory | "All",
+    category: StatColumn | "All",
     limit?: number
 ): ProductTally[] =>
     products.filter((p) => category === "All" || p.category === category).slice(0, limit);
@@ -149,8 +149,8 @@ export const RankProducts = (
  * @param empty What to say with every category picked.
  * @returns The line.
  */
-export const RankingEmptyText = (category: ProductCategory | "All", empty: string): string =>
-    category === "All" ? empty : `No ${CategoryNames[category].toLowerCase()} yet.`;
+export const RankingEmptyText = (category: StatColumn | "All", empty: string): string =>
+    category === "All" ? empty : `No ${StatColumnNames[category].toLowerCase()} yet.`;
 
 /** One bar of the sales-by-hour chart. */
 export type SalesBucket = {

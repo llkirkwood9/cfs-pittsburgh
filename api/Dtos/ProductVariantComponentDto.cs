@@ -37,7 +37,7 @@ namespace api.Dtos
         public string? Brand { get; set; }
 
         /// <summary>
-        /// Component category, as the enum name
+        /// The category the included item is listed under
         /// </summary>
         public string? Category { get; set; }
 

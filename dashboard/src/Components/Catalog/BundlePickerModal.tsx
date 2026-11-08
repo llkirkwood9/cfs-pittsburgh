@@ -3,7 +3,7 @@ import Modal from "../Elements/Modal";
 import TabButton from "../Elements/TabButton";
 import TextField from "../Elements/TextField";
 import { useProductBundlePicker } from "@shared/Hooks/useProductBundlePicker";
-import { CategoryShortNames, VariantLabel } from "@shared/Lib/Catalog";
+import { VariantLabel } from "@shared/Lib/Catalog";
 import type { BundlePick } from "@shared/Lib/ProductDraft";
 import type { Product } from "@shared/Models/Product";
 
@@ -63,7 +63,7 @@ const BundlePickerModal = ({
                         {picker.categories.map((c) => (
                             <TabButton
                                 key={c}
-                                text={CategoryShortNames[c]}
+                                text={c}
                                 active={picker.tab === c}
                                 onClick={() => picker.setTab(c)}
                             />

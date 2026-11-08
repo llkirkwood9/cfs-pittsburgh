@@ -14,18 +14,21 @@ import {
     ToProductDraft,
 } from "../Lib/ProductDraft";
 import type { BundlePick, DraftVariant, ProductDraft } from "../Lib/ProductDraft";
+import type { Category } from "../Models/Category";
 import type { DeliveryOption } from "../Models/DeliveryOption";
 import type { Product } from "../Models/Product";
 
 /**
  * The product form's state: the draft, the edits made to it, and saving it.
  * @param product The product being edited, or a blank one for a new item.
+ * @param categories Its territory's categories, to pick from.
  * @param onSave Saves the product; the form closes once it's done.
  * @param onClose Closes the form.
  * @returns The draft and its handlers.
  */
 export const useProductDraft = (
     product: Product,
+    categories: Category[],
     onSave: (product: Product) => Promise<void>,
     onClose: () => void
 ) => {
@@ -99,7 +102,7 @@ export const useProductDraft = (
         if (problem) return Toast.Warning(problem);
 
         setSaving(true);
-        await onSave(DraftToProduct(product, draft));
+        await onSave(DraftToProduct(product, draft, categories));
         setSaving(false);
         onClose();
     };
@@ -107,7 +110,9 @@ export const useProductDraft = (
     return {
         draft,
         change,
-        hasWarranty: DraftHasWarranty(draft),
+        hasWarranty: DraftHasWarranty(draft, categories),
+        /** The category names to pick from. */
+        categoryNames: categories.map((c) => c.name ?? ""),
         /** What a size following the item's sale gets, for its label. */
         itemSaleLabel: SaleDraftOffText(draft.sale),
         /** A delivery choice's price override as typed. */

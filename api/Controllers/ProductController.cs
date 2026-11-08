@@ -44,24 +44,25 @@ namespace api.Controllers
             if (request.Name.Length > CatalogRules.MaxProductNameLength || (request.Brand?.Length ?? 0) > CatalogRules.MaxBrandLength)
                 return BadRequest(new { error = "Invalid parameter." });
 
-            if (!Enum.TryParse<ProductCategory>(request.Category, true, out var category))
-                return BadRequest(new { error = "Invalid parameter." });
-
             var (territoryId, problem) = await CatalogTerritoryAsync(request.TerritoryId);
             if (problem != null)
                 return problem;
+
+            var category = await CategoryNamedAsync(territoryId, request.Category);
+            if (category == null)
+                return BadRequest(new { error = UnknownCategoryMessage });
 
             var product = new Product
             {
                 TerritoryId = territoryId,
                 Name = request.Name,
                 Brand = request.Brand ?? string.Empty,
-                Category = category,
+                CategoryId = category.Id,
                 Notes = request.Notes,
                 SortOrder = request.SortOrder ?? 0,
                 IsActive = request.IsActive ?? true,
                 TrackInventory = request.TrackInventory ?? false,
-                HasWarranty = request.HasWarranty ?? CatalogRules.WarrantyByDefault(category),
+                HasWarranty = request.HasWarranty ?? CatalogRules.WarrantyByDefault(category.StatColumn),
                 WarrantyLength = CatalogRules.CleanWarrantyLength(request.WarrantyLength),
             };
 
@@ -148,7 +149,8 @@ namespace api.Controllers
                 query = query.Where(p => p.IsActive);
 
             var products = await query
-                .OrderBy(p => p.Category)
+                .OrderBy(p => p.Category!.SortOrder)
+                .ThenBy(p => p.Category!.Name)
                 .ThenBy(p => p.SortOrder)
                 .ThenBy(p => p.Name)
                 .ToListAsync();
@@ -171,17 +173,6 @@ namespace api.Controllers
                 return NotFound(new { error = "Product not found." });
 
             return Ok(dto);
-        }
-
-        /// <summary>
-        /// Lists the category names, so the admin screen never hardcodes the enum.
-        /// </summary>
-        /// <returns>Category names.</returns>
-        [HttpGet("categories")]
-        [Authorize(AuthenticationSchemes = "Bearer")]
-        public IActionResult GetCategories()
-        {
-            return Ok(Enum.GetNames<ProductCategory>());
         }
 
         #endregion
@@ -250,8 +241,8 @@ namespace api.Controllers
 
             if (request.Category != null)
             {
-                if (!Enum.TryParse<ProductCategory>(request.Category, true, out var category))
-                    return BadRequest(new { error = "Invalid parameter." });
+                if (await CategoryNamedAsync(product.TerritoryId, request.Category) is not { } category)
+                    return BadRequest(new { error = UnknownCategoryMessage });
 
                 product.Category = category;
             }
@@ -395,6 +386,14 @@ namespace api.Controllers
         #endregion
 
         #region Private Methods
+
+        private const string UnknownCategoryMessage = "Pick one of this territory's categories.";
+
+        /// <summary>
+        /// The category of this name in a territory's catalog, or null when it has none.
+        /// </summary>
+        private async Task<Category?> CategoryNamedAsync(int? territoryId, string? name) =>
+            territoryId is { } id ? await new CategoryLookup(DB).FindAsync(id, name) : null;
 
         /// <summary>
         /// Copies variant DTOs onto a new product.
@@ -605,7 +604,8 @@ namespace api.Controllers
                 CanEdit = CanEditCatalog(product.TerritoryId),
                 Name = product.Name,
                 Brand = product.Brand,
-                Category = product.Category.ToString(),
+                Category = product.Category?.Name,
+                StatColumn = product.Category?.StatColumn.ToString(),
                 Notes = product.Notes,
                 SortOrder = product.SortOrder,
                 IsActive = product.IsActive,
@@ -681,7 +681,7 @@ namespace api.Controllers
                                 ProductId = c.ComponentVariant!.ProductId,
                                 ProductName = c.ComponentVariant.Product!.Name,
                                 Brand = c.ComponentVariant.Product.Brand,
-                                Category = c.ComponentVariant.Product.Category.ToString(),
+                                Category = c.ComponentVariant.Product.Category?.Name,
                                 Size = c.ComponentVariant.Size,
                                 Configuration = c.ComponentVariant.Configuration,
                             })

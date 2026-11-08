@@ -31,6 +31,12 @@ namespace api.Catalog
         /// <summary>Longest financing option name.</summary>
         public const int MaxFinanceNameLength = 100;
 
+        /// <summary>Longest category name.</summary>
+        public const int MaxCategoryNameLength = 60;
+
+        /// <summary>The tab that shows every category, so no category may take its name.</summary>
+        public const string AllCategoriesTab = "All";
+
         /// <summary>Most of one item a bundle can include.</summary>
         public const int MaxBundleQuantity = 20;
 
@@ -57,13 +63,13 @@ namespace api.Catalog
         #region Public Methods
 
         /// <summary>
-        /// Whether a new product of a category has a warranty unless told otherwise: mattresses and
-        /// adjustable bases do.
+        /// Whether a new product has a warranty unless told otherwise: those in a category that
+        /// counts as mattresses or adjustable bases do.
         /// </summary>
-        /// <param name="category">The product's category</param>
+        /// <param name="column">The stat-sheet column its category counts in</param>
         /// <returns>True for a mattress or a base.</returns>
-        public static bool WarrantyByDefault(ProductCategory category) =>
-            category is ProductCategory.Mattress or ProductCategory.AdjustableBase;
+        public static bool WarrantyByDefault(StatColumn column) =>
+            column is StatColumn.Mattress or StatColumn.AdjustableBase;
 
         /// <summary>
         /// A warranty length as stored: trimmed, at most 60 characters, nothing when blank.

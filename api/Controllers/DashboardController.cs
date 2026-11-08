@@ -213,7 +213,7 @@ namespace api.Controllers
                 .AsNoTracking()
                 .Where(p => p.IsActive)
                 .InTerritories(territories)
-                .Select(p => new { p.Id, p.Name, p.Brand, p.Category, VariantIds = p.Variants.Select(v => v.Id).ToList() })
+                .Select(p => new { p.Id, p.Name, p.Brand, p.Category!.StatColumn, VariantIds = p.Variants.Select(v => v.Id).ToList() })
                 .ToListAsync();
 
             var sold = orders
@@ -226,7 +226,7 @@ namespace api.Controllers
             // Every territory keeps its own copy of a product, so with several territories in view
             // the copies are counted together as one product.
             return products
-                .GroupBy(p => (Name: TallyKey(p.Name), Brand: TallyKey(p.Brand), p.Category))
+                .GroupBy(p => (Name: TallyKey(p.Name), Brand: TallyKey(p.Brand), p.StatColumn))
                 .Select(g =>
                 {
                     var tallies = g.SelectMany(p => p.VariantIds).Where(sold.ContainsKey).Select(id => sold[id]).ToList();
@@ -234,7 +234,7 @@ namespace api.Controllers
                     {
                         Description = g.First().Name,
                         Brand = g.First().Brand,
-                        Category = g.Key.Category.ToString(),
+                        Category = g.Key.StatColumn.ToString(),
                         Quantity = tallies.Sum(t => t.Quantity),
                         Revenue = Math.Round(tallies.Sum(t => t.Revenue), 2),
                     };
@@ -288,17 +288,17 @@ namespace api.Controllers
             // Shipping rows and upcharges are charges on an item, not items, so they never count.
             var productLines = lines.Where(OrderRules.IsItem).ToList();
 
-            int UnitsIn(ProductCategory category) =>
+            int UnitsIn(StatColumn category) =>
                 productLines.Where(l => l.Category == category).Sum(l => l.Quantity);
 
             int UnitsWithBrand(string brand) =>
                 productLines
-                    .Where(l => l.Category == ProductCategory.Mattress
+                    .Where(l => l.Category == StatColumn.Mattress
                                 && l.Brand != null
                                 && l.Brand.Contains(brand, StringComparison.OrdinalIgnoreCase))
                     .Sum(l => l.Quantity);
 
-            var mattressCount = UnitsIn(ProductCategory.Mattress);
+            var mattressCount = UnitsIn(StatColumn.Mattress);
 
             // A mattress sold on an adjustable-base variant counts in both columns, exactly as the
             // crew tallies it on the paper stat sheet.
@@ -310,9 +310,9 @@ namespace api.Controllers
                 .Select(l => l.ParentLineId!.Value)
                 .ToHashSet();
 
-            var baseCount = UnitsIn(ProductCategory.AdjustableBase)
+            var baseCount = UnitsIn(StatColumn.AdjustableBase)
                             + productLines.Where(l => l.IncludesAdjustableBase
-                                                      && l.Category != ProductCategory.AdjustableBase
+                                                      && l.Category != StatColumn.AdjustableBase
                                                       && !setsWithBaseRow.Contains(l.Id))
                                 .Sum(l => l.Quantity);
 
@@ -328,12 +328,12 @@ namespace api.Controllers
                 PurpleCount = UnitsWithBrand("Purple"),
                 HelixCount = UnitsWithBrand("Helix"),
                 AdjustableBaseCount = baseCount,
-                MattressProtectorCount = UnitsIn(ProductCategory.MattressProtector),
-                PillowCount = UnitsIn(ProductCategory.Pillow),
-                SheetCount = UnitsIn(ProductCategory.Sheets),
-                FrameCount = UnitsIn(ProductCategory.Frame),
-                BeanBagChairCount = UnitsIn(ProductCategory.BeanBagChair),
-                MiscCount = UnitsIn(ProductCategory.Misc),
+                MattressProtectorCount = UnitsIn(StatColumn.MattressProtector),
+                PillowCount = UnitsIn(StatColumn.Pillow),
+                SheetCount = UnitsIn(StatColumn.Sheets),
+                FrameCount = UnitsIn(StatColumn.Frame),
+                BeanBagChairCount = UnitsIn(StatColumn.BeanBagChair),
+                MiscCount = UnitsIn(StatColumn.Misc),
                 MattressAndBaseCount = mattressCount + baseCount,
 
                 TotalSales = totalSales,

@@ -104,11 +104,17 @@ namespace api.Controllers
                     .Include(v => v.Product)
                     .ThenInclude(p => p!.Options)
                     .ThenInclude(o => o.Choices)
+                    .Include(v => v.Product)
+                    .ThenInclude(p => p!.Category)
                     .Include(v => v.Components)
                     .ThenInclude(c => c.ComponentVariant)
                     .ThenInclude(cv => cv!.Product)
                     .ThenInclude(cp => cp!.Options)
                     .ThenInclude(o => o.Choices)
+                    .Include(v => v.Components)
+                    .ThenInclude(c => c.ComponentVariant)
+                    .ThenInclude(cv => cv!.Product)
+                    .ThenInclude(cp => cp!.Category)
                     .AsSplitQuery()
                     .FirstOrDefaultAsync(v => v.Id == request.ProductVariantId.Value);
 
@@ -178,7 +184,7 @@ namespace api.Controllers
 
                 line = new OrderLine
                 {
-                    Category = ProductCategory.Misc,
+                    Category = StatColumn.Misc,
                     Description = request.Description!.Trim(),
                     UnitPrice = request.UnitPrice.Value,
                     ParentLineId = parentLine.Id,
@@ -197,9 +203,9 @@ namespace api.Controllers
                 lineType = OrderLineType.Custom;
                 line = new OrderLine
                 {
-                    Category = Enum.TryParse<ProductCategory>(request.Category, true, out var category)
+                    Category = Enum.TryParse<StatColumn>(request.Category, true, out var category)
                         ? category
-                        : ProductCategory.Misc,
+                        : StatColumn.Misc,
                     Brand = request.Brand,
                     Size = request.Size,
                     Description = request.Description!,
@@ -786,7 +792,7 @@ namespace api.Controllers
             if (request.SortOrder != null)
                 line.SortOrder = request.SortOrder.Value;
 
-            if (request.Category != null && Enum.TryParse<ProductCategory>(request.Category, true, out var category))
+            if (request.Category != null && Enum.TryParse<StatColumn>(request.Category, true, out var category))
                 line.Category = category;
 
             if (line.LineType == OrderLineType.Upcharge)

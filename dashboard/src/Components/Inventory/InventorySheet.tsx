@@ -1,4 +1,3 @@
-import { CategoryNames } from "@shared/Lib/Catalog";
 import { FormatShortDate } from "@shared/Lib/Format";
 import {
     GroupInventory,
@@ -56,9 +55,7 @@ const InventorySheet = ({ saleEvent, items }: Props) => {
             ) : (
                 groups.map((group) => (
                     <section key={group.category} className="mt-5 break-inside-avoid">
-                        <h2 className="mb-1 text-[14px] font-bold">
-                            {CategoryNames[group.category]}
-                        </h2>
+                        <h2 className="mb-1 text-[14px] font-bold">{group.category}</h2>
                         <table className="w-full border-collapse">
                             <thead>
                                 <tr>

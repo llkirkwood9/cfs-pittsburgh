@@ -833,6 +833,18 @@ rows, each a size plus an optional configuration - `Queen / Mattress Only`, `Que
 `Queen / IMC61 Adjustable`, `Queen / ES200 Flex Head`. That is exactly how the price cards are
 laid out, and any product can be given any set of sizes without a schema change.
 
+**Each territory names its own categories.** `Category` rows (name, tab order, stat-sheet column)
+belong to a territory, and every product is in one of its territory's. Managers add, rename,
+reorder and delete them on the Catalog screen's Categories tab; a category with items in it can't
+be deleted until they are moved. Each category says which stat-sheet column its items count in
+(`StatColumn`: Mattresses, Adjustable Bases, Pillows, ... Other), which also sets the warranty
+default and which items the receipt email treats as mattresses. A new territory starts with one
+category per column (or a copy of the territory it copies its catalog from); databases from before
+named categories were upgraded the same way, with every item put in the category for its old
+fixed value. Copying an item or restoring a catalog file matches categories by name and adds
+missing ones; an older catalog file's fixed names ("Mattress", "AdjustableBase") find the category
+counting in that column.
+
 **A null price means "Inquire."** Where the price card reads Inquire, or the supplied documents
 don't give a price, the variant has a null price. The floor shows it as *Inquire* and makes the rep
 key a price in. Nothing is ever sold at an invented number.
@@ -852,12 +864,12 @@ so changing it never alters a sheet already printed.
 **Bundles are real catalog items.** Any size of any product can include other catalog items at no
 extra charge (`ProductVariantComponent`): `Agility 3000 / Queen / IMC61 Adjustable` includes
 `IMC61 Adjustable Base / Queen`. Selling a bundle adds an `Included` line per item under it,
-snapshotting the item's name, brand, size and category; those lines scale with the bundle's
+snapshotting the item's name, brand, size and stat-sheet column; those lines scale with the bundle's
 quantity and can't be edited or removed on their own. Because an included item keeps its own
-category, a set counts as one mattress *and* one base on the stat sheet. A product can't include
+column, a set counts as one mattress *and* one base on the stat sheet. A product can't include
 itself, and a bundle can't include another bundle.
 
-**Lines are snapshots.** Brand, size, description, price and category are copied onto the order
+**Lines are snapshots.** Brand, size, description, price and stat-sheet column are copied onto the order
 line when it is added. Editing or retiring a catalog product never rewrites a printed receipt. A
 product that has been sold is archived rather than deleted.
 

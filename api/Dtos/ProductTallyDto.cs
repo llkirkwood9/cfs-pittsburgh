@@ -16,7 +16,7 @@ namespace api.Dtos
         public string? Brand { get; set; }
 
         /// <summary>
-        /// Category of the product
+        /// The stat-sheet column it counts in, as the enum name
         /// </summary>
         public string? Category { get; set; }
 

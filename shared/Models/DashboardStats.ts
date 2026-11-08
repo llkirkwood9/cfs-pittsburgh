@@ -1,7 +1,10 @@
+import type { StatColumn } from "./Product";
+
 export type ProductTally = {
     description?: string;
     brand?: string | null;
-    category?: string;
+    /** The stat-sheet column it counts in. */
+    category?: StatColumn;
     quantity?: number;
     revenue?: number;
 };

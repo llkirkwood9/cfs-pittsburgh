@@ -37,9 +37,14 @@ namespace api.Dtos
         public string? Brand { get; set; }
 
         /// <summary>
-        /// Category used for stat-sheet tallies, as the enum name
+        /// The name of the category it is listed under, one of its territory's
         /// </summary>
         public string? Category { get; set; }
+
+        /// <summary>
+        /// The stat-sheet column its category counts in, as the enum name (returned, not saved)
+        /// </summary>
+        public string? StatColumn { get; set; }
 
         /// <summary>
         /// Optional sales notes shown to the rep

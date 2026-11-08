@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { Toast } from "@host";
 import { BundleCategories } from "../Lib/Catalog";
 import type { BundlePick } from "../Lib/ProductDraft";
-import type { Product, ProductCategory } from "../Models/Product";
+import type { Product } from "../Models/Product";
 
 /**
  * The bundle picker's state: the items that can be included, the tab and search, and the item,
@@ -34,12 +34,9 @@ export const useProductBundlePicker = (
         [catalog, excludeProductId]
     );
 
-    const categories = useMemo(() => {
-        const present = new Set(choices.map((p) => p.category));
-        return BundleCategories.filter((c) => present.has(c));
-    }, [choices]);
+    const categories = useMemo(() => BundleCategories(choices), [choices]);
 
-    const [tab, setTab] = useState<ProductCategory>(categories[0] ?? "Misc");
+    const [tab, setTab] = useState<string>(categories[0] ?? "");
     const [search, setSearch] = useState<string>("");
     const [product, setProduct] = useState<Product | null>(null);
     const [variantId, setVariantId] = useState<number | null>(null);

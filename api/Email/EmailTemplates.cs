@@ -211,7 +211,7 @@ namespace api.Email
             var products = order.Lines.Where(OrderRules.IsChosenItem).ToList();
             var leaving = products.Where(l => !l.TakeWith).ToList();
             var takenHome = products.Any(l => l.TakeWith);
-            var mattress = products.Any(l => l.Category == ProductCategory.Mattress);
+            var mattress = products.Any(l => l.Category == StatColumn.Mattress);
             var deliverTo = DeliveryAddress(order);
             var at = deliverTo == null ? "" : $" at {deliverTo}";
 
@@ -261,7 +261,7 @@ namespace api.Email
             }
 
             // Only a drop-shipped mattress comes compressed in a box.
-            if (dropShip.Any(l => l.Category == ProductCategory.Mattress))
+            if (dropShip.Any(l => l.Category == StatColumn.Mattress))
                 next.Add("Your mattress arrives compressed and boxed. Once you open it, give it 24 to 48 hours to fully expand - it's fine to sleep on it sooner.");
             if (mattress)
                 next.Add("Keep a mattress protector on your bed. The manufacturers require one for the warranty to stay valid.");

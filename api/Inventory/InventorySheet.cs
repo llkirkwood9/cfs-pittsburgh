@@ -30,6 +30,8 @@ namespace api.Inventory
                 .Include(v => v.Product)
                 .ThenInclude(p => p!.Options)
                 .ThenInclude(o => o.Choices)
+                .Include(v => v.Product)
+                .ThenInclude(p => p!.Category)
                 .AsSplitQuery()
                 .Where(InventoryRules.Tracked)
                 .Where(v => v.Product!.TerritoryId == territoryId);
@@ -76,7 +78,8 @@ namespace api.Inventory
 
             var rows = new List<InventoryItemDto>();
             foreach (var v in variants
-                         .OrderBy(v => v.Product!.Category)
+                         .OrderBy(v => v.Product!.Category!.SortOrder)
+                         .ThenBy(v => v.Product!.Category!.Name)
                          .ThenBy(v => v.Product!.SortOrder)
                          .ThenBy(v => v.Product!.Name)
                          .ThenBy(v => v.SortOrder))
@@ -103,7 +106,7 @@ namespace api.Inventory
                         ProductId = v.ProductId,
                         ProductName = v.Product!.Name,
                         Brand = v.Product.Brand,
-                        Category = v.Product.Category.ToString(),
+                        Category = v.Product.Category!.Name,
                         Size = v.Size,
                         Configuration = v.Configuration,
                         StockKey = key,

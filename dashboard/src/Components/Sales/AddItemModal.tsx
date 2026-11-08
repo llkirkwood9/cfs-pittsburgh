@@ -8,7 +8,7 @@ import TextArea from "../Elements/TextArea";
 import TextField from "../Elements/TextField";
 import { useAddItem } from "@shared/Hooks/useAddItem";
 import { IncludesText, ProductStock, SizeStockText } from "@shared/Lib/AddItem";
-import { CategoryShortNames, NeedsPrice, VariantLabel } from "@shared/Lib/Catalog";
+import { NeedsPrice, VariantLabel } from "@shared/Lib/Catalog";
 import { FormatCurrency } from "@shared/Lib/Format";
 import { WarrantyText } from "@shared/Lib/Orders";
 import {
@@ -152,7 +152,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                         {categories.map((category) => (
                             <TabButton
                                 key={category}
-                                text={CategoryShortNames[category]}
+                                text={category}
                                 active={tab === category}
                                 onClick={() => setTab(category)}
                             />

@@ -1,11 +1,13 @@
 import { FromSaleDraft, SaleProblem, ToSaleDraft } from "./CatalogDrafts";
 import type { SaleDraft } from "./CatalogDrafts";
 import { ParseMoney } from "./Format";
+import type { Category } from "../Models/Category";
 import type { DeliveryOption } from "../Models/DeliveryOption";
 import type { FinanceOption } from "../Models/FinanceOption";
+import type { StatColumn } from "../Models/Product";
 
 /**
- * How one of the catalog's option lists (delivery, financing) is edited: what Add starts from,
+ * How one of the catalog's lists (delivery, financing, categories) is edited: what Add starts from,
  * the form it opens, what stops it saving, and what is saved.
  */
 export type CatalogOptionForm<T, D> = {
@@ -92,4 +94,39 @@ export const FinanceOptionForm: CatalogOptionForm<FinanceOption, FinanceOptionDr
         name: draft.name.trim(),
         isActive: draft.isActive,
     }),
+};
+
+/** A category being edited. */
+export type CategoryDraft = { name: string; statColumn: StatColumn };
+
+/** Editing a territory's categories. */
+export const CategoryForm: CatalogOptionForm<Category, CategoryDraft> = {
+    blank: { statColumn: "Misc" },
+    toDraft: (category) => ({
+        name: category.name ?? "",
+        statColumn: category.statColumn ?? "Misc",
+    }),
+    problem: (draft) => {
+        const name = draft.name.trim();
+        if (!name) return "Give the category a name.";
+        if (name.toLowerCase() === "all") return '"All" is the tab that shows every category.';
+        return null;
+    },
+    toSaved: (editing, draft) => ({
+        id: editing.id,
+        name: draft.name.trim(),
+        statColumn: draft.statColumn,
+    }),
+};
+
+/**
+ * What a category's row says under its name: the stat-sheet column it counts in and how many
+ * items it has.
+ * @param category The category.
+ * @param columnName The column's name.
+ * @returns e.g. "Counts as Mattresses - 12 items".
+ */
+export const CategorySummary = (category: Category, columnName: string): string => {
+    const count = category.productCount ?? 0;
+    return `Counts as ${columnName} - ${count} item${count === 1 ? "" : "s"}`;
 };

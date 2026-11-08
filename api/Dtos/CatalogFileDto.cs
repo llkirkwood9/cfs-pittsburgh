@@ -40,6 +40,33 @@ namespace api.Dtos
         /// they were exported, and a restore then leaves the current list alone.
         /// </summary>
         public List<CatalogFinanceOptionDto>? FinanceOptions { get; set; }
+
+        /// <summary>
+        /// Every territory's categories, in tab order. Left out of files made before categories
+        /// could be named, whose products name a stat-sheet column ("Mattress") instead.
+        /// </summary>
+        public List<CatalogCategoryDto>? Categories { get; set; }
+    }
+
+    /// <summary>
+    /// A category in a catalog file
+    /// </summary>
+    public class CatalogCategoryDto
+    {
+        /// <summary>
+        /// Name, e.g. "Mattresses" - how the category is matched on restore
+        /// </summary>
+        public string? Name { get; set; }
+
+        /// <summary>
+        /// The stat-sheet column its items count in, as the enum name
+        /// </summary>
+        public string? StatColumn { get; set; }
+
+        /// <summary>
+        /// The territory it belongs to, by name
+        /// </summary>
+        public string? Territory { get; set; }
     }
 
     /// <summary>
@@ -135,7 +162,8 @@ namespace api.Dtos
         public string? Brand { get; set; }
 
         /// <summary>
-        /// Category, e.g. "Mattress"
+        /// The category it is listed under, by name, e.g. "Mattresses" (or, in a file from before
+        /// categories could be named, the stat-sheet column, e.g. "Mattress")
         /// </summary>
         public string? Category { get; set; }
 

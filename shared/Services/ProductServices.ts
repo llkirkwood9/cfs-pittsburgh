@@ -1,6 +1,6 @@
 import { client } from "@host";
 import { CallApi } from "./CallApi";
-import type { Product, ProductCategory, ProductCopyResult } from "../Models/Product";
+import type { Product, ProductCopyResult } from "../Models/Product";
 
 //*************************************//
 //*********** POST METHODS ************//
@@ -51,17 +51,6 @@ export const GetProducts = async (
             // Another territory's catalog, such as one to copy from; otherwise the one in view.
             headers: territoryId != null ? { "X-Territory-Id": String(territoryId) } : undefined,
         });
-        return response.data;
-    }, null);
-};
-
-/**
- * Lists the product category names.
- * @returns Category names, or null on failure.
- */
-export const GetCategories = async (): Promise<ProductCategory[] | null> => {
-    return CallApi(async () => {
-        const response = await client.api.get<ProductCategory[]>("/api/Product/categories");
         return response.data;
     }, null);
 };

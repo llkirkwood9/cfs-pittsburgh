@@ -11,7 +11,7 @@ import {
     type DiscountMode,
     type Picks,
 } from "../Lib/AddItem";
-import { CategoryShortNames, NeedsPrice } from "../Lib/Catalog";
+import { AllTab, CategoryOrder, NeedsPrice } from "../Lib/Catalog";
 import { ParseMoney } from "../Lib/Format";
 import { TakeWithBlocked } from "../Lib/Inventory";
 import {
@@ -26,12 +26,12 @@ import {
 } from "../Lib/Pricing";
 import { SortProducts, type ProductSortKey } from "../Lib/ProductSort";
 import type { OrderLine } from "../Models/OrderLine";
-import type { Product, ProductCategory } from "../Models/Product";
+import type { Product } from "../Models/Product";
 import type { ProductOption } from "../Models/ProductOption";
 import type { ProductVariant } from "../Models/ProductVariant";
 
-/** A category tab in the picker, or every product. */
-export type CategoryTab = ProductCategory | "All";
+/** A category tab in the picker - a category's name - or every product. */
+export type CategoryTab = string;
 
 /**
  * The floor's add-to-order flow: pick a category, pick a product, pick a size, its choices and a
@@ -48,7 +48,8 @@ export const useAddItem = (
     onAdd: (line: OrderLine) => Promise<void>,
     onClose: () => void
 ) => {
-    const [tab, setTab] = useState<CategoryTab>("Mattress");
+    // Until a tab is picked, the first category's.
+    const [pickedTab, setTab] = useState<CategoryTab | null>(null);
     const [search, setSearch] = useState<string>("");
     const [sortKey, setSortKey] = useState<ProductSortKey>("name-asc");
     const [selected, setSelected] = useState<Product | null>(null);
@@ -70,15 +71,14 @@ export const useAddItem = (
     const [customPrice, setCustomPrice] = useState<string>("");
     const [customMode, setCustomMode] = useState<boolean>(false);
 
-    const categories = useMemo(() => {
-        const present = new Set(products.map((p) => p.category).filter(Boolean));
-        return (Object.keys(CategoryShortNames) as ProductCategory[]).filter((c) => present.has(c));
-    }, [products]);
+    // The categories that have products, in tab order.
+    const categories = useMemo(() => CategoryOrder(products).filter(Boolean), [products]);
+    const tab = pickedTab ?? categories[0] ?? AllTab;
 
     const filtered = useMemo(() => {
         const term = search.trim().toLowerCase();
         const matches = products.filter((product) => {
-            if (tab !== "All" && product.category !== tab) return false;
+            if (tab !== AllTab && product.category !== tab) return false;
             if (!term) return true;
             return (
                 (product.name ?? "").toLowerCase().includes(term) ||
@@ -87,8 +87,8 @@ export const useAddItem = (
         });
 
         // Categories stay grouped, in the same order as the tabs, with the chosen sort within each.
-        return SortProducts(matches, sortKey, Object.keys(CategoryShortNames));
-    }, [products, tab, search, sortKey]);
+        return SortProducts(matches, sortKey, categories);
+    }, [products, tab, search, sortKey, categories]);
 
     const variant: ProductVariant | undefined = selected?.variants?.find((v) => v.id === variantId);
     const needsPrice = variant ? NeedsPrice(variant) : false;

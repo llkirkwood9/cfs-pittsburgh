@@ -1,9 +1,11 @@
 namespace api.Models
 {
     /// <summary>
-    /// High level product grouping. Drives the stat-sheet tallies on the dashboard.
+    /// The stat-sheet column an item counts in. Every catalog category says which one its items
+    /// count in, and an order line keeps it, so the dashboard's tallies, the warranty default and
+    /// the receipt email's mattress advice work whatever the categories are called.
     /// </summary>
-    public enum ProductCategory
+    public enum StatColumn
     {
         /// <summary>Sleep sets / mattresses of any brand, including Purple and Helix.</summary>
         Mattress = 0,
@@ -26,7 +28,7 @@ namespace api.Models
         /// <summary>Bean bag chairs.</summary>
         BeanBagChair = 6,
 
-        /// <summary>Anything that does not belong to one of the tallied categories.</summary>
+        /// <summary>Anything that does not count in one of the other columns.</summary>
         Misc = 7,
     }
 

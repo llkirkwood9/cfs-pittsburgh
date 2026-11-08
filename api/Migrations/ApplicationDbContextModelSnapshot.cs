@@ -44,6 +44,35 @@ namespace api.Migrations
                     b.ToTable("AppSettings");
                 });
 
+            modelBuilder.Entity("api.Models.Category", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("integer");
+
+                    NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(60)
+                        .HasColumnType("character varying(60)");
+
+                    b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StatColumn")
+                        .HasColumnType("integer");
+
+                    b.Property<int?>("TerritoryId")
+                        .HasColumnType("integer");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("TerritoryId", "SortOrder");
+
+                    b.ToTable("Categories");
+                });
+
             modelBuilder.Entity("api.Models.DeliveryOption", b =>
                 {
                     b.Property<int>("Id")
@@ -667,7 +696,7 @@ namespace api.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<int>("Category")
+                    b.Property<int>("CategoryId")
                         .HasColumnType("integer");
 
                     b.Property<DateTime>("CreatedAt")
@@ -711,7 +740,7 @@ namespace api.Migrations
 
                     b.HasIndex("TerritoryId");
 
-                    b.HasIndex("Category", "SortOrder");
+                    b.HasIndex("CategoryId", "SortOrder");
 
                     b.ToTable("Products");
                 });
@@ -1082,6 +1111,16 @@ namespace api.Migrations
                     b.ToTable("UserTerritories");
                 });
 
+            modelBuilder.Entity("api.Models.Category", b =>
+                {
+                    b.HasOne("api.Models.Territory", "Territory")
+                        .WithMany()
+                        .HasForeignKey("TerritoryId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Territory");
+                });
+
             modelBuilder.Entity("api.Models.DeliveryOption", b =>
                 {
                     b.HasOne("api.Models.Territory", "Territory")
@@ -1220,10 +1259,18 @@ namespace api.Migrations
 
             modelBuilder.Entity("api.Models.Product", b =>
                 {
+                    b.HasOne("api.Models.Category", "Category")
+                        .WithMany("Products")
+                        .HasForeignKey("CategoryId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
                     b.HasOne("api.Models.Territory", "Territory")
                         .WithMany()
                         .HasForeignKey("TerritoryId")
                         .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Category");
 
                     b.Navigation("Territory");
                 });
@@ -1338,6 +1385,11 @@ namespace api.Migrations
                     b.Navigation("Territory");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("api.Models.Category", b =>
+                {
+                    b.Navigation("Products");
                 });
 
             modelBuilder.Entity("api.Models.DeliveryOption", b =>

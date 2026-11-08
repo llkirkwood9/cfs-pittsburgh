@@ -413,11 +413,11 @@ namespace api.Controllers
                 BalanceDue = 0m,
                 Lines =
                 [
-                    new OrderLine { Id = 1, LineType = OrderLineType.Product, Category = ProductCategory.Mattress, Description = "Queen mattress" },
+                    new OrderLine { Id = 1, LineType = OrderLineType.Product, Category = StatColumn.Mattress, Description = "Queen mattress" },
                     new OrderLine { Id = 2, LineType = OrderLineType.Delivery, ParentLineId = 1, Description = "White Glove" },
-                    new OrderLine { Id = 3, LineType = OrderLineType.Product, Category = ProductCategory.MattressProtector, Description = "Mattress protector" },
+                    new OrderLine { Id = 3, LineType = OrderLineType.Product, Category = StatColumn.MattressProtector, Description = "Mattress protector" },
                     new OrderLine { Id = 4, LineType = OrderLineType.Delivery, ParentLineId = 3, Description = "Drop Ship" },
-                    new OrderLine { Id = 5, LineType = OrderLineType.Product, Category = ProductCategory.Pillow, Description = "Pillow", TakeWith = true },
+                    new OrderLine { Id = 5, LineType = OrderLineType.Product, Category = StatColumn.Pillow, Description = "Pillow", TakeWith = true },
                 ],
             };
         }

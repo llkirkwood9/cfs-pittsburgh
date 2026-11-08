@@ -1,5 +1,3 @@
-import type { ProductCategory } from "./Product";
-
 export type ProductVariantComponent = {
     id?: number;
     componentVariantId?: number;
@@ -7,7 +5,7 @@ export type ProductVariantComponent = {
     productId?: number;
     productName?: string;
     brand?: string;
-    category?: ProductCategory;
+    category?: string;
     size?: string;
     configuration?: string | null;
 };

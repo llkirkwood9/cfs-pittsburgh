@@ -35,7 +35,7 @@ namespace api.Orders
         /// A line for a catalog size, with the selections already checked. The caller sets the
         /// line type, order and position, and anything the rep typed over the catalog's wording.
         /// </summary>
-        /// <param name="variant">The size, with its product (and its selections) and components loaded</param>
+        /// <param name="variant">The size, with its product (and its category and selections) and components (and theirs) loaded</param>
         /// <param name="chosen">The selections made for it</param>
         /// <param name="keyedPrice">A price the rep keyed in, used in place of the size's</param>
         /// <returns>The new line.</returns>
@@ -53,7 +53,7 @@ namespace api.Orders
                 ChoicesJson = Choices.ToJson(chosen),
                 StockKey = Choices.KeyFor(chosen, Choices.CountedOptions(product)),
                 IncludesAdjustableBase = variant.Components.Any(c =>
-                    c.ComponentVariant?.Product?.Category == ProductCategory.AdjustableBase),
+                    c.ComponentVariant?.Product?.Category?.StatColumn == StatColumn.AdjustableBase),
             };
             SnapshotProduct(line, product);
 
@@ -183,7 +183,7 @@ namespace api.Orders
             {
                 OrderId = order.Id,
                 LineType = OrderLineType.Delivery,
-                Category = ProductCategory.Misc,
+                Category = StatColumn.Misc,
                 DeliveryOptionId = option.Id,
                 ParentLineId = parent?.Id,
                 Description = option.Name,
@@ -310,7 +310,7 @@ namespace api.Orders
             line.SaleDiscountAmount = null;
             line.TakeWith = false;
             line.Notes = null;
-            line.Category = ProductCategory.Misc;
+            line.Category = StatColumn.Misc;
         }
 
         #endregion
@@ -318,11 +318,13 @@ namespace api.Orders
         #region Private Methods
 
         /// <summary>
-        /// Copies what the sheet and stat sheet need from the product: its category and warranty.
+        /// Copies what the sheet and stat sheet need from the product: the stat-sheet column its
+        /// category counts in, and its warranty. The product comes with its category loaded.
         /// </summary>
         private static void SnapshotProduct(OrderLine line, Product product)
         {
-            line.Category = product.Category;
+            line.Category = product.Category?.StatColumn
+                            ?? throw new InvalidOperationException("The product was loaded without its category.");
             line.HasWarranty = product.HasWarranty;
             line.WarrantyLength = product.HasWarranty ? product.WarrantyLength : null;
         }

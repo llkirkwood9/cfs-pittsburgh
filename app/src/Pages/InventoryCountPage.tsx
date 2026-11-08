@@ -11,7 +11,6 @@ import TextField from "../Components/Elements/TextField";
 import { useTheme } from "../Hooks/UseTheme";
 import { cx } from "../Lib/ClassNames";
 import { useInventoryCount } from "@shared/Hooks/useInventoryCount";
-import { CategoryNames } from "@shared/Lib/Catalog";
 import { InventoryRowKey, InventorySizeLabel, SignedDifference } from "@shared/Lib/Inventory";
 import { CountPhaseFrom } from "@shared/Lib/InventoryCount";
 import { Limits } from "@shared/Lib/Limits";
@@ -128,7 +127,7 @@ const InventoryCountPage = () => {
                     {groups.map((group) => (
                         <View key={group.category}>
                             <Text className="mb-2 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
-                                {CategoryNames[group.category]}
+                                {group.category}
                             </Text>
                             <View className="gap-3">
                                 {group.products.map((product) => (

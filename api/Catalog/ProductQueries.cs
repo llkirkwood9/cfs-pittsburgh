@@ -10,20 +10,26 @@ namespace api.Catalog
     public static class ProductQueries
     {
         /// <summary>
-        /// A product with everything shown about it: its territory, sizes with what each bundle
-        /// includes (and those items' products and territories), its delivery choices and its
-        /// selections.
+        /// A product with everything shown about it: its territory and category, sizes with what
+        /// each bundle includes (and those items' products, territories and categories), its
+        /// delivery choices and its selections.
         /// </summary>
         /// <param name="query">Products</param>
         /// <returns>The query with everything included.</returns>
         public static IQueryable<Product> WithEverything(this IQueryable<Product> query) =>
             query
                 .Include(p => p.Territory)
+                .Include(p => p.Category)
                 .Include(p => p.Variants)
                 .ThenInclude(v => v.Components)
                 .ThenInclude(c => c.ComponentVariant)
                 .ThenInclude(cv => cv!.Product)
                 .ThenInclude(cp => cp!.Territory)
+                .Include(p => p.Variants)
+                .ThenInclude(v => v.Components)
+                .ThenInclude(c => c.ComponentVariant)
+                .ThenInclude(cv => cv!.Product)
+                .ThenInclude(cp => cp!.Category)
                 .Include(p => p.DeliveryOptions)
                 .ThenInclude(d => d.DeliveryOption)
                 .Include(p => p.Options)
@@ -48,13 +54,14 @@ namespace api.Catalog
         }
 
         /// <summary>
-        /// A product with what saving it changes: its sizes and what they include, its delivery
-        /// choices and its selections.
+        /// A product with what saving it changes: its category, its sizes and what they include,
+        /// its delivery choices and its selections.
         /// </summary>
         /// <param name="query">Products</param>
         /// <returns>The query with the editable parts included.</returns>
         public static IQueryable<Product> ForEditing(this IQueryable<Product> query) =>
             query
+                .Include(p => p.Category)
                 .Include(p => p.Variants)
                 .ThenInclude(v => v.Components)
                 .Include(p => p.DeliveryOptions)
