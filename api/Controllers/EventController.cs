@@ -1,12 +1,13 @@
 using System.Diagnostics;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using api.Data;
 using api.Dtos;
 using api.Models;
 using api.Services;
+using api.Settings;
 using api.Utils;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 namespace api.Controllers
 {
@@ -19,11 +20,8 @@ namespace api.Controllers
     [Route("api/[controller]")]
     public class EventController(
         ApplicationDbContext db,
-        IHttpClientFactory httpClientFactory,
-        IConfiguration config,
-        ILogger<BasicController> logger,
-        TokenService tokenService)
-        : BasicController(db, httpClientFactory, config, logger, tokenService)
+        ILogger<BasicController> logger)
+        : BasicController(db, logger)
     {
         #region Private Fields
 
@@ -43,62 +41,50 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> AddEvent([FromBody] EventDto request)
         {
-            try
+            if (!IsAtLeast(UserRole.Manager))
+                return Forbidden(ManagersOnly);
+
+            if (string.IsNullOrWhiteSpace(request.Organization) || request.EventDate == null)
+                return BadRequest(new { error = "Enter the organization and the event date." });
+
+            if (request.Organization.Length > 150 || (request.CartName?.Length ?? 0) > 100)
+                return BadRequest(new { error = "Invalid parameter." });
+
+            if (Rates.Problem(request.SalesTaxRate, request.CcProcessingFeeRate) is { } rateProblem)
+                return BadRequest(new { error = rateProblem });
+
+            var scope = Scope;
+            var territoryId = request.TerritoryId ?? scope.TerritoryId;
+            if (territoryId == null)
+                return BadRequest(new { error = "Pick the territory this event is in." });
+
+            if (!scope.CanSee(territoryId))
+                return Forbidden("You can only add events to your own territories.");
+
+            if (!await DB.Territories.AnyAsync(t => t.Id == territoryId && t.IsActive))
+                return BadRequest(new { error = "That territory doesn't exist or is switched off." });
+
+            // Rates left out come from the territory's new-event defaults.
+            var settings = await SettingsStore.LoadAsync(DB, territoryId);
+            var newEvent = new Event
             {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden(ManagersOnly);
+                TerritoryId = territoryId.Value,
+                Organization = request.Organization.Trim(),
+                EventDate = request.EventDate.Value.Date,
+                CartName = request.CartName,
+                SalesTaxRate = request.SalesTaxRate ?? settings.DefaultSalesTaxRate,
+                CcProcessingFeeRate = request.CcProcessingFeeRate ?? settings.DefaultCcProcessingFeeRate,
+                NextOrderNumber = request.NextOrderNumber ?? await NextOrderNumberAsync(territoryId.Value),
+                IsActive = request.IsActive ?? true,
+            };
 
-                if (string.IsNullOrWhiteSpace(request.Organization) || request.EventDate == null)
-                    return BadRequest(new { error = "Enter the organization and the event date." });
+            if (newEvent.IsActive)
+                await DeactivateEventsAsync(newEvent.TerritoryId);
 
-                if (request.Organization.Length > 150 || (request.CartName?.Length ?? 0) > 100)
-                    return BadRequest(new { error = "Invalid parameter." });
+            DB.Events.Add(newEvent);
+            await DB.SaveChangesAsync();
 
-                if (request.SalesTaxRate is < 0 or > 1)
-                    return BadRequest(new { error = "The sales tax rate must be between 0 and 1." });
-
-                if (request.CcProcessingFeeRate is < 0 or > 1)
-                    return BadRequest(new { error = "The card processing fee rate must be between 0 and 1." });
-
-                var scope = Scope;
-                var territoryId = request.TerritoryId ?? scope.TerritoryId;
-                if (territoryId == null)
-                    return BadRequest(new { error = "Pick the territory this event is in." });
-
-                if (!scope.CanSee(territoryId))
-                    return Forbidden("You can only add events to your own territories.");
-
-                if (!await DB.Territories.AnyAsync(t => t.Id == territoryId && t.IsActive))
-                    return BadRequest(new { error = "That territory doesn't exist or is switched off." });
-
-                // Rates left out come from the territory's new-event defaults.
-                var settings = await SettingsStore.LoadAsync(DB, territoryId);
-                var newEvent = new Event
-                {
-                    TerritoryId = territoryId.Value,
-                    Organization = request.Organization.Trim(),
-                    EventDate = request.EventDate.Value.Date,
-                    CartName = request.CartName,
-                    SalesTaxRate = request.SalesTaxRate ?? settings.DefaultSalesTaxRate,
-                    CcProcessingFeeRate = request.CcProcessingFeeRate ?? settings.DefaultCcProcessingFeeRate,
-                    NextOrderNumber = request.NextOrderNumber ?? 1001,
-                    IsActive = request.IsActive ?? true,
-                };
-
-                // One active event per territory.
-                if (newEvent.IsActive)
-                    await DB.Events.Where(e => e.TerritoryId == newEvent.TerritoryId)
-                        .ExecuteUpdateAsync(e => e.SetProperty(x => x.IsActive, false));
-
-                DB.Events.Add(newEvent);
-                await DB.SaveChangesAsync();
-
-                return Ok(await LoadDtoAsync(newEvent.Id));
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while adding the event.", e);
-            }
+            return Ok(await LoadDtoAsync(newEvent.Id));
         }
 
         #endregion
@@ -114,23 +100,15 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetEvents()
         {
-            try
-            {
-                var visible = Scope.VisibleTerritoryIds;
-                var events = await DB.Events
-                    .Include(e => e.Territory)
-                    .AsNoTracking()
-                    .Where(e => visible == null || visible.Contains(e.TerritoryId))
-                    .OrderByDescending(e => e.EventDate)
-                    .ThenByDescending(e => e.Id)
-                    .ToListAsync();
+            var events = await DB.Events
+                .Include(e => e.Territory)
+                .AsNoTracking()
+                .VisibleTo(Scope)
+                .OrderByDescending(e => e.EventDate)
+                .ThenByDescending(e => e.Id)
+                .ToListAsync();
 
-                return Ok(events.Select(ToDto).ToList());
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while getting events.", e);
-            }
+            return Ok(events.Select(ToDto).ToList());
         }
 
         /// <summary>
@@ -145,27 +123,20 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetActiveEvent()
         {
-            try
-            {
-                var territoryId = Scope.TerritoryId;
-                if (territoryId == null)
-                    return NoContent();
+            var territoryId = Scope.TerritoryId;
+            if (territoryId == null)
+                return NoContent();
 
-                var active = await DB.Events
-                    .Include(e => e.Territory)
-                    .AsNoTracking()
-                    .FirstOrDefaultAsync(e => e.IsActive && e.TerritoryId == territoryId);
+            var active = await DB.Events
+                .Include(e => e.Territory)
+                .AsNoTracking()
+                .FirstOrDefaultAsync(e => e.IsActive && e.TerritoryId == territoryId);
 
-                // Not an error: "no event running right now" is a normal state between fundraisers.
-                if (active == null)
-                    return NoContent();
+            // Not an error: "no event running right now" is a normal state between fundraisers.
+            if (active == null)
+                return NoContent();
 
-                return Ok(ToDto(active));
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while getting the active event.", e);
-            }
+            return Ok(ToDto(active));
         }
 
         /// <summary>
@@ -177,18 +148,11 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetEvent(int id)
         {
-            try
-            {
-                var dto = await LoadDtoAsync(id);
-                if (dto == null || !Scope.CanSee(dto.TerritoryId))
-                    return NotFound(new { error = "Event not found." });
+            var dto = await LoadDtoAsync(id);
+            if (dto == null || !Scope.CanSee(dto.TerritoryId))
+                return NotFound(new { error = "Event not found." });
 
-                return Ok(dto);
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while getting the event.", e);
-            }
+            return Ok(dto);
         }
 
         #endregion
@@ -206,86 +170,75 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> UpdateEvent([FromBody] EventDto request)
         {
-            try
+            if (!IsAtLeast(UserRole.Manager))
+                return Forbidden(ManagersOnly);
+
+            if (request.Id == null)
+                return BadRequest(new { error = "Missing parameter." });
+
+            var found = (await DB.Events.FindAsync(request.Id.Value)).IfVisibleTo(Scope);
+            if (found == null)
+                return NotFound(new { error = "Event not found." });
+
+            if (request.Organization != null)
             {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden(ManagersOnly);
+                if (string.IsNullOrWhiteSpace(request.Organization) || request.Organization.Length > 150)
+                    return BadRequest(new { error = "Invalid parameter." });
 
-                if (request.Id == null)
-                    return BadRequest(new { error = "Missing parameter." });
-
-                var found = await DB.Events.FindAsync(request.Id.Value);
-                if (found == null || !CanSee(found))
-                    return NotFound(new { error = "Event not found." });
-
-                if (request.Organization != null)
-                {
-                    if (string.IsNullOrWhiteSpace(request.Organization) || request.Organization.Length > 150)
-                        return BadRequest(new { error = "Invalid parameter." });
-
-                    found.Organization = request.Organization.Trim();
-                }
-
-                if (request.SalesTaxRate is < 0 or > 1)
-                    return BadRequest(new { error = "The sales tax rate must be between 0 and 1." });
-
-                if (request.CcProcessingFeeRate is < 0 or > 1)
-                    return BadRequest(new { error = "The card processing fee rate must be between 0 and 1." });
-
-                if (request.TerritoryId != null && request.TerritoryId != found.TerritoryId)
-                {
-                    if (!Scope.CanSee(request.TerritoryId))
-                        return Forbidden("You can only move an event to one of your own territories.");
-                    if (await DB.Orders.AnyAsync(o => o.EventId == found.Id))
-                        return BadRequest(new { error = "This event has orders, so it stays in its territory." });
-                    if (!await DB.Territories.AnyAsync(t => t.Id == request.TerritoryId && t.IsActive))
-                        return BadRequest(new { error = "That territory doesn't exist or is switched off." });
-
-                    found.TerritoryId = request.TerritoryId.Value;
-                    found.IsActive = false;
-                }
-
-                if (request.CartName != null)
-                    found.CartName = request.CartName.Length > 100 ? request.CartName[..100] : request.CartName;
-
-                if (request.EventDate != null)
-                    found.EventDate = request.EventDate.Value.Date;
-
-                if (request.SalesTaxRate != null)
-                    found.SalesTaxRate = request.SalesTaxRate.Value;
-
-                if (request.CcProcessingFeeRate != null)
-                    found.CcProcessingFeeRate = request.CcProcessingFeeRate.Value;
-
-                if (request.NextOrderNumber != null)
-                {
-                    if (request.NextOrderNumber < 1)
-                        return BadRequest(new { error = "Order numbers start at 1." });
-                    found.NextOrderNumber = request.NextOrderNumber.Value;
-                }
-
-                if (request.IsActive == true && !found.IsActive)
-                {
-                    if (!await DB.Territories.AnyAsync(t => t.Id == found.TerritoryId && t.IsActive))
-                        return BadRequest(new { error = "This event's territory is switched off." });
-
-                    await DB.Events.Where(e => e.TerritoryId == found.TerritoryId)
-                        .ExecuteUpdateAsync(e => e.SetProperty(x => x.IsActive, false));
-                    found.IsActive = true;
-                }
-                else if (request.IsActive == false)
-                {
-                    found.IsActive = false;
-                }
-
-                await DB.SaveChangesAsync();
-
-                return Ok(await LoadDtoAsync(found.Id));
+                found.Organization = request.Organization.Trim();
             }
-            catch (Exception e)
+
+            if (Rates.Problem(request.SalesTaxRate, request.CcProcessingFeeRate) is { } rateProblem)
+                return BadRequest(new { error = rateProblem });
+
+            if (request.TerritoryId != null && request.TerritoryId != found.TerritoryId)
             {
-                return ServerError("Internal error occurred while updating the event.", e);
+                if (!Scope.CanSee(request.TerritoryId))
+                    return Forbidden("You can only move an event to one of your own territories.");
+                if (await DB.Orders.AnyAsync(o => o.EventId == found.Id))
+                    return BadRequest(new { error = "This event has orders, so it stays in its territory." });
+                if (!await DB.Territories.AnyAsync(t => t.Id == request.TerritoryId && t.IsActive))
+                    return BadRequest(new { error = "That territory doesn't exist or is switched off." });
+
+                found.TerritoryId = request.TerritoryId.Value;
+                found.IsActive = false;
             }
+
+            if (request.CartName != null)
+                found.CartName = request.CartName.Length > 100 ? request.CartName[..100] : request.CartName;
+
+            if (request.EventDate != null)
+                found.EventDate = request.EventDate.Value.Date;
+
+            if (request.SalesTaxRate != null)
+                found.SalesTaxRate = request.SalesTaxRate.Value;
+
+            if (request.CcProcessingFeeRate != null)
+                found.CcProcessingFeeRate = request.CcProcessingFeeRate.Value;
+
+            if (request.NextOrderNumber != null)
+            {
+                if (request.NextOrderNumber < 1)
+                    return BadRequest(new { error = "Order numbers start at 1." });
+                found.NextOrderNumber = request.NextOrderNumber.Value;
+            }
+
+            if (request.IsActive == true && !found.IsActive)
+            {
+                if (!await DB.Territories.AnyAsync(t => t.Id == found.TerritoryId && t.IsActive))
+                    return BadRequest(new { error = "This event's territory is switched off." });
+
+                await DeactivateEventsAsync(found.TerritoryId);
+                found.IsActive = true;
+            }
+            else if (request.IsActive == false)
+            {
+                found.IsActive = false;
+            }
+
+            await DB.SaveChangesAsync();
+
+            return Ok(await LoadDtoAsync(found.Id));
         }
 
         #endregion
@@ -303,41 +256,56 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> DeleteEvent(int id, [FromQuery] bool permanent = false)
         {
-            try
+            if (!IsAtLeast(UserRole.Manager))
+                return Forbidden("Only a manager, administrator or system admin may delete an event.");
+
+            if (permanent && !IsSystemAdmin())
+                return Forbidden("Only a system admin can delete an event with its orders.");
+
+            var found = (await DB.Events.FindAsync(id)).IfVisibleTo(Scope);
+            if (found == null)
+                return NotFound(new { error = "Event not found." });
+
+            if (permanent)
             {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or system admin may delete an event.");
-
-                if (permanent && !IsSystemAdmin())
-                    return Forbidden("Only a system admin can delete an event with its orders.");
-
-                var found = await DB.Events.FindAsync(id);
-                if (found == null || !CanSee(found))
-                    return NotFound(new { error = "Event not found." });
-
-                if (permanent)
-                {
-                    await PermanentDelete.EventAsync(DB, id);
-                    return Ok();
-                }
-
-                if (await DB.Orders.AnyAsync(o => o.EventId == id))
-                    return BadRequest(new { error = "This event has orders against it and cannot be deleted." });
-
-                DB.Events.Remove(found);
-                await DB.SaveChangesAsync();
-
+                await PermanentDelete.EventAsync(DB, id);
                 return Ok();
             }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while deleting the event.", e);
-            }
+
+            if (await DB.Orders.AnyAsync(o => o.EventId == id))
+                return BadRequest(new { error = "This event has orders against it and cannot be deleted." });
+
+            DB.Events.Remove(found);
+            await DB.SaveChangesAsync();
+
+            return Ok();
         }
 
         #endregion
 
         #region Private Methods
+
+        /// <summary>
+        /// Where a new event's order numbers start when none is given: carrying on from the
+        /// highest any of the territory's events has reached, so no two of its sales sheets share a
+        /// number - or the first number for a territory's first event.
+        /// </summary>
+        /// <param name="territoryId">The territory</param>
+        /// <returns>The next order number.</returns>
+        private async Task<int> NextOrderNumberAsync(int territoryId)
+        {
+            var highest = await DB.Events.Where(e => e.TerritoryId == territoryId).MaxAsync(e => (int?)e.NextOrderNumber);
+            return Math.Max(Event.FirstOrderNumber, highest ?? 0);
+        }
+
+        /// <summary>
+        /// Switches off every event in a territory, so the one being switched on is its only
+        /// active event: a territory has one active event at a time.
+        /// </summary>
+        /// <param name="territoryId">The territory</param>
+        private Task DeactivateEventsAsync(int territoryId) =>
+            DB.Events.Where(e => e.TerritoryId == territoryId)
+                .ExecuteUpdateAsync(e => e.SetProperty(x => x.IsActive, false));
 
         private async Task<EventDto?> LoadDtoAsync(int id)
         {

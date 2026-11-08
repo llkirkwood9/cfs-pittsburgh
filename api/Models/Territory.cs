@@ -9,6 +9,11 @@ namespace api.Models
     public class Territory
     {
         /// <summary>
+        /// The name of the territory made when a database needs one and none is named.
+        /// </summary>
+        public const string FirstTerritoryName = "Pittsburgh";
+
+        /// <summary>
         /// Primary Key
         /// </summary>
         public int Id { get; set; }

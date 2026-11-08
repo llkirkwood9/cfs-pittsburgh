@@ -1,25 +1,16 @@
-import { useEffect, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import TextField from "../Components/Elements/TextField";
-import { useAuth } from "../Context/AuthContext";
-import { useSettings } from "../Context/SettingsContext";
-import { useTerritory } from "../Context/TerritoryContext";
-import {
-    FormatRate,
-    FormatShortDate,
-    IsPastEvent,
-    IsUpcomingEvent,
-    ParseMoney,
-    SplitEvents,
-} from "../Lib/ModelHelpers";
-import { Toast } from "../Lib/Toast";
-import type { Event } from "../Models/Event";
-import { AddEvent, DeleteEvent, GetEvents, UpdateEvent } from "../Services/EventServices";
+import { useEvents } from "@shared/Hooks/useEvents";
+import { DeleteEventMessage, IsPastEvent, IsUpcomingEvent, SplitEvents } from "@shared/Lib/Events";
+import { FormatRate, FormatShortDate } from "@shared/Lib/Format";
+import type { Event } from "@shared/Models/Event";
+import { Paths, ScreenLinks } from "../Lib/ScreenLinks";
+import { Limits } from "@shared/Lib/Limits";
 
 /**
  * Event administration. The sales tax rate, the card processing fee and the order number
@@ -27,134 +18,27 @@ import { AddEvent, DeleteEvent, GetEvents, UpdateEvent } from "../Services/Event
  * belongs to a territory, and each territory has one active event at a time.
  */
 const EventsPage = () => {
-    const { user } = useAuth();
-    const { settingsFor } = useSettings();
-    const { territories, territoryId: territoryInView, canSwitch } = useTerritory();
+    const {
+        events,
+        loading,
+        deletesForGood,
+        editing,
+        close,
+        form,
+        setField,
+        open,
+        openNew,
+        pickTerritory,
+        picksTerritory,
+        showsTerritory,
+        territoryChoices,
+        saving,
+        handleSave,
+        deleting,
+        setDeleting,
+        handleDelete,
+    } = useEvents();
     const navigate = useNavigate();
-    // Anyone with more than one territory chooses which an event is in.
-    const companyWide = canSwitch;
-
-    const [events, setEvents] = useState<Event[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [editing, setEditing] = useState<Event | null>(null);
-    const [deleting, setDeleting] = useState<Event | null>(null);
-    const isSystemAdmin = user?.role === "SystemAdmin";
-    const [saving, setSaving] = useState<boolean>(false);
-
-    const [organization, setOrganization] = useState<string>("");
-    const [cartName, setCartName] = useState<string>("");
-    const [eventDate, setEventDate] = useState<string>("");
-    const [taxPercent, setTaxPercent] = useState<string>("7");
-    const [feePercent, setFeePercent] = useState<string>("2");
-    const [nextOrderNumber, setNextOrderNumber] = useState<string>("1001");
-    const [isActive, setIsActive] = useState<boolean>(true);
-    const [territoryId, setTerritoryId] = useState<number | null>(null);
-
-    const load = async () => {
-        setLoading(true);
-        setEvents(await GetEvents());
-        setLoading(false);
-    };
-
-    useEffect(() => {
-        load();
-    }, []);
-
-    if (!user) return <Navigate to="/unauthorized" replace />;
-
-    const open = (event: Event) => {
-        setEditing(event);
-        setOrganization(event.organization ?? "");
-        setCartName(event.cartName ?? "");
-        // Today in the viewer's own time zone - toISOString would give tomorrow's date in the evening.
-        const now = new Date();
-        const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-        setEventDate((event.eventDate ?? today).slice(0, 10));
-        setTaxPercent(String(Number(((event.salesTaxRate ?? 0.07) * 100).toFixed(4))));
-        setFeePercent(String(Number(((event.ccProcessingFeeRate ?? 0.02) * 100).toFixed(4))));
-        setNextOrderNumber(String(event.nextOrderNumber ?? 1001));
-        setIsActive(event.isActive ?? true);
-        setTerritoryId(event.territoryId ?? territoryInView ?? user?.territoryIds?.[0] ?? null);
-    };
-
-    // A new event's rates come from its territory's settings.
-    const pickTerritory = async (id: number | null) => {
-        setTerritoryId(id);
-        if (editing?.id || id == null) return;
-        const defaults = await settingsFor(id);
-        setTaxPercent(String(Number((defaults.defaultSalesTaxRate * 100).toFixed(4))));
-        setFeePercent(String(Number((defaults.defaultCcProcessingFeeRate * 100).toFixed(4))));
-    };
-
-    // A new event starts with the tax rate and card fee set under Settings, the most recent event's
-    // cart, and order numbers carrying on from the highest used so far so no two sales sheets
-    // share a number.
-    const newEventDefaults = async (): Promise<Event> => {
-        const latest = [...events].sort((a, b) =>
-            (b.eventDate ?? "").localeCompare(a.eventDate ?? "")
-        )[0];
-        const nextNumber = Math.max(1001, ...events.map((e) => e.nextOrderNumber ?? 0));
-        const territory = territoryInView ?? user?.territoryIds?.[0] ?? null;
-        const defaults = await settingsFor(territory);
-        return {
-            territoryId: territory ?? undefined,
-            cartName: latest?.cartName,
-            salesTaxRate: defaults.defaultSalesTaxRate,
-            ccProcessingFeeRate: defaults.defaultCcProcessingFeeRate,
-            nextOrderNumber: nextNumber,
-            isActive: true,
-        };
-    };
-
-    const handleSave = async () => {
-        if (!organization.trim()) return Toast.Warning("Enter the organization.");
-        if (!eventDate) return Toast.Warning("Pick the event date.");
-
-        const tax = ParseMoney(taxPercent);
-        if (tax === null || tax < 0 || tax > 100)
-            return Toast.Warning("The sales tax rate must be between 0 and 100 percent.");
-
-        const fee = ParseMoney(feePercent);
-        if (fee === null || fee < 0 || fee > 100)
-            return Toast.Warning("The card fee must be between 0 and 100 percent.");
-
-        if (companyWide && territoryId == null)
-            return Toast.Warning("Pick the territory the event is in.");
-
-        const payload: Event = {
-            id: editing?.id,
-            organization: organization.trim(),
-            cartName: cartName.trim(),
-            eventDate: new Date(`${eventDate}T00:00:00`).toISOString(),
-            salesTaxRate: tax / 100,
-            ccProcessingFeeRate: fee / 100,
-            nextOrderNumber: Number(nextOrderNumber) || 1001,
-            isActive,
-            territoryId: companyWide ? (territoryId ?? undefined) : undefined,
-        };
-
-        setSaving(true);
-        const saved = editing?.id ? await UpdateEvent(payload) : await AddEvent(payload);
-        setSaving(false);
-
-        if (!saved) return;
-
-        Toast.Success(`${saved.organization} saved.`);
-        setEditing(null);
-        await load();
-    };
-
-    const handleDelete = async () => {
-        if (!deleting?.id) return;
-
-        const success = await DeleteEvent(deleting.id, isSystemAdmin);
-        setDeleting(null);
-
-        if (success) {
-            Toast.Success("Event deleted.");
-            await load();
-        }
-    };
 
     if (loading) {
         return (
@@ -193,7 +77,7 @@ const EventsPage = () => {
                     )}
                 </p>
                 <p className="flex flex-wrap gap-x-3 text-xs text-zinc-500 dark:text-zinc-400">
-                    {companyWide && territoryInView == null && event.territoryName && (
+                    {showsTerritory && event.territoryName && (
                         <span className="font-semibold text-zinc-700 dark:text-zinc-300">
                             <Icon icon="fa-solid fa-location-dot" className="mr-1" />
                             {event.territoryName}
@@ -212,7 +96,7 @@ const EventsPage = () => {
                     <Button
                         text="Close out"
                         icon="fa-solid fa-flag-checkered"
-                        onClick={() => navigate(`/events/${event.id}/close`)}
+                        onClick={() => navigate(Paths.eventClose(event.id!))}
                         className="min-h-[40px] bg-green-700 px-3 text-sm hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                     />
                 )}
@@ -220,8 +104,8 @@ const EventsPage = () => {
                     text="Sales sheets"
                     icon="fa-solid fa-print"
                     onClick={() =>
-                        navigate(`/events/${event.id}/sheets`, {
-                            state: { from: "/events", label: "Back to events" },
+                        navigate(Paths.eventSheets(event.id!), {
+                            state: { from: ScreenLinks.events.path, label: "Back to events" },
                         })
                     }
                     className="min-h-[40px] px-3 text-sm"
@@ -252,7 +136,7 @@ const EventsPage = () => {
                 <Button
                     text="New event"
                     icon="fa-solid fa-plus"
-                    onClick={async () => open(await newEventDefaults())}
+                    onClick={openNew}
                     className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                 />
             </div>
@@ -285,12 +169,12 @@ const EventsPage = () => {
             {editing && (
                 <Modal
                     title={editing.id ? "Edit event" : "New event"}
-                    onClose={() => setEditing(null)}
+                    onClose={close}
                     footer={
                         <>
                             <Button
                                 text="Cancel"
-                                onClick={() => setEditing(null)}
+                                onClick={close}
                                 className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                             />
                             <Button
@@ -303,13 +187,13 @@ const EventsPage = () => {
                     }
                 >
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        {companyWide && (
+                        {picksTerritory && (
                             <label className="flex flex-col gap-1 sm:col-span-2">
                                 <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                                     Territory
                                 </span>
                                 <select
-                                    value={territoryId ?? ""}
+                                    value={form.territoryId ?? ""}
                                     onChange={(e) =>
                                         pickTerritory(
                                             e.target.value ? Number(e.target.value) : null
@@ -319,15 +203,13 @@ const EventsPage = () => {
                                         dark:border-zinc-600 dark:bg-zinc-800 dark:scheme-dark"
                                 >
                                     <option value="">Pick a territory...</option>
-                                    {territories
-                                        .filter((t) => t.isActive !== false || t.id === territoryId)
-                                        .map((t) => (
-                                            <option key={t.id} value={t.id}>
-                                                {t.name}
-                                            </option>
-                                        ))}
+                                    {territoryChoices.map((t) => (
+                                        <option key={t.id} value={t.id}>
+                                            {t.name}
+                                        </option>
+                                    ))}
                                 </select>
-                                {editing.id && territoryId !== editing.territoryId && (
+                                {editing.id && form.territoryId !== editing.territoryId && (
                                     <span className="text-xs text-amber-700 dark:text-amber-400">
                                         Only an event with no orders yet can move. It is switched
                                         off when it moves; activate it again afterwards.
@@ -337,48 +219,49 @@ const EventsPage = () => {
                         )}
                         <TextField
                             label="Organization"
-                            value={organization}
-                            onChange={setOrganization}
-                            maxLength={150}
+                            value={form.organization}
+                            onChange={(v) => setField("organization", v)}
+                            maxLength={Limits.eventOrganization}
                             placeholder="ex. School Band"
                             className="sm:col-span-2"
                         />
                         <TextField
                             label="Cart"
-                            value={cartName}
-                            onChange={setCartName}
-                            maxLength={100}
+                            value={form.cartName}
+                            onChange={(v) => setField("cartName", v)}
+                            maxLength={Limits.eventCart}
                         />
                         <TextField
                             label="Event date"
-                            value={eventDate}
-                            onChange={setEventDate}
+                            value={form.eventDate}
+                            onChange={(v) => setField("eventDate", v)}
                             type="date"
                         />
                         <TextField
                             label="Sales tax %"
-                            value={taxPercent}
-                            onChange={setTaxPercent}
+                            value={form.taxPercent}
+                            onChange={(v) => setField("taxPercent", v)}
                             inputMode="decimal"
                         />
                         <TextField
                             label="Card processing fee %"
-                            value={feePercent}
-                            onChange={setFeePercent}
+                            value={form.feePercent}
+                            onChange={(v) => setField("feePercent", v)}
                             inputMode="decimal"
                         />
                         <TextField
                             label="Next order number"
-                            value={nextOrderNumber}
-                            onChange={setNextOrderNumber}
+                            value={form.nextOrderNumber}
+                            placeholder="Carries on from the last event"
+                            onChange={(v) => setField("nextOrderNumber", v)}
                             inputMode="numeric"
                         />
 
                         <label className="flex min-h-[48px] cursor-pointer items-center gap-3 self-end rounded-xl bg-zinc-100 px-3 dark:bg-zinc-700">
                             <input
                                 type="checkbox"
-                                checked={isActive}
-                                onChange={(e) => setIsActive(e.target.checked)}
+                                checked={form.isActive}
+                                onChange={(e) => setField("isActive", e.target.checked)}
                                 className="h-5 w-5 accent-sky-600"
                             />
                             <span className="text-sm font-medium">
@@ -399,13 +282,9 @@ const EventsPage = () => {
             {deleting && (
                 <ConfirmationModal
                     title="Delete event"
-                    message={
-                        isSystemAdmin
-                            ? `Permanently delete ${deleting.organization} and every order taken at it? The sales, their payments and their sales sheets are all removed. This cannot be undone.`
-                            : `Delete ${deleting.organization}? Only an event with no orders against it can be deleted.`
-                    }
-                    confirmText={isSystemAdmin ? "Delete for good" : "Delete"}
-                    confirmWord={isSystemAdmin ? "DELETE" : undefined}
+                    message={DeleteEventMessage(deleting, deletesForGood)}
+                    confirmText={deletesForGood ? "Delete for good" : "Delete"}
+                    confirmWord={deletesForGood ? "DELETE" : undefined}
                     destructive
                     onConfirm={handleDelete}
                     onCancel={() => setDeleting(null)}

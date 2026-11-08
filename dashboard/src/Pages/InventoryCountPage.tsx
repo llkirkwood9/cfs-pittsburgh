@@ -1,38 +1,15 @@
-import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import TextField from "../Components/Elements/TextField";
-import { useAuth } from "../Context/AuthContext";
-import {
-    CategoryNames,
-    GroupInventory,
-    InventoryRowKey,
-    InventorySizeLabel,
-} from "../Lib/ModelHelpers";
-import { Toast } from "../Lib/Toast";
-import type { Event } from "../Models/Event";
-import type { InventoryItem } from "../Models/InventoryItem";
-import { GetActiveEvent } from "../Services/EventServices";
-import { GetInventory, SaveInventoryCount } from "../Services/InventoryServices";
-
-type Phase = "start" | "end";
-
-/** The wording that differs between the two counts. */
-const copy: Record<Phase, { title: string; intro: string; saved: string }> = {
-    start: {
-        title: "Start-of-event count",
-        intro: "Count what is on the shelf before the doors open.",
-        saved: "Start-of-event count saved",
-    },
-    end: {
-        title: "End-of-event count",
-        intro: "Count what is left on the shelf now that the event is over.",
-        saved: "End-of-event count saved",
-    },
-};
+import { useInventoryCount } from "@shared/Hooks/useInventoryCount";
+import { CategoryNames } from "@shared/Lib/Catalog";
+import { InventoryRowKey, InventorySizeLabel, SignedDifference } from "@shared/Lib/Inventory";
+import { CountPhaseFrom } from "@shared/Lib/InventoryCount";
+import { ScreenLinks } from "../Lib/ScreenLinks";
+import { Limits } from "@shared/Lib/Limits";
 
 /**
  * A shelf count for the active event: the start-of-event count before the doors open, or the
@@ -43,110 +20,28 @@ const copy: Record<Phase, { title: string; intro: string; saved: string }> = {
  */
 const InventoryCountPage = () => {
     const navigate = useNavigate();
-    const { hasRole } = useAuth();
     const params = useParams();
-    const phase: Phase = params.phase === "start" ? "start" : "end";
-    const text = copy[phase];
-
-    const [saleEvent, setSaleEvent] = useState<Event | null>(null);
-    const [items, setItems] = useState<InventoryItem[]>([]);
-    const [counts, setCounts] = useState<Record<string, string>>({});
-    const [note, setNote] = useState<string>("");
-    const [loading, setLoading] = useState<boolean>(true);
-    const [confirming, setConfirming] = useState<boolean>(false);
-    const [saving, setSaving] = useState<boolean>(false);
-
-    useEffect(() => {
-        const load = async () => {
-            setLoading(true);
-            const active = await GetActiveEvent();
-            setSaleEvent(active);
-            if (active?.id) {
-                const rows = await GetInventory(active.id);
-                setItems(rows);
-                // A count already taken at this event opens with its numbers, so it can be
-                // corrected rather than started again.
-                const previous = (r: InventoryItem) =>
-                    phase === "start" ? r.openingCountAtEvent : r.countedAtEvent;
-                setCounts(
-                    Object.fromEntries(
-                        rows
-                            .filter((r) => previous(r) !== null && previous(r) !== undefined)
-                            .map((r) => [InventoryRowKey(r), String(previous(r))])
-                    )
-                );
-            }
-            setLoading(false);
-        };
-        load();
-    }, [phase]);
-
-    const groups = useMemo(() => GroupInventory(items), [items]);
-
-    const parse = (value: string | undefined): number | null => {
-        if (value === undefined || value.trim() === "") return null;
-        const n = Number(value);
-        return Number.isInteger(n) && n >= 0 ? n : null;
-    };
-
-    const entered = items.filter((i) => parse(counts[InventoryRowKey(i)]) !== null);
-    const invalid = items.some((i) => {
-        const raw = counts[InventoryRowKey(i)];
-        return raw !== undefined && raw.trim() !== "" && parse(raw) === null;
-    });
-    const differences = entered.filter(
-        (i) => parse(counts[InventoryRowKey(i)]) !== (i.quantityOnHand ?? 0)
-    );
-    const blanks = items.length - entered.length;
-
-    const setCount = (item: InventoryItem, value: string) =>
-        setCounts((current) => ({
-            ...current,
-            [InventoryRowKey(item)]: value.replace(/[^0-9]/g, ""),
-        }));
-
-    // Fills every size not yet counted with what the app expects - for the common case where the
-    // shelf agrees and only a few sizes need a real number.
-    const fillBlanks = () =>
-        setCounts((current) => {
-            const next = { ...current };
-            for (const item of items) {
-                const id = InventoryRowKey(item);
-                if (parse(next[id]) === null) next[id] = String(item.quantityOnHand ?? 0);
-            }
-            return next;
-        });
-
-    const save = async () => {
-        if (!saleEvent?.id) return;
-
-        setSaving(true);
-        const result = await SaveInventoryCount({
-            eventId: saleEvent.id,
-            phase: phase === "start" ? "Start" : "End",
-            note: note.trim() || undefined,
-            counts: entered.map((i) => ({
-                productVariantId: i.productVariantId ?? 0,
-                stockKey: i.stockKey,
-                counted: parse(counts[InventoryRowKey(i)]) ?? 0,
-            })),
-        });
-        setSaving(false);
-        setConfirming(false);
-
-        if (!result) return;
-        Toast.Success(
-            `${text.saved} for ${entered.length} size${entered.length === 1 ? "" : "s"}.` +
-                (differences.length ? ` ${differences.length} updated to match the shelf.` : "")
-        );
-        navigate("/inventory");
-    };
-
-    const review = () => {
-        if (invalid) return Toast.Warning("Counts must be whole numbers, 0 or more.");
-        if (entered.length === 0) return Toast.Warning("Enter at least one count.");
-        setConfirming(true);
-    };
+    const phase = CountPhaseFrom(params.phase);
+    const {
+        text,
+        saleEvent,
+        items,
+        groups,
+        counts,
+        countFor,
+        setCount,
+        fillBlanks,
+        note,
+        setNote,
+        loading,
+        progress: { entered, differences, blanks },
+        review,
+        confirming,
+        setConfirming,
+        confirmMessage,
+        saving,
+        save,
+    } = useInventoryCount(phase);
 
     if (loading) {
         return (
@@ -167,7 +62,7 @@ const InventoryCountPage = () => {
                 <Button
                     text="Back to inventory"
                     icon="fa-solid fa-arrow-left"
-                    onClick={() => navigate("/inventory")}
+                    onClick={() => navigate(ScreenLinks.inventory.path)}
                     className="mt-4 bg-zinc-500 hover:bg-zinc-600"
                 />
             </div>
@@ -190,7 +85,7 @@ const InventoryCountPage = () => {
                     <Button
                         text="Back"
                         icon="fa-solid fa-arrow-left"
-                        onClick={() => navigate("/inventory")}
+                        onClick={() => navigate(ScreenLinks.inventory.path)}
                         className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                     />
                 </div>
@@ -221,7 +116,7 @@ const InventoryCountPage = () => {
                                         {product.sizes.map((item) => {
                                             const id = InventoryRowKey(item);
                                             const expected = item.quantityOnHand ?? 0;
-                                            const counted = parse(counts[id]);
+                                            const counted = countFor(item);
                                             const diff =
                                                 counted === null ? null : counted - expected;
 
@@ -246,7 +141,7 @@ const InventoryCountPage = () => {
                                                                 >
                                                                     {diff === 0
                                                                         ? "Matches"
-                                                                        : `${diff > 0 ? "+" : ""}${diff}`}
+                                                                        : SignedDifference(diff)}
                                                                 </span>
                                                             )}
                                                         </p>
@@ -285,12 +180,8 @@ const InventoryCountPage = () => {
                     label="Note (optional)"
                     value={note}
                     onChange={setNote}
-                    placeholder={
-                        phase === "start"
-                            ? "e.g. Counted by Jamie, 6 queen protectors delivered this morning"
-                            : "e.g. Counted by Jamie, one pillow kept as a floor sample"
-                    }
-                    maxLength={300}
+                    placeholder={text.notePlaceholder}
+                    maxLength={Limits.inventoryNote}
                 />
             </div>
 
@@ -321,17 +212,9 @@ const InventoryCountPage = () => {
             {confirming && (
                 <ConfirmationModal
                     title={`Save the ${phase === "start" ? "start-of-event" : "end-of-event"} count`}
-                    message={
-                        `Save counts for ${entered.length} of ${items.length} sizes?` +
-                        (differences.length
-                            ? ` ${differences.length} differ from what the app expected and will be updated to match the shelf.`
-                            : " Everything matches what the app expected.") +
-                        (hasRole("Manager")
-                            ? " The count prints on the event's Accessory Inventory Sheet."
-                            : "")
-                    }
+                    message={confirmMessage}
                     confirmText={saving ? "Saving..." : "Save count"}
-                    onConfirm={save}
+                    onConfirm={() => save(() => navigate(ScreenLinks.inventory.path))}
                     onCancel={() => setConfirming(false)}
                 />
             )}

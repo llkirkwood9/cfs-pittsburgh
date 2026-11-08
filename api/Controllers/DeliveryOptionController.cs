@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using api.Catalog;
 using api.Data;
 using api.Dtos;
 using api.Models;
@@ -13,30 +14,20 @@ namespace api.Controllers
     /// <summary>
     /// The catalog of delivery methods and in-home services. Products opt into these
     /// individually, so what is offered on a Purple need not match what is offered on a Langley.
-    /// Like products, an option is either global (every territory) or one territory's own; a
-    /// manager changes only their territory's.
+    /// Like products, every territory has its own options; a manager changes only their own
+    /// territories'.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class DeliveryOptionController(
         ApplicationDbContext db,
-        IHttpClientFactory httpClientFactory,
-        IConfiguration config,
-        ILogger<BasicController> logger,
-        TokenService tokenService)
-        : BasicController(db, httpClientFactory, config, logger, tokenService)
+        ILogger<BasicController> logger)
+        : CatalogItemController(db, logger)
     {
-        #region Private Fields
-
-        private const string NotYourCatalog = "You can only change the catalog of your own territories.";
-
-        #endregion
-
         #region POST Methods
 
         /// <summary>
-        /// Adds a delivery option - to the manager's territory, or for a system admin or administrator
-        /// either globally or to a territory they pick.
+        /// Adds a delivery option to a territory's catalog: the one asked for, or else the one in view.
         /// </summary>
         /// <param name="request">Delivery option fields</param>
         /// <returns>The created option.</returns>
@@ -44,58 +35,50 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> AddDeliveryOption([FromBody] DeliveryOptionDto request)
         {
-            try
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
+
+            if (string.IsNullOrWhiteSpace(request.Name))
+                return BadRequest(new { error = "Enter a name." });
+
+            if (request.Name.Trim().Length > CatalogRules.MaxDeliveryNameLength)
+                return BadRequest(new { error = "Invalid parameter." });
+
+            if (request.Price is < 0 or > CatalogRules.MaxDeliveryPrice)
+                return BadRequest(new { error = "The price must be between $0 and $100,000." });
+
+            var (territoryId, problem) = await CatalogTerritoryAsync(request.TerritoryId);
+            if (problem != null)
+                return problem;
+
+            if (await NameClashesAsync(request.Name, territoryId, null))
+                return BadRequest(new { error = "A delivery option with that name already exists." });
+
+            var saleProblem = SaleProblem(request);
+            if (saleProblem != null)
+                return BadRequest(new { error = saleProblem });
+
+            var option = new DeliveryOption
             {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or system admin may change the catalog.");
+                Name = request.Name.Trim(),
+                TerritoryId = territoryId,
+                Price = request.Price ?? 0m,
+                IsTaxable = request.IsTaxable ?? true,
+                IsTakeWith = request.IsTakeWith ?? false,
+                // Take With defaults to hidden: the item's own Take With column already says it.
+                ShowOnSalesSheet = request.ShowOnSalesSheet ?? !(request.IsTakeWith ?? false),
+                // A new option goes to the end of its territory's list unless a place is given.
+                SortOrder = request.SortOrder
+                            ?? (await DB.DeliveryOptions.Where(d => d.TerritoryId == territoryId).MaxAsync(d => (int?)d.SortOrder) ?? 0) + 1,
+                IsActive = request.IsActive ?? true,
+            };
+            (option.SaleDiscountPercent, option.SaleDiscountAmount) =
+                CatalogRules.CleanSale(request.SaleDiscountPercent, request.SaleDiscountAmount);
 
-                if (string.IsNullOrWhiteSpace(request.Name))
-                    return BadRequest(new { error = "Enter a name." });
+            DB.DeliveryOptions.Add(option);
+            await DB.SaveChangesAsync();
 
-                if (request.Name.Trim().Length > 100)
-                    return BadRequest(new { error = "Invalid parameter." });
-
-                if (request.Price is < 0 or > 100_000)
-                    return BadRequest(new { error = "The price must be between $0 and $100,000." });
-
-                var (territoryId, problem) = await CatalogTerritoryAsync(request.TerritoryId);
-                if (problem != null)
-                    return problem;
-
-                if (await NameClashesAsync(request.Name, territoryId, null))
-                    return BadRequest(new { error = "A delivery option with that name already exists." });
-
-                var saleProblem = SaleProblem(request);
-                if (saleProblem != null)
-                    return BadRequest(new { error = saleProblem });
-
-                var option = new DeliveryOption
-                {
-                    Name = request.Name.Trim(),
-                    TerritoryId = territoryId,
-                    Price = request.Price ?? 0m,
-                    IsTaxable = request.IsTaxable ?? true,
-                    IsTakeWith = request.IsTakeWith ?? false,
-                    // Take With defaults to hidden: the item's own Take With column already says it.
-                    ShowOnSalesSheet = request.ShowOnSalesSheet ?? !(request.IsTakeWith ?? false),
-                    // A new option goes to the end of its list - global, or its territory's own -
-                    // unless a place is given.
-                    SortOrder = request.SortOrder
-                                ?? (await DB.DeliveryOptions.Where(d => d.TerritoryId == territoryId).MaxAsync(d => (int?)d.SortOrder) ?? 0) + 1,
-                    IsActive = request.IsActive ?? true,
-                };
-                (option.SaleDiscountPercent, option.SaleDiscountAmount) =
-                    ProductController.CleanSale(request.SaleDiscountPercent, request.SaleDiscountAmount);
-
-                DB.DeliveryOptions.Add(option);
-                await DB.SaveChangesAsync();
-
-                return Ok(await LoadDtoAsync(option.Id));
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while adding the delivery option.", e);
-            }
+            return Ok(await LoadDtoAsync(option.Id));
         }
 
         #endregion
@@ -112,14 +95,7 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetDeliveryOptions([FromQuery] bool includeInactive = false)
         {
-            try
-            {
-                return Ok(await ListAsync(includeInactive));
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while getting delivery options.", e);
-            }
+            return Ok(await ListAsync(includeInactive));
         }
 
         #endregion
@@ -136,36 +112,10 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> ReorderDeliveryOptions([FromBody] List<int> ids)
         {
-            try
-            {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or system admin may change the catalog.");
+            if (await ReorderAsync(ids, id => DB.DeliveryOptions.FindAsync(id), territoryId => DB.DeliveryOptions.Where(d => d.TerritoryId == territoryId).ToListAsync()) is { } problem)
+                return problem;
 
-                if (ids.Count == 0 || ids.Distinct().Count() != ids.Count)
-                    return BadRequest(new { error = "Invalid parameter." });
-
-                var first = await DB.DeliveryOptions.FindAsync(ids[0]);
-                if (first == null)
-                    return BadRequest(new { error = "The list has changed. Refresh and try again." });
-
-                var group = await DB.DeliveryOptions.Where(d => d.TerritoryId == first.TerritoryId).ToListAsync();
-                if (group.Count != ids.Count || group.Any(o => !ids.Contains(o.Id)))
-                    return BadRequest(new { error = "The list has changed. Refresh and try again." });
-
-                if (!CanEditCatalog(first.TerritoryId))
-                    return Forbidden(NotYourCatalog);
-
-                foreach (var option in group)
-                    option.SortOrder = ids.IndexOf(option.Id) + 1;
-
-                await DB.SaveChangesAsync();
-
-                return Ok(await ListAsync(includeInactive: true));
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while reordering the delivery options.", e);
-            }
+            return Ok(await ListAsync(includeInactive: true));
         }
 
         #endregion
@@ -181,70 +131,63 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> UpdateDeliveryOption([FromBody] DeliveryOptionDto request)
         {
-            try
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
+
+            if (request.Id == null)
+                return BadRequest(new { error = "Missing parameter." });
+
+            var option = (await DB.DeliveryOptions.FindAsync(request.Id.Value)).IfVisibleTo(Scope);
+            if (option == null)
+                return NotFound(new { error = "Delivery option not found." });
+
+            if (DenyUnlessEditable(option.TerritoryId) is { } notEditable)
+                return notEditable;
+
+            if (request.Name != null)
             {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or system admin may change the catalog.");
+                if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > CatalogRules.MaxDeliveryNameLength)
+                    return BadRequest(new { error = "Invalid parameter." });
 
-                if (request.Id == null)
-                    return BadRequest(new { error = "Missing parameter." });
+                if (await NameClashesAsync(request.Name, option.TerritoryId, option.Id))
+                    return BadRequest(new { error = "A delivery option with that name already exists." });
 
-                var option = await DB.DeliveryOptions.FindAsync(request.Id.Value);
-                if (option == null || !Scope.CanSee(option.TerritoryId))
-                    return NotFound(new { error = "Delivery option not found." });
-
-                if (!CanEditCatalog(option.TerritoryId))
-                    return Forbidden(NotYourCatalog);
-
-                if (request.Name != null)
-                {
-                    if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Trim().Length > 100)
-                        return BadRequest(new { error = "Invalid parameter." });
-
-                    if (await NameClashesAsync(request.Name, option.TerritoryId, option.Id))
-                        return BadRequest(new { error = "A delivery option with that name already exists." });
-
-                    option.Name = request.Name.Trim();
-                }
-
-                if (request.Price is < 0 or > 100_000)
-                    return BadRequest(new { error = "The price must be between $0 and $100,000." });
-
-                if (request.Price != null)
-                    option.Price = request.Price.Value;
-
-                if (request.IsTaxable != null)
-                    option.IsTaxable = request.IsTaxable.Value;
-
-                if (request.IsTakeWith != null)
-                    option.IsTakeWith = request.IsTakeWith.Value;
-
-                if (request.ShowOnSalesSheet != null)
-                    option.ShowOnSalesSheet = request.ShowOnSalesSheet.Value;
-
-                if (request.SortOrder != null)
-                    option.SortOrder = request.SortOrder.Value;
-
-                if (request.IsActive != null)
-                    option.IsActive = request.IsActive.Value;
-
-                // The editor always sends the whole sale; 0 or nothing clears it.
-                var saleProblem = SaleProblem(request);
-                if (saleProblem != null)
-                    return BadRequest(new { error = saleProblem });
-
-                if (request.SaleDiscountPercent != null || request.SaleDiscountAmount != null)
-                    (option.SaleDiscountPercent, option.SaleDiscountAmount) =
-                        ProductController.CleanSale(request.SaleDiscountPercent, request.SaleDiscountAmount);
-
-                await DB.SaveChangesAsync();
-
-                return Ok(await LoadDtoAsync(option.Id));
+                option.Name = request.Name.Trim();
             }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while updating the delivery option.", e);
-            }
+
+            if (request.Price is < 0 or > CatalogRules.MaxDeliveryPrice)
+                return BadRequest(new { error = "The price must be between $0 and $100,000." });
+
+            if (request.Price != null)
+                option.Price = request.Price.Value;
+
+            if (request.IsTaxable != null)
+                option.IsTaxable = request.IsTaxable.Value;
+
+            if (request.IsTakeWith != null)
+                option.IsTakeWith = request.IsTakeWith.Value;
+
+            if (request.ShowOnSalesSheet != null)
+                option.ShowOnSalesSheet = request.ShowOnSalesSheet.Value;
+
+            if (request.SortOrder != null)
+                option.SortOrder = request.SortOrder.Value;
+
+            if (request.IsActive != null)
+                option.IsActive = request.IsActive.Value;
+
+            // The editor always sends the whole sale; 0 or nothing clears it.
+            var saleProblem = SaleProblem(request);
+            if (saleProblem != null)
+                return BadRequest(new { error = saleProblem });
+
+            if (request.SaleDiscountPercent != null || request.SaleDiscountAmount != null)
+                (option.SaleDiscountPercent, option.SaleDiscountAmount) =
+                    CatalogRules.CleanSale(request.SaleDiscountPercent, request.SaleDiscountAmount);
+
+            await DB.SaveChangesAsync();
+
+            return Ok(await LoadDtoAsync(option.Id));
         }
 
         #endregion
@@ -262,43 +205,36 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> DeleteDeliveryOption(int id, [FromQuery] bool permanent = false)
         {
-            try
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
+
+            var option = (await DB.DeliveryOptions.FindAsync(id)).IfVisibleTo(Scope);
+            if (option == null)
+                return NotFound(new { error = "Delivery option not found." });
+
+            if (DenyUnlessEditable(option.TerritoryId) is { } notEditable)
+                return notEditable;
+
+            if (permanent)
             {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or system admin may change the catalog.");
+                if (!IsSystemAdmin())
+                    return Forbidden("Only a system admin can delete a delivery option permanently.");
 
-                var option = await DB.DeliveryOptions.FindAsync(id);
-                if (option == null || !Scope.CanSee(option.TerritoryId))
-                    return NotFound(new { error = "Delivery option not found." });
-
-                if (!CanEditCatalog(option.TerritoryId))
-                    return Forbidden(NotYourCatalog);
-
-                if (permanent)
-                {
-                    if (!IsSystemAdmin())
-                        return Forbidden("Only a system admin can delete a delivery option permanently.");
-
-                    await PermanentDelete.DeliveryOptionAsync(DB, id);
-                    return Ok(new { archived = false });
-                }
-
-                if (await DB.OrderLines.AnyAsync(l => l.DeliveryOptionId == id))
-                {
-                    option.IsActive = false;
-                    await DB.SaveChangesAsync();
-                    return Ok(new { archived = true });
-                }
-
-                DB.DeliveryOptions.Remove(option);
-                await DB.SaveChangesAsync();
-
+                await PermanentDelete.DeliveryOptionAsync(DB, id);
                 return Ok(new { archived = false });
             }
-            catch (Exception e)
+
+            if (await DB.OrderLines.AnyAsync(l => l.DeliveryOptionId == id))
             {
-                return ServerError("Internal error occurred while deleting the delivery option.", e);
+                option.IsActive = false;
+                await DB.SaveChangesAsync();
+                return Ok(new { archived = true });
             }
+
+            DB.DeliveryOptions.Remove(option);
+            await DB.SaveChangesAsync();
+
+            return Ok(new { archived = false });
         }
 
         #endregion
@@ -313,9 +249,7 @@ namespace api.Controllers
         /// <returns>The options as DTOs.</returns>
         private async Task<List<DeliveryOptionDto>> ListAsync(bool includeInactive)
         {
-            var visible = Scope.VisibleTerritoryIds;
-            var query = DB.DeliveryOptions.Include(d => d.Territory).AsNoTracking()
-                .Where(d => d.TerritoryId != null && (visible == null || visible.Contains(d.TerritoryId.Value)));
+            var query = DB.DeliveryOptions.Include(d => d.Territory).AsNoTracking().VisibleTo(Scope);
 
             if (!includeInactive)
                 query = query.Where(d => d.IsActive);
@@ -368,6 +302,8 @@ namespace api.Controllers
                 IsActive = option.IsActive,
                 SaleDiscountPercent = option.SaleDiscountPercent,
                 SaleDiscountAmount = option.SaleDiscountAmount,
+                EffectiveSalePercent = Choices.DeliverySaleFor(option, null).Percent,
+                EffectiveSaleAmount = Choices.DeliverySaleFor(option, null).Amount,
             };
         }
 
@@ -376,11 +312,7 @@ namespace api.Controllers
         /// </summary>
         private static string? SaleProblem(DeliveryOptionDto request)
         {
-            if (request.SaleDiscountPercent is < 0 or > 100)
-                return "A sale percent must be between 0 and 100.";
-            if (request.SaleDiscountAmount < 0)
-                return "A sale amount can't be negative.";
-            return null;
+            return CatalogRules.SalesProblem([(request.SaleDiscountPercent, request.SaleDiscountAmount)]);
         }
 
         #endregion

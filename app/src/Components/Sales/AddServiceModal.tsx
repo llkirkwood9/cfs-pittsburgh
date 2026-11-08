@@ -1,16 +1,15 @@
-import { useState } from "react";
 import { Pressable, View } from "react-native";
 import Button from "../Elements/Button";
 import Grid from "../Elements/Grid";
 import Modal from "../Elements/Modal";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
-import { FormatCurrency, TakeWithBlocked } from "../../Lib/ModelHelpers";
-import { ApplyDiscount, DeliverySaleFor, DiscountText, HasDiscount } from "../../Lib/Pricing";
-import { Toast } from "../../Lib/Toast";
-import type { DeliveryOption } from "../../Models/DeliveryOption";
-import type { OrderLine } from "../../Models/OrderLine";
-import type { Product } from "../../Models/Product";
+import { useServicePicker } from "@shared/Hooks/useSalesForms";
+import { FormatCurrency } from "@shared/Lib/Format";
+import { DiscountText, HasDiscount } from "@shared/Lib/Pricing";
+import type { DeliveryOption } from "@shared/Models/DeliveryOption";
+import type { OrderLine } from "@shared/Models/OrderLine";
+import type { Product } from "@shared/Models/Product";
 
 type Props = {
     parentLine: OrderLine;
@@ -28,43 +27,8 @@ type Props = {
  * service is given afterwards, with Edit on its row.
  */
 const AddServiceModal = ({ parentLine, options, products = [], onAdd, onClose }: Props) => {
-    const [selectedId, setSelectedId] = useState<number | null>(null);
-    const [saving, setSaving] = useState<boolean>(false);
-
-    // Take With is only on offer while the cart has enough of a tracked item it keeps.
-    const stockBlock = TakeWithBlocked(
-        parentLine.quantityOnHand,
-        parentLine.quantity ?? 1,
-        parentLine.notKeptAtCart
-    );
-
-    const parentProduct = products.find((p) =>
-        (p.variants ?? []).some((v) => v.id === parentLine.productVariantId)
-    );
-    const pricing = (option: DeliveryOption) => {
-        const forProduct = parentProduct?.deliveryOptions?.find(
-            (d) => d.deliveryOptionId === option.id
-        );
-        const price = forProduct?.price ?? option.price ?? 0;
-        const sale = DeliverySaleFor(forProduct, option);
-        return { price, sale, salePrice: ApplyDiscount(price, sale) };
-    };
-
-    const selected = options.find((o) => o.id === selectedId);
-    const chosen = selected ? pricing(selected) : null;
-
-    const handleAdd = async () => {
-        if (!selectedId) return Toast.Warning("Pick a service first.");
-
-        setSaving(true);
-        await onAdd({
-            lineType: "Delivery",
-            deliveryOptionId: selectedId,
-            parentLineId: parentLine.id,
-        });
-        setSaving(false);
-        onClose();
-    };
+    const { selectedId, setSelectedId, blockedFor, pricing, chosen, saving, add } =
+        useServicePicker(parentLine, options, products, onAdd, onClose);
 
     return (
         <Modal
@@ -72,11 +36,19 @@ const AddServiceModal = ({ parentLine, options, products = [], onAdd, onClose }:
             onClose={onClose}
             footer={
                 <>
-                    <Button text="Cancel" onClick={onClose} className="bg-zinc-500 dark:bg-zinc-600" />
                     <Button
-                        text={chosen ? `Add service ${FormatCurrency(chosen.salePrice)}` : "Add service"}
+                        text="Cancel"
+                        onClick={onClose}
+                        className="bg-zinc-500 dark:bg-zinc-600"
+                    />
+                    <Button
+                        text={
+                            chosen
+                                ? `Add service ${FormatCurrency(chosen.salePrice)}`
+                                : "Add service"
+                        }
                         icon="fa-solid fa-plus"
-                        onClick={handleAdd}
+                        onClick={add}
                         loading={saving}
                         className="bg-green-700 dark:bg-green-600"
                     />
@@ -85,7 +57,7 @@ const AddServiceModal = ({ parentLine, options, products = [], onAdd, onClose }:
         >
             <Grid columns={{ base: 1, sm: 2 }} gap={8}>
                 {options.map((option) => {
-                    const blocked = option.isTakeWith ? stockBlock : null;
+                    const blocked = blockedFor(option);
                     const { price, sale, salePrice } = pricing(option);
                     const active = option.id === selectedId;
                     const color = active ? "text-white" : "text-zinc-800 dark:text-zinc-100";
@@ -121,7 +93,9 @@ const AddServiceModal = ({ parentLine, options, products = [], onAdd, onClose }:
                                     </Text>
                                 )}
                                 <Text className={cx("tabular-nums", color)}>
-                                    {FormatCurrency(price > 0 && HasDiscount(sale) ? salePrice : price)}
+                                    {FormatCurrency(
+                                        price > 0 && HasDiscount(sale) ? salePrice : price
+                                    )}
                                 </Text>
                             </View>
                         </Pressable>

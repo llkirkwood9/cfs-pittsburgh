@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { View } from "react-native";
 import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
@@ -11,16 +11,9 @@ import SwipeRow from "../Components/Elements/SwipeRow";
 import type { SwipeAction } from "../Components/Elements/SwipeRow";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
-import { useTerritory } from "../Context/TerritoryContext";
+import { useTerritories } from "@shared/Hooks/useTerritories";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
-import { Toast } from "../Lib/Toast";
-import type { Territory } from "../Models/Territory";
-import {
-    AddTerritory,
-    DeleteTerritory,
-    GetTerritories,
-    UpdateTerritory,
-} from "../Services/TerritoryServices";
+import { Limits } from "@shared/Lib/Limits";
 
 /**
  * Territories, for system admins and administrators. Each one has its own crew, events, stock,
@@ -28,84 +21,20 @@ import {
  * it; swipe it to work in it, switch it off or on, or delete it while nothing belongs to it yet.
  */
 const TerritoriesPage = () => {
-    const { reload: reloadPicker, setTerritoryId } = useTerritory();
-    const [territories, setTerritories] = useState<Territory[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
+    const page = useTerritories();
+    const { territories, editing, switchingOff, deleting } = page;
     const [refreshing, setRefreshing] = useState<boolean>(false);
-    const [editing, setEditing] = useState<Territory | null>(null);
-    const [name, setName] = useState<string>("");
-    // A new territory's catalog: empty, or a copy of another territory's.
-    const [copyFrom, setCopyFrom] = useState<number | null>(null);
-    const [saving, setSaving] = useState<boolean>(false);
-    const [switchingOff, setSwitchingOff] = useState<Territory | null>(null);
-    const [deleting, setDeleting] = useState<Territory | null>(null);
-
-    const load = useCallback(async () => {
-        setTerritories(await GetTerritories(true));
-        setLoading(false);
-    }, []);
-
-    useEffect(() => {
-        load();
-    }, [load]);
 
     // Back on this screen: read it again.
-    useRefreshOnFocus(load);
+    useRefreshOnFocus(page.load);
 
     const handleRefresh = async () => {
         setRefreshing(true);
-        await load();
+        await page.load();
         setRefreshing(false);
     };
 
-    const afterChange = async () => {
-        await load();
-        await reloadPicker();
-    };
-
-    const open = (territory: Territory) => {
-        setEditing(territory);
-        setName(territory.name ?? "");
-        setCopyFrom(null);
-    };
-
-    const handleSave = async () => {
-        if (!name.trim()) return Toast.Warning("Enter the territory's name.");
-
-        setSaving(true);
-        const saved = editing?.id
-            ? await UpdateTerritory({ id: editing.id, name: name.trim() })
-            : await AddTerritory(name.trim(), copyFrom);
-        setSaving(false);
-
-        if (!saved) return;
-        Toast.Success(
-            !editing?.id && copyFrom != null
-                ? `${saved.name} added, with ${saved.productCount ?? 0} products copied into its catalog.`
-                : `${saved.name} saved.`
-        );
-        setEditing(null);
-        await afterChange();
-    };
-
-    const setActive = async (territory: Territory, isActive: boolean) => {
-        const saved = await UpdateTerritory({ id: territory.id, isActive });
-        setSwitchingOff(null);
-        if (!saved) return;
-        Toast.Success(isActive ? `${saved.name} switched back on.` : `${saved.name} switched off.`);
-        await afterChange();
-    };
-
-    const handleDelete = async () => {
-        if (!deleting?.id) return;
-        const done = await DeleteTerritory(deleting.id);
-        setDeleting(null);
-        if (!done) return;
-        Toast.Success("Territory deleted.");
-        await afterChange();
-    };
-
-    if (loading) {
+    if (page.loading) {
         return (
             <Page edges={["left", "right"]}>
                 <ListSkeleton rows={3} />
@@ -120,7 +49,7 @@ const TerritoriesPage = () => {
                     <Button
                         text="Add territory"
                         icon="fa-solid fa-plus"
-                        onClick={() => open({ isActive: true })}
+                        onClick={page.add}
                         className="bg-green-700 dark:bg-green-600"
                     />
                 </View>
@@ -135,7 +64,9 @@ const TerritoriesPage = () => {
                     {territories.map((territory) => {
                         const off = territory.isActive === false;
                         const empty =
-                            !territory.userCount && !territory.eventCount && !territory.productCount;
+                            !territory.userCount &&
+                            !territory.eventCount &&
+                            !territory.productCount;
                         const actions: SwipeAction[] = [
                             ...(!off
                                 ? [
@@ -143,7 +74,7 @@ const TerritoriesPage = () => {
                                           label: "View",
                                           icon: "fa-solid fa-eye",
                                           tone: "sky" as const,
-                                          onPress: () => setTerritoryId(territory.id ?? null),
+                                          onPress: () => page.workIn(territory),
                                       },
                                   ]
                                 : []),
@@ -152,13 +83,13 @@ const TerritoriesPage = () => {
                                       label: "Switch on",
                                       icon: "fa-solid fa-power-off",
                                       tone: "neutral" as const,
-                                      onPress: () => setActive(territory, true),
+                                      onPress: () => page.setActive(territory, true),
                                   }
                                 : {
                                       label: "Switch off",
                                       icon: "fa-solid fa-power-off",
                                       tone: "danger" as const,
-                                      onPress: () => setSwitchingOff(territory),
+                                      onPress: () => page.setSwitchingOff(territory),
                                   },
                             ...(empty
                                 ? [
@@ -166,7 +97,7 @@ const TerritoriesPage = () => {
                                           label: "Delete",
                                           icon: "fa-solid fa-trash",
                                           tone: "danger" as const,
-                                          onPress: () => setDeleting(territory),
+                                          onPress: () => page.setDeleting(territory),
                                       },
                                   ]
                                 : []),
@@ -175,7 +106,7 @@ const TerritoriesPage = () => {
                         return (
                             <SwipeRow
                                 key={territory.id}
-                                onPress={() => open(territory)}
+                                onPress={() => page.open(territory)}
                                 actions={actions}
                                 accessibilityLabel={`${territory.name}${off ? ", switched off" : ""}`}
                                 className="p-4"
@@ -216,29 +147,29 @@ const TerritoriesPage = () => {
             {editing && (
                 <Modal
                     title={editing.id ? "Rename territory" : "Add territory"}
-                    onClose={() => setEditing(null)}
+                    onClose={page.close}
                     footer={
                         <>
                             <Button
                                 text="Cancel"
-                                onClick={() => setEditing(null)}
+                                onClick={page.close}
                                 className="bg-zinc-500 dark:bg-zinc-600"
                             />
                             <Button
                                 text="Save"
                                 icon="fa-solid fa-check"
-                                onClick={handleSave}
-                                loading={saving}
+                                onClick={page.save}
+                                loading={page.saving}
                             />
                         </>
                     }
                 >
                     <TextField
                         label="Name"
-                        value={name}
-                        onChange={setName}
-                        onSubmit={handleSave}
-                        maxLength={100}
+                        value={page.name}
+                        onChange={page.setName}
+                        onSubmit={page.save}
+                        maxLength={Limits.territoryName}
                         autoFocus
                         autoCapitalize="words"
                     />
@@ -246,20 +177,21 @@ const TerritoriesPage = () => {
                         <>
                             <SelectField<number | null>
                                 label="Catalog"
-                                value={copyFrom}
+                                value={page.copyFrom}
                                 options={[
                                     { value: null, label: "Start with an empty catalog" },
-                                    ...territories
-                                        .filter((t) => t.isActive !== false)
-                                        .map((t) => ({ value: t.id ?? null, label: `Copy ${t.name}'s catalog` })),
+                                    ...page.copySources.map((t) => ({
+                                        value: t.id ?? null,
+                                        label: `Copy ${t.name}'s catalog`,
+                                    })),
                                 ]}
-                                onChange={setCopyFrom}
+                                onChange={page.setCopyFrom}
                                 className="mt-3"
                             />
                             <Text className="mt-3 text-xs text-zinc-500 dark:text-zinc-400">
-                                Each territory has its own catalog. A copy brings every product with its
-                                sizes, prices and sales, and the delivery and financing options - but not
-                                stock. It starts with the company-wide settings.
+                                Each territory has its own catalog. A copy brings every product with
+                                its sizes, prices and sales, and the delivery and financing options
+                                - but not stock. It starts with the company-wide settings.
                             </Text>
                         </>
                     )}
@@ -272,8 +204,8 @@ const TerritoriesPage = () => {
                     message={`Switch ${switchingOff.name} off? Its crew are signed out and can't sign back in, and its active event is closed, until it is switched back on. Nothing is deleted.`}
                     confirmText="Switch off"
                     destructive
-                    onConfirm={() => setActive(switchingOff, false)}
-                    onCancel={() => setSwitchingOff(null)}
+                    onConfirm={() => page.setActive(switchingOff, false)}
+                    onCancel={() => page.setSwitchingOff(null)}
                 />
             )}
 
@@ -283,8 +215,8 @@ const TerritoriesPage = () => {
                     message={`Delete ${deleting.name}? Nothing belongs to it yet, so nothing else is affected.`}
                     confirmText="Delete"
                     destructive
-                    onConfirm={handleDelete}
-                    onCancel={() => setDeleting(null)}
+                    onConfirm={page.confirmDelete}
+                    onCancel={() => page.setDeleting(null)}
                 />
             )}
         </Page>

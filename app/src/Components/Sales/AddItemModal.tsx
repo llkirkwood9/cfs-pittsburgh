@@ -1,8 +1,7 @@
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import Button from "../Elements/Button";
 import DiscountInput from "../Elements/DiscountInput";
-import type { DiscountMode } from "../Elements/DiscountInput";
 import Grid, { Cell } from "../Elements/Grid";
 import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
@@ -13,123 +12,29 @@ import Text from "../Elements/Text";
 import TextArea from "../Elements/TextArea";
 import TextField from "../Elements/TextField";
 import { cx } from "../../Lib/ClassNames";
+import { useAddItem } from "@shared/Hooks/useAddItem";
+import { IncludesText, ProductStock, SizeStockText } from "@shared/Lib/AddItem";
+import { CategoryShortNames, NeedsPrice, VariantLabel } from "@shared/Lib/Catalog";
+import { FormatCurrency } from "@shared/Lib/Format";
+import { WarrantyText } from "@shared/Lib/Orders";
 import {
-    FormatCurrency,
-    NeedsPrice,
-    ParseMoney,
-    TakeWithBlocked,
-    VariantLabel,
-    WarrantyText,
-} from "../../Lib/ModelHelpers";
-import {
-    ApplyDiscount,
-    ChoicesPriceChange,
-    CleanDiscount,
-    CountedOptions,
+    PreviewPrice,
     DeliverySaleFor,
     DiscountText,
     HasDiscount,
     OnSale,
     SaleFor,
-    SizeTracked,
-    StockFor,
-} from "../../Lib/Pricing";
-import {
-    LowestPrice,
-    ProductSortOptions,
-    SortProducts,
-    type ProductSortKey,
-} from "../../Lib/ProductSort";
-import { Toast } from "../../Lib/Toast";
-import type { OrderLine } from "../../Models/OrderLine";
-import type { Product, ProductCategory } from "../../Models/Product";
-import type { LineChoice, ProductOption } from "../../Models/ProductOption";
-import type { ProductVariant } from "../../Models/ProductVariant";
+} from "@shared/Lib/Pricing";
+import { LowestPrice, ProductSortOptions } from "@shared/Lib/ProductSort";
+import type { OrderLine } from "@shared/Models/OrderLine";
+import type { Product } from "@shared/Models/Product";
 import ChoicePicker from "./ChoicePicker";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     products: Product[];
     onAdd: (line: OrderLine) => Promise<void>;
     onClose: () => void;
-};
-
-type CategoryTab = ProductCategory | "All";
-
-/**
- * Units on hand for a size across all its choices, or null when the size isn't tracked (the
- * product does not track inventory, or the size is left out). Used for the "in stock" labels;
- * Take With checks the exact choices.
- * @param product The product.
- * @param variant The size.
- * @returns The count, or null.
- */
-const sizeStock = (product: Product, variant?: ProductVariant): number | null => {
-    if (!SizeTracked(product, variant)) return null;
-    if (variant?.stocks)
-        return variant.stocks.reduce((sum, s) => sum + Math.max(0, s.quantityOnHand ?? 0), 0);
-    return variant?.quantityOnHand ?? 0;
-};
-
-/** Picks preset for a product: any selection with a single choice is chosen already. */
-const presetPicks = (product?: Product): Record<number, number> =>
-    Object.fromEntries(
-        (product?.options ?? [])
-            .filter((o) => (o.choices ?? []).length === 1 && o.id && o.choices![0].id)
-            .map((o) => [o.id!, o.choices![0].id!])
-    );
-
-/** The first required selection without a choice yet, if any. */
-const missingPick = (options: ProductOption[] | undefined, picked: Record<number, number>) =>
-    (options ?? []).find(
-        (o) =>
-            (o.isRequired || o.tracksStock) &&
-            (o.choices ?? []).length > 0 &&
-            picked[o.id ?? 0] === undefined
-    );
-
-/** The picks as sent to the server. */
-const toLineChoices = (picked: Record<number, number>): LineChoice[] =>
-    Object.entries(picked).map(([optionId, choiceId]) => ({
-        optionId: Number(optionId),
-        choiceId,
-    }));
-
-/**
- * The delivery option to preselect: the current choice when it still works, otherwise the
- * product's default, otherwise the first option - skipping Take With when the size is short.
- * @param product The product.
- * @param onHand Units on hand for the chosen size and choices, or null when not tracked.
- * @param quantity Units being added.
- * @param currentId The option picked so far, if any.
- * @param notKept True when the size, or an item it includes, isn't kept at the cart.
- * @returns The delivery option id, or null.
- */
-const pickDelivery = (
-    product: Product,
-    onHand: number | null,
-    quantity: number,
-    currentId: number | null,
-    notKept = false
-): number | null => {
-    const blocked = TakeWithBlocked(onHand, quantity, notKept);
-    const usable = (product.deliveryOptions ?? []).filter((d) => !(d.isTakeWith && blocked));
-
-    if (currentId !== null && usable.some((d) => d.deliveryOptionId === currentId))
-        return currentId;
-
-    const preferred = usable.find((d) => d.isDefault) ?? usable[0];
-    return preferred?.deliveryOptionId ?? null;
-};
-
-const categoryLabels: Record<ProductCategory, string> = {
-    Mattress: "Mattresses",
-    AdjustableBase: "Bases",
-    Pillow: "Pillows",
-    Sheets: "Sheets",
-    MattressProtector: "Protectors",
-    Frame: "Frames",
-    BeanBagChair: "Bean Bags",
-    Misc: "Other",
 };
 
 /** A chip's text colour: white when chosen. */
@@ -153,278 +58,69 @@ const Label = ({ children }: { children: string }) => (
  * method, then add. Everything is a chip rather than a drop-down so it works with a thumb.
  */
 const AddItemModal = ({ products, onAdd, onClose }: Props) => {
-    const [tab, setTab] = useState<CategoryTab>("Mattress");
-    const [search, setSearch] = useState<string>("");
-    const [sortKey, setSortKey] = useState<ProductSortKey>("name-asc");
     const [showSizes, setShowSizes] = useState<boolean>(false);
-    const [selected, setSelected] = useState<Product | null>(null);
-    const [variantId, setVariantId] = useState<number | null>(null);
-    const [deliveryId, setDeliveryId] = useState<number | null>(null);
-    const [quantity, setQuantity] = useState<number>(1);
-    const [discount, setDiscount] = useState<string>("");
-    const [discountMode, setDiscountMode] = useState<DiscountMode>("percent");
-    const [picks, setPicks] = useState<Record<number, number>>({});
-    // Choices for the items a bundle includes, by the included size's id.
-    const [includedPicks, setIncludedPicks] = useState<Record<number, Record<number, number>>>({});
-    const [priceOverride, setPriceOverride] = useState<string>("");
-    const [itemNotes, setItemNotes] = useState<string>("");
-    const [saving, setSaving] = useState<boolean>(false);
-
-    const [customDescription, setCustomDescription] = useState<string>("");
-    const [customBrand, setCustomBrand] = useState<string>("");
-    const [customSize, setCustomSize] = useState<string>("");
-    const [customPrice, setCustomPrice] = useState<string>("");
-    const [customMode, setCustomMode] = useState<boolean>(false);
-
-    const categories = useMemo(() => {
-        const present = new Set(products.map((p) => p.category).filter(Boolean));
-        return (Object.keys(categoryLabels) as ProductCategory[]).filter((c) => present.has(c));
-    }, [products]);
-
-    const filtered = useMemo(() => {
-        const term = search.trim().toLowerCase();
-        const matches = products.filter((product) => {
-            if (tab !== "All" && product.category !== tab) return false;
-            if (!term) return true;
-            return (
-                (product.name ?? "").toLowerCase().includes(term) ||
-                (product.brand ?? "").toLowerCase().includes(term)
-            );
-        });
-
-        // Categories stay grouped, in the same order as the tabs, with the chosen sort within each.
-        return SortProducts(matches, sortKey, Object.keys(categoryLabels));
-    }, [products, tab, search, sortKey]);
-
-    const variant: ProductVariant | undefined = selected?.variants?.find((v) => v.id === variantId);
-    const needsPrice = variant ? NeedsPrice(variant) : false;
-    const basePrice = needsPrice ? ParseMoney(priceOverride) : (variant?.price ?? null);
-    // Choices can add to the price; the catalog sale (for a size with a price on file) then comes
-    // off, and the rep's own discount comes off the sale price - as the server works it out.
-    const choicesChange = selected ? ChoicesPriceChange(selected, picks) : 0;
-    const listPrice = basePrice === null ? null : basePrice + choicesChange;
-    const sale = selected && variant && !needsPrice ? SaleFor(selected, variant) : CleanDiscount();
-    const salePrice = listPrice === null ? null : ApplyDiscount(listPrice, sale);
-    const repDiscount =
-        discountMode === "percent"
-            ? CleanDiscount(ParseMoney(discount), null)
-            : CleanDiscount(null, ParseMoney(discount));
-    const finalPrice = salePrice === null ? null : ApplyDiscount(salePrice, repDiscount);
-
-    // The shipping picked, with its catalog sale (the product's own, or the option's). A rep's
-    // discount on shipping is given afterwards, with Edit on its row.
-    const shipping = selected?.deliveryOptions?.find((d) => d.deliveryOptionId === deliveryId);
-    const shipList = shipping?.price ?? 0;
-    const shipSale = shipping ? DeliverySaleFor(shipping) : CleanDiscount();
-    const shipSalePrice = ApplyDiscount(shipList, shipSale);
-
-    // Stock for the exact choices picked; null while a counted selection is still unpicked.
-    const stockNow = (
-        product: Product,
-        size: ProductVariant | undefined,
-        picked: Record<number, number>
-    ) => StockFor(product, size, picked);
-
-    // A size left out of inventory - or a bundle including one - isn't kept at the cart.
-    const notKeptAt = (product: Product, size: ProductVariant | undefined) =>
-        Boolean(
-            (product.trackInventory && size?.excludeFromInventory) ||
-                (size?.components ?? []).some((c) => {
-                    const included = products.find((p) => p.id === c.productId);
-                    const includedSize = included?.variants?.find(
-                        (v) => v.id === c.componentVariantId
-                    );
-                    return Boolean(included?.trackInventory && includedSize?.excludeFromInventory);
-                })
-        );
-
-    const chooseProduct = (product: Product) => {
-        setSelected(product);
-
-        const firstPriced = product.variants?.find((v) => !NeedsPrice(v)) ?? product.variants?.[0];
-        const preset = presetPicks(product);
-        setVariantId(firstPriced?.id ?? null);
-        setPicks(preset);
-        setIncludedPicks(
-            Object.fromEntries(
-                (firstPriced?.components ?? []).map((c) => [
-                    c.componentVariantId ?? 0,
-                    presetPicks(products.find((p) => p.id === c.productId)),
-                ])
-            )
-        );
-        setDeliveryId(
-            pickDelivery(
-                product,
-                stockNow(product, firstPriced, preset),
-                1,
-                null,
-                notKeptAt(product, firstPriced)
-            )
-        );
-
-        setQuantity(1);
-        setDiscount("");
-        setDiscountMode("percent");
-        setPriceOverride("");
-        setItemNotes("");
-    };
-
-    // Changing the size, choices or quantity can leave Take With short, so fall back to shipping.
-    const chooseVariant = (next: ProductVariant) => {
-        setVariantId(next.id ?? null);
-        setIncludedPicks((current) =>
-            Object.fromEntries(
-                (next.components ?? []).map((c) => [
-                    c.componentVariantId ?? 0,
-                    current[c.componentVariantId ?? 0] ??
-                        presetPicks(products.find((p) => p.id === c.productId)),
-                ])
-            )
-        );
-        if (selected)
-            setDeliveryId((current) =>
-                pickDelivery(
-                    selected,
-                    stockNow(selected, next, picks),
-                    quantity,
-                    current,
-                    notKeptAt(selected, next)
-                )
-            );
-    };
-
-    const choose = (optionId: number, choiceId: number) => {
-        const next = { ...picks, [optionId]: choiceId };
-        setPicks(next);
-        if (selected)
-            setDeliveryId((current) =>
-                pickDelivery(
-                    selected,
-                    stockNow(selected, variant, next),
-                    quantity,
-                    current,
-                    notKeptAt(selected, variant)
-                )
-            );
-    };
-
-    const changeQuantity = (next: number) => {
-        setQuantity(next);
-        if (selected)
-            setDeliveryId((current) =>
-                pickDelivery(
-                    selected,
-                    stockNow(selected, variant, picks),
-                    next,
-                    current,
-                    notKeptAt(selected, variant)
-                )
-            );
-    };
-
-    const onHand = selected ? stockNow(selected, variant, picks) : null;
-    const countedUnpicked =
-        selected &&
-        SizeTracked(selected, variant) &&
-        CountedOptions(selected).some((o) => picks[o.id ?? 0] === undefined);
-    // Not kept at the cart comes first: picking a color wouldn't make it a Take With.
-    const takeWithBlock =
-        selected && notKeptAt(selected, variant)
-            ? TakeWithBlocked(onHand, quantity, true)
-            : countedUnpicked
-              ? `Pick the ${CountedOptions(selected!)
-                    .filter((o) => picks[o.id ?? 0] === undefined)
-                    .map((o) => (o.name ?? "").toLowerCase())
-                    .join(" and ")} first`
-              : TakeWithBlocked(onHand, quantity);
-
-    // Included items with selections of their own, such as sheets in a color.
-    const includedWithChoices = (variant?.components ?? [])
-        .map((c) => ({ component: c, product: products.find((p) => p.id === c.productId) }))
-        .filter(
-            (x): x is { component: typeof x.component; product: Product } =>
-                Boolean(x.product) &&
-                (x.product!.options ?? []).some((o) => (o.choices ?? []).length > 0)
-        );
-
-    const back = () => {
-        setSelected(null);
-        setVariantId(null);
-        setDeliveryId(null);
-    };
-
-    const handleAddCatalogItem = async () => {
-        if (!variant?.id) return Toast.Warning("Pick a size first.");
-
-        const delivery = selected?.deliveryOptions?.find((d) => d.deliveryOptionId === deliveryId);
-        if (delivery?.isTakeWith && takeWithBlock)
-            return Toast.Warning(`${takeWithBlock} for Take With. Pick a shipping method instead.`);
-
-        if (needsPrice && (basePrice === null || basePrice <= 0))
-            return Toast.Warning("This size has no price on file. Enter one to continue.");
-
-        const missing = missingPick(selected?.options, picks);
-        if (missing)
-            return Toast.Warning(`Pick a ${(missing.name ?? "choice").toLowerCase()} first.`);
-
-        for (const { component, product } of includedWithChoices) {
-            const absent = missingPick(
-                product.options,
-                includedPicks[component.componentVariantId ?? 0] ?? {}
-            );
-            if (absent)
-                return Toast.Warning(
-                    `Pick a ${(absent.name ?? "choice").toLowerCase()} for the included ${product.name}.`
-                );
-        }
-
-        const discountValue = ParseMoney(discount);
-        if (discount.trim() !== "" && (discountValue === null || discountValue < 0))
-            return Toast.Warning("Enter the discount as a number.");
-        if (discountMode === "percent" && (discountValue ?? 0) > 100)
-            return Toast.Warning("The discount must be between 0 and 100 percent.");
-
-        setSaving(true);
-        await onAdd({
-            lineType: "Product",
-            productVariantId: variant.id,
-            quantity,
-            discountPercent: discountMode === "percent" ? (discountValue ?? undefined) : undefined,
-            discountAmount: discountMode === "amount" ? (discountValue ?? undefined) : undefined,
-            unitPrice: needsPrice ? (basePrice ?? undefined) : undefined,
-            choices: toLineChoices(picks),
-            includedChoices: includedWithChoices.map(({ component }) => ({
-                componentVariantId: component.componentVariantId,
-                choices: toLineChoices(includedPicks[component.componentVariantId ?? 0] ?? {}),
-            })),
-            deliveryOptionId: deliveryId ?? undefined,
-            notes: itemNotes.trim() || undefined,
-        });
-        setSaving(false);
-        onClose();
-    };
-
-    const handleAddCustomItem = async () => {
-        if (!customDescription.trim()) return Toast.Warning("Describe the item.");
-
-        const price = ParseMoney(customPrice);
-        if (price === null || price < 0) return Toast.Warning("Enter a price for the item.");
-
-        setSaving(true);
-        await onAdd({
-            lineType: "Custom",
-            category: "Misc",
-            description: customDescription.trim(),
-            brand: customBrand.trim() || undefined,
-            size: customSize.trim() || undefined,
-            unitPrice: price,
-            quantity,
-            notes: itemNotes.trim() || undefined,
-        });
-        setSaving(false);
-        onClose();
-    };
+    const {
+        tab,
+        setTab,
+        search,
+        setSearch,
+        sortKey,
+        setSortKey,
+        categories,
+        filtered,
+        chooseProduct,
+        selected,
+        variant,
+        variantId,
+        chooseVariant,
+        picks,
+        choose,
+        stockForChoice,
+        includedWithChoices,
+        includedPicks,
+        chooseIncluded,
+        includedStockForChoice,
+        deliveryId,
+        setDeliveryId,
+        takeWithBlock,
+        quantity,
+        setQuantity,
+        changeQuantity,
+        discount,
+        setDiscount,
+        discountMode,
+        setDiscountMode,
+        priceOverride,
+        setPriceOverride,
+        itemNotes,
+        setItemNotes,
+        needsPrice,
+        choicesChange,
+        listPrice,
+        sale,
+        salePrice,
+        repDiscount,
+        finalPrice,
+        shipping,
+        shipList,
+        shipSale,
+        shipSalePrice,
+        addTotal,
+        back,
+        handleAddCatalogItem,
+        customMode,
+        setCustomMode,
+        customDescription,
+        setCustomDescription,
+        customBrand,
+        setCustomBrand,
+        customSize,
+        setCustomSize,
+        customPrice,
+        setCustomPrice,
+        handleAddCustomItem,
+        saving,
+    } = useAddItem(products, onAdd, onClose);
 
     return (
         <Modal
@@ -441,7 +137,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                             className="bg-zinc-500 dark:bg-zinc-600"
                         />
                         <Button
-                            text={`Add ${FormatCurrency((finalPrice ?? 0) * quantity + shipSalePrice)}`}
+                            text={`Add ${FormatCurrency(addTotal)}`}
                             icon="fa-solid fa-plus"
                             onClick={handleAddCatalogItem}
                             loading={saving}
@@ -475,11 +171,15 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                         className="mb-3"
                         contentContainerClassName="gap-2 pb-1"
                     >
-                        <TabButton text="All" active={tab === "All"} onClick={() => setTab("All")} />
+                        <TabButton
+                            text="All"
+                            active={tab === "All"}
+                            onClick={() => setTab("All")}
+                        />
                         {categories.map((category) => (
                             <TabButton
                                 key={category}
-                                text={categoryLabels[category]}
+                                text={CategoryShortNames[category]}
                                 active={tab === category}
                                 onClick={() => setTab(category)}
                             />
@@ -538,13 +238,9 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                         ` - from ${FormatCurrency(LowestPrice(product))}`}
                                     {product.notes ? ` - ${product.notes}` : ""}
                                 </Text>
-                                {(product.variants ?? []).some((v) => SizeTracked(product, v)) && (
+                                {ProductStock(product) !== null && (
                                     <Text className="mt-0.5 text-[11px] font-semibold text-emerald-700 dark:text-emerald-400">
-                                        {(product.variants ?? []).reduce(
-                                            (sum, v) => sum + Math.max(0, sizeStock(product, v) ?? 0),
-                                            0
-                                        )}{" "}
-                                        in stock
+                                        {ProductStock(product)} in stock
                                     </Text>
                                 )}
                             </Pressable>
@@ -560,8 +256,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                     <Pressable
                         onPress={() => setCustomMode(true)}
                         accessibilityRole="button"
-                        className="mt-4 min-h-[48px] w-full flex-row items-center justify-center gap-2 rounded-xl
-                            border-2 border-dashed border-zinc-300 active:bg-zinc-100 dark:border-zinc-600 dark:active:bg-zinc-700"
+                        className="mt-4 min-h-[48px] w-full flex-row items-center justify-center gap-2 rounded-xl border-2 border-dashed border-zinc-300 active:bg-zinc-100 dark:border-zinc-600 dark:active:bg-zinc-700"
                     >
                         <Icon icon="fa-solid fa-pen" className="text-zinc-600 dark:text-zinc-300" />
                         <Text className="text-sm font-semibold text-zinc-600 dark:text-zinc-300">
@@ -579,7 +274,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                             value={customDescription}
                             onChange={setCustomDescription}
                             placeholder="What is it?"
-                            maxLength={300}
+                            maxLength={Limits.lineDescription}
                             autoFocus
                         />
                     </Cell>
@@ -599,7 +294,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                             value={itemNotes}
                             onChange={setItemNotes}
                             placeholder="Printed under the item on the sales sheet"
-                            maxLength={500}
+                            maxLength={Limits.lineNotes}
                         />
                     </Cell>
                 </Grid>
@@ -609,7 +304,10 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                 <View className="gap-4">
                     {selected.notes ? (
                         <View className="flex-row gap-2 rounded-lg bg-amber-50 px-3 py-2 dark:bg-amber-950/40">
-                            <Icon icon="fa-solid fa-circle-info" className="mt-0.5 text-sm text-amber-800 dark:text-amber-300" />
+                            <Icon
+                                icon="fa-solid fa-circle-info"
+                                className="mt-0.5 text-sm text-amber-800 dark:text-amber-300"
+                            />
                             <Text className="flex-1 text-sm text-amber-800 dark:text-amber-300">
                                 {selected.notes}
                             </Text>
@@ -617,7 +315,10 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                     ) : null}
                     {WarrantyText(selected) ? (
                         <View className="flex-row items-center gap-2">
-                            <Icon icon="fa-solid fa-shield-halved" className="text-sm text-sky-800 dark:text-sky-300" />
+                            <Icon
+                                icon="fa-solid fa-shield-halved"
+                                className="text-sm text-sky-800 dark:text-sky-300"
+                            />
                             <Text className="text-sm font-medium text-sky-800 dark:text-sky-300">
                                 {WarrantyText(selected)}
                             </Text>
@@ -632,7 +333,10 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                 accessibilityRole="button"
                                 className="min-h-[36px] flex-row items-center gap-1.5 rounded-lg px-2 active:bg-sky-50 dark:active:bg-sky-950/40"
                             >
-                                <Icon icon="fa-solid fa-ruler-combined" className="text-sm text-sky-700 dark:text-sky-400" />
+                                <Icon
+                                    icon="fa-solid fa-ruler-combined"
+                                    className="text-sm text-sky-700 dark:text-sky-400"
+                                />
                                 <Text className="text-sm font-semibold text-sky-700 dark:text-sky-400">
                                     Size guide
                                 </Text>
@@ -649,7 +353,10 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                         onPress={() => chooseVariant(v)}
                                         accessibilityRole="radio"
                                         accessibilityState={{ checked: active }}
-                                        className={cx("min-h-[60px] justify-center rounded-xl px-3 py-2", chipBox(active))}
+                                        className={cx(
+                                            "min-h-[60px] justify-center rounded-xl px-3 py-2",
+                                            chipBox(active)
+                                        )}
                                     >
                                         <Text className={cx("text-sm font-semibold", color)}>
                                             {VariantLabel(v)}
@@ -659,11 +366,20 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                                 "Inquire"
                                             ) : HasDiscount(vSale) ? (
                                                 <>
-                                                    <Text className={cx("text-xs line-through", color)}>
+                                                    <Text
+                                                        className={cx(
+                                                            "text-xs line-through",
+                                                            color
+                                                        )}
+                                                    >
                                                         {FormatCurrency(v.price)}
                                                     </Text>{" "}
-                                                    <Text className={cx("text-xs font-bold", color)}>
-                                                        {FormatCurrency(ApplyDiscount(v.price ?? 0, vSale))}
+                                                    <Text
+                                                        className={cx("text-xs font-bold", color)}
+                                                    >
+                                                        {FormatCurrency(
+                                                            PreviewPrice(v.price ?? 0, vSale)
+                                                        )}
                                                     </Text>{" "}
                                                     ({DiscountText(vSale)} off)
                                                 </>
@@ -671,23 +387,24 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                                 FormatCurrency(v.price)
                                             )}
                                         </Text>
-                                        {SizeTracked(selected, v) && (
-                                            <Text className={cx("text-[11px] font-semibold opacity-90", color)}>
-                                                {(sizeStock(selected, v) ?? 0) > 0
-                                                    ? `${sizeStock(selected, v)} in stock${v.stocks ? " in all" : ""}`
-                                                    : "Out of stock - ship only"}
+                                        {SizeStockText(selected, v) && (
+                                            <Text
+                                                className={cx(
+                                                    "text-[11px] font-semibold opacity-90",
+                                                    color
+                                                )}
+                                            >
+                                                {SizeStockText(selected, v)}
                                             </Text>
                                         )}
                                         {(v.components ?? []).length > 0 && (
-                                            <Text className={cx("mt-0.5 text-[11px] font-medium opacity-90", color)}>
-                                                +{" "}
-                                                {(v.components ?? [])
-                                                    .map((c) =>
-                                                        (c.quantity ?? 1) > 1
-                                                            ? `${c.quantity} x ${c.productName}`
-                                                            : c.productName
-                                                    )
-                                                    .join(", ")}
+                                            <Text
+                                                className={cx(
+                                                    "mt-0.5 text-[11px] font-medium opacity-90",
+                                                    color
+                                                )}
+                                            >
+                                                + {IncludesText(v)}
                                             </Text>
                                         )}
                                     </Pressable>
@@ -699,7 +416,10 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                     {/* The picked size's own note, such as a longer wait for a special order. */}
                     {variant?.notes ? (
                         <View className="flex-row gap-2 rounded-lg bg-amber-50 px-3 py-2 dark:bg-amber-950/40">
-                            <Icon icon="fa-solid fa-circle-info" className="mt-0.5 text-sm text-amber-800 dark:text-amber-300" />
+                            <Icon
+                                icon="fa-solid fa-circle-info"
+                                className="mt-0.5 text-sm text-amber-800 dark:text-amber-300"
+                            />
                             <Text className="flex-1 text-sm text-amber-800 dark:text-amber-300">
                                 {variant.notes}
                             </Text>
@@ -714,14 +434,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                 option={option}
                                 picked={picks[option.id ?? 0]}
                                 onPick={(choiceId) => choose(option.id ?? 0, choiceId)}
-                                stockFor={(choiceId) =>
-                                    option.tracksStock && SizeTracked(selected, variant)
-                                        ? stockNow(selected, variant, {
-                                              ...picks,
-                                              [option.id ?? 0]: choiceId,
-                                          })
-                                        : null
-                                }
+                                stockFor={(choiceId) => stockForChoice(option, choiceId)}
                             />
                         ))}
 
@@ -731,9 +444,15 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                             className="gap-3 rounded-xl border border-violet-200 p-3 dark:border-violet-800"
                         >
                             <View className="flex-row items-center gap-2">
-                                <Icon icon="fa-solid fa-link" className="text-sm text-violet-900 dark:text-violet-200" />
+                                <Icon
+                                    icon="fa-solid fa-link"
+                                    className="text-sm text-violet-900 dark:text-violet-200"
+                                />
                                 <Text className="flex-1 text-sm font-semibold text-violet-900 dark:text-violet-200">
-                                    Included: {(component.quantity ?? 1) > 1 ? `${component.quantity} x ` : ""}
+                                    Included:{" "}
+                                    {(component.quantity ?? 1) > 1
+                                        ? `${component.quantity} x `
+                                        : ""}
                                     {product.name}
                                     {component.size ? ` - ${component.size}` : ""}
                                 </Text>
@@ -742,29 +461,21 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                 .filter((o) => (o.choices ?? []).length > 0)
                                 .map((option) => {
                                     const id = component.componentVariantId ?? 0;
-                                    const current = includedPicks[id] ?? {};
-                                    const size = product.variants?.find((v) => v.id === id);
                                     return (
                                         <ChoicePicker
                                             key={option.id}
                                             option={option}
-                                            picked={current[option.id ?? 0]}
+                                            picked={includedPicks[id]?.[option.id ?? 0]}
                                             onPick={(choiceId) =>
-                                                setIncludedPicks((all) => ({
-                                                    ...all,
-                                                    [id]: {
-                                                        ...(all[id] ?? {}),
-                                                        [option.id ?? 0]: choiceId,
-                                                    },
-                                                }))
+                                                chooseIncluded(id, option.id ?? 0, choiceId)
                                             }
                                             stockFor={(choiceId) =>
-                                                option.tracksStock && SizeTracked(product, size)
-                                                    ? StockFor(product, size, {
-                                                          ...current,
-                                                          [option.id ?? 0]: choiceId,
-                                                      })
-                                                    : null
+                                                includedStockForChoice(
+                                                    product,
+                                                    id,
+                                                    option,
+                                                    choiceId
+                                                )
                                             }
                                             hidePrice
                                         />
@@ -799,9 +510,14 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                         <Pressable
                                             key={option.deliveryOptionId}
                                             disabled={Boolean(blocked)}
-                                            onPress={() => setDeliveryId(option.deliveryOptionId ?? null)}
+                                            onPress={() =>
+                                                setDeliveryId(option.deliveryOptionId ?? null)
+                                            }
                                             accessibilityRole="radio"
-                                            accessibilityState={{ checked: active, disabled: Boolean(blocked) }}
+                                            accessibilityState={{
+                                                checked: active,
+                                                disabled: Boolean(blocked),
+                                            }}
                                             className={cx(
                                                 "min-h-[48px] justify-center rounded-xl px-4 py-1",
                                                 chipBox(active),
@@ -814,22 +530,36 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                                     (HasDiscount(optionSale) ? (
                                                         <>
                                                             {" +"}
-                                                            <Text className={cx("text-sm line-through opacity-70", color)}>
+                                                            <Text
+                                                                className={cx(
+                                                                    "text-sm line-through opacity-70",
+                                                                    color
+                                                                )}
+                                                            >
                                                                 {FormatCurrency(option.price)}
                                                             </Text>{" "}
-                                                            {FormatCurrency(ApplyDiscount(option.price ?? 0, optionSale))}
+                                                            {FormatCurrency(
+                                                                PreviewPrice(
+                                                                    option.price ?? 0,
+                                                                    optionSale
+                                                                )
+                                                            )}
                                                         </>
                                                     ) : (
                                                         ` +${FormatCurrency(option.price)}`
                                                     ))}
                                             </Text>
                                             {(option.price ?? 0) > 0 && HasDiscount(optionSale) && (
-                                                <Text className={cx("text-[11px] font-medium", color)}>
+                                                <Text
+                                                    className={cx("text-[11px] font-medium", color)}
+                                                >
                                                     Sale {DiscountText(optionSale)} off
                                                 </Text>
                                             )}
                                             {blocked && (
-                                                <Text className={cx("text-[11px] font-medium", color)}>
+                                                <Text
+                                                    className={cx("text-[11px] font-medium", color)}
+                                                >
                                                     {blocked}
                                                 </Text>
                                             )}
@@ -841,7 +571,9 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                 <Text className="mt-2 rounded-lg bg-zinc-100 px-3 py-2 text-sm dark:bg-zinc-700">
                                     {shipping?.name} {FormatCurrency(shipList)} - sale{" "}
                                     {DiscountText(shipSale)} off ={" "}
-                                    <Text className="text-sm font-semibold">{FormatCurrency(shipSalePrice)}</Text>
+                                    <Text className="text-sm font-semibold">
+                                        {FormatCurrency(shipSalePrice)}
+                                    </Text>
                                 </Text>
                             )}
                         </View>
@@ -866,14 +598,18 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                     <>
                                         {" "}
                                         - sale {DiscountText(sale)} off ={" "}
-                                        <Text className="text-sm font-semibold">{FormatCurrency(salePrice)}</Text>
+                                        <Text className="text-sm font-semibold">
+                                            {FormatCurrency(salePrice)}
+                                        </Text>
                                     </>
                                 )}
                                 {HasDiscount(repDiscount) && (
                                     <>
                                         {" "}
                                         - {DiscountText(repDiscount)} off ={" "}
-                                        <Text className="text-sm font-semibold">{FormatCurrency(finalPrice)}</Text>
+                                        <Text className="text-sm font-semibold">
+                                            {FormatCurrency(finalPrice)}
+                                        </Text>
                                     </>
                                 )}
                             </Text>
@@ -884,7 +620,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                         value={itemNotes}
                         onChange={setItemNotes}
                         placeholder="ex. Floor model"
-                        maxLength={500}
+                        maxLength={Limits.lineNotes}
                     />
                 </View>
             )}

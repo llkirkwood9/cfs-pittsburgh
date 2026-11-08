@@ -5,10 +5,10 @@ import ChangePasswordModal from "./ChangePasswordModal";
 import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
 import Text from "../Elements/Text";
-import { useAuth } from "../../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
+import { Initials, UserRoleLabels } from "@shared/Models/User";
 import { GetServerUrl } from "../../Lib/Server";
 import { APP_VERSION } from "../../Lib/Version";
-import { UserRoleLabels } from "../../Models/User";
 
 /**
  * Shows who is signed in on this device and offers sign-out. The crew shares devices, so the
@@ -25,12 +25,7 @@ const UserProfileDropdown = () => {
         router.replace("/login");
     };
 
-    const initials = (user?.name ?? "?")
-        .split(" ")
-        .map((part) => part.charAt(0))
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
+    const initials = Initials(user?.name);
 
     return (
         <>
@@ -58,7 +53,10 @@ const UserProfileDropdown = () => {
                                   : ""}{" "}
                             · v{APP_VERSION}
                         </Text>
-                        <Text className="text-xs text-zinc-500 dark:text-zinc-400" numberOfLines={1}>
+                        <Text
+                            className="text-xs text-zinc-500 dark:text-zinc-400"
+                            numberOfLines={1}
+                        >
                             Server: {GetServerUrl()}
                         </Text>
                     </View>
@@ -80,7 +78,10 @@ const UserProfileDropdown = () => {
                         accessibilityRole="button"
                         className="mt-1 min-h-[48px] flex-row items-center gap-3 rounded-lg px-3 active:bg-red-50 dark:active:bg-red-950/40"
                     >
-                        <Icon icon="fa-solid fa-right-from-bracket" className="text-red-700 dark:text-red-400" />
+                        <Icon
+                            icon="fa-solid fa-right-from-bracket"
+                            className="text-red-700 dark:text-red-400"
+                        />
                         <Text className="text-base font-medium text-red-700 dark:text-red-400">
                             Sign out
                         </Text>

@@ -1,5 +1,5 @@
-import { FormatCurrency } from "../../Lib/ModelHelpers";
-import type { ProductOption } from "../../Models/ProductOption";
+import { FormatCurrency } from "@shared/Lib/Format";
+import type { ProductOption } from "@shared/Models/ProductOption";
 
 type Props = {
     option: ProductOption;

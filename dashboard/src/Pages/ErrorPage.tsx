@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
+import { Paths } from "../Lib/ScreenLinks";
 
 type ErrorState = {
     code?: number;
@@ -30,8 +31,10 @@ const ErrorPage = () => {
                 </p>
 
                 {state.exception && (
-                    <pre className="mt-4 max-h-40 overflow-auto rounded-lg bg-zinc-100 p-3 text-left text-xs
-                        text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300">
+                    <pre
+                        className="mt-4 max-h-40 overflow-auto rounded-lg bg-zinc-100 p-3 text-left text-xs
+                        text-zinc-700 dark:bg-zinc-900 dark:text-zinc-300"
+                    >
                         {state.exception}
                     </pre>
                 )}
@@ -40,7 +43,7 @@ const ErrorPage = () => {
                     <Button
                         text="Back to selling"
                         icon="fa-solid fa-arrow-left"
-                        onClick={() => navigate("/sales")}
+                        onClick={() => navigate(Paths.home)}
                         className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                     />
                     <Button

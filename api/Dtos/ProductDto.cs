@@ -12,7 +12,7 @@ namespace api.Dtos
         public int? Id { get; set; }
 
         /// <summary>
-        /// The territory this product belongs to; null for a global product offered everywhere
+        /// The territory whose catalog this product is in
         /// </summary>
         public int? TerritoryId { get; set; }
 
@@ -55,6 +55,17 @@ namespace api.Dtos
         /// A sale on every size, as a fixed amount off each item
         /// </summary>
         public decimal? SaleDiscountAmount { get; set; }
+
+        /// <summary>
+        /// The sale on the product as a whole, for sizes without their own - percent off (returned, not saved). The server works it
+        /// out; at most one of the two is set.
+        /// </summary>
+        public decimal? EffectiveSalePercent { get; set; }
+
+        /// <summary>
+        /// The sale on the product as a whole, for sizes without their own - amount off each (returned, not saved)
+        /// </summary>
+        public decimal? EffectiveSaleAmount { get; set; }
 
         /// <summary>
         /// Selections the rep makes beyond size, such as Color

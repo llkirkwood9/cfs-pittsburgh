@@ -1,8 +1,8 @@
 import { Pressable, View } from "react-native";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
-import { FormatCurrency } from "../../Lib/ModelHelpers";
-import type { ProductOption } from "../../Models/ProductOption";
+import { FormatCurrency } from "@shared/Lib/Format";
+import type { ProductOption } from "@shared/Models/ProductOption";
 
 type Props = {
     option: ProductOption;
@@ -27,7 +27,11 @@ const ChoicePicker = ({ option, picked, onPick, stockFor, hidePrice = false }: P
                 {option.name}
                 {!required && <Text className="text-xs font-normal normal-case"> (optional)</Text>}
             </Text>
-            <View accessibilityRole="radiogroup" accessibilityLabel={option.name} className="flex-row flex-wrap gap-2">
+            <View
+                accessibilityRole="radiogroup"
+                accessibilityLabel={option.name}
+                className="flex-row flex-wrap gap-2"
+            >
                 {(option.choices ?? []).map((choice) => {
                     const stock = stockFor?.(choice.id ?? 0) ?? null;
                     const active = picked === choice.id;

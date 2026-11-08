@@ -1,5 +1,4 @@
-import { Redirect } from "expo-router";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { RefreshControl, ScrollView, View } from "react-native";
 import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
@@ -18,63 +17,22 @@ import EditLineModal from "../Components/Sales/EditLineModal";
 import OrderLineList from "../Components/Sales/OrderLineList";
 import OrderTotals from "../Components/Sales/OrderTotals";
 import UpchargeModal from "../Components/Sales/UpchargeModal";
-import { useAuth } from "../Context/AuthContext";
 import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { useBreakpoint } from "../Hooks/UseBreakpoint";
-import { FormatCurrency } from "../Lib/ModelHelpers";
-import { Toast } from "../Lib/Toast";
-import type { DeliveryOption } from "../Models/DeliveryOption";
-import type { Event } from "../Models/Event";
-import type { Order } from "../Models/Order";
-import type { OrderLine } from "../Models/OrderLine";
-import type { OrderSummary } from "../Models/OrderSummary";
-import type { Product } from "../Models/Product";
-import { GetDeliveryOptions } from "../Services/DeliveryOptionServices";
-import { GetActiveEvent } from "../Services/EventServices";
-import {
-    AddOrder,
-    AddOrderLine,
-    DeleteOrder,
-    DeleteOrderLine,
-    GetDrafts,
-    GetOrder,
-    ReorderOrderLines,
-    SubmitOrder,
-    UpdateOrder,
-    UpdateOrderLine,
-} from "../Services/OrderServices";
-import { GetProducts } from "../Services/ProductServices";
-import { GetReps } from "../Services/UserServices";
+import { useSalesFloor } from "@shared/Hooks/useSalesFloor";
+import { FormatCurrency } from "@shared/Lib/Format";
+import { SendToCheckoutBlock } from "@shared/Lib/Sales";
 
 /**
  * The sales floor. A rep keeps as many drafts open as they have customers, builds each one from
  * the catalog, then hands it to the checkout table with one button.
  */
 const SalesPage = () => {
-    const { user } = useAuth();
     const { lg, sm } = useBreakpoint();
 
-    const [saleEvent, setSaleEvent] = useState<Event | null>(null);
-    const [products, setProducts] = useState<Product[]>([]);
-    const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOption[]>([]);
-    const [reps, setReps] = useState<string[]>([]);
-
-    const [drafts, setDrafts] = useState<OrderSummary[]>([]);
-    const [order, setOrder] = useState<Order | null>(null);
-
-    const [loading, setLoading] = useState<boolean>(true);
     const [refreshing, setRefreshing] = useState<boolean>(false);
-    const [creating, setCreating] = useState<boolean>(false);
-    const [submitting, setSubmitting] = useState<boolean>(false);
     const [pane, setPane] = useState<"items" | "customer">("items");
-
-    const [showAddItem, setShowAddItem] = useState<boolean>(false);
-    const [editingLine, setEditingLine] = useState<OrderLine | null>(null);
-    const [servicingLine, setServicingLine] = useState<OrderLine | null>(null);
-    const [upchargingLine, setUpchargingLine] = useState<OrderLine | null>(null);
-    const [removingLine, setRemovingLine] = useState<OrderLine | null>(null);
-    const [discardingDraft, setDiscardingDraft] = useState<boolean>(false);
     const [showCustomerSheet, setShowCustomerSheet] = useState<boolean>(false);
 
     // Bumped only when the customer sheet writes back, which remounts the rep's form so it picks
@@ -82,57 +40,36 @@ const SalesPage = () => {
     // pull focus out of the field the rep just moved into.
     const [formVersion, setFormVersion] = useState<number>(0);
 
-    const refreshDrafts = useCallback(async (eventId: number) => {
-        const list = await GetDrafts(eventId);
-        setDrafts(list);
-        return list;
-    }, []);
+    const {
+        saleEvent,
+        products,
+        deliveryOptions,
+        reps,
+        drafts,
+        order,
+        loading,
+        load,
+        reloadDrafts,
+        creating,
+        submitting,
+        newDraft,
+        selectDraft,
+        discardingDraft,
+        setDiscardingDraft,
+        discardDraft,
+        sendToCheckout,
+        editor,
+    } = useSalesFloor(() => setPane("customer"));
 
-    const load = useCallback(async () => {
-        const active = await GetActiveEvent();
-        setSaleEvent(active);
-        // Drafts belong to their event, so a different event starts from its own.
-        setDrafts([]);
-        setOrder(null);
+    const checkActiveEvent = useActiveEventChange(
+        loading ? undefined : (saleEvent?.id ?? null),
+        load
+    );
 
-        if (!active?.id) return;
-
-        const [catalog, options, repNames, draftList] = await Promise.all([
-            GetProducts(),
-            GetDeliveryOptions(),
-            GetReps(),
-            GetDrafts(active.id),
-        ]);
-
-        setProducts(catalog);
-        setDeliveryOptions(options);
-        setReps(repNames);
-        setDrafts(draftList);
-
-        if (draftList.length > 0 && draftList[0].id) {
-            const first = await GetOrder(draftList[0].id);
-            setOrder(first);
-        }
-    }, []);
-
-    useEffect(() => {
-        load().finally(() => setLoading(false));
-    }, [load]);
-
-    const checkActiveEvent = useActiveEventChange(loading ? undefined : (saleEvent?.id ?? null), load);
-
-    // Pull down to pick up drafts started on another device and fresh stock counts.
+    // Pull down to pick up drafts started on another device and fresh stock counts. A change of
+    // active event reloads everything; otherwise just the drafts and stock.
     const reload = async () => {
-        // A change of active event reloads everything; otherwise just the drafts and stock.
-        const switched = await checkActiveEvent();
-        if (!switched && saleEvent?.id) {
-            const [list, catalog] = await Promise.all([refreshDrafts(saleEvent.id), GetProducts()]);
-            if (catalog.length) setProducts(catalog);
-            const keep = order?.id && list.some((d) => d.id === order.id) ? order.id : list[0]?.id;
-            setOrder(keep ? await GetOrder(keep) : null);
-        } else if (!switched) {
-            await load();
-        }
+        if (!(await checkActiveEvent())) await reloadDrafts();
     };
 
     const handleRefresh = async () => {
@@ -143,96 +80,6 @@ const SalesPage = () => {
 
     // Back on this screen: read it again.
     useRefreshOnFocus(reload);
-
-    if (!user) return <Redirect href="/unauthorized" />;
-
-    const handleNewDraft = async () => {
-        if (!saleEvent?.id) return;
-
-        setCreating(true);
-        const created = await AddOrder(saleEvent.id);
-        setCreating(false);
-
-        if (!created) return;
-
-        setOrder(created);
-        setPane("customer");
-        await refreshDrafts(saleEvent.id);
-        Toast.Success("Order started.");
-    };
-
-    const handleSelectDraft = async (id: number) => {
-        const selected = await GetOrder(id);
-        if (selected) setOrder(selected);
-    };
-
-    /** Every mutation returns the recalculated order, so state and totals stay in lockstep. */
-    const applyResult = async (result: Order | null) => {
-        if (!result) return;
-        setOrder(result);
-        if (saleEvent?.id) await refreshDrafts(saleEvent.id);
-    };
-
-    const handleSaveOrder = async (changes: Order) => {
-        await applyResult(await UpdateOrder(changes));
-    };
-
-    const handleAddLine = async (line: OrderLine) => {
-        if (!order?.id) return;
-        await applyResult(await AddOrderLine(order.id, line));
-    };
-
-    const handleReorderLines = async (itemIds: number[]) => {
-        if (!order?.id) return;
-        await applyResult(await ReorderOrderLines(order.id, itemIds));
-    };
-
-    const handleUpdateLine = async (line: OrderLine) => {
-        await applyResult(await UpdateOrderLine(line));
-    };
-
-    const handleRemoveLine = async () => {
-        if (!removingLine?.id) return;
-        const result = await DeleteOrderLine(removingLine.id);
-        setRemovingLine(null);
-        await applyResult(result);
-    };
-
-    const handleDiscardDraft = async () => {
-        if (!order?.id || !saleEvent?.id) return;
-
-        const success = await DeleteOrder(order.id);
-        setDiscardingDraft(false);
-
-        if (!success) return;
-
-        const remaining = await refreshDrafts(saleEvent.id);
-        setOrder(remaining[0]?.id ? await GetOrder(remaining[0].id) : null);
-        Toast.Success("Draft discarded.");
-    };
-
-    const handleSendToCheckout = async () => {
-        if (!order?.id || !saleEvent?.id) return;
-
-        setSubmitting(true);
-        const result = await SubmitOrder(order.id);
-        setSubmitting(false);
-
-        if (!result) return;
-
-        Toast.Success(`Order #${result.orderNumber} is with checkout. Send the customer over.`);
-
-        const remaining = await refreshDrafts(saleEvent.id);
-        setOrder(remaining[0]?.id ? await GetOrder(remaining[0].id) : null);
-    };
-
-    // Stock moves as other orders complete, so the picker always opens on fresh counts.
-    const openAddItem = () => {
-        setShowAddItem(true);
-        GetProducts().then((catalog) => {
-            if (catalog.length) setProducts(catalog);
-        });
-    };
 
     if (loading) {
         return (
@@ -248,13 +95,16 @@ const SalesPage = () => {
                 <View className="mx-auto max-w-lg items-center p-6">
                     <Icon icon="fa-solid fa-calendar-xmark" className="text-3xl text-zinc-400" />
                     <Text className="mt-3 text-xl font-bold">No active event</Text>
-                    <Text className="mt-1 text-center text-sm text-zinc-600 dark:text-zinc-400">A manager can activate one under Events.</Text>
+                    <Text className="mt-1 text-center text-sm text-zinc-600 dark:text-zinc-400">
+                        A manager can activate one under Events.
+                    </Text>
                 </View>
             </Page>
         );
     }
 
     const refresh = <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />;
+    const sendBlock = order ? SendToCheckoutBlock(order) : undefined;
 
     // Keyed, so switching panes on a phone mounts the other one rather than restyling this one.
     const itemsPane = order && (
@@ -270,19 +120,19 @@ const SalesPage = () => {
                 <Button
                     text="Add item"
                     icon="fa-solid fa-plus"
-                    onClick={openAddItem}
+                    onClick={editor.openAddItem}
                     className="bg-green-700 dark:bg-green-600"
                 />
             </View>
 
             <OrderLineList
                 lines={order.lines ?? []}
-                onEdit={setEditingLine}
-                onAddService={setServicingLine}
-                onAddUpcharge={setUpchargingLine}
-                onReorder={handleReorderLines}
-                onRemove={setRemovingLine}
-                onQuantity={(line, quantity) => handleUpdateLine({ id: line.id, quantity })}
+                onEdit={editor.setEditingLine}
+                onAddService={editor.setServicingLine}
+                onAddUpcharge={editor.setUpchargingLine}
+                onReorder={editor.reorderLines}
+                onRemove={editor.setRemovingLine}
+                onQuantity={editor.changeQuantity}
             />
         </View>
     );
@@ -299,7 +149,7 @@ const SalesPage = () => {
                 key={`${order.id}-${formVersion}`}
                 order={order}
                 reps={reps}
-                onSave={handleSaveOrder}
+                onSave={editor.saveOrder}
             />
         </View>
     );
@@ -317,8 +167,8 @@ const SalesPage = () => {
                 <DraftTabs
                     drafts={drafts}
                     activeId={order?.id ?? null}
-                    onSelect={handleSelectDraft}
-                    onNew={handleNewDraft}
+                    onSelect={selectDraft}
+                    onNew={newDraft}
                     creating={creating}
                 />
 
@@ -342,7 +192,11 @@ const SalesPage = () => {
             </View>
 
             {!order ? (
-                <ScrollView className="flex-1" contentContainerClassName="p-3 sm:p-4" refreshControl={refresh}>
+                <ScrollView
+                    className="flex-1"
+                    contentContainerClassName="p-3 sm:p-4"
+                    refreshControl={refresh}
+                >
                     <View className="items-center rounded-xl border-2 border-dashed border-zinc-300 py-16 dark:border-zinc-700">
                         <Icon icon="fa-solid fa-user-plus" className="text-3xl text-zinc-400" />
                         <Text className="mt-3 font-semibold">No order open</Text>
@@ -386,7 +240,10 @@ const SalesPage = () => {
             {/* The action bar: the total and the hand-off button never scroll away. */}
             {order && (
                 <View className="px-3 pb-2 sm:px-4">
-                    <GlassPanel className="rounded-2xl p-3 raised-lg" fallbackClassName="bg-white dark:bg-zinc-800">
+                    <GlassPanel
+                        className="rounded-2xl p-3 raised-lg"
+                        fallbackClassName="bg-white dark:bg-zinc-800"
+                    >
                         <View className="flex-row flex-wrap items-center gap-3">
                             <View className="min-w-[160px] flex-1">
                                 <OrderTotals order={order} compact />
@@ -401,18 +258,10 @@ const SalesPage = () => {
                                 <Button
                                     text={`Complete ${FormatCurrency(order.total)}`}
                                     icon="fa-solid fa-circle-check"
-                                    onClick={handleSendToCheckout}
+                                    onClick={sendToCheckout}
                                     loading={submitting}
-                                    // The API rejects an empty or unnamed order anyway; greying
-                                    // the button out saves the rep a round trip to find out.
-                                    disabled={(order.lines?.length ?? 0) === 0 || !order.billingFirstName?.trim() || !order.billingLastName?.trim()}
-                                    title={
-                                        (order.lines?.length ?? 0) === 0
-                                            ? "Add at least one item first"
-                                            : !order.billingFirstName?.trim() || !order.billingLastName?.trim()
-                                              ? "Enter the customer's first and last name first"
-                                              : undefined
-                                    }
+                                    disabled={sendBlock !== undefined}
+                                    title={sendBlock}
                                     className={
                                         sm
                                             ? "min-h-[52px] bg-green-700 dark:bg-green-600"
@@ -429,66 +278,64 @@ const SalesPage = () => {
                 <CustomerDetailsSheet
                     order={order}
                     onSave={async (changes) => {
-                        await handleSaveOrder(changes);
+                        await editor.saveOrder(changes);
                         setFormVersion((value) => value + 1);
                     }}
                     onClose={() => setShowCustomerSheet(false)}
                 />
             )}
 
-            {showAddItem && (
+            {editor.showAddItem && (
                 <AddItemModal
                     products={products}
-                    onAdd={handleAddLine}
-                    onClose={() => setShowAddItem(false)}
+                    onAdd={editor.addLine}
+                    onClose={editor.closeAddItem}
                 />
             )}
 
-            {editingLine?.lineType === "Upcharge" && (
+            {editor.editingLine?.lineType === "Upcharge" && (
                 <UpchargeModal
-                    line={editingLine}
-                    parentLine={
-                        order?.lines?.find((l) => l.id === editingLine.parentLineId) ?? editingLine
-                    }
-                    onSave={handleUpdateLine}
-                    onClose={() => setEditingLine(null)}
+                    line={editor.editingLine}
+                    parentLine={editor.upchargeParent(editor.editingLine)}
+                    onSave={editor.updateLine}
+                    onClose={() => editor.setEditingLine(null)}
                 />
             )}
 
-            {editingLine && editingLine.lineType !== "Upcharge" && (
+            {editor.editingLine && editor.editingLine.lineType !== "Upcharge" && (
                 <EditLineModal
-                    line={editingLine}
-                    onSave={handleUpdateLine}
-                    onClose={() => setEditingLine(null)}
+                    line={editor.editingLine}
+                    onSave={editor.updateLine}
+                    onClose={() => editor.setEditingLine(null)}
                 />
             )}
 
-            {upchargingLine && (
+            {editor.upchargingLine && (
                 <UpchargeModal
-                    parentLine={upchargingLine}
-                    onSave={handleAddLine}
-                    onClose={() => setUpchargingLine(null)}
+                    parentLine={editor.upchargingLine}
+                    onSave={editor.addLine}
+                    onClose={() => editor.setUpchargingLine(null)}
                 />
             )}
 
-            {servicingLine && (
+            {editor.servicingLine && (
                 <AddServiceModal
-                    parentLine={servicingLine}
+                    parentLine={editor.servicingLine}
                     options={deliveryOptions}
                     products={products}
-                    onAdd={handleAddLine}
-                    onClose={() => setServicingLine(null)}
+                    onAdd={editor.addLine}
+                    onClose={() => editor.setServicingLine(null)}
                 />
             )}
 
-            {removingLine && (
+            {editor.removingLine && (
                 <ConfirmationModal
                     title="Remove item"
-                    message={`Remove "${removingLine.description}" from this order?`}
+                    message={`Remove "${editor.removingLine.description}" from this order?`}
                     confirmText="Remove"
                     destructive
-                    onConfirm={handleRemoveLine}
-                    onCancel={() => setRemovingLine(null)}
+                    onConfirm={editor.removeLine}
+                    onCancel={() => editor.setRemovingLine(null)}
                 />
             )}
 
@@ -500,7 +347,7 @@ const SalesPage = () => {
                     }? This cannot be undone.`}
                     confirmText="Discard"
                     destructive
-                    onConfirm={handleDiscardDraft}
+                    onConfirm={discardDraft}
                     onCancel={() => setDiscardingDraft(false)}
                 />
             )}

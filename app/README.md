@@ -25,7 +25,9 @@ testing on devices, development builds and store builds - is
 
 ## Layout
 
-The code mirrors `dashboard/src`, so a change on one side is easy to find on the other.
+The screens' logic - models, services, rules, and each screen's state and actions - is in
+`../shared`, written once for the dashboard and the app (imported as `@shared`). `src/` holds the
+app's markup and what only a phone does.
 
 ```
 src/
@@ -34,17 +36,15 @@ src/
 │   ├── receipt/        A sales sheet
 │   └── events/         An event's printable sheets
 ├── Components/         As on the dashboard (Elements, Sales, Checkout, Catalog, ...)
-├── Context/            AuthContext, TerritoryContext, SettingsContext
-├── Hooks/              UseTheme, UseBreakpoint
-├── Lib/                api.ts, Server.ts, Storage.ts, SheetPdf.ts, Files.ts, ...
-├── Models/             Copied from the dashboard
+├── Hooks/              UseTheme, UseBreakpoint, ...
+├── Lib/                Host.ts (what ../shared needs from the app, imported there as @host),
+│                       api.ts, Server.ts, Storage.ts, StorageKeys.ts, SheetPdf.ts, Files.ts, ...
 ├── Pages/              One per screen, as on the dashboard
-├── Routes/             ProtectedRoute, RequireTerritory, HomeRedirect
-└── Services/           Copied from the dashboard
+└── Routes/             ProtectedRoute, RequireTerritory, HomeRedirect
 ```
 
-`Models`, `Services` and most of `Lib` are copies of the dashboard's files; keep them in step when
-the API changes.
+Metro and TypeScript find `../shared` through `metro.config.js` and `tsconfig.json`; ESLint
+through `eslint-alias-resolver.js`.
 
 ## Checks
 

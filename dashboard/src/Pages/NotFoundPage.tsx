@@ -1,6 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
+import { Paths } from "../Lib/ScreenLinks";
 
 /**
  * Catch-all for an unknown path.
@@ -19,7 +20,7 @@ const NotFoundPage = () => {
                 <Button
                     text="Back to selling"
                     icon="fa-solid fa-arrow-left"
-                    onClick={() => navigate("/sales")}
+                    onClick={() => navigate(Paths.home)}
                     className="mt-5"
                 />
             </div>

@@ -1,0 +1,103 @@
+import { client } from "@host";
+import { CallApi } from "./CallApi";
+import type { Product, ProductCategory, ProductCopyResult } from "../Models/Product";
+
+//*************************************//
+//*********** POST METHODS ************//
+//*************************************//
+
+/**
+ * Copies a product from another territory's catalog into the territory in view.
+ * @param id The product to copy.
+ * @returns The new product, with notes on delivery options added or bundled items left out, or null on failure.
+ */
+export const CopyProduct = async (id: number): Promise<ProductCopyResult | null> => {
+    return CallApi(async () => {
+        const response = await client.api.post<ProductCopyResult>(
+            `/api/Product/product/${id}/copy`
+        );
+        return response.data;
+    }, null);
+};
+
+/**
+ * Adds a product with its variants and delivery availability.
+ * @param newProductData The data for the new product.
+ * @returns The created product, or null on failure.
+ */
+export const AddProduct = async (newProductData: Product): Promise<Product | null> => {
+    return CallApi(async () => {
+        const response = await client.api.post<Product>("/api/Product/product", newProductData);
+        return response.data;
+    }, null);
+};
+
+//************************************//
+//*********** GET METHODS ************//
+//************************************//
+
+/**
+ * Lists the catalog.
+ * @param includeInactive Pass true from the catalog admin screen.
+ * @returns Products with variants and delivery options, or null on failure.
+ */
+export const GetProducts = async (
+    includeInactive = false,
+    territoryId?: number | null
+): Promise<Product[] | null> => {
+    return CallApi(async () => {
+        const response = await client.api.get<Product[]>("/api/Product/products", {
+            params: { includeInactive },
+            // Another territory's catalog, such as one to copy from; otherwise the one in view.
+            headers: territoryId != null ? { "X-Territory-Id": String(territoryId) } : undefined,
+        });
+        return response.data;
+    }, null);
+};
+
+/**
+ * Lists the product category names.
+ * @returns Category names, or null on failure.
+ */
+export const GetCategories = async (): Promise<ProductCategory[] | null> => {
+    return CallApi(async () => {
+        const response = await client.api.get<ProductCategory[]>("/api/Product/categories");
+        return response.data;
+    }, null);
+};
+
+//**************************************//
+//*********** PATCH METHODS ************//
+//**************************************//
+
+/**
+ * Updates a product, replacing its variants and delivery options when supplied.
+ * @param productData The fields to change, including the id.
+ * @returns The updated product, or null on failure.
+ */
+export const UpdateProduct = async (productData: Product): Promise<Product | null> => {
+    return CallApi(async () => {
+        const response = await client.api.patch<Product>("/api/Product/product", productData);
+        return response.data;
+    }, null);
+};
+
+//***************************************//
+//*********** DELETE METHODS ************//
+//***************************************//
+
+/**
+ * Removes a product, or archives it when it already appears on an order.
+ * @param id The product id.
+ * @param permanent System admin only: delete for good.
+ * @returns True if the operation was successful, false otherwise.
+ */
+export const DeleteProduct = async (id: number, permanent = false): Promise<boolean> => {
+    return CallApi(async () => {
+        // permanent is system-admin-only: it deletes for good instead of archiving or refusing.
+        const response = await client.api.delete(`/api/Product/product/${id}`, {
+            params: permanent ? { permanent: true } : undefined,
+        });
+        return response.status === 200;
+    }, false);
+};

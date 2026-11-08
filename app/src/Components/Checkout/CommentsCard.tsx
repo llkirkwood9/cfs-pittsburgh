@@ -2,7 +2,8 @@ import { useState } from "react";
 import { TextInput, View } from "react-native";
 import Button from "../Elements/Button";
 import Text from "../Elements/Text";
-import type { Order } from "../../Models/Order";
+import type { Order } from "@shared/Models/Order";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     order: Order;
@@ -57,12 +58,11 @@ const CommentsCard = ({ order, readOnly = false, onSave }: Props) => {
                     onBlur={save}
                     multiline
                     textAlignVertical="top"
-                    maxLength={1000}
+                    maxLength={Limits.orderComments}
                     placeholderTextColor="#a1a1aa"
                     accessibilityLabel="Comments"
                     style={{ minHeight: 92 }}
-                    className="w-full rounded-xl border border-zinc-300 bg-white p-3 text-base text-zinc-900
-                        focus:border-sky-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                    className="w-full rounded-xl border border-zinc-300 bg-white p-3 text-base text-zinc-900 focus:border-sky-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                 />
             )}
         </View>

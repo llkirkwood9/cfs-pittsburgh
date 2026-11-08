@@ -1,12 +1,14 @@
+import { CategoryNames } from "@shared/Lib/Catalog";
+import { FormatShortDate } from "@shared/Lib/Format";
 import {
-    CategoryNames,
-    FormatShortDate,
     GroupInventory,
     InventoryRowKey,
     InventorySizeLabel,
-} from "../../Lib/ModelHelpers";
-import type { Event } from "../../Models/Event";
-import type { InventoryItem } from "../../Models/InventoryItem";
+    SheetDifference,
+    SheetExpected,
+} from "@shared/Lib/Inventory";
+import type { Event } from "@shared/Models/Event";
+import type { InventoryItem } from "@shared/Models/InventoryItem";
 
 type Props = {
     saleEvent: Event | null;
@@ -25,18 +27,6 @@ const head = `${cell} bg-zinc-100 text-left text-[10px] font-bold uppercase`;
  */
 const InventorySheet = ({ saleEvent, items }: Props) => {
     const groups = GroupInventory(items);
-
-    // Once the end-of-event count is saved, Expected is what the app thought was on the shelf at
-    // that moment; before it, the current count, with Counted left blank to fill in by hand.
-    const counted = (size: InventoryItem) =>
-        size.countedAtEvent !== null && size.countedAtEvent !== undefined;
-    const expectedFor = (size: InventoryItem) =>
-        counted(size) ? (size.expectedAtCount ?? 0) : (size.quantityOnHand ?? 0);
-    const differenceFor = (size: InventoryItem) => {
-        if (!counted(size)) return "";
-        const diff = (size.countedAtEvent ?? 0) - expectedFor(size);
-        return diff === 0 ? "0" : diff > 0 ? `+${diff}` : String(diff);
-    };
 
     return (
         <div className="print-sheet mx-auto w-full max-w-[8in] bg-white p-8 font-sans text-black shadow-lg">
@@ -110,7 +100,7 @@ const InventorySheet = ({ saleEvent, items }: Props) => {
                                                 {size.soldAtEvent ?? 0}
                                             </td>
                                             <td className={`${cell} text-center tabular-nums`}>
-                                                {expectedFor(size)}
+                                                {SheetExpected(size)}
                                             </td>
                                             <td
                                                 className={`${cell} text-center font-bold tabular-nums`}
@@ -118,7 +108,7 @@ const InventorySheet = ({ saleEvent, items }: Props) => {
                                                 {size.countedAtEvent ?? ""}
                                             </td>
                                             <td className={`${cell} text-center tabular-nums`}>
-                                                {differenceFor(size)}
+                                                {SheetDifference(size)}
                                             </td>
                                         </tr>
                                     ))

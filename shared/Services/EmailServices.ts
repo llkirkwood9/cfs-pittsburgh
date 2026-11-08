@@ -1,0 +1,86 @@
+import { client } from "@host";
+import { CallApi } from "./CallApi";
+
+/** Whether the server can send email, and the address it sends from. */
+export type EmailStatus = {
+    configured: boolean;
+    from?: string | null;
+};
+
+/**
+ * A PDF to upload: a Blob in the browser; in the app, the file it was written to (see PdfUpload in
+ * app/src/Lib/SheetPdf.ts), which React Native's FormData uploads from its uri.
+ */
+export type PdfUpload = Blob;
+
+/** Posted as a form, because it carries the PDF. */
+const SendForm = async (url: string, pdf: PdfUpload, to: string, message?: string) => {
+    const form = new FormData();
+    form.append("to", to);
+    if (message) form.append("message", message);
+    form.append("pdf", pdf, "sheets.pdf");
+    // Overrides the instance's JSON default; the browser fills in the multipart boundary.
+    const response = await client.api.post<{ sentTo: string[] }>(url, form, {
+        headers: { "Content-Type": "multipart/form-data" },
+        timeout: 120000,
+    });
+    return response.data.sentTo;
+};
+
+//*************************************//
+//*********** POST METHODS ************//
+//*************************************//
+
+/**
+ * Emails the customer their receipt as a PDF, with a thank-you note.
+ * @param orderId The order.
+ * @param to Comma-separated addresses; the customer's own address when left empty.
+ * @param pdf The receipt, built from the sheet on screen.
+ * @returns The addresses it went to, or null on failure.
+ */
+export const EmailReceipt = async (
+    orderId: number,
+    to: string,
+    pdf: PdfUpload
+): Promise<string[] | null> => {
+    return CallApi(async () => {
+        return await SendForm(`/api/Email/order/${orderId}/receipt`, pdf, to);
+    }, null);
+};
+
+/**
+ * Emails an event's sheets as a single PDF.
+ * @param eventId The event.
+ * @param to Comma-separated addresses.
+ * @param message Optional note shown at the top.
+ * @param pdf The stat sheet, sales sheets and inventory sheet, built from the page.
+ * @returns The addresses it went to, or null on failure.
+ */
+export const EmailEventReport = async (
+    eventId: number,
+    to: string,
+    message: string,
+    pdf: PdfUpload
+): Promise<string[] | null> => {
+    return CallApi(async () => {
+        return await SendForm(`/api/Email/event/${eventId}/report`, pdf, to, message);
+    }, null);
+};
+
+//************************************//
+//*********** GET METHODS ************//
+//************************************//
+
+/**
+ * Whether email is set up on the server.
+ * @returns The status; treated as not configured when it cannot be read.
+ */
+export const GetEmailStatus = async (): Promise<EmailStatus> => {
+    try {
+        const response = await client.api.get<EmailStatus>("/api/Email/status");
+        return response.data;
+    } catch {
+        // A quiet failure: the email button simply says email isn't available.
+        return { configured: false };
+    }
+};

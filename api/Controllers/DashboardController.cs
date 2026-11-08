@@ -2,6 +2,7 @@ using System.Diagnostics;
 using api.Data;
 using api.Dtos;
 using api.Models;
+using api.Orders;
 using api.Services;
 using api.Utils;
 using Microsoft.AspNetCore.Authorization;
@@ -20,11 +21,8 @@ namespace api.Controllers
     [Route("api/[controller]")]
     public class DashboardController(
         ApplicationDbContext db,
-        IHttpClientFactory httpClientFactory,
-        IConfiguration config,
-        ILogger<BasicController> logger,
-        TokenService tokenService)
-        : BasicController(db, httpClientFactory, config, logger, tokenService)
+        ILogger<BasicController> logger)
+        : BasicController(db, logger)
     {
         #region GET Methods
 
@@ -37,23 +35,16 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetStatsForEvent(int eventId)
         {
-            try
-            {
-                var saleEvent = await DB.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == eventId);
-                if (saleEvent == null || !CanSee(saleEvent))
-                    return NotFound(new { error = "Event not found." });
+            var saleEvent = (await DB.Events.AsNoTracking().FirstOrDefaultAsync(e => e.Id == eventId)).IfVisibleTo(Scope);
+            if (saleEvent == null)
+                return NotFound(new { error = "Event not found." });
 
-                var stats = await BuildStatsAsync(DB, o => o.EventId == eventId);
-                stats.EventId = saleEvent.Id;
-                stats.Organization = saleEvent.Organization;
-                stats.EventDate = saleEvent.EventDate;
+            var stats = await BuildStatsAsync(DB, o => o.EventId == eventId);
+            stats.EventId = saleEvent.Id;
+            stats.Organization = saleEvent.Organization;
+            stats.EventDate = saleEvent.EventDate;
 
-                return Ok(stats);
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while getting the stats.", e);
-            }
+            return Ok(stats);
         }
 
         /// <summary>
@@ -66,58 +57,51 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetStatsForAllEvents()
         {
-            try
-            {
-                var visible = Scope.VisibleTerritoryIds;
-                var several = visible == null || visible.Count > 1;
+            var visible = Scope.VisibleTerritoryIds;
+            var several = visible == null || visible.Count > 1;
 
-                var orders = await DB.Orders
-                    .Where(o => visible == null || visible.Contains(o.Event!.TerritoryId))
-                    .Include(o => o.Lines)
-                    .Include(o => o.Payments)
-                    .AsNoTracking()
-                    .ToListAsync();
-                var events = await DB.Events
-                    .Where(e => visible == null || visible.Contains(e.TerritoryId))
-                    .Include(e => e.Territory)
-                    .AsNoTracking()
-                    .ToListAsync();
+            var orders = await DB.Orders
+                .InTerritories(visible)
+                .Include(o => o.Lines)
+                .Include(o => o.Payments)
+                .AsNoTracking()
+                .ToListAsync();
+            var events = await DB.Events
+                .InTerritories(visible)
+                .Include(e => e.Territory)
+                .AsNoTracking()
+                .ToListAsync();
 
-                static List<Order> Completed(IEnumerable<Order> list) =>
-                    list.Where(o => o.Status == OrderStatus.Completed).ToList();
+            static List<Order> Completed(IEnumerable<Order> list) =>
+                list.Where(o => o.Status == OrderStatus.Completed).ToList();
 
-                var stats = Build(Completed(orders), orders);
-                stats.Events = events
-                    .OrderByDescending(e => e.EventDate)
-                    .ThenByDescending(e => e.Id)
-                    .Select(e =>
+            var stats = Build(Completed(orders), orders);
+            stats.Events = events
+                .OrderByDescending(e => e.EventDate)
+                .ThenByDescending(e => e.Id)
+                .Select(e =>
+                {
+                    var mine = orders.Where(o => o.EventId == e.Id).ToList();
+                    var figures = Build(Completed(mine), mine);
+                    return new EventTallyDto
                     {
-                        var mine = orders.Where(o => o.EventId == e.Id).ToList();
-                        var figures = Build(Completed(mine), mine);
-                        return new EventTallyDto
-                        {
-                            EventId = e.Id,
-                            Organization = e.Organization,
-                            // Only needed to tell events apart when more than one territory is in view.
-                            TerritoryName = several ? e.Territory?.Name : null,
-                            EventDate = e.EventDate,
-                            IsActive = e.IsActive,
-                            CompletedOrderCount = figures.CompletedOrderCount ?? 0,
-                            MattressAndBaseCount = figures.MattressAndBaseCount ?? 0,
-                            NetSales = figures.NetSales ?? 0,
-                            TotalSales = figures.TotalSales ?? 0,
-                            AverageSale = figures.AverageSale ?? 0,
-                        };
-                    })
-                    .ToList();
-                stats.WorstProducts = await WorstSellersAsync(DB, orders, visible);
+                        EventId = e.Id,
+                        Organization = e.Organization,
+                        // Only needed to tell events apart when more than one territory is in view.
+                        TerritoryName = several ? e.Territory?.Name : null,
+                        EventDate = e.EventDate,
+                        IsActive = e.IsActive,
+                        CompletedOrderCount = figures.CompletedOrderCount ?? 0,
+                        MattressAndBaseCount = figures.MattressAndBaseCount ?? 0,
+                        NetSales = figures.NetSales ?? 0,
+                        TotalSales = figures.TotalSales ?? 0,
+                        AverageSale = figures.AverageSale ?? 0,
+                    };
+                })
+                .ToList();
+            stats.WorstProducts = await WorstSellersAsync(DB, orders, visible);
 
-                return Ok(stats);
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while getting the stats.", e);
-            }
+            return Ok(stats);
         }
 
         /// <summary>
@@ -131,71 +115,64 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetTerritoryComparison([FromQuery] DateTime? from = null, [FromQuery] DateTime? to = null)
         {
-            try
-            {
-                if (!Scope.CanSwitch)
-                    return Forbidden("Comparing territories needs more than one territory.");
+            if (!Scope.CanSwitch)
+                return Forbidden("Comparing territories needs more than one territory.");
 
-                var visible = Scope.IsCompanyWide ? null : Scope.MemberTerritoryIds.ToList();
+            var visible = Scope.OwnTerritoryIds;
 
-                var start = from?.Date;
-                var end = to?.Date.AddDays(1);
+            var start = from?.Date;
+            var end = to?.Date.AddDays(1);
 
-                var orders = await DB.Orders
-                    .Where(o => o.Status == OrderStatus.Completed
-                                && (visible == null || visible.Contains(o.Event!.TerritoryId))
-                                && (start == null || o.SaleDate >= start)
-                                && (end == null || o.SaleDate < end))
-                    .Include(o => o.Event)
-                    .Include(o => o.Lines)
-                    .AsNoTracking()
-                    .ToListAsync();
+            var orders = await DB.Orders
+                .InTerritories(visible)
+                .Where(o => o.Status == OrderStatus.Completed
+                            && (start == null || o.SaleDate >= start)
+                            && (end == null || o.SaleDate < end))
+                .Include(o => o.Event)
+                .Include(o => o.Lines)
+                .AsNoTracking()
+                .ToListAsync();
 
-                var territories = await DB.Territories.AsNoTracking()
-                    .Where(t => visible == null || visible.Contains(t.Id))
-                    .OrderBy(t => t.Name)
-                    .ToListAsync();
-                var activeEvents = await DB.Events.AsNoTracking()
-                    .Where(e => e.IsActive)
-                    .Select(e => new { e.TerritoryId, e.Organization })
-                    .ToListAsync();
-                var activeByTerritory = activeEvents
-                    .GroupBy(e => e.TerritoryId)
-                    .ToDictionary(g => g.Key, g => g.First().Organization);
+            var territories = await DB.Territories.AsNoTracking()
+                .Where(t => visible == null || visible.Contains(t.Id))
+                .OrderBy(t => t.Name)
+                .ToListAsync();
+            var activeEvents = await DB.Events.AsNoTracking()
+                .Where(e => e.IsActive)
+                .Select(e => new { e.TerritoryId, e.Organization })
+                .ToListAsync();
+            var activeByTerritory = activeEvents
+                .GroupBy(e => e.TerritoryId)
+                .ToDictionary(g => g.Key, g => g.First().Organization);
 
-                var rows = territories
-                    .Select(t =>
+            var rows = territories
+                .Select(t =>
+                {
+                    var mine = orders.Where(o => o.Event!.TerritoryId == t.Id).ToList();
+                    var stats = Build(mine, []);
+                    return new TerritoryStatsDto
                     {
-                        var mine = orders.Where(o => o.Event!.TerritoryId == t.Id).ToList();
-                        var stats = Build(mine, []);
-                        return new TerritoryStatsDto
-                        {
-                            TerritoryId = t.Id,
-                            TerritoryName = t.Name,
-                            IsActive = t.IsActive,
-                            ActiveEvent = activeByTerritory.GetValueOrDefault(t.Id),
-                            EventCount = mine.Select(o => o.EventId).Distinct().Count(),
-                            CompletedOrderCount = stats.CompletedOrderCount,
-                            TotalSales = stats.TotalSales,
-                            NetSales = stats.NetSales,
-                            AverageSale = stats.AverageSale,
-                            MattressCount = stats.MattressCount,
-                            AdjustableBaseCount = stats.AdjustableBaseCount,
-                            OutstandingBalance = stats.OutstandingBalance,
-                        };
-                    })
-                    // A switched-off territory with nothing in the dates is just clutter.
-                    .Where(r => r.IsActive == true || r.CompletedOrderCount > 0)
-                    .OrderByDescending(r => r.TotalSales)
-                    .ThenBy(r => r.TerritoryName)
-                    .ToList();
+                        TerritoryId = t.Id,
+                        TerritoryName = t.Name,
+                        IsActive = t.IsActive,
+                        ActiveEvent = activeByTerritory.GetValueOrDefault(t.Id),
+                        EventCount = mine.Select(o => o.EventId).Distinct().Count(),
+                        CompletedOrderCount = stats.CompletedOrderCount,
+                        TotalSales = stats.TotalSales,
+                        NetSales = stats.NetSales,
+                        AverageSale = stats.AverageSale,
+                        MattressCount = stats.MattressCount,
+                        AdjustableBaseCount = stats.AdjustableBaseCount,
+                        OutstandingBalance = stats.OutstandingBalance,
+                    };
+                })
+                // A switched-off territory with nothing in the dates is just clutter.
+                .Where(r => r.IsActive == true || r.CompletedOrderCount > 0)
+                .OrderByDescending(r => r.TotalSales)
+                .ThenBy(r => r.TerritoryName)
+                .ToList();
 
-                return Ok(rows);
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while comparing territories.", e);
-            }
+            return Ok(rows);
         }
 
         #endregion
@@ -235,15 +212,14 @@ namespace api.Controllers
             var products = await db.Products
                 .AsNoTracking()
                 .Where(p => p.IsActive)
-                .Where(p => p.TerritoryId != null && (territories == null || territories.Contains(p.TerritoryId.Value)))
+                .InTerritories(territories)
                 .Select(p => new { p.Id, p.Name, p.Brand, p.Category, VariantIds = p.Variants.Select(v => v.Id).ToList() })
                 .ToListAsync();
 
             var sold = orders
                 .Where(o => o.Status == OrderStatus.Completed)
                 .SelectMany(o => o.Lines)
-                .Where(l => l.ProductVariantId != null
-                            && l.LineType is not (OrderLineType.Delivery or OrderLineType.Upcharge))
+                .Where(l => l.ProductVariantId != null && OrderRules.IsItem(l))
                 .GroupBy(l => l.ProductVariantId!.Value)
                 .ToDictionary(g => g.Key, g => (Quantity: g.Sum(l => l.Quantity), Revenue: g.Sum(l => l.LineTotal)));
 
@@ -271,8 +247,11 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// A product name or brand reduced to what identifies it, so the same product in two
-        /// territories' catalogs lands in one tally: trimmed, single-spaced and lower case.
+        /// A product name or brand reduced to what identifies it in a sales tally, so the same
+        /// product in two territories' catalogs - or typed twice on custom lines - lands in one:
+        /// trimmed, single-spaced and lower case. Looser than CatalogRules.NameKey, which matches
+        /// catalog items up on import and copy and keeps inner spacing; a tally only groups
+        /// numbers, so a near-duplicate merging is harmless there.
         /// </summary>
         /// <param name="text">Name or brand</param>
         /// <returns>The key to group on.</returns>
@@ -307,7 +286,7 @@ namespace api.Controllers
             var payments = completed.SelectMany(o => o.Payments).ToList();
 
             // Shipping rows and upcharges are charges on an item, not items, so they never count.
-            var productLines = lines.Where(l => l.LineType is not (OrderLineType.Delivery or OrderLineType.Upcharge)).ToList();
+            var productLines = lines.Where(OrderRules.IsItem).ToList();
 
             int UnitsIn(ProductCategory category) =>
                 productLines.Where(l => l.Category == category).Sum(l => l.Quantity);
@@ -372,7 +351,7 @@ namespace api.Controllers
 
                 CompletedOrderCount = completed.Count,
                 // A blank draft, with no number yet, is a rep checking prices rather than a sale under way.
-                DraftOrderCount = orders.Count(o => o.Status == OrderStatus.Draft && o.OrderNumber != null),
+                DraftOrderCount = orders.Count(o => o.Status == OrderStatus.Draft && !OrderRules.IsBlankDraft(o)),
                 AwaitingCheckoutCount = orders.Count(o => o.Status == OrderStatus.AwaitingCheckout),
                 VoidedOrderCount = orders.Count(o => o.Status == OrderStatus.Voided),
 

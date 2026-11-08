@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
+import { useRef } from "react";
+import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import EmailDialog from "../Components/Elements/EmailDialog";
 import Icon from "../Components/Elements/Icon";
@@ -8,21 +8,10 @@ import ReceiptSheet from "../Components/Checkout/ReceiptSheet";
 import StatSheet from "../Components/Dashboard/StatSheet";
 import InventoryNotesEditor from "../Components/Inventory/InventoryNotesEditor";
 import InventorySheet from "../Components/Inventory/InventorySheet";
-import { useAuth } from "../Context/AuthContext";
-import { FormatCurrency, FormatShortDate } from "../Lib/ModelHelpers";
-import { BuildSalesCsv, DownloadCsv } from "../Lib/SalesExport";
-import { FindSheets, PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
-import { Toast } from "../Lib/Toast";
-import type { DashboardStats } from "../Models/DashboardStats";
-import type { Event } from "../Models/Event";
-import type { InventoryItem } from "../Models/InventoryItem";
-import type { Order } from "../Models/Order";
-import { GetStatsForEvent } from "../Services/DashboardServices";
-import { EmailEventReport, GetEmailStatus } from "../Services/EmailServices";
-import type { EmailStatus } from "../Services/EmailServices";
-import { GetEvent } from "../Services/EventServices";
-import { GetInventory } from "../Services/InventoryServices";
-import { GetSalesSheetsForEvent } from "../Services/OrderServices";
+import { FormatCurrency, FormatShortDate } from "@shared/Lib/Format";
+import { useEventSheets } from "@shared/Hooks/useEventSheets";
+import { FindSheets } from "../Lib/SheetPdf";
+import { ScreenLinks } from "../Lib/ScreenLinks";
 
 /**
  * Every completed sales sheet for one event, stacked one per printed page, between the stat sheet
@@ -32,87 +21,31 @@ import { GetSalesSheetsForEvent } from "../Services/OrderServices";
  * this is the event's paperwork.
  */
 const EventSheetsPage = () => {
-    const { user } = useAuth();
     const { eventId } = useParams();
     const navigate = useNavigate();
     const location = useLocation();
-
-    const [saleEvent, setSaleEvent] = useState<Event | null>(null);
-    const [orders, setOrders] = useState<Order[]>([]);
-    const [stats, setStats] = useState<DashboardStats | null>(null);
-    const [inventory, setInventory] = useState<InventoryItem[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
-    const [emailing, setEmailing] = useState<boolean>(false);
-    const [printProgress, setPrintProgress] = useState<string | null>(null);
+    const {
+        saleEvent,
+        orders,
+        stats,
+        inventory,
+        loading,
+        notesSaved,
+        total,
+        downloadCsv,
+        print,
+        printProgress,
+        emailing,
+        startEmail,
+        stopEmail,
+        sendReport,
+    } = useEventSheets(Number(eventId));
     const sheetsRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        const load = async () => {
-            const id = Number(eventId);
-            if (!id) return setLoading(false);
-
-            const [found, sheets, figures, stock, status] = await Promise.all([
-                GetEvent(id),
-                GetSalesSheetsForEvent(id),
-                GetStatsForEvent(id),
-                GetInventory(id),
-                GetEmailStatus(),
-            ]);
-            setEmailStatus(status);
-            setSaleEvent(found);
-            setOrders(sheets);
-            setStats(figures);
-            setInventory(stock);
-            setLoading(false);
-        };
-
-        load();
-    }, [eventId]);
-
-    if (!user) return <Navigate to="/unauthorized" replace />;
     if (loading) return <LoadingPage />;
 
     const from = (location.state as { from?: string; label?: string } | null) ?? null;
-    const goBack = () => navigate(from?.from ?? "/events");
-
-    const slug = `${saleEvent?.organization || "event"}`
-        .trim()
-        .replace(/[^a-z0-9]+/gi, "-")
-        .replace(/^-|-$/g, "")
-        .toLowerCase();
-    const date = (saleEvent?.eventDate ?? "").slice(0, 10);
-
-    const handleDownload = () => {
-        if (orders.length === 0) return Toast.Warning("There are no completed sales to export.");
-        DownloadCsv(`${slug}-${date}-sales.csv`, BuildSalesCsv(orders));
-    };
-
-    // Printed from the same PDF that email sends, so the sheets come out the same from any device.
-    const handlePrint = async () => {
-        if (orders.length === 0 && inventory.length === 0)
-            return Toast.Warning("There are no completed sales to print.");
-
-        setPrintProgress("Making the PDF...");
-        await PrintSheetsPdf(
-            FindSheets(sheetsRef.current),
-            `${slug}-${date}-sales-sheets`,
-            (page, total) => setPrintProgress(`Making the PDF: ${page} of ${total}...`)
-        );
-        setPrintProgress(null);
-    };
-
-    const handleEmail = () => {
-        if (!emailStatus?.configured)
-            return Toast.Warning(
-                "Email isn't set up on this server yet. Ask whoever runs the app to add the email settings."
-            );
-        if (orders.length === 0 && inventory.length === 0)
-            return Toast.Warning("There are no completed sales to report yet.");
-        setEmailing(true);
-    };
-
-    const total = orders.reduce((sum, o) => sum + (o.total ?? 0), 0);
+    const goBack = () => navigate(from?.from ?? ScreenLinks.events.path);
 
     return (
         <div className="print-root min-h-screen bg-zinc-200 py-4 dark:bg-zinc-900">
@@ -128,19 +61,19 @@ const EventSheetsPage = () => {
                         <Button
                             text="Download CSV"
                             icon="fa-solid fa-file-csv"
-                            onClick={handleDownload}
+                            onClick={downloadCsv}
                             className="bg-green-700 hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                         />
                         <Button
                             text="Email report"
                             icon="fa-solid fa-envelope"
-                            onClick={handleEmail}
+                            onClick={startEmail}
                             className="bg-zinc-600 hover:bg-zinc-700 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                         />
                         <Button
                             text={printProgress ?? "Print / Save PDF"}
                             icon="fa-solid fa-print"
-                            onClick={handlePrint}
+                            onClick={() => print(FindSheets(sheetsRef.current))}
                             loading={printProgress !== null}
                             disabled={printProgress !== null}
                         />
@@ -199,13 +132,7 @@ const EventSheetsPage = () => {
                                     <InventoryNotesEditor
                                         eventId={saleEvent.id}
                                         notes={saleEvent.inventoryNotes}
-                                        onSaved={(notes) =>
-                                            setSaleEvent((current) =>
-                                                current
-                                                    ? { ...current, inventoryNotes: notes }
-                                                    : current
-                                            )
-                                        }
+                                        onSaved={notesSaved}
                                     />
                                 </div>
                             )}
@@ -229,16 +156,10 @@ const EventSheetsPage = () => {
                         </>
                     }
                     withMessage
-                    onSend={async (to, message, progress) => {
-                        const pdf = await TryBuildSheetsPdf(
-                            FindSheets(sheetsRef.current),
-                            (page, total) => progress(`Making the PDF: page ${page} of ${total}...`)
-                        );
-                        if (!pdf) return null;
-                        progress("Sending...");
-                        return EmailEventReport(saleEvent.id!, to, message, pdf);
-                    }}
-                    onClose={() => setEmailing(false)}
+                    onSend={(to, message, progress) =>
+                        sendReport(FindSheets(sheetsRef.current), to, message, progress)
+                    }
+                    onClose={stopEmail}
                 />
             )}
         </div>

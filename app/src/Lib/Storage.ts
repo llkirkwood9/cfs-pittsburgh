@@ -1,4 +1,5 @@
 import * as SecureStore from "expo-secure-store";
+import { StorageKeys } from "./StorageKeys";
 
 /**
  * Small key/value storage for the device. Sign-in tokens live in the
@@ -8,15 +9,12 @@ import * as SecureStore from "expo-secure-store";
  */
 const cache = new Map<string, string | null>();
 
-/** The keys the app reads before the first screen draws. */
-const PRELOADED = ["cfs.refreshToken", "cfs.lastUsername", "cfs.territory", "theme"] as const;
-
 /**
- * Reads every key the app needs at start-up into memory. Call once before rendering.
+ * Reads every key the app keeps into memory. Call once before rendering.
  */
 export const LoadStorage = async (): Promise<void> => {
     await Promise.all(
-        PRELOADED.map(async (key) => {
+        Object.values(StorageKeys).map(async (key) => {
             try {
                 cache.set(key, await SecureStore.getItemAsync(key));
             } catch {

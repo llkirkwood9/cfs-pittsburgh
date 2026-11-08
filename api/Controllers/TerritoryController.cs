@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using api.Catalog;
 using api.Data;
 using api.Dtos;
 using api.Models;
@@ -18,11 +19,8 @@ namespace api.Controllers
     [Route("api/[controller]")]
     public class TerritoryController(
         ApplicationDbContext db,
-        IHttpClientFactory httpClientFactory,
-        IConfiguration config,
-        ILogger<BasicController> logger,
-        TokenService tokenService)
-        : BasicController(db, httpClientFactory, config, logger, tokenService)
+        ILogger<BasicController> logger)
+        : BasicController(db, logger)
     {
         #region Private Fields
 
@@ -41,50 +39,43 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetTerritories([FromQuery] bool includeInactive = false)
         {
-            try
+            var scope = Scope;
+            var query = DB.Territories.AsNoTracking().AsQueryable();
+            if (!scope.IsCompanyWide)
             {
-                var scope = Scope;
-                var query = DB.Territories.AsNoTracking().AsQueryable();
-                if (!scope.IsCompanyWide)
-                {
-                    var own = scope.MemberTerritoryIds.ToList();
-                    query = query.Where(t => own.Contains(t.Id));
-                }
-                else if (!includeInactive)
-                    query = query.Where(t => t.IsActive);
-
-                var territories = await query.OrderBy(t => t.Name).ToListAsync();
-                var ids = territories.Select(t => t.Id).ToList();
-
-                var users = await DB.UserTerritories.Where(ut => ids.Contains(ut.TerritoryId) && ut.User!.IsActive)
-                    .GroupBy(ut => ut.TerritoryId).Select(g => new { g.Key, Count = g.Count() })
-                    .ToDictionaryAsync(x => x.Key, x => x.Count);
-                var events = await DB.Events.Where(e => ids.Contains(e.TerritoryId))
-                    .GroupBy(e => e.TerritoryId).Select(g => new { g.Key, Count = g.Count() })
-                    .ToDictionaryAsync(x => x.Key, x => x.Count);
-                var products = await DB.Products.Where(p => p.TerritoryId != null && ids.Contains(p.TerritoryId.Value) && p.IsActive)
-                    .GroupBy(p => p.TerritoryId!.Value).Select(g => new { g.Key, Count = g.Count() })
-                    .ToDictionaryAsync(x => x.Key, x => x.Count);
-                var active = await DB.Events.Where(e => ids.Contains(e.TerritoryId) && e.IsActive)
-                    .Select(e => new { e.TerritoryId, e.Organization })
-                    .ToListAsync();
-
-                return Ok(territories.Select(t => new TerritoryDto
-                {
-                    Id = t.Id,
-                    Name = t.Name,
-                    IsActive = t.IsActive,
-                    CreatedAt = t.CreatedAt,
-                    UserCount = users.GetValueOrDefault(t.Id),
-                    EventCount = events.GetValueOrDefault(t.Id),
-                    ProductCount = products.GetValueOrDefault(t.Id),
-                    ActiveEvent = active.FirstOrDefault(a => a.TerritoryId == t.Id)?.Organization,
-                }).ToList());
+                var own = scope.MemberTerritoryIds.ToList();
+                query = query.Where(t => own.Contains(t.Id));
             }
-            catch (Exception e)
+            else if (!includeInactive)
+                query = query.Where(t => t.IsActive);
+
+            var territories = await query.OrderBy(t => t.Name).ToListAsync();
+            var ids = territories.Select(t => t.Id).ToList();
+
+            var users = await DB.UserTerritories.Where(ut => ids.Contains(ut.TerritoryId) && ut.User!.IsActive)
+                .GroupBy(ut => ut.TerritoryId).Select(g => new { g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.Key, x => x.Count);
+            var events = await DB.Events.Where(e => ids.Contains(e.TerritoryId))
+                .GroupBy(e => e.TerritoryId).Select(g => new { g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.Key, x => x.Count);
+            var products = await DB.Products.Where(p => p.TerritoryId != null && ids.Contains(p.TerritoryId.Value) && p.IsActive)
+                .GroupBy(p => p.TerritoryId!.Value).Select(g => new { g.Key, Count = g.Count() })
+                .ToDictionaryAsync(x => x.Key, x => x.Count);
+            var active = await DB.Events.Where(e => ids.Contains(e.TerritoryId) && e.IsActive)
+                .Select(e => new { e.TerritoryId, e.Organization })
+                .ToListAsync();
+
+            return Ok(territories.Select(t => new TerritoryDto
             {
-                return ServerError("Internal error occurred while getting territories.", e);
-            }
+                Id = t.Id,
+                Name = t.Name,
+                IsActive = t.IsActive,
+                CreatedAt = t.CreatedAt,
+                UserCount = users.GetValueOrDefault(t.Id),
+                EventCount = events.GetValueOrDefault(t.Id),
+                ProductCount = products.GetValueOrDefault(t.Id),
+                ActiveEvent = active.FirstOrDefault(a => a.TerritoryId == t.Id)?.Organization,
+            }).ToList());
         }
 
         #endregion
@@ -100,46 +91,39 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> AddTerritory([FromBody] TerritoryDto request)
         {
-            try
+            if (!Scope.IsCompanyWide)
+                return Forbidden(AdminOnly);
+
+            var name = request.Name?.Trim();
+            if (string.IsNullOrWhiteSpace(name) || name.Length > 100)
+                return BadRequest(new { error = "Enter a territory name of up to 100 characters." });
+
+            var lower = name.ToLower();
+            if (await DB.Territories.AnyAsync(t => t.Name.ToLower() == lower))
+                return BadRequest(new { error = "There is already a territory with that name." });
+
+            var copyFrom = request.CopyCatalogFromTerritoryId;
+            if (copyFrom != null && !await DB.Territories.AnyAsync(t => t.Id == copyFrom))
+                return BadRequest(new { error = "The territory to copy the catalog from doesn't exist." });
+
+            var territory = new Territory { Name = name, IsActive = request.IsActive ?? true };
+            DB.Territories.Add(territory);
+            await DB.SaveChangesAsync();
+
+            // Its catalog starts as a copy of another territory's: products, sizes, prices,
+            // sales, selections, bundles, delivery and financing options - but no stock.
+            var copied = copyFrom != null ? await CatalogCopy.CopyCatalogAsync(DB, copyFrom.Value, territory.Id) : 0;
+
+            Trace(TraceEventType.Information, $"Territory {territory.Name} added by {GetCurrentUserName()}"
+                + (copyFrom != null ? $", with {copied} products copied." : "."));
+            return Ok(new TerritoryDto
             {
-                if (!Scope.IsCompanyWide)
-                    return Forbidden(AdminOnly);
-
-                var name = request.Name?.Trim();
-                if (string.IsNullOrWhiteSpace(name) || name.Length > 100)
-                    return BadRequest(new { error = "Enter a territory name of up to 100 characters." });
-
-                var lower = name.ToLower();
-                if (await DB.Territories.AnyAsync(t => t.Name.ToLower() == lower))
-                    return BadRequest(new { error = "There is already a territory with that name." });
-
-                var copyFrom = request.CopyCatalogFromTerritoryId;
-                if (copyFrom != null && !await DB.Territories.AnyAsync(t => t.Id == copyFrom))
-                    return BadRequest(new { error = "The territory to copy the catalog from doesn't exist." });
-
-                var territory = new Territory { Name = name, IsActive = request.IsActive ?? true };
-                DB.Territories.Add(territory);
-                await DB.SaveChangesAsync();
-
-                // Its catalog starts as a copy of another territory's: products, sizes, prices,
-                // sales, selections, bundles, delivery and financing options - but no stock.
-                var copied = copyFrom != null ? await CatalogCopy.CopyCatalogAsync(DB, copyFrom.Value, territory.Id) : 0;
-
-                Trace(TraceEventType.Information, $"Territory {territory.Name} added by {GetCurrentUserName()}"
-                    + (copyFrom != null ? $", with {copied} products copied." : "."));
-                return Ok(new TerritoryDto
-                {
-                    Id = territory.Id,
-                    Name = territory.Name,
-                    IsActive = territory.IsActive,
-                    CreatedAt = territory.CreatedAt,
-                    ProductCount = copied,
-                });
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while adding the territory.", e);
-            }
+                Id = territory.Id,
+                Name = territory.Name,
+                IsActive = territory.IsActive,
+                CreatedAt = territory.CreatedAt,
+                ProductCount = copied,
+            });
         }
 
         #endregion
@@ -156,55 +140,48 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> UpdateTerritory([FromBody] TerritoryDto request)
         {
-            try
+            if (!Scope.IsCompanyWide)
+                return Forbidden(AdminOnly);
+
+            if (request.Id == null)
+                return BadRequest(new { error = "Missing parameter." });
+
+            var territory = await DB.Territories.FindAsync(request.Id.Value);
+            if (territory == null)
+                return NotFound(new { error = "Territory not found." });
+
+            if (request.Name != null)
             {
-                if (!Scope.IsCompanyWide)
-                    return Forbidden(AdminOnly);
+                var name = request.Name.Trim();
+                if (name.Length == 0 || name.Length > 100)
+                    return BadRequest(new { error = "Enter a territory name of up to 100 characters." });
 
-                if (request.Id == null)
-                    return BadRequest(new { error = "Missing parameter." });
+                var lower = name.ToLower();
+                if (await DB.Territories.AnyAsync(t => t.Id != territory.Id && t.Name.ToLower() == lower))
+                    return BadRequest(new { error = "There is already a territory with that name." });
 
-                var territory = await DB.Territories.FindAsync(request.Id.Value);
-                if (territory == null)
-                    return NotFound(new { error = "Territory not found." });
-
-                if (request.Name != null)
-                {
-                    var name = request.Name.Trim();
-                    if (name.Length == 0 || name.Length > 100)
-                        return BadRequest(new { error = "Enter a territory name of up to 100 characters." });
-
-                    var lower = name.ToLower();
-                    if (await DB.Territories.AnyAsync(t => t.Id != territory.Id && t.Name.ToLower() == lower))
-                        return BadRequest(new { error = "There is already a territory with that name." });
-
-                    territory.Name = name;
-                }
-
-                if (request.IsActive != null && request.IsActive.Value != territory.IsActive)
-                {
-                    territory.IsActive = request.IsActive.Value;
-                    if (!territory.IsActive)
-                    {
-                        // Crew with no other territory left are signed out; anyone who also works
-                        // elsewhere carries on there. Its sale stops taking orders.
-                        await DB.UserSessions
-                            .Where(s => s.User!.Territories.Any(t => t.TerritoryId == territory.Id)
-                                        && !s.User.Territories.Any(t => t.TerritoryId != territory.Id && t.Territory!.IsActive))
-                            .ExecuteDeleteAsync();
-                        await DB.Events.Where(e => e.TerritoryId == territory.Id && e.IsActive)
-                            .ExecuteUpdateAsync(s => s.SetProperty(e => e.IsActive, false));
-                    }
-                }
-
-                await DB.SaveChangesAsync();
-                Trace(TraceEventType.Information, $"Territory {territory.Name} changed by {GetCurrentUserName()}.");
-                return Ok(new TerritoryDto { Id = territory.Id, Name = territory.Name, IsActive = territory.IsActive, CreatedAt = territory.CreatedAt });
+                territory.Name = name;
             }
-            catch (Exception e)
+
+            if (request.IsActive != null && request.IsActive.Value != territory.IsActive)
             {
-                return ServerError("Internal error occurred while updating the territory.", e);
+                territory.IsActive = request.IsActive.Value;
+                if (!territory.IsActive)
+                {
+                    // Crew with no other territory left are signed out; anyone who also works
+                    // elsewhere carries on there. Its sale stops taking orders.
+                    await DB.UserSessions
+                        .Where(s => s.User!.Territories.Any(t => t.TerritoryId == territory.Id)
+                                    && !s.User.Territories.Any(t => t.TerritoryId != territory.Id && t.Territory!.IsActive))
+                        .ExecuteDeleteAsync();
+                    await DB.Events.Where(e => e.TerritoryId == territory.Id && e.IsActive)
+                        .ExecuteUpdateAsync(s => s.SetProperty(e => e.IsActive, false));
+                }
             }
+
+            await DB.SaveChangesAsync();
+            Trace(TraceEventType.Information, $"Territory {territory.Name} changed by {GetCurrentUserName()}.");
+            return Ok(new TerritoryDto { Id = territory.Id, Name = territory.Name, IsActive = territory.IsActive, CreatedAt = territory.CreatedAt });
         }
 
         #endregion
@@ -221,35 +198,28 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> DeleteTerritory(int id)
         {
-            try
-            {
-                if (!Scope.IsCompanyWide)
-                    return Forbidden(AdminOnly);
+            if (!Scope.IsCompanyWide)
+                return Forbidden(AdminOnly);
 
-                var territory = await DB.Territories.FindAsync(id);
-                if (territory == null)
-                    return NotFound(new { error = "Territory not found." });
+            var territory = await DB.Territories.FindAsync(id);
+            if (territory == null)
+                return NotFound(new { error = "Territory not found." });
 
-                var inUse = await DB.UserTerritories.AnyAsync(ut => ut.TerritoryId == id)
-                            || await DB.Events.AnyAsync(e => e.TerritoryId == id)
-                            || await DB.Products.AnyAsync(p => p.TerritoryId == id)
-                            || await DB.DeliveryOptions.AnyAsync(d => d.TerritoryId == id);
-                if (inUse)
-                    return BadRequest(new { error = "This territory has crew, events or catalog items. Switch it off instead - its history stays on file." });
+            var inUse = await DB.UserTerritories.AnyAsync(ut => ut.TerritoryId == id)
+                        || await DB.Events.AnyAsync(e => e.TerritoryId == id)
+                        || await DB.Products.AnyAsync(p => p.TerritoryId == id)
+                        || await DB.DeliveryOptions.AnyAsync(d => d.TerritoryId == id);
+            if (inUse)
+                return BadRequest(new { error = "This territory has crew, events or catalog items. Switch it off instead - its history stays on file." });
 
-                await DB.InventoryAdjustments.Where(a => a.TerritoryId == id).ExecuteDeleteAsync();
-                // A territory's own finance options are only names; they go with it.
-                await DB.FinanceOptions.Where(f => f.TerritoryId == id).ExecuteDeleteAsync();
-                DB.Territories.Remove(territory);
-                await DB.SaveChangesAsync();
+            await DB.InventoryAdjustments.Where(a => a.TerritoryId == id).ExecuteDeleteAsync();
+            // A territory's own finance options are only names; they go with it.
+            await DB.FinanceOptions.Where(f => f.TerritoryId == id).ExecuteDeleteAsync();
+            DB.Territories.Remove(territory);
+            await DB.SaveChangesAsync();
 
-                Trace(TraceEventType.Information, $"Territory {territory.Name} deleted by {GetCurrentUserName()}.");
-                return Ok();
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while deleting the territory.", e);
-            }
+            Trace(TraceEventType.Information, $"Territory {territory.Name} deleted by {GetCurrentUserName()}.");
+            return Ok();
         }
 
         #endregion

@@ -1,6 +1,6 @@
 import { Image } from "expo-image";
-import { Redirect, router, useLocalSearchParams } from "expo-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { router, useLocalSearchParams } from "expo-router";
+import { useState } from "react";
 import type { ReactNode } from "react";
 import { RefreshControl, ScrollView, View } from "react-native";
 import AcknowledgementSheet from "../Components/Checkout/AcknowledgementSheet";
@@ -21,45 +21,19 @@ import EditLineModal from "../Components/Sales/EditLineModal";
 import OrderLineList from "../Components/Sales/OrderLineList";
 import OrderTotals from "../Components/Sales/OrderTotals";
 import UpchargeModal from "../Components/Sales/UpchargeModal";
-import { useAuth } from "../Context/AuthContext";
 import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { useBreakpoint } from "../Hooks/UseBreakpoint";
 import { cx } from "../Lib/ClassNames";
-import { CheckoutQueueCounted } from "../Lib/CheckoutWaiting";
-import { IsOnline } from "../Lib/Connection";
-import { FormatCurrency, InitialsFor, IsAcknowledged, RequiredTerms } from "../Lib/ModelHelpers";
-import { Toast } from "../Lib/Toast";
-import type { DeliveryOption } from "../Models/DeliveryOption";
-import type { Event } from "../Models/Event";
-import type { Order } from "../Models/Order";
-import type { OrderLine } from "../Models/OrderLine";
-import type { OrderPayment, PaymentMethod } from "../Models/OrderPayment";
-import type { OrderSummary } from "../Models/OrderSummary";
-import type { Product } from "../Models/Product";
-import { GetDeliveryOptions } from "../Services/DeliveryOptionServices";
-import { GetActiveEvent } from "../Services/EventServices";
+import { useCheckoutQueue } from "@shared/Hooks/useCheckoutQueue";
 import {
-    AddOrderLine,
-    AddOrderPayment,
-    CompleteOrder,
-    DeleteOrderLine,
-    DeleteOrderPayment,
-    GetCheckoutQueue,
-    GetOrder,
-    ReopenOrder,
-    ReorderOrderLines,
-    UpdateOrder,
-    UpdateOrderLine,
-    VoidOrder,
-} from "../Services/OrderServices";
-import { GetProducts } from "../Services/ProductServices";
-
-/**
- * How often the queue re-polls, so a new hand-off shows up without anyone refreshing. It also
- * keeps the Checkout tab's count current while this screen is open.
- */
-const POLL_MS = 5000;
+    AcknowledgementChecks,
+    AcknowledgementStateOf,
+    BillingSummaryText,
+    DeliverToText,
+} from "@shared/Lib/Checkout";
+import { FormatCurrency } from "@shared/Lib/Format";
+import { Paths } from "../Lib/ScreenLinks";
 
 /** A white card with an uppercase heading, as the checkout panel's sections are. */
 const Card = ({
@@ -87,7 +61,10 @@ const Check = ({ done, text }: { done: boolean; text: string }) => {
     const color = done ? "text-green-700 dark:text-green-400" : "text-zinc-500 dark:text-zinc-400";
     return (
         <View className="flex-row items-center gap-2">
-            <Icon icon={done ? "fa-solid fa-circle-check" : "fa-regular fa-circle"} className={color} />
+            <Icon
+                icon={done ? "fa-solid fa-circle-check" : "fa-regular fa-circle"}
+                className={color}
+            />
             <Text className={cx("text-sm font-medium", color)}>{text}</Text>
         </View>
     );
@@ -99,125 +76,41 @@ const Check = ({ done, text }: { done: boolean; text: string }) => {
  * signature, then opens the receipt to print or email.
  */
 const CheckoutPage = () => {
-    const { user } = useAuth();
     const { orderId } = useLocalSearchParams<{ orderId?: string }>();
     const { lg, sm } = useBreakpoint();
 
-    const [saleEvent, setSaleEvent] = useState<Event | null>(null);
-    const [queue, setQueue] = useState<OrderSummary[]>([]);
-    const [order, setOrder] = useState<Order | null>(null);
-    const [products, setProducts] = useState<Product[]>([]);
-    const [deliveryOptions, setDeliveryOptions] = useState<DeliveryOption[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
     const [refreshing, setRefreshing] = useState<boolean>(false);
-    const [completing, setCompleting] = useState<boolean>(false);
-    const [voiding, setVoiding] = useState<boolean>(false);
-
-    const [showAddItem, setShowAddItem] = useState<boolean>(false);
-    const [editingLine, setEditingLine] = useState<OrderLine | null>(null);
-    const [servicingLine, setServicingLine] = useState<OrderLine | null>(null);
-    const [upchargingLine, setUpchargingLine] = useState<OrderLine | null>(null);
-    const [removingLine, setRemovingLine] = useState<OrderLine | null>(null);
     const [showCustomerSheet, setShowCustomerSheet] = useState<boolean>(false);
     const [showAcknowledgements, setShowAcknowledgements] = useState<boolean>(false);
-    // Orders this device is completing, voiding or sending back, so the check below doesn't take
-    // its own work for someone else's.
-    const closedHere = useRef<Set<number>>(new Set());
 
-    const refreshQueue = useCallback(async (eventId: number) => {
-        const list = await GetCheckoutQueue(eventId);
-        setQueue(list);
-        if (IsOnline()) CheckoutQueueCounted(list.length);
-        return list;
-    }, []);
+    const {
+        saleEvent,
+        queue,
+        order,
+        products,
+        deliveryOptions,
+        loading,
+        load,
+        reloadQueue,
+        openOrder,
+        advance,
+        completing,
+        complete,
+        sendBack,
+        voiding,
+        setVoiding,
+        voidOrder,
+        editor,
+    } = useCheckoutQueue(orderId ? Number(orderId) : undefined);
 
-    const openOrder = useCallback(async (id: number) => {
-        const loaded = await GetOrder(id);
-        if (loaded) setOrder(loaded);
-    }, []);
+    const checkActiveEvent = useActiveEventChange(
+        loading ? undefined : (saleEvent?.id ?? null),
+        load
+    );
 
-    const load = useCallback(async () => {
-        const active = await GetActiveEvent();
-        setSaleEvent(active);
-
-        if (!active?.id) {
-            setQueue([]);
-            setOrder(null);
-            return;
-        }
-
-        const [list, catalog, options] = await Promise.all([
-            refreshQueue(active.id),
-            GetProducts(),
-            GetDeliveryOptions(),
-        ]);
-
-        setProducts(catalog);
-        setDeliveryOptions(options);
-
-        if (orderId) await openOrder(Number(orderId));
-        else if (list[0]?.id) await openOrder(list[0].id);
-        else setOrder(null);
-    }, [orderId, openOrder, refreshQueue]);
-
-    useEffect(() => {
-        setLoading(true);
-        load().finally(() => setLoading(false));
-    }, [load]);
-
-    useEffect(() => {
-        if (!saleEvent?.id) return;
-
-        const timer = setInterval(() => {
-            // A poll that fails while the Wi-Fi is down keeps the queue on screen rather than
-            // emptying it.
-            GetCheckoutQueue(saleEvent.id!).then((list) => {
-                if (!IsOnline()) return;
-                setQueue(list);
-                CheckoutQueueCounted(list.length);
-            });
-        }, POLL_MS);
-
-        return () => clearInterval(timer);
-    }, [saleEvent?.id]);
-
-    // Someone else may finish the order on screen - complete or void it at another device, or
-    // send it back to the floor. Once it drops out of the queue, look it up and close it here too,
-    // so nobody keeps working on a sale that is already done.
-    useEffect(() => {
-        if (!order?.id || order.status !== "AwaitingCheckout") return;
-        if (queue.some((o) => o.id === order.id) || closedHere.current.has(order.id)) return;
-
-        let cancelled = false;
-        GetOrder(order.id).then((latest) => {
-            if (cancelled || !IsOnline() || latest?.status === "AwaitingCheckout") return;
-            const what =
-                latest?.status === "Completed"
-                    ? "completed"
-                    : latest?.status === "Voided"
-                      ? "voided"
-                      : latest?.status === "Draft"
-                        ? "sent back to the sales floor"
-                        : "removed";
-            Toast.Info(`Order #${order.orderNumber} was ${what} on another device.`);
-            setOrder(null);
-        });
-        return () => {
-            cancelled = true;
-        };
-    }, [queue, order?.id, order?.status, order?.orderNumber]);
-
-    const checkActiveEvent = useActiveEventChange(loading ? undefined : (saleEvent?.id ?? null), load);
-
+    // A change of active event reloads everything; otherwise just the queue and the order.
     const reload = async () => {
-        // A change of active event reloads everything; otherwise just the queue and the order.
-        const switched = await checkActiveEvent();
-        if (!switched && saleEvent?.id) {
-            await refreshQueue(saleEvent.id);
-            if (order?.id) await openOrder(order.id);
-        } else if (!switched) {
-            await load();
-        }
+        if (!(await checkActiveEvent())) await reloadQueue();
     };
 
     const handleRefresh = async () => {
@@ -229,132 +122,14 @@ const CheckoutPage = () => {
     // Back on this screen: read it again.
     useRefreshOnFocus(reload);
 
-    if (!user) return <Redirect href="/unauthorized" />;
+    const openReceipt = (id: number) => router.push(Paths.receipt(id));
 
-    const applyResult = async (result: Order | null) => {
-        if (!result) return;
-        setOrder(result);
-        if (saleEvent?.id) await refreshQueue(saleEvent.id);
-    };
-
-    const saveOrder = async (changes: Order) => {
-        if (!order?.id) return;
-        await applyResult(await UpdateOrder({ ...changes, id: order.id }));
-    };
-
-    const handleAddLine = async (line: OrderLine) => {
-        if (!order?.id) return;
-        await applyResult(await AddOrderLine(order.id, line));
-    };
-
-    const handleReorderLines = async (itemIds: number[]) => {
-        if (!order?.id) return;
-        await applyResult(await ReorderOrderLines(order.id, itemIds));
-    };
-
-    const handleUpdateLine = async (line: OrderLine) => {
-        await applyResult(await UpdateOrderLine(line));
-    };
-
-    const handleRemoveLine = async () => {
-        if (!removingLine?.id) return;
-        const result = await DeleteOrderLine(removingLine.id);
-        setRemovingLine(null);
-        await applyResult(result);
-    };
-
-    const handleAddPayment = async (payment: OrderPayment) => {
-        if (!order?.id) return;
-        await applyResult(await AddOrderPayment(order.id, payment));
-    };
-
-    const handleRemovePayment = async (paymentId: number) => {
-        await applyResult(await DeleteOrderPayment(paymentId));
-    };
-
-    /** Choosing a card puts the card fee on the total; anything else takes it back off. */
-    const handleMethodChange = async (method: PaymentMethod) => {
-        if (!order?.id) return;
-        await saveOrder({ applyCcProcessingFee: method === "VisaMc" });
-    };
-
-    /** No card fee on this order, even when it is paid by card - or the fee back on. */
-    const handleWaiveFee = async (waive: boolean) => {
-        if (!order?.id) return;
-        await saveOrder({ waiveCcProcessingFee: waive });
-    };
-
-    const openReceipt = (id: number) =>
-        router.push({ pathname: "/receipt/[orderId]", params: { orderId: String(id) } });
-
+    // The receipt opens over this screen, which moves on to the next customer behind it.
     const handleComplete = async () => {
-        if (!order?.id) return;
-        const closing = order.id;
-        closedHere.current.add(closing);
-
-        setCompleting(true);
-        const result = await CompleteOrder(order.id);
-        setCompleting(false);
-
-        if (!result?.id) {
-            closedHere.current.delete(closing);
-            return;
-        }
-
-        Toast.Success(`Order #${result.orderNumber} completed.`);
+        const result = await complete();
+        if (!result?.id) return;
         openReceipt(result.id);
-        if (saleEvent?.id) {
-            const list = await refreshQueue(saleEvent.id);
-            setOrder(list[0]?.id ? await GetOrder(list[0].id) : null);
-        }
-    };
-
-    const handleSendBack = async () => {
-        if (!order?.id) return;
-        const closing = order.id;
-        closedHere.current.add(closing);
-
-        const result = await ReopenOrder(order.id);
-        if (!result) {
-            closedHere.current.delete(closing);
-            return;
-        }
-
-        Toast.Info(`Order #${result.orderNumber} sent back to the floor.`);
-
-        if (saleEvent?.id) {
-            const list = await refreshQueue(saleEvent.id);
-            setOrder(list[0]?.id ? await GetOrder(list[0].id) : null);
-        }
-    };
-
-    const handleVoid = async () => {
-        if (!order?.id) return;
-        const closing = order.id;
-        closedHere.current.add(closing);
-
-        const result = await VoidOrder(order.id);
-        setVoiding(false);
-
-        if (!result) {
-            closedHere.current.delete(closing);
-            return;
-        }
-
-        Toast.Info(`Order #${result.orderNumber} voided.`);
-
-        if (saleEvent?.id) {
-            const list = await refreshQueue(saleEvent.id);
-            setOrder(list[0]?.id ? await GetOrder(list[0].id) : null);
-        }
-    };
-
-    // Stock moves as other orders complete, so the picker always opens on fresh counts.
-    const openAddItem = () => {
-        setShowAddItem(true);
-        GetProducts().then((catalog) => {
-            if (catalog.length) setProducts(catalog);
-        });
+        await advance();
     };
 
     if (loading) {
@@ -379,18 +154,9 @@ const CheckoutPage = () => {
         );
     }
 
-    const closed = order?.status === "Completed" || order?.status === "Voided";
-    const signed = Boolean(order?.customerSignature);
-    // Only the statements this order needs: a take-home sale skips some of them.
-    const required = order ? RequiredTerms(order) : [];
-    const detailsNeeded = required.includes("customerInfo");
-    const confirmed = !detailsNeeded || Boolean(order?.customerInfoInitials);
-    const initialsNeeded = required.filter((key) => key !== "customerInfo");
-    const initialled = Boolean(order) && initialsNeeded.every((key) => InitialsFor(order!, key));
-    const initialsText = order
-        ? initialsNeeded.map((key) => InitialsFor(order, key)).join(", ")
-        : "";
-    const acknowledged = order ? IsAcknowledged(order) : false;
+    const ack = AcknowledgementStateOf(order);
+    const { closed, signed, confirmed, initialled, acknowledged } = ack;
+    const deliverTo = order ? DeliverToText(order) : null;
 
     const queuePane = (
         <View>
@@ -403,7 +169,10 @@ const CheckoutPage = () => {
 
     const orderPane = !order ? (
         <View className="items-center rounded-xl border-2 border-dashed border-zinc-300 py-16 dark:border-zinc-700">
-            <Icon icon={lg ? "fa-solid fa-hand-point-left" : "fa-solid fa-hand-point-up"} className="text-3xl text-zinc-400" />
+            <Icon
+                icon={lg ? "fa-solid fa-hand-point-left" : "fa-solid fa-hand-point-up"}
+                className="text-3xl text-zinc-400"
+            />
             <Text className="mt-3 font-semibold">Pick a customer</Text>
         </View>
     ) : (
@@ -423,7 +192,7 @@ const CheckoutPage = () => {
                             <Button
                                 text="Add item"
                                 icon="fa-solid fa-plus"
-                                onClick={openAddItem}
+                                onClick={editor.openAddItem}
                                 className="min-h-[40px] bg-green-700 px-3 text-sm dark:bg-green-600"
                             />
                         )}
@@ -435,12 +204,12 @@ const CheckoutPage = () => {
                 <OrderLineList
                     lines={order.lines ?? []}
                     readOnly={closed}
-                    onEdit={setEditingLine}
-                    onAddService={setServicingLine}
-                    onAddUpcharge={setUpchargingLine}
-                    onReorder={handleReorderLines}
-                    onRemove={setRemovingLine}
-                    onQuantity={(line, quantity) => handleUpdateLine({ id: line.id, quantity })}
+                    onEdit={editor.setEditingLine}
+                    onAddService={editor.setServicingLine}
+                    onAddUpcharge={editor.setUpchargingLine}
+                    onReorder={editor.reorderLines}
+                    onRemove={editor.setRemovingLine}
+                    onQuantity={editor.changeQuantity}
                 />
 
                 <View className="mt-3 border-t border-zinc-200 pt-3 dark:border-zinc-700">
@@ -460,26 +229,16 @@ const CheckoutPage = () => {
                 }
             >
                 <Text className="text-sm text-zinc-600 dark:text-zinc-400">
-                    {order.billingName || "No name yet"}
-                    {order.billingAddress ? ` · ${order.billingAddress}` : ""}
-                    {order.billingCity ? `, ${order.billingCity}` : ""}
-                    {order.billingState ? ` ${order.billingState}` : ""}
-                    {order.billingZip ? ` ${order.billingZip}` : ""}
+                    {BillingSummaryText(order)}
                 </Text>
-                {!(order.deliverySameAsBilling ?? true) && (
+                {deliverTo !== null && (
                     <View className="mt-1 flex-row gap-1.5">
-                        <Icon icon="fa-solid fa-truck" className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400" />
+                        <Icon
+                            icon="fa-solid fa-truck"
+                            className="mt-0.5 text-sm text-zinc-600 dark:text-zinc-400"
+                        />
                         <Text className="flex-1 text-sm text-zinc-600 dark:text-zinc-400">
-                            Deliver to{" "}
-                            {[
-                                order.deliveryName,
-                                order.deliveryAddress,
-                                order.deliveryCity,
-                                order.deliveryState,
-                                order.deliveryZip,
-                            ]
-                                .filter(Boolean)
-                                .join(", ")}
+                            Deliver to {deliverTo}
                         </Text>
                     </View>
                 )}
@@ -490,16 +249,21 @@ const CheckoutPage = () => {
                 ) : null}
             </Card>
 
-            <CommentsCard key={order.id} order={order} readOnly={closed} onSave={saveOrder} />
+            <CommentsCard
+                key={order.id}
+                order={order}
+                readOnly={closed}
+                onSave={editor.saveOrder}
+            />
 
             <Card title="Payment">
                 <PaymentPanel
                     key={order.id}
                     order={order}
-                    onAdd={handleAddPayment}
-                    onRemove={handleRemovePayment}
-                    onMethodChange={handleMethodChange}
-                    onWaiveFee={handleWaiveFee}
+                    onAdd={editor.addPayment}
+                    onRemove={editor.removePayment}
+                    onMethodChange={editor.changeMethod}
+                    onWaiveFee={editor.waiveFee}
                 />
             </Card>
 
@@ -517,22 +281,8 @@ const CheckoutPage = () => {
                 }
             >
                 <View className="flex-row flex-wrap items-center gap-4">
-                    <Check
-                        done={confirmed}
-                        text={
-                            !detailsNeeded
-                                ? "Details not needed"
-                                : `Details confirmed${confirmed ? ` (${order.customerInfoInitials})` : ""}`
-                        }
-                    />
-                    <Check
-                        done={initialled}
-                        text={`Initials${
-                            initialled
-                                ? initialsText && ` (${initialsText})`
-                                : ""
-                        }`}
-                    />
+                    <Check done={confirmed} text={AcknowledgementChecks(order, ack).details} />
+                    <Check done={initialled} text={AcknowledgementChecks(order, ack).initials} />
                     <Check done={signed} text="Signature" />
                 </View>
 
@@ -563,7 +313,11 @@ const CheckoutPage = () => {
 
             {lg ? (
                 <View className="flex-1 flex-row gap-4 px-4 pt-2">
-                    <ScrollView className="flex-[2]" contentContainerClassName="pb-4" refreshControl={refresh}>
+                    <ScrollView
+                        className="flex-[2]"
+                        contentContainerClassName="pb-4"
+                        refreshControl={refresh}
+                    >
                         {queuePane}
                     </ScrollView>
                     <ScrollView
@@ -610,14 +364,20 @@ const CheckoutPage = () => {
                                     <Button
                                         text="Send back"
                                         icon="fa-solid fa-arrow-rotate-left"
-                                        onClick={handleSendBack}
-                                        className={cx("min-h-[52px] bg-zinc-500 dark:bg-zinc-600", !sm && "flex-1 px-2 text-xs")}
+                                        onClick={sendBack}
+                                        className={cx(
+                                            "min-h-[52px] bg-zinc-500 dark:bg-zinc-600",
+                                            !sm && "flex-1 px-2 text-xs"
+                                        )}
                                     />
                                     <Button
                                         text="Void"
                                         icon="fa-solid fa-ban"
                                         onClick={() => setVoiding(true)}
-                                        className={cx("min-h-[52px] bg-red-700 dark:bg-red-600", !sm && "flex-1 px-2 text-xs")}
+                                        className={cx(
+                                            "min-h-[52px] bg-red-700 dark:bg-red-600",
+                                            !sm && "flex-1 px-2 text-xs"
+                                        )}
                                     />
                                     <Button
                                         text="Complete sale"
@@ -653,66 +413,64 @@ const CheckoutPage = () => {
                 </View>
             )}
 
-            {showAddItem && (
+            {editor.showAddItem && (
                 <AddItemModal
                     products={products}
-                    onAdd={handleAddLine}
-                    onClose={() => setShowAddItem(false)}
+                    onAdd={editor.addLine}
+                    onClose={editor.closeAddItem}
                 />
             )}
 
-            {editingLine?.lineType === "Upcharge" && (
+            {editor.editingLine?.lineType === "Upcharge" && (
                 <UpchargeModal
-                    line={editingLine}
-                    parentLine={
-                        order?.lines?.find((l) => l.id === editingLine.parentLineId) ?? editingLine
-                    }
-                    onSave={handleUpdateLine}
-                    onClose={() => setEditingLine(null)}
+                    line={editor.editingLine}
+                    parentLine={editor.upchargeParent(editor.editingLine)}
+                    onSave={editor.updateLine}
+                    onClose={() => editor.setEditingLine(null)}
                 />
             )}
 
-            {editingLine && editingLine.lineType !== "Upcharge" && (
+            {editor.editingLine && editor.editingLine.lineType !== "Upcharge" && (
                 <EditLineModal
-                    line={editingLine}
-                    onSave={handleUpdateLine}
-                    onClose={() => setEditingLine(null)}
+                    line={editor.editingLine}
+                    onSave={editor.updateLine}
+                    onClose={() => editor.setEditingLine(null)}
                 />
             )}
 
-            {upchargingLine && (
+            {editor.upchargingLine && (
                 <UpchargeModal
-                    parentLine={upchargingLine}
-                    onSave={handleAddLine}
-                    onClose={() => setUpchargingLine(null)}
+                    parentLine={editor.upchargingLine}
+                    onSave={editor.addLine}
+                    onClose={() => editor.setUpchargingLine(null)}
                 />
             )}
 
-            {servicingLine && (
+            {editor.servicingLine && (
                 <AddServiceModal
-                    parentLine={servicingLine}
+                    parentLine={editor.servicingLine}
                     options={deliveryOptions}
                     products={products}
-                    onAdd={handleAddLine}
-                    onClose={() => setServicingLine(null)}
+                    onAdd={editor.addLine}
+                    onClose={() => editor.setServicingLine(null)}
                 />
             )}
 
-            {removingLine && (
+            {editor.removingLine && (
                 <ConfirmationModal
                     title="Remove item"
-                    message={`Remove "${removingLine.description}" from this order?`}
+                    message={`Remove "${editor.removingLine.description}" from this order?`}
                     confirmText="Remove"
                     destructive
-                    onConfirm={handleRemoveLine}
-                    onCancel={() => setRemovingLine(null)}
+                    onConfirm={editor.removeLine}
+                    onCancel={() => editor.setRemovingLine(null)}
                 />
             )}
 
             {showCustomerSheet && order && (
                 <CustomerDetailsSheet
                     order={order}
-                    onSave={saveOrder}
+                    onSave={editor.saveOrder}
                     onClose={() => setShowCustomerSheet(false)}
                 />
             )}
@@ -720,7 +478,7 @@ const CheckoutPage = () => {
             {showAcknowledgements && order && (
                 <AcknowledgementSheet
                     order={order}
-                    onSave={saveOrder}
+                    onSave={editor.saveOrder}
                     onClose={() => setShowAcknowledgements(false)}
                 />
             )}
@@ -731,7 +489,7 @@ const CheckoutPage = () => {
                     message={`Void order #${order?.orderNumber}? It stays on file for the audit trail but drops out of the day's totals.`}
                     confirmText="Void"
                     destructive
-                    onConfirm={handleVoid}
+                    onConfirm={voidOrder}
                     onCancel={() => setVoiding(false)}
                 />
             )}

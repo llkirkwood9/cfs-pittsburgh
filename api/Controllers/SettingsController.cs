@@ -1,12 +1,15 @@
 using System.Diagnostics;
-using api.Data;
-using api.Dtos;
-using api.Models;
-using api.Services;
-using api.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using api.Data;
+using api.Dtos;
+using api.Email;
+using api.Models;
+using api.Orders;
+using api.Services;
+using api.Settings;
+using api.Utils;
 
 namespace api.Controllers
 {
@@ -21,11 +24,8 @@ namespace api.Controllers
     [Route("api/[controller]")]
     public class SettingsController(
         ApplicationDbContext db,
-        IHttpClientFactory httpClientFactory,
-        IConfiguration config,
-        ILogger<BasicController> logger,
-        TokenService tokenService)
-        : BasicController(db, httpClientFactory, config, logger, tokenService)
+        ILogger<BasicController> logger)
+        : BasicController(db, logger)
     {
         #region GET Methods
 
@@ -38,15 +38,8 @@ namespace api.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> GetPublic()
         {
-            try
-            {
-                var settings = await SettingsStore.LoadAsync(DB);
-                return Ok(new { appName = settings.AppName });
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while getting the settings.", e);
-            }
+            var settings = await SettingsStore.LoadAsync(DB);
+            return Ok(new { appName = settings.AppName });
         }
 
         /// <summary>
@@ -59,18 +52,11 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetGeneral([FromQuery] int? territoryId = null)
         {
-            try
-            {
-                var (scopeId, problem) = await ResolveAsync(territoryId, editing: false);
-                if (problem != null)
-                    return problem;
+            var (scopeId, problem) = await ResolveAsync(territoryId, editing: false);
+            if (problem != null)
+                return problem;
 
-                return Ok(await GeneralDtoAsync(scopeId));
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while getting the settings.", e);
-            }
+            return Ok(await GeneralDtoAsync(scopeId));
         }
 
         /// <summary>
@@ -83,21 +69,14 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetReceiptEmail([FromQuery] int? territoryId = null)
         {
-            try
-            {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or system admin may see the email settings.");
+            if (!IsAtLeast(UserRole.Manager))
+                return Forbidden("Only a manager, administrator or system admin may see the email settings.");
 
-                var (scopeId, problem) = await ResolveAsync(territoryId, editing: false);
-                if (problem != null)
-                    return problem;
+            var (scopeId, problem) = await ResolveAsync(territoryId, editing: false);
+            if (problem != null)
+                return problem;
 
-                return Ok(await ReceiptEmailDtoAsync(scopeId));
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while getting the settings.", e);
-            }
+            return Ok(await ReceiptEmailDtoAsync(scopeId));
         }
 
         #endregion
@@ -115,38 +94,31 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> PreviewReceiptEmail([FromBody] ReceiptEmailBodyDto request, [FromQuery] int? territoryId = null)
         {
-            try
+            if (!IsAtLeast(UserRole.Manager))
+                return Forbidden("Only a manager, administrator or system admin may preview the email.");
+
+            var (scopeId, problem) = await ResolveAsync(territoryId, editing: false);
+            if (problem != null)
+                return problem;
+
+            var body = Clip(request.Body, EmailTemplates.MaxReceiptBodyLength);
+            var subject = Clip(request.Subject, EmailTemplates.MaxReceiptSubjectLength);
+
+            var saleEvent = await DB.Events.AsNoTracking()
+                .Where(e => scopeId == null || e.TerritoryId == scopeId)
+                .OrderByDescending(e => e.IsActive).ThenByDescending(e => e.EventDate)
+                .FirstOrDefaultAsync();
+            var settings = await SettingsStore.LoadAsync(DB, scopeId);
+            var sample = SampleOrder(saleEvent);
+            var (sentSubject, html, _) = EmailTemplates.ReceiptMessage(sample, saleEvent, settings, body, subject);
+
+            return Ok(new ReceiptEmailPreviewDto
             {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden("Only a manager, administrator or system admin may preview the email.");
-
-                var (scopeId, problem) = await ResolveAsync(territoryId, editing: false);
-                if (problem != null)
-                    return problem;
-
-                var body = Clip(request.Body, EmailTemplates.MaxReceiptBodyLength);
-                var subject = Clip(request.Subject, EmailTemplates.MaxReceiptSubjectLength);
-
-                var saleEvent = await DB.Events.AsNoTracking()
-                    .Where(e => scopeId == null || e.TerritoryId == scopeId)
-                    .OrderByDescending(e => e.IsActive).ThenByDescending(e => e.EventDate)
-                    .FirstOrDefaultAsync();
-                var settings = await SettingsStore.LoadAsync(DB, scopeId);
-                var sample = SampleOrder(saleEvent);
-                var (sentSubject, html, _) = EmailTemplates.ReceiptMessage(sample, saleEvent, settings, body, subject);
-
-                return Ok(new ReceiptEmailPreviewDto
-                {
-                    Subject = sentSubject,
-                    Html = html,
-                    AttachmentName = $"CFS-Receipt-{sample.OrderNumber}.pdf",
-                    UnknownPlaceholders = EmailTemplates.UnknownPlaceholders(subject + "\n" + body),
-                });
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while previewing the email.", e);
-            }
+                Subject = sentSubject,
+                Html = html,
+                AttachmentName = EmailTemplates.ReceiptAttachmentName(sample),
+                UnknownPlaceholders = EmailTemplates.UnknownPlaceholders(subject + "\n" + body),
+            });
         }
 
         #endregion
@@ -166,81 +138,74 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> SaveGeneral([FromBody] GeneralSettingsDto request, [FromQuery] int? territoryId = null)
         {
-            try
+            var (scopeId, problem) = await ResolveAsync(territoryId, editing: true);
+            if (problem != null)
+                return problem;
+
+            if (scopeId != null && request.AppName != null)
+                return BadRequest(new { error = "The app name is the same for every territory - change it in the company-wide settings." });
+
+            var current = await SettingsStore.LoadAsync(DB, scopeId);
+            var fallback = scopeId == null ? SettingsStore.Defaults : await SettingsStore.LoadAsync(DB);
+
+            var appName = request.AppName?.Trim();
+            var company = request.CompanyName?.Trim();
+            var phone = request.CustomerServicePhone?.Trim();
+            var firstAt = request.StarsFirstAt ?? current.StarsFirstAt;
+            var every = request.StarsEvery ?? current.StarsEvery;
+            var lowAt = request.LowStockAt ?? current.LowStockAt;
+            var taxRate = request.DefaultSalesTaxRate ?? current.DefaultSalesTaxRate;
+            var feeRate = request.DefaultCcProcessingFeeRate ?? current.DefaultCcProcessingFeeRate;
+
+            if (appName?.Length > SettingsStore.MaxAppNameLength)
+                return BadRequest(new { error = $"The app name can be at most {SettingsStore.MaxAppNameLength} characters, so it fits in the menu bar." });
+            if (company?.Length > SettingsStore.MaxCompanyNameLength)
+                return BadRequest(new { error = $"The company name can be at most {SettingsStore.MaxCompanyNameLength} characters, so it fits across a sales sheet." });
+            if (phone?.Length > SettingsStore.MaxPhoneLength)
+                return BadRequest(new { error = $"The phone number can be at most {SettingsStore.MaxPhoneLength} characters." });
+            if (firstAt <= 0 || firstAt > SettingsStore.MaxStarAmount || every <= 0 || every > SettingsStore.MaxStarAmount)
+                return BadRequest(new { error = $"Star amounts must be more than $0 and at most {SettingsStore.MaxStarAmount:C0}." });
+            if (lowAt < 0 || lowAt > SettingsStore.MaxLowStockAt)
+                return BadRequest(new { error = $"The running-low level must be between 0 and {SettingsStore.MaxLowStockAt}." });
+            if (taxRate < 0 || taxRate > SettingsStore.MaxDefaultRate || feeRate < 0 || feeRate > SettingsStore.MaxDefaultRate)
+                return BadRequest(new { error = $"Rates must be between 0% and {SettingsStore.MaxDefaultRate:P0}." });
+
+            List<SalesTerm>? terms = null;
+            if (request.Terms != null)
             {
-                var (scopeId, problem) = await ResolveAsync(territoryId, editing: true);
-                if (problem != null)
-                    return problem;
-
-                if (scopeId != null && request.AppName != null)
-                    return BadRequest(new { error = "The app name is the same for every territory - change it in the company-wide settings." });
-
-                var current = await SettingsStore.LoadAsync(DB, scopeId);
-                var fallback = scopeId == null ? SettingsStore.Defaults : await SettingsStore.LoadAsync(DB);
-
-                var appName = request.AppName?.Trim();
-                var company = request.CompanyName?.Trim();
-                var phone = request.CustomerServicePhone?.Trim();
-                var firstAt = request.StarsFirstAt ?? current.StarsFirstAt;
-                var every = request.StarsEvery ?? current.StarsEvery;
-                var lowAt = request.LowStockAt ?? current.LowStockAt;
-                var taxRate = request.DefaultSalesTaxRate ?? current.DefaultSalesTaxRate;
-                var feeRate = request.DefaultCcProcessingFeeRate ?? current.DefaultCcProcessingFeeRate;
-
-                if (appName?.Length > SettingsStore.MaxAppNameLength)
-                    return BadRequest(new { error = $"The app name can be at most {SettingsStore.MaxAppNameLength} characters, so it fits in the menu bar." });
-                if (company?.Length > SettingsStore.MaxCompanyNameLength)
-                    return BadRequest(new { error = $"The company name can be at most {SettingsStore.MaxCompanyNameLength} characters, so it fits across a sales sheet." });
-                if (phone?.Length > SettingsStore.MaxPhoneLength)
-                    return BadRequest(new { error = $"The phone number can be at most {SettingsStore.MaxPhoneLength} characters." });
-                if (firstAt <= 0 || firstAt > SettingsStore.MaxStarAmount || every <= 0 || every > SettingsStore.MaxStarAmount)
-                    return BadRequest(new { error = $"Star amounts must be more than $0 and at most {SettingsStore.MaxStarAmount:C0}." });
-                if (lowAt < 0 || lowAt > SettingsStore.MaxLowStockAt)
-                    return BadRequest(new { error = $"The running-low level must be between 0 and {SettingsStore.MaxLowStockAt}." });
-                if (taxRate < 0 || taxRate > SettingsStore.MaxDefaultRate || feeRate < 0 || feeRate > SettingsStore.MaxDefaultRate)
-                    return BadRequest(new { error = $"Rates must be between 0% and {SettingsStore.MaxDefaultRate:P0}." });
-
-                List<SalesTerm>? terms = null;
-                if (request.Terms != null)
-                {
-                    (terms, var termsProblem) = CheckTerms(request.Terms);
-                    if (termsProblem != null)
-                        return BadRequest(new { error = termsProblem });
-                }
-
-                var by = GetCurrentUserName();
-                async Task Set(string key, string? value, string otherwise) =>
-                    await SettingsStore.SetAsync(DB, key, value, otherwise, by, scopeId);
-
-                if (request.AppName != null)
-                    await Set(AppSettingKeys.AppName, appName, fallback.AppName);
-                if (request.CompanyName != null)
-                    await Set(AppSettingKeys.CompanyName, company, fallback.CompanyName);
-                if (request.CustomerServicePhone != null)
-                    await Set(AppSettingKeys.CustomerServicePhone, phone, fallback.CustomerServicePhone);
-                if (request.StarsFirstAt != null)
-                    await Set(AppSettingKeys.StarsFirstAt, SettingsStore.Store(firstAt), SettingsStore.Store(fallback.StarsFirstAt));
-                if (request.StarsEvery != null)
-                    await Set(AppSettingKeys.StarsEvery, SettingsStore.Store(every), SettingsStore.Store(fallback.StarsEvery));
-                if (request.LowStockAt != null)
-                    await Set(AppSettingKeys.LowStockAt, SettingsStore.Store(lowAt), SettingsStore.Store(fallback.LowStockAt));
-                if (request.DefaultSalesTaxRate != null)
-                    await Set(AppSettingKeys.DefaultSalesTaxRate, SettingsStore.Store(taxRate), SettingsStore.Store(fallback.DefaultSalesTaxRate));
-                if (request.DefaultCcProcessingFeeRate != null)
-                    await Set(AppSettingKeys.DefaultCcProcessingFeeRate, SettingsStore.Store(feeRate), SettingsStore.Store(fallback.DefaultCcProcessingFeeRate));
-                if (terms != null)
-                    await Set(AppSettingKeys.SalesSheetTerms, SettingsStore.Store(terms), SettingsStore.Store(fallback.Terms));
-                if (request.AllowOtherFinanceType != null)
-                    await Set(AppSettingKeys.AllowOtherFinanceType, SettingsStore.Store(request.AllowOtherFinanceType.Value), SettingsStore.Store(fallback.AllowOtherFinanceType));
-
-                await DB.SaveChangesAsync();
-                Trace(TraceEventType.Information, $"{(scopeId == null ? "Company-wide" : $"Territory {scopeId}")} settings changed by {by}.");
-                return Ok(await GeneralDtoAsync(scopeId));
+                (terms, var termsProblem) = CheckTerms(request.Terms);
+                if (termsProblem != null)
+                    return BadRequest(new { error = termsProblem });
             }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while saving the settings.", e);
-            }
+
+            var by = GetCurrentUserName();
+            async Task Set(string key, string? value, string otherwise) =>
+                await SettingsStore.SetAsync(DB, key, value, otherwise, by, scopeId);
+
+            if (request.AppName != null)
+                await Set(AppSettingKeys.AppName, appName, fallback.AppName);
+            if (request.CompanyName != null)
+                await Set(AppSettingKeys.CompanyName, company, fallback.CompanyName);
+            if (request.CustomerServicePhone != null)
+                await Set(AppSettingKeys.CustomerServicePhone, phone, fallback.CustomerServicePhone);
+            if (request.StarsFirstAt != null)
+                await Set(AppSettingKeys.StarsFirstAt, SettingsStore.Store(firstAt), SettingsStore.Store(fallback.StarsFirstAt));
+            if (request.StarsEvery != null)
+                await Set(AppSettingKeys.StarsEvery, SettingsStore.Store(every), SettingsStore.Store(fallback.StarsEvery));
+            if (request.LowStockAt != null)
+                await Set(AppSettingKeys.LowStockAt, SettingsStore.Store(lowAt), SettingsStore.Store(fallback.LowStockAt));
+            if (request.DefaultSalesTaxRate != null)
+                await Set(AppSettingKeys.DefaultSalesTaxRate, SettingsStore.Store(taxRate), SettingsStore.Store(fallback.DefaultSalesTaxRate));
+            if (request.DefaultCcProcessingFeeRate != null)
+                await Set(AppSettingKeys.DefaultCcProcessingFeeRate, SettingsStore.Store(feeRate), SettingsStore.Store(fallback.DefaultCcProcessingFeeRate));
+            if (terms != null)
+                await Set(AppSettingKeys.SalesSheetTerms, SalesTerms.Store(terms), SalesTerms.Store(fallback.Terms));
+            if (request.AllowOtherFinanceType != null)
+                await Set(AppSettingKeys.AllowOtherFinanceType, SettingsStore.Store(request.AllowOtherFinanceType.Value), SettingsStore.Store(fallback.AllowOtherFinanceType));
+
+            await DB.SaveChangesAsync();
+            Trace(TraceEventType.Information, $"{(scopeId == null ? "Company-wide" : $"Territory {scopeId}")} settings changed by {by}.");
+            return Ok(await GeneralDtoAsync(scopeId));
         }
 
         /// <summary>
@@ -254,58 +219,35 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> SaveReceiptEmail([FromBody] ReceiptEmailBodyDto request, [FromQuery] int? territoryId = null)
         {
-            try
-            {
-                var (scopeId, problem) = await ResolveAsync(territoryId, editing: true);
-                if (problem != null)
-                    return problem;
+            var (scopeId, problem) = await ResolveAsync(territoryId, editing: true);
+            if (problem != null)
+                return problem;
 
-                var body = request.Body?.Replace("\r\n", "\n").Trim();
-                var subject = request.Subject?.Replace("\r", " ").Replace("\n", " ").Trim();
-                if (body?.Length > EmailTemplates.MaxReceiptBodyLength)
-                    return BadRequest(new { error = $"The email can be at most {EmailTemplates.MaxReceiptBodyLength:N0} characters." });
-                if (subject?.Length > EmailTemplates.MaxReceiptSubjectLength)
-                    return BadRequest(new { error = $"The subject line can be at most {EmailTemplates.MaxReceiptSubjectLength} characters." });
+            var body = request.Body?.Replace("\r\n", "\n").Trim();
+            var subject = request.Subject?.Replace("\r", " ").Replace("\n", " ").Trim();
+            if (body?.Length > EmailTemplates.MaxReceiptBodyLength)
+                return BadRequest(new { error = $"The email can be at most {EmailTemplates.MaxReceiptBodyLength:N0} characters." });
+            if (subject?.Length > EmailTemplates.MaxReceiptSubjectLength)
+                return BadRequest(new { error = $"The subject line can be at most {EmailTemplates.MaxReceiptSubjectLength} characters." });
 
-                var (otherSubject, otherBody) = scopeId == null
-                    ? (EmailTemplates.DefaultReceiptSubject, EmailTemplates.DefaultReceiptBody)
-                    : await CompanyReceiptEmailAsync();
+            var (otherSubject, otherBody) = scopeId == null
+                ? (EmailTemplates.DefaultReceiptSubject, EmailTemplates.DefaultReceiptBody)
+                : await CompanyReceiptEmailAsync();
 
-                var by = GetCurrentUserName();
-                if (request.Body != null)
-                    await SettingsStore.SetAsync(DB, AppSettingKeys.ReceiptEmailBody, body, otherBody, by, scopeId);
-                if (request.Subject != null)
-                    await SettingsStore.SetAsync(DB, AppSettingKeys.ReceiptEmailSubject, subject, otherSubject, by, scopeId);
-                await DB.SaveChangesAsync();
+            var by = GetCurrentUserName();
+            if (request.Body != null)
+                await SettingsStore.SetAsync(DB, AppSettingKeys.ReceiptEmailBody, body, otherBody, by, scopeId);
+            if (request.Subject != null)
+                await SettingsStore.SetAsync(DB, AppSettingKeys.ReceiptEmailSubject, subject, otherSubject, by, scopeId);
+            await DB.SaveChangesAsync();
 
-                var saved = await ReceiptEmailDtoAsync(scopeId);
-                Trace(TraceEventType.Information, $"Receipt email wording ({(scopeId == null ? "company-wide" : $"territory {scopeId}")}) changed by {by}.");
-                return Ok(saved);
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while saving the settings.", e);
-            }
+            var saved = await ReceiptEmailDtoAsync(scopeId);
+            Trace(TraceEventType.Information, $"Receipt email wording ({(scopeId == null ? "company-wide" : $"territory {scopeId}")}) changed by {by}.");
+            return Ok(saved);
         }
 
         #endregion
 
-        #region Internal Methods
-
-        /// <summary>
-        /// The receipt email's subject and wording in force for a territory (or company-wide); null
-        /// for either means the built-in wording.
-        /// </summary>
-        /// <param name="db">EF context</param>
-        /// <param name="territoryId">The territory, or null for company-wide</param>
-        /// <returns>The subject and body.</returns>
-        internal static async Task<(string? Subject, string? Body)> LoadReceiptEmailAsync(ApplicationDbContext db, int? territoryId)
-        {
-            var rows = await SettingsStore.RowsAsync(db, territoryId, [AppSettingKeys.ReceiptEmailBody, AppSettingKeys.ReceiptEmailSubject]);
-            return (rows.GetValueOrDefault(AppSettingKeys.ReceiptEmailSubject), rows.GetValueOrDefault(AppSettingKeys.ReceiptEmailBody));
-        }
-
-        #endregion
 
         #region Private Methods
 
@@ -366,7 +308,7 @@ namespace api.Controllers
         private static (List<SalesTerm>? Terms, string? Problem) CheckTerms(List<SalesTermDto> edited)
         {
             var result = new List<SalesTerm>();
-            foreach (var d in SettingsStore.DefaultTerms)
+            foreach (var d in SalesTerms.Defaults)
             {
                 var e = edited.FirstOrDefault(t => t.Key == d.Key);
                 var text = e?.Text?.Replace("\r\n", "\n").Trim() ?? "";
@@ -378,10 +320,10 @@ namespace api.Controllers
                     return (null, $"\"{title ?? d.Title}\" can be at most {SettingsStore.MaxTermTextLength:N0} characters, so the sales sheet still fits on one page.");
                 if (title?.Length > SettingsStore.MaxTermHeadingLength || heading.Length > SettingsStore.MaxTermHeadingLength)
                     return (null, $"Titles and headings can be at most {SettingsStore.MaxTermHeadingLength} characters.");
-                if (e?.AskWhen != null && !Acknowledgements.AskWhenValues.Contains(e.AskWhen))
+                if (e?.AskWhen != null && !SalesTerms.AskWhenValues.Contains(e.AskWhen))
                     return (null, "Each statement is asked always, when something ships, or when an item has a warranty.");
                 result.Add(new SalesTerm(d.Key, string.IsNullOrWhiteSpace(title) ? d.Title : title, heading, text,
-                    SettingsStore.AskWhenOrDefault(e?.AskWhen, d.AskWhen)));
+                    SalesTerms.AskWhenOrDefault(e?.AskWhen, d.AskWhen)));
             }
             return (result, null);
         }
@@ -402,7 +344,7 @@ namespace api.Controllers
                 DefaultSalesTaxRate = settings.DefaultSalesTaxRate,
                 DefaultCcProcessingFeeRate = settings.DefaultCcProcessingFeeRate,
                 Terms = settings.Terms
-                    .Select(t => new SalesTermDto { Key = t.Key, Title = t.Title, Heading = t.Heading, Text = t.Text, AskWhen = t.AskWhen })
+                    .Select(SalesTermDto.From)
                     .ToList(),
                 AllowOtherFinanceType = settings.AllowOtherFinanceType,
             };
@@ -411,22 +353,14 @@ namespace api.Controllers
         /// <summary>The company-wide subject and body in force (saved wording or the built-in).</summary>
         private async Task<(string Subject, string Body)> CompanyReceiptEmailAsync()
         {
-            var (subject, body) = await LoadReceiptEmailAsync(DB, null);
+            var (subject, body) = await SettingsStore.LoadReceiptEmailAsync(DB, null);
             return (subject ?? EmailTemplates.DefaultReceiptSubject, body ?? EmailTemplates.DefaultReceiptBody);
         }
 
         private async Task<ReceiptEmailSettingsDto> ReceiptEmailDtoAsync(int? territoryId)
         {
             // This scope's own rows: the company-wide ones, or the territory's.
-            List<(string Key, string Value, DateTime UpdatedAt, string? UpdatedBy)> own = territoryId == null
-                ? (await DB.AppSettings.AsNoTracking()
-                    .Where(s => s.Key == AppSettingKeys.ReceiptEmailBody || s.Key == AppSettingKeys.ReceiptEmailSubject)
-                    .ToListAsync())
-                    .Select(s => (s.Key, s.Value, s.UpdatedAt, s.UpdatedBy)).ToList()
-                : (await DB.TerritorySettings.AsNoTracking()
-                    .Where(s => s.TerritoryId == territoryId && (s.Key == AppSettingKeys.ReceiptEmailBody || s.Key == AppSettingKeys.ReceiptEmailSubject))
-                    .ToListAsync())
-                    .Select(s => (s.Key, s.Value, s.UpdatedAt, s.UpdatedBy)).ToList();
+            var own = await SettingsStore.OwnRowsAsync(DB, territoryId, SettingsStore.ReceiptEmailKeys);
 
             var (otherSubject, otherBody) = territoryId == null
                 ? (EmailTemplates.DefaultReceiptSubject, EmailTemplates.DefaultReceiptBody)
@@ -463,7 +397,7 @@ namespace api.Controllers
         {
             return new Order
             {
-                OrderNumber = saleEvent?.NextOrderNumber ?? 1001,
+                OrderNumber = saleEvent?.NextOrderNumber ?? Event.FirstOrderNumber,
                 Organization = saleEvent?.Organization ?? "Sample School Band",
                 SaleDate = saleEvent?.EventDate ?? DateTime.Today,
                 BillingName = "Jamie Smith",

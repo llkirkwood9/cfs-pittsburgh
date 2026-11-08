@@ -3,7 +3,7 @@ import ProtectedRoute from "../../Routes/ProtectedRoute";
 
 export default function Screen() {
     return (
-        <ProtectedRoute>
+        <ProtectedRoute screen="receipt">
             <ReceiptPage />
         </ProtectedRoute>
     );

@@ -1,9 +1,8 @@
-import { FormatCurrency, FormatRate } from "../../Lib/ModelHelpers";
-import type { Order } from "../../Models/Order";
+import { OrderTotalRows } from "@shared/Lib/Sales";
+import type { Order } from "@shared/Models/Order";
 
 type Props = {
     order: Order;
-    className?: string;
     /** On a phone, show only the total and what is still owed, so a sticky bar stays short. */
     compact?: boolean;
 };
@@ -12,39 +11,11 @@ type Props = {
  * The totals box from the bottom right of the sales sheet. Every figure here is computed by the
  * API, so the screen and the printed receipt can never disagree.
  */
-const OrderTotals = ({ order, className = "", compact = false }: Props) => {
-    const rows: { label: string; value: string; strong?: boolean; phone?: boolean }[] = [
-        { label: "Subtotal", value: FormatCurrency(order.subtotal) },
-        {
-            label: `Sales tax (${FormatRate(order.salesTaxRate)})`,
-            value: FormatCurrency(order.taxAmount),
-        },
-    ];
-
-    if ((order.ccProcessingFee ?? 0) > 0)
-        rows.push({ label: "CC processing fee", value: FormatCurrency(order.ccProcessingFee) });
-    else if (
-        order.waiveCcProcessingFee &&
-        (order.applyCcProcessingFee || (order.payments ?? []).some((p) => p.method === "VisaMc"))
-    )
-        rows.push({ label: "CC processing fee", value: "Waived" });
-
-    const paid = (order.amountPaid ?? 0) > 0;
-
-    rows.push({ label: "Total", value: FormatCurrency(order.total), strong: true, phone: true });
-
-    if (paid) rows.push({ label: "Paid", value: FormatCurrency(order.amountPaid) });
-
-    // Until something is paid the balance is just the total again, so a phone skips it.
-    rows.push({
-        label: "Balance due",
-        value: FormatCurrency(order.balanceDue),
-        strong: true,
-        phone: paid,
-    });
+const OrderTotals = ({ order, compact = false }: Props) => {
+    const rows = OrderTotalRows(order);
 
     return (
-        <dl className={`space-y-1 ${className}`}>
+        <dl className="space-y-1">
             {rows.map((row) => (
                 <div
                     key={row.label}

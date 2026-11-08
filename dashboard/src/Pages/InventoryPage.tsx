@@ -1,4 +1,3 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
@@ -7,31 +6,18 @@ import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import TabButton from "../Components/Elements/TabButton";
 import TextField from "../Components/Elements/TextField";
+import { useSettings } from "@shared/Context/SettingsContext";
+import { useInventory } from "@shared/Hooks/useInventory";
+import { CategoryNames } from "@shared/Lib/Catalog";
+import { FormatDateTime, FormatTime } from "@shared/Lib/Format";
 import {
-    CategoryNames,
-    FormatDateTime,
-    FormatTime,
-    GroupInventory,
+    InventoryKindLabels,
     InventoryRowKey,
     InventorySizeLabel,
-} from "../Lib/ModelHelpers";
-import { useSettings } from "../Context/SettingsContext";
-import { IsOnline } from "../Lib/Connection";
-import { Toast } from "../Lib/Toast";
-import type { Event } from "../Models/Event";
-import type { InventoryAdjustment } from "../Models/InventoryAdjustment";
-import type { InventoryItem } from "../Models/InventoryItem";
-import type { ProductCategory } from "../Models/Product";
-import { GetActiveEvent } from "../Services/EventServices";
-import { AdjustInventory, GetInventory, GetInventoryHistory } from "../Services/InventoryServices";
-
-const kindLabels: Record<string, string> = {
-    Adjustment: "Count changed",
-    Sale: "Take With sale",
-    Return: "Returned to stock",
-    Count: "End-of-event count",
-    OpeningCount: "Start-of-event count",
-};
+    StockLevelOf,
+} from "@shared/Lib/Inventory";
+import { Paths } from "../Lib/ScreenLinks";
+import { Limits } from "@shared/Lib/Limits";
 
 /**
  * On-hand stock for the accessories kept at the cart. The checkout team counts what arrives and
@@ -41,156 +27,41 @@ const kindLabels: Record<string, string> = {
 const InventoryPage = () => {
     const navigate = useNavigate();
     // Counts at or below this show as running low; set under Settings.
+    // Counts at or below this show as running low; set under Settings.
     const {
-        settings: { lowStockAt: LOW_STOCK },
+        settings: { lowStockAt },
     } = useSettings();
-    const [items, setItems] = useState<InventoryItem[]>([]);
-    const [saleEvent, setSaleEvent] = useState<Event | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [search, setSearch] = useState<string>("");
-    const [tab, setTab] = useState<ProductCategory | "All">("All");
-    const [busyId, setBusyId] = useState<string | null>(null);
-
-    const [counting, setCounting] = useState<InventoryItem | null>(null);
-    const [countValue, setCountValue] = useState<string>("");
-    const [countNote, setCountNote] = useState<string>("");
-    const [savingCount, setSavingCount] = useState<boolean>(false);
-
-    const [historyFor, setHistoryFor] = useState<InventoryItem | null>(null);
-    const [history, setHistory] = useState<InventoryAdjustment[] | null>(null);
-
-    const load = useCallback(async () => {
-        const active = await GetActiveEvent();
-        const rows = await GetInventory(active?.id ?? undefined);
-        // A refresh that fails while the server cannot be reached keeps what is on screen.
-        if (IsOnline()) {
-            setSaleEvent(active);
-            setItems(rows);
-        }
-        setLoading(false);
-    }, []);
-
-    useEffect(() => {
-        load();
-    }, [load]);
-
-    const replace = (updated: InventoryItem) =>
-        setItems((current) =>
-            current.map((i) =>
-                InventoryRowKey(i) === InventoryRowKey(updated)
-                    ? {
-                          ...i,
-                          quantityOnHand: updated.quantityOnHand,
-                          lastChangedAt: updated.lastChangedAt,
-                      }
-                    : i
-            )
-        );
-
-    const nudge = async (item: InventoryItem, change: number) => {
-        if (!item.productVariantId) return;
-        setBusyId(InventoryRowKey(item));
-        const updated = await AdjustInventory({
-            productVariantId: item.productVariantId,
-            stockKey: item.stockKey,
-            change,
-        });
-        setBusyId(null);
-        if (updated) replace(updated);
-    };
-
-    const openCount = (item: InventoryItem) => {
-        setCounting(item);
-        setCountValue(String(item.quantityOnHand ?? 0));
-        setCountNote("");
-    };
-
-    const saveCount = async () => {
-        if (!counting?.productVariantId) return;
-
-        const value = Number(countValue);
-        if (!Number.isInteger(value) || value < 0)
-            return Toast.Warning("Enter the number on hand - a whole number, 0 or more.");
-
-        setSavingCount(true);
-        const updated = await AdjustInventory({
-            productVariantId: counting.productVariantId,
-            stockKey: counting.stockKey,
-            setTo: value,
-            note: countNote.trim() || undefined,
-        });
-        setSavingCount(false);
-
-        if (!updated) return;
-        replace(updated);
-        setCounting(null);
-        Toast.Success(`${counting.productName} (${InventorySizeLabel(counting)}) set to ${value}.`);
-    };
-
-    const openHistory = async (item: InventoryItem) => {
-        if (!item.productVariantId) return;
-        setHistoryFor(item);
-        setHistory(null);
-        setHistory(await GetInventoryHistory(item.productVariantId, item.stockKey));
-    };
-
-    const categories = useMemo(
-        () => Array.from(new Set(items.map((i) => i.category ?? "Misc"))) as ProductCategory[],
-        [items]
-    );
-
-    const groups = useMemo(() => {
-        const term = search.trim().toLowerCase();
-        return GroupInventory(
-            items.filter((i) => {
-                if (tab !== "All" && i.category !== tab) return false;
-                if (!term) return true;
-                return (
-                    (i.productName ?? "").toLowerCase().includes(term) ||
-                    (i.brand ?? "").toLowerCase().includes(term) ||
-                    (i.size ?? "").toLowerCase().includes(term)
-                );
-            })
-        );
-    }, [items, tab, search]);
-
-    // When each of the event's shelf counts was last taken, and by whom.
-    const latest = (
-        at: (i: InventoryItem) => string | null | undefined,
-        by: (i: InventoryItem) => string | null | undefined
-    ) => {
-        const row = items
-            .filter((i) => at(i))
-            .sort((a, b) => (at(b) ?? "").localeCompare(at(a) ?? ""))[0];
-        return { at: row ? at(row) : null, by: row ? by(row) : null };
-    };
-    const opening = latest(
-        (i) => i.openingCountedAt,
-        (i) => i.openingCountedBy
-    );
-    const closing = latest(
-        (i) => i.countedAt,
-        (i) => i.countedBy
-    );
-    const countStatus = [
-        {
-            phase: "start",
-            title: "Start-of-event count",
-            hint: "Not done yet - count the shelf before the doors open",
-            due: !opening.at,
-            ...opening,
-        },
-        {
-            phase: "end",
-            title: "End-of-event count",
-            hint: "Count what is left once the event is over",
-            due: false,
-            ...closing,
-        },
-    ];
-
-    const outOfStock = items.filter((i) => (i.quantityOnHand ?? 0) <= 0).length;
-    const totalUnits = items.reduce((sum, i) => sum + Math.max(0, i.quantityOnHand ?? 0), 0);
+    const {
+        items,
+        saleEvent,
+        notesSaved,
+        loading,
+        load,
+        search,
+        setSearch,
+        tab,
+        setTab,
+        categories,
+        groups,
+        shelfCounts,
+        totalUnits,
+        outOfStock,
+        isBusy,
+        nudge,
+        counting,
+        closeCount,
+        countValue,
+        setCountValue,
+        countNote,
+        setCountNote,
+        savingCount,
+        openCount,
+        saveCount,
+        historyFor,
+        closeHistory,
+        history,
+        openHistory,
+    } = useInventory();
 
     if (loading) {
         return (
@@ -219,7 +90,7 @@ const InventoryPage = () => {
 
             {items.length > 0 && (
                 <div className="mb-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                    {countStatus.map((c) => (
+                    {shelfCounts.map((c) => (
                         <div
                             key={c.phase}
                             className={`flex flex-wrap items-center gap-3 rounded-xl border-2 p-3 ${
@@ -255,7 +126,7 @@ const InventoryPage = () => {
                             <Button
                                 text={c.at ? "Recount" : "Count now"}
                                 icon="fa-solid fa-clipboard-check"
-                                onClick={() => navigate(`/inventory/count/${c.phase}`)}
+                                onClick={() => navigate(Paths.inventoryCount(c.phase))}
                                 disabled={!saleEvent}
                                 className={`min-h-[44px] px-3 text-sm ${
                                     c.at
@@ -272,11 +143,7 @@ const InventoryPage = () => {
                 <InventoryNotesEditor
                     eventId={saleEvent.id}
                     notes={saleEvent.inventoryNotes}
-                    onSaved={(notes) =>
-                        setSaleEvent((current) =>
-                            current ? { ...current, inventoryNotes: notes } : current
-                        )
-                    }
+                    onSaved={notesSaved}
                     className="mb-5"
                 />
             )}
@@ -344,7 +211,8 @@ const InventoryPage = () => {
                                             <ul className="divide-y divide-zinc-100 dark:divide-zinc-700">
                                                 {product.sizes.map((item) => {
                                                     const onHand = item.quantityOnHand ?? 0;
-                                                    const busy = busyId === InventoryRowKey(item);
+                                                    const busy = isBusy(item);
+                                                    const level = StockLevelOf(onHand, lowStockAt);
 
                                                     return (
                                                         <li
@@ -355,11 +223,11 @@ const InventoryPage = () => {
                                                                 <p className="font-medium">
                                                                     {InventorySizeLabel(item)}
                                                                 </p>
-                                                                {onHand <= 0 ? (
+                                                                {level === "out" ? (
                                                                     <p className="text-xs font-semibold text-red-700 dark:text-red-400">
                                                                         Out of stock - ship only
                                                                     </p>
-                                                                ) : onHand <= LOW_STOCK ? (
+                                                                ) : level === "low" ? (
                                                                     <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
                                                                         Running low
                                                                     </p>
@@ -423,12 +291,12 @@ const InventoryPage = () => {
             {counting && (
                 <Modal
                     title={`Count ${counting.productName} - ${InventorySizeLabel(counting)}`}
-                    onClose={() => setCounting(null)}
+                    onClose={closeCount}
                     footer={
                         <>
                             <Button
                                 text="Cancel"
-                                onClick={() => setCounting(null)}
+                                onClick={closeCount}
                                 className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                             />
                             <Button
@@ -452,7 +320,7 @@ const InventoryPage = () => {
                             value={countNote}
                             onChange={setCountNote}
                             placeholder="ex. Delivery received"
-                            maxLength={300}
+                            maxLength={Limits.inventoryNote}
                         />
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">
                             Currently {counting.quantityOnHand ?? 0}. Saving records the change and
@@ -465,7 +333,7 @@ const InventoryPage = () => {
             {historyFor && (
                 <Modal
                     title={`${historyFor.productName} - ${InventorySizeLabel(historyFor)}`}
-                    onClose={() => setHistoryFor(null)}
+                    onClose={closeHistory}
                 >
                     {history === null ? (
                         <ListSkeleton rows={3} />
@@ -488,7 +356,7 @@ const InventoryPage = () => {
                                     </span>
                                     <span className="min-w-0 flex-1">
                                         <span className="font-medium">
-                                            {kindLabels[row.kind ?? ""] ?? row.kind}
+                                            {InventoryKindLabels[row.kind ?? ""] ?? row.kind}
                                         </span>
                                         {row.note && (
                                             <span className="text-zinc-600 dark:text-zinc-300">

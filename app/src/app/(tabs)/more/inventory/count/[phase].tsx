@@ -3,7 +3,7 @@ import ProtectedRoute from "../../../../../Routes/ProtectedRoute";
 
 export default function Screen() {
     return (
-        <ProtectedRoute roles={["Checkout"]} territory="count stock" inStack>
+        <ProtectedRoute screen="inventoryCount">
             <InventoryCountPage />
         </ProtectedRoute>
     );

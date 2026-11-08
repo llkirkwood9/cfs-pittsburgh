@@ -1,8 +1,8 @@
 import { useNavigate } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
-import { useAuth } from "../Context/AuthContext";
-import { HomePathForRole } from "../Lib/RoleRoutes";
+import { useAuth } from "@shared/Context/AuthContext";
+import { HomePathForRole } from "../Lib/ScreenLinks";
 
 /**
  * Shown when a signed-in crew member reaches a screen their role does not cover.

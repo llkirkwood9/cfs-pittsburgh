@@ -21,9 +21,10 @@
 #    dashboard calls itself this month's build 0.
 # ---------------------------------------------------------------------------------------------
 FROM --platform=$BUILDPLATFORM node:22-alpine AS dashboard
-WORKDIR /src
+WORKDIR /src/dashboard
 COPY dashboard/package.json dashboard/package-lock.json ./
 RUN npm ci
+COPY shared/ /src/shared/
 COPY dashboard/ ./
 ARG DASHBOARD_VERSION=
 RUN npm run build
@@ -53,7 +54,7 @@ RUN apt-get update \
 
 WORKDIR /app
 COPY --from=api /out /app
-COPY --from=dashboard /src/dist /app/wwwroot
+COPY --from=dashboard /src/dashboard/dist /app/wwwroot
 
 ENV ASPNETCORE_ENVIRONMENT=Production \
     ASPNETCORE_HTTP_PORTS=8080 \

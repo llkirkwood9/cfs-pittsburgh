@@ -1,4 +1,5 @@
-import { defineConfig } from "vite";
+import { fileURLToPath } from "node:url";
+import { defineConfig, searchForWorkspaceRoot } from "vite";
 import react from "@vitejs/plugin-react";
 
 /**
@@ -14,6 +15,15 @@ const version =
 // https://vite.dev/config/
 export default defineConfig({
     plugins: [react()],
+    resolve: {
+        // ../shared is the code the dashboard shares with the phone app; @host is what that code
+        // needs from the dashboard. Packages it imports come from the dashboard's node_modules.
+        alias: [
+            { find: "@shared", replacement: fileURLToPath(new URL("../shared", import.meta.url)) },
+            { find: /^@host$/, replacement: fileURLToPath(new URL("./src/Lib/Host.ts", import.meta.url)) },
+        ],
+        dedupe: ["react", "axios"],
+    },
     define: {
         "import.meta.env.VITE_DASHBOARD_VERSION": JSON.stringify(version),
     },
@@ -21,5 +31,6 @@ export default defineConfig({
         port: 3000,
         open: true,
         host: true,
+        fs: { allow: [searchForWorkspaceRoot(process.cwd()), "../shared"] },
     },
 });

@@ -69,36 +69,52 @@ docker/pi/                  cfs.service, cfs-update.sh, cfs-backup.sh, cfs-reset
 
 api/                        ASP.NET Core 10 Web API
 ├── Controllers/            One controller per resource, all inheriting BasicController
+├── Orders/                 The order rules: status steps (OrderLifecycle), building and checking
+│                           lines, payments, totals (OrderCalculator), line order,
+│                           acknowledgements, DTO mapping, saving
+├── Catalog/                The catalog rules and limits, choices and stock keys, product options
+│                           and queries, copying catalogs between territories, catalog files
+├── Inventory/              Stock rules (InventoryRules) and the inventory sheet
+├── Settings/               SettingsStore and the sales terms
+├── Users/                  Passwords, PasswordPolicy, UserMapper
+├── Email/                  EmailTemplates
+├── Seeding/                SeedData
 ├── Dtos/                   Request/response shapes; EF models are never exposed directly
 ├── Models/                 EF entities
-├── Data/                   ApplicationDbContext, its design-time factory, SeedData, CatalogSeed.json
+├── Data/                   ApplicationDbContext, its design-time factory, CatalogSeed.json
 ├── Services/               TokenService (JWT, sessions, password hashing), EmailService (SMTP)
-├── Utils/                  BasicController, AccessScope (who may see what), PasswordPolicy,
-│                           OrderCalculator, LineOrder, Choices, CatalogTransfer,
-│                           InventoryRules, PermanentDelete, SettingsStore, EmailTemplates, TraceControl
+├── Utils/                  BasicController, AccessScope and TerritoryScoping (who may see what),
+│                           ApiExceptionMiddleware, PermanentDelete, Rates, RateLimits, TraceControl
 ├── Migrations/             EF Core migrations for PostgreSQL
 ├── Program.cs              Configuration, auth, CORS, migrations and seeding, SPA hosting
 ├── appsettings*.json       Settings; appsettings.local.json (gitignored) holds your own
 └── docker-compose.yml      PostgreSQL for local development
+
+shared/                     What the dashboard and the app have in common, compiled by both from
+│                           source (imported as @shared): everything but the markup
+├── Models/                 One type per DTO
+├── Services/               One file per API controller
+├── Context/                AuthContext (sign-in, roles), TerritoryContext, SettingsContext
+├── Hooks/                  Each screen's state and actions (useAddItem, useOrderEditor, ...)
+└── Lib/                    Pure rules and formatting (Screens, Pricing, Orders, Format, ...),
+                            the API client core (ApiClient) and ErrorHandler
 
 dashboard/                  Vite + React 19 + TypeScript SPA, styled with Tailwind CSS 4
 ├── public/                 Static files (mattress_sizes.png for the size guide)
 └── src/
     ├── Components/         Elements (Button, Icon, Modal, TextField, ...), Navbar, Sales,
     │                       Checkout, Catalog, ... including the customer-facing screens
-    ├── Context/            AuthContext (sign-in, roles), TerritoryContext, SettingsContext
-    ├── Hooks/              UseTheme, UseLockBodyScroll
-    ├── Lib/                api.ts (axios + token refresh), ErrorHandler, Toast, ModelHelpers,
-    │                       Pricing, SheetPdf (print/email PDFs), Version, ...
-    ├── Models/             One type per DTO
+    ├── Hooks/              UseLockBodyScroll
+    ├── Lib/                Host.ts (what shared/ needs from the dashboard, imported there as
+    │                       @host), api.ts (the session cookie), Toast, Theme, ScreenLinks,
+    │                       SheetPdf (print/email PDFs), SalesExport, Version
     ├── Pages/              One per route
-    ├── Routes/             Routes.tsx, ProtectedRoute.tsx, RequireTerritory.tsx, HomeRedirect.tsx
-    └── Services/           One file per API controller
+    └── Routes/             Routes.tsx, ProtectedRoute.tsx, RequireTerritory.tsx, HomeRedirect.tsx
 
 app/                        Expo + React Native app; see app/README.md
 ├── src/app/                Expo Router routes: (tabs)/, receipt/, events/, login, ...
-├── src/                    Components, Context, Hooks, Lib, Models, Pages, Routes, Services,
-│                           laid out as in dashboard/src; Models and Services are copies
+├── src/                    Components, Hooks, Lib, Pages, Routes, laid out as in dashboard/src;
+│                           Lib/Host.ts is what shared/ needs from the app (secure storage, ...)
 ├── vendor/                 A patched decode-uri-component (see app/README.md)
 ├── app.json, app.config.js Expo config; app.config.js sets the version from version.json
 └── eas.json                EAS build profiles and the App Store Connect app id
@@ -178,7 +194,7 @@ cd api && dotnet run --launch-profile http
 - Listens on `http://localhost:5046` (the `https` profile adds `https://localhost:7277`).
 - On start it waits for the database, applies any pending migrations, and seeds the catalog,
   delivery options, a sample event and the first `admin` account from `Data/CatalogSeed.json` and
-  `Data/SeedData.cs`. The seed fills in whatever is missing on every start; `Seed:Skip` turns it
+  `Seeding/SeedData.cs`. The seed fills in whatever is missing on every start; `Seed:Skip` turns it
   off (section 8).
 - In Development the OpenAPI document is at `http://localhost:5046/openapi/v1.json`.
 - `GET /health` answers `Healthy`; the image's health check uses it.
@@ -321,7 +337,7 @@ cd dashboard && npm install && npm run dev
 |---|---|
 | `npm run dev` | Development server with hot reload |
 | `npm run build` | Type-checks (`tsc -b`) and builds to `dist/` |
-| `npm run lint` | ESLint |
+| `npm run lint` | ESLint, on the dashboard and `../shared` |
 | `npm run preview` | Serves the built `dist/` |
 | `npm run format` | Prettier |
 
@@ -454,7 +470,7 @@ then by hand.
 | Component | Command |
 |---|---|
 | API | `cd api && dotnet build` |
-| Dashboard | `cd dashboard && npm run lint && npm run build` |
+| Dashboard and shared | `cd dashboard && npm run lint && npm run build` |
 | Mobile app | `cd app && npx tsc --noEmit && npx expo lint` |
 | Mobile app, after a dependency or config change | `cd app && npx expo-doctor && npx expo export -p ios` |
 | App image, after a Dockerfile change | `docker compose build` |
@@ -586,8 +602,11 @@ For anything bigger than a small fix, work on a branch and open a pull request a
 
 ### Keeping things in step
 
-- **Dashboard and app.** `app/src` mirrors `dashboard/src`. `Models`, `Services` and most of `Lib`
-  are copies: change both when the API changes. A new screen or feature usually belongs in both.
+- **Dashboard and app.** Both render the same screens from `shared/`: the models, services, rules
+  and each screen's state and actions are written there once, and `dashboard/src` and `app/src`
+  keep only their markup and platform code. A new screen or feature usually means one shared hook
+  plus markup in each. Who may open a screen, its name and whether it needs a territory are in
+  `shared/Lib/Screens.ts`.
   The app has its own touch patterns - rows open on a tap and reveal their actions on a swipe, and
   lists are reordered by holding and dragging, where the dashboard has arrows.
 - **API changes.** Add a migration for any model change. Keep DTOs nullable and never return EF
@@ -604,22 +623,23 @@ For anything bigger than a small fix, work on a branch and open a pull request a
 **Backend**
 
 - Every controller inherits `BasicController`, with primary-constructor dependency injection.
-- Every action is wrapped in its own try/catch that traces the error and returns
-  `ServerError(...)`: `{ error }`, plus `exception` in Development only.
-- Access checks go through `Scope`, `IsAtLeast`, `CanSee` and `CanEditCatalog` on
-  `BasicController`.
+- An unhandled exception becomes one 500 in `Utils/ApiExceptionMiddleware.cs`: `{ error }`, plus
+  `exception` in Development only. Actions catch only exceptions they answer differently.
+- Access checks go through `Scope` and `IsAtLeast` on `BasicController`; lists and lookups are
+  scoped with `VisibleTo`/`IfVisibleTo` (`Utils/TerritoryScoping.cs`); catalog controllers inherit
+  `CatalogItemController` for `CanEditCatalog`.
 - Actions are grouped in `#region POST/GET/PATCH/DELETE Methods`.
 - Validation is done by hand at the top of each mutating action.
 - DTO properties are all nullable, and EF models are never returned.
-- Money is computed only in `Utils/OrderCalculator.cs` (section 13).
+- Money is computed only in `Orders/OrderCalculator.cs` (section 13).
 
 **Dashboard and app**
 
 - PascalCase folders and filenames.
 - One service file per controller, with POST/GET/PATCH/DELETE banner comments. Services never
   throw: they call `HandleAxiosError` and return a safe default.
-- All HTTP goes through `Lib/api.ts` (an in-memory bearer token, the client and territory
-  headers, and a shared session-renewal interceptor).
+- All HTTP goes through `shared/Lib/ApiClient.ts` (an in-memory bearer token, the territory
+  header, and session renewal); each host's `Lib/api.ts` only says how its session is kept.
 - Tailwind utilities only, with an explicit `dark:` variant on every colour. No component library.
 - Icons only through the local `Icon` wrapper; feedback only through `Toast`.
 - Tablet first: controls are at least 48px tall, inputs are 16px so iPad Safari doesn't zoom on
@@ -796,7 +816,7 @@ system admins to none, meaning all. `AccessScope` turns the signed-in user plus 
 `X-Territory-Id` header into the one territory in view, or the list every query filters by when
 all of theirs are (null for an admin viewing every territory).
 
-**Copying catalogs.** `Utils/CatalogCopy.cs` copies a whole catalog into a new territory, or one
+**Copying catalogs.** `Catalog/CatalogCopy.cs` copies a whole catalog into a new territory, or one
 product into another territory's catalog - sizes, prices, sales, selections, bundles and delivery
 choices, never stock. A database from before every territory had its own catalog had **global**
 items: at start-up `CatalogCopy.SplitGlobalItemsAsync` gives every territory but the first its own
@@ -841,7 +861,7 @@ itself, and a bundle can't include another bundle.
 line when it is added. Editing or retiring a catalog product never rewrites a printed receipt. A
 product that has been sold is archived rather than deleted.
 
-**Line order.** `Utils/LineOrder.cs` renumbers an order's `SortOrder`s whenever a line is added or
+**Line order.** `Orders/LineOrder.cs` renumbers an order's `SortOrder`s whenever a line is added or
 removed, and `PUT /api/order/order/{id}/lines/order` takes the items in a new order. Each item is
 followed by its own rows - `Included`, then `Upcharge`, then `Delivery`, oldest first within each.
 `SortLinesForPrint` applies the same pattern on screen and on the sheet.
@@ -860,12 +880,12 @@ with an optional price change. The picks are stored on the line as JSON (`Choice
 after the description. When a selection **counts stock**, each size keeps a count per combination
 of counted choices, in each territory: `InventoryStocks` rows carry a `StockKey` such as
 `3:12|4:20` (option id : choice id, ordered by option), and the empty key is the size's own count.
-`Utils/Choices.cs` resolves picks and builds keys; `Utils/InventoryRules.cs` reads and changes the
+`Catalog/Choices.cs` resolves picks and builds keys; `Inventory/InventoryRules.cs` reads and changes the
 counts.
 
 **Inventory.** Only products marked Track inventory are counted, and each size can be left out
 (a size not kept at the cart): it isn't counted and can't be sold as Take With, nor can a bundle
-that includes it. `Utils/InventoryRules.cs` enforces it.
+that includes it. `Inventory/InventoryRules.cs` enforces it.
 
 **Catalog files.** `GET /api/catalog/export` and `POST /api/catalog/import` (system admins only)
 save and restore the catalog as JSON (`"format": "cfs-catalog", "version": 1`) - every product
@@ -877,7 +897,7 @@ goes to the territory with that name, or into the territory in view (or the firs
 warning, when the file names none that's here - as an older file's global items do. Replacing clears every territory's items. `mode: "update"` brings matches
 in line and adds the rest; `mode: "replace"` runs `PermanentDelete.CatalogAsync` first. The file is
 checked in full and the restore runs in one transaction, so a bad file changes nothing.
-`Utils/CatalogTransfer.cs` does the work.
+`Catalog/CatalogTransfer.cs` does the work.
 
 **An event is named by its organization**, e.g. "New York Marching Band", which heads the stat sheet and is
 copied onto each order. Each territory has one active event at a time, and new orders can only be
@@ -893,7 +913,7 @@ never compounds it. `WaiveCcProcessingFee` treats the fee rate as zero; a checko
 until the sale is complete.
 
 **Acknowledgements.** Each statement under Settings has an `AskWhen`: `always`, `shipped` (some
-item isn't Take With) or `warranty` (some item has a warranty). `Utils/Acknowledgements.cs` works
+item isn't Take With) or `warranty` (some item has a warranty). `Orders/Acknowledgements.cs` works
 out the order's `RequiredTerms` from its lines - a product's `HasWarranty` and `WarrantyLength` are
 copied onto the line when it is added - and completing checks only those. A completed order is
 judged by the terms it kept (`TermsJson`). Defaults: details and drop ship when something ships,
@@ -904,7 +924,7 @@ warranty unless an admin unticks it.
 amount per item as its unit price and the item as its `ParentLineId`. `OrderCalculator` keeps its
 quantity and taxability in step with the item, and the dashboard tallies leave it out.
 
-**Money is computed in one place.** `Utils/OrderCalculator.cs` recalculates lines and totals on
+**Money is computed in one place.** `Orders/OrderCalculator.cs` recalculates lines and totals on
 every change, and the API returns the recalculated order. The screen and the receipt show the same
 numbers because neither does arithmetic.
 

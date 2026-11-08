@@ -2,12 +2,13 @@ import { useState } from "react";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
-import { FormatCurrency } from "../../Lib/ModelHelpers";
-import type { OrderSummary } from "../../Models/OrderSummary";
+import { FormatCurrency } from "@shared/Lib/Format";
+import { ReopenChoices, type ReopenTarget } from "@shared/Lib/Orders";
+import type { OrderSummary } from "@shared/Models/OrderSummary";
 
 type Props = {
     order: OrderSummary;
-    onReopen: (to: "floor" | "checkout") => Promise<void>;
+    onReopen: (to: ReopenTarget) => Promise<void>;
     onClose: () => void;
 };
 
@@ -17,38 +18,17 @@ type Props = {
  * its recorded payments stay on it. A voided order comes back the same way, to be finished again.
  */
 const ReopenOrderModal = ({ order, onReopen, onClose }: Props) => {
-    const [working, setWorking] = useState<"floor" | "checkout" | null>(null);
+    const [working, setWorking] = useState<ReopenTarget | null>(null);
     const completed = order.status === "Completed";
     const voided = order.status === "Voided";
 
-    const reopen = async (to: "floor" | "checkout") => {
+    const reopen = async (to: ReopenTarget) => {
         setWorking(to);
         await onReopen(to);
         setWorking(null);
     };
 
-    const choices: {
-        to: "floor" | "checkout";
-        title: string;
-        detail: string;
-        icon: string;
-        show: boolean;
-    }[] = [
-        {
-            to: "checkout",
-            title: "Send to checkout",
-            detail: "Fix a payment, the initials or the signature. The items stay as they are.",
-            icon: "fa-solid fa-cash-register",
-            show: order.status !== "AwaitingCheckout",
-        },
-        {
-            to: "floor",
-            title: "Send to the sales floor",
-            detail: "Change what was sold. It opens as a draft for the rep who wrote it up.",
-            icon: "fa-solid fa-cart-plus",
-            show: order.status !== "Draft",
-        },
-    ];
+    const choices = ReopenChoices(order.status);
 
     return (
         <Modal
@@ -81,30 +61,28 @@ const ReopenOrderModal = ({ order, onReopen, onClose }: Props) => {
             )}
 
             <div className="space-y-2">
-                {choices
-                    .filter((c) => c.show)
-                    .map((c) => (
-                        <button
-                            key={c.to}
-                            type="button"
-                            disabled={working !== null}
-                            onClick={() => reopen(c.to)}
-                            className="flex w-full min-h-[72px] items-center gap-4 rounded-xl bg-zinc-100 px-4 py-3 text-left
+                {choices.map((c) => (
+                    <button
+                        key={c.to}
+                        type="button"
+                        disabled={working !== null}
+                        onClick={() => reopen(c.to)}
+                        className="flex w-full min-h-[72px] items-center gap-4 rounded-xl bg-zinc-100 px-4 py-3 text-left
                                 transition-colors hover:bg-zinc-200 disabled:opacity-60 dark:bg-zinc-700 dark:hover:bg-zinc-600"
-                        >
-                            <Icon
-                                icon={working === c.to ? "fa-solid fa-circle-notch" : c.icon}
-                                spin={working === c.to}
-                                className="text-xl text-sky-700 dark:text-sky-400"
-                            />
-                            <span>
-                                <span className="block font-semibold">{c.title}</span>
-                                <span className="block text-xs text-zinc-500 dark:text-zinc-400">
-                                    {c.detail}
-                                </span>
+                    >
+                        <Icon
+                            icon={working === c.to ? "fa-solid fa-circle-notch" : c.icon}
+                            spin={working === c.to}
+                            className="text-xl text-sky-700 dark:text-sky-400"
+                        />
+                        <span>
+                            <span className="block font-semibold">{c.title}</span>
+                            <span className="block text-xs text-zinc-500 dark:text-zinc-400">
+                                {c.detail}
                             </span>
-                        </button>
-                    ))}
+                        </span>
+                    </button>
+                ))}
             </div>
         </Modal>
     );

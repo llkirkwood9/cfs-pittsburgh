@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
-import { useSettingsScope } from "./SettingsScope";
+import { useSettingsScope } from "@shared/Context/SettingsScope";
 
 type Props = {
     id: string;

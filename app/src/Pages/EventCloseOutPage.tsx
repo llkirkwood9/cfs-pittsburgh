@@ -1,7 +1,5 @@
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import type { Href } from "expo-router";
-import { useEffect, useState } from "react";
-import type { ReactNode } from "react";
+import { useState } from "react";
 import { View } from "react-native";
 import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
@@ -11,49 +9,14 @@ import Page from "../Components/Elements/Page";
 import SwipeRow from "../Components/Elements/SwipeRow";
 import type { SwipeAction } from "../Components/Elements/SwipeRow";
 import Text from "../Components/Elements/Text";
-import { useAuth } from "../Context/AuthContext";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
-import { FormatCurrency, FormatShortDate, FormatTime } from "../Lib/ModelHelpers";
-import { Toast } from "../Lib/Toast";
-import type { Event } from "../Models/Event";
-import type { InventoryItem } from "../Models/InventoryItem";
-import type { OrderSummary } from "../Models/OrderSummary";
-import { GetEvent, UpdateEvent } from "../Services/EventServices";
-import { GetInventory } from "../Services/InventoryServices";
-import { DeleteOrder, GetOrdersForEvent, VoidOrder } from "../Services/OrderServices";
-
-type Step = {
-    key: string;
-    title: string;
-    done: boolean;
-    /** A step that is fine to leave, such as a layaway balance, shows as information not a warning. */
-    optional?: boolean;
-    summary: string;
-    children?: ReactNode;
-    action?: ReactNode;
-};
-
-/**
- * Whether clearing an open order voids it rather than discarding it. A draft with nothing paid is
- * discarded - deleted, as the Sell screen does - but anything that reached checkout, or has a
- * payment on it, is voided so the record of it stays.
- */
-const VoidsWhenCleared = (o: OrderSummary) =>
-    o.status !== "Draft" || (o.total ?? 0) - (o.balanceDue ?? 0) > 0.004;
-
-/** Orders about to be discarded or voided, waiting for a yes. */
-type Clearing = { orders: OrderSummary[]; title: string; message: string; confirmText: string };
-
-/** Where an order opens: its sales sheet, or the checkout screen for one waiting to be paid. */
-const receipt = (o: OrderSummary): Href => ({
-    pathname: "/receipt/[orderId]",
-    params: { orderId: String(o.id) },
-});
-const checkout = (o: OrderSummary): Href => ({
-    pathname: "/checkout",
-    params: { orderId: String(o.id) },
-});
+import { useCloseOut } from "@shared/Hooks/useCloseOut";
+import { CloseEventMessage } from "@shared/Lib/CloseOut";
+import type { CloseOutStep } from "@shared/Lib/CloseOut";
+import { FormatCurrency, FormatShortDate } from "@shared/Lib/Format";
+import type { OrderSummary } from "@shared/Models/OrderSummary";
+import { Paths } from "../Lib/ScreenLinks";
 
 /**
  * Closing out an event: everything worth checking before the cart packs up, in one list. Orders
@@ -63,45 +26,36 @@ const checkout = (o: OrderSummary): Href => ({
 const EventCloseOutPage = () => {
     const { eventId } = useLocalSearchParams<{ eventId: string }>();
     const id = Number(eventId);
-    const { hasRole } = useAuth();
-    // Managers and above can clear open orders: discard a draft with nothing paid, void the rest.
-    const canClear = hasRole("Manager");
-
-    const [saleEvent, setSaleEvent] = useState<Event | null>(null);
-    const [orders, setOrders] = useState<OrderSummary[]>([]);
-    const [inventory, setInventory] = useState<InventoryItem[]>([]);
-    const [loading, setLoading] = useState<boolean>(true);
+    const {
+        saleEvent,
+        loading,
+        load,
+        canClear,
+        active,
+        summary,
+        steps,
+        blocking,
+        confirming,
+        setConfirming,
+        closing,
+        closeEvent,
+        clearing,
+        setClearing,
+        askOne,
+        askAll,
+        working,
+        clearOrders,
+    } = useCloseOut(id);
     const [refreshing, setRefreshing] = useState<boolean>(false);
-    const [confirming, setConfirming] = useState<boolean>(false);
-    const [closing, setClosing] = useState<boolean>(false);
-    const [clearing, setClearing] = useState<Clearing | null>(null);
-    const [working, setWorking] = useState<boolean>(false);
-
-    const load = async (eventNumber: number) => {
-        if (!eventNumber) return setLoading(false);
-        const [found, list, stock] = await Promise.all([
-            GetEvent(eventNumber),
-            GetOrdersForEvent(eventNumber),
-            GetInventory(eventNumber),
-        ]);
-        setSaleEvent(found);
-        setOrders(list);
-        setInventory(stock);
-        setLoading(false);
-    };
-
-    useEffect(() => {
-        load(id);
-    }, [id]);
 
     const handleRefresh = async () => {
         setRefreshing(true);
-        await load(id);
+        await load();
         setRefreshing(false);
     };
 
     // Back from an order opened from the list: read the list again.
-    useRefreshOnFocus(() => load(id));
+    useRefreshOnFocus(load);
 
     if (loading) {
         return (
@@ -127,95 +81,24 @@ const EventCloseOutPage = () => {
         );
     }
 
-    const drafts = orders.filter((o) => o.status === "Draft");
-    const atCheckout = orders.filter((o) => o.status === "AwaitingCheckout");
-    const completed = orders.filter((o) => o.status === "Completed");
-    const owing = completed.filter((o) => (o.balanceDue ?? 0) > 0.004);
-    const totalOwed = owing.reduce((sum, o) => sum + (o.balanceDue ?? 0), 0);
-    const takings = completed.reduce((sum, o) => sum + (o.total ?? 0), 0);
+    const { completed, takings, endAt } = summary;
 
-    const latest = (at: (i: InventoryItem) => string | null | undefined) =>
-        (inventory.map(at).filter(Boolean) as string[]).sort().pop() ?? null;
-    const startAt = latest((i) => i.openingCountedAt);
-    const endAt = latest((i) => i.countedAt);
-    const tracks = inventory.length > 0;
-    const active = Boolean(saleEvent.isActive);
-
-    const orderName = (o: OrderSummary) =>
-        `order #${o.orderNumber}${o.billingName ? ` for ${o.billingName}` : ""}`;
-
-    /** Asks before discarding or voiding one open order. */
-    const askOne = (o: OrderSummary) =>
-        setClearing(
-            VoidsWhenCleared(o)
-                ? {
-                      orders: [o],
-                      title: "Void order",
-                      message: `Void ${orderName(o)}? It's kept, marked Voided, and left out of the totals.`,
-                      confirmText: "Void",
-                  }
-                : {
-                      orders: [o],
-                      title: "Discard order",
-                      message: `Discard ${orderName(o)}? It's deleted and can't be brought back.`,
-                      confirmText: "Discard",
-                  }
-        );
-
-    /** Asks before clearing every order in one step. */
-    const askAll = (list: OrderSummary[], what: string) => {
-        const voiding = list.filter(VoidsWhenCleared).length;
-        const discarding = list.length - voiding;
-        const parts = [
-            discarding ? `${discarding} discarded (deleted for good)` : null,
-            voiding ? `${voiding} voided (kept, but left out of the totals)` : null,
-        ].filter(Boolean);
-        setClearing({
-            orders: list,
-            title: `Clear ${list.length} ${what}`,
-            message: `Clear all ${list.length} ${what}? ${parts.join(" and ")}.`,
-            confirmText: "Clear all",
-        });
-    };
-
-    const clear = async () => {
+    const clear = () => {
         if (!clearing) return;
         // The system alert has already closed; let it go before working through the list.
         const list = clearing.orders;
         setClearing(null);
-        setWorking(true);
-        let done = 0;
-        for (const o of list) {
-            if (!o.id) continue;
-            const ok = VoidsWhenCleared(o)
-                ? Boolean(await VoidOrder(o.id))
-                : await DeleteOrder(o.id);
-            if (ok) done += 1;
-        }
-        setOrders(await GetOrdersForEvent(id));
-        setWorking(false);
-        if (done) Toast.Success(`${done} order${done === 1 ? "" : "s"} cleared.`);
+        clearOrders(list);
     };
 
-    const clearAllButton = (list: OrderSummary[], what: string, text: string) =>
-        canClear && list.length > 1 ? (
-            <Button
-                text={text}
-                icon={text === "Void all" ? "fa-solid fa-ban" : "fa-solid fa-broom"}
-                onClick={() => askAll(list, what)}
-                loading={working}
-                className="min-h-[40px] bg-red-700 px-3 text-sm dark:bg-red-600"
-            />
-        ) : undefined;
-
     // Tap an order to open it; an administrator swipes it to discard or void it.
-    const orderList = (list: OrderSummary[], to: (o: OrderSummary) => Href, clearable = false) => (
+    const orderList = (step: CloseOutStep, list: OrderSummary[]) => (
         <View className="mt-2 gap-1">
             {list.map((o) => {
                 const actions: SwipeAction[] =
-                    clearable && canClear
+                    step.clearable && canClear
                         ? [
-                              VoidsWhenCleared(o)
+                              o.voidsWhenCleared
                                   ? {
                                         label: "Void",
                                         icon: "fa-solid fa-ban",
@@ -234,7 +117,13 @@ const EventCloseOutPage = () => {
                     <SwipeRow
                         key={o.id}
                         variant="row"
-                        onPress={() => router.navigate(to(o))}
+                        onPress={() =>
+                            router.navigate(
+                                step.key === "checkout"
+                                    ? Paths.checkoutOrder(o.id!)
+                                    : Paths.receipt(o.id!)
+                            )
+                        }
                         actions={actions}
                         accessibilityLabel={`Order ${o.orderNumber}, ${o.billingName || "no name yet"}`}
                         containerClassName="overflow-hidden rounded-lg"
@@ -260,94 +149,30 @@ const EventCloseOutPage = () => {
         </View>
     );
 
-    const steps: Step[] = [
-        {
-            key: "floor",
-            title: "Nothing left on the sales floor",
-            done: drafts.length === 0,
-            summary:
-                drafts.length === 0
-                    ? "Every order has been sent to checkout or discarded."
-                    : `${drafts.length} order${drafts.length === 1 ? " is" : "s are"} still being written up. Send ${
-                          drafts.length === 1 ? "it" : "them"
-                      } to checkout, or discard ${drafts.length === 1 ? "it" : "them"}.`,
-            children: drafts.length > 0 && orderList(drafts, receipt, true),
-            action: clearAllButton(drafts, "orders on the floor", "Clear all"),
-        },
-        {
-            key: "checkout",
-            title: "Nobody waiting at checkout",
-            done: atCheckout.length === 0,
-            summary:
-                atCheckout.length === 0
-                    ? "Every order that reached checkout has been completed or voided."
-                    : `${atCheckout.length} order${atCheckout.length === 1 ? " is" : "s are"} waiting to be paid. Complete or void ${
-                          atCheckout.length === 1 ? "it" : "them"
-                      }.`,
-            children: atCheckout.length > 0 && orderList(atCheckout, checkout, true),
-            action: clearAllButton(atCheckout, "orders at checkout", "Void all"),
-        },
-        {
-            key: "balances",
-            title: "Balances still owed",
-            done: owing.length === 0,
-            optional: true,
-            summary:
-                owing.length === 0
-                    ? "Every completed sale is paid in full."
-                    : `${owing.length} completed sale${owing.length === 1 ? "" : "s"} still owe${
-                          owing.length === 1 ? "s" : ""
-                      } ${FormatCurrency(totalOwed)} - normal for layaway and financing.`,
-            children: owing.length > 0 && orderList(owing, receipt),
-        },
-        ...(tracks
-            ? [
-                  {
-                      key: "start",
-                      title: "Start-of-event count",
-                      done: Boolean(startAt),
-                      optional: true,
-                      summary: startAt
-                          ? `Taken at ${FormatTime(startAt)}.`
-                          : "Not taken. The inventory sheet will have no starting figures.",
-                  },
-                  {
-                      key: "end",
-                      title: "End-of-event count",
-                      done: Boolean(endAt),
-                      summary: endAt
-                          ? `Taken at ${FormatTime(endAt)}.`
-                          : active
-                            ? "Count what's left on the shelf before the event is closed."
-                            : "Not taken. Counts can only be taken while the event is active.",
-                      action: active && (
-                          <Button
-                              text={endAt ? "Recount" : "Count now"}
-                              icon="fa-solid fa-clipboard-check"
-                              onClick={() =>
-                                  router.push({
-                                      pathname: "/more/inventory/count/[phase]",
-                                      params: { phase: "end" },
-                                  })
-                              }
-                              className="min-h-[40px] px-3 text-sm"
-                          />
-                      ),
-                  },
-              ]
-            : []),
-    ];
-
-    const blocking = steps.filter((s) => !s.done && !s.optional);
-
-    const closeEvent = async () => {
-        setClosing(true);
-        const saved = await UpdateEvent({ id: saleEvent.id, isActive: false });
-        setClosing(false);
-        setConfirming(false);
-        if (!saved) return;
-        Toast.Success(`${saleEvent.organization} is closed.`);
-        router.back();
+    const stepAction = (step: CloseOutStep) => {
+        if (step.clearAll && canClear && (step.orders?.length ?? 0) > 1) {
+            const { what, text } = step.clearAll;
+            return (
+                <Button
+                    text={text}
+                    icon={text === "Void all" ? "fa-solid fa-ban" : "fa-solid fa-broom"}
+                    onClick={() => askAll(step.orders ?? [], what)}
+                    loading={working}
+                    className="min-h-[40px] bg-red-700 px-3 text-sm dark:bg-red-600"
+                />
+            );
+        }
+        if (step.key === "end" && active) {
+            return (
+                <Button
+                    text={endAt ? "Recount" : "Count now"}
+                    icon="fa-solid fa-clipboard-check"
+                    onClick={() => router.push(Paths.inventoryCount("end"))}
+                    className="min-h-[40px] px-3 text-sm"
+                />
+            );
+        }
+        return null;
     };
 
     return (
@@ -396,9 +221,9 @@ const EventCloseOutPage = () => {
                                     <Text className="text-sm text-zinc-600 dark:text-zinc-400">
                                         {step.summary}
                                     </Text>
-                                    {step.children}
+                                    {step.orders?.length ? orderList(step, step.orders) : null}
                                 </View>
-                                {step.action}
+                                {stepAction(step)}
                             </View>
                         </View>
                     ))}
@@ -415,12 +240,7 @@ const EventCloseOutPage = () => {
                             <Button
                                 text="Sales sheets"
                                 icon="fa-solid fa-print"
-                                onClick={() =>
-                                    router.push({
-                                        pathname: "/events/[eventId]/sheets",
-                                        params: { eventId: String(id) },
-                                    })
-                                }
+                                onClick={() => router.push(Paths.eventSheets(id))}
                                 className="min-h-[40px] px-3 text-sm"
                             />
                         </View>
@@ -451,15 +271,9 @@ const EventCloseOutPage = () => {
             {confirming && (
                 <ConfirmationModal
                     title={`Close ${saleEvent.organization}`}
-                    message={
-                        blocking.length
-                            ? `There ${blocking.length === 1 ? "is" : "are"} still ${blocking.length} thing${
-                                  blocking.length === 1 ? "" : "s"
-                              } to do: ${blocking.map((b) => b.title.toLowerCase()).join("; ")}. Close the event anyway? Open orders stay open and can still be finished.`
-                            : `Close ${saleEvent.organization}? No new orders can be taken under it once it's closed.`
-                    }
+                    message={CloseEventMessage(saleEvent.organization, blocking)}
                     confirmText={closing ? "Closing..." : "Close event"}
-                    onConfirm={closeEvent}
+                    onConfirm={() => closeEvent(() => router.back())}
                     onCancel={() => setConfirming(false)}
                 />
             )}

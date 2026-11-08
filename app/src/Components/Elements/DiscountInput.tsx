@@ -1,8 +1,7 @@
 import { Pressable, TextInput, View } from "react-native";
 import Text from "./Text";
 import { cx } from "../../Lib/ClassNames";
-
-export type DiscountMode = "percent" | "amount";
+import type { DiscountMode } from "@shared/Lib/AddItem";
 
 type Props = {
     label: string;
@@ -37,7 +36,9 @@ const DiscountInput = ({ label, mode, onModeChange, value, onChange, className =
                         accessibilityLabel={option === "percent" ? "Percent" : "Dollar amount"}
                         className={cx(
                             "min-h-[48px] w-11 items-center justify-center",
-                            mode === option ? "bg-sky-700 dark:bg-sky-600" : "bg-white dark:bg-zinc-800"
+                            mode === option
+                                ? "bg-sky-700 dark:bg-sky-600"
+                                : "bg-white dark:bg-zinc-800"
                         )}
                     >
                         <Text
@@ -57,9 +58,10 @@ const DiscountInput = ({ label, mode, onModeChange, value, onChange, className =
                 keyboardType="decimal-pad"
                 placeholder="0"
                 placeholderTextColor="#a1a1aa"
-                accessibilityLabel={mode === "percent" ? "Discount percent" : "Discount amount off each"}
-                className="min-h-[48px] min-w-0 flex-1 rounded-xl border border-zinc-300 bg-white px-3 text-base
-                    text-zinc-900 focus:border-sky-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                accessibilityLabel={
+                    mode === "percent" ? "Discount percent" : "Discount amount off each"
+                }
+                className="min-h-[48px] min-w-0 flex-1 rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900 focus:border-sky-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
             />
         </View>
     </View>

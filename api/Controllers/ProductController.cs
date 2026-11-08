@@ -1,38 +1,29 @@
 using System.Diagnostics;
-using api.Data;
-using api.Dtos;
-using api.Models;
-using api.Services;
-using api.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using api.Catalog;
+using api.Data;
+using api.Dtos;
+using api.Inventory;
+using api.Models;
+using api.Services;
+using api.Utils;
 
 namespace api.Controllers
 {
     /// <summary>
     /// The product catalog. A product owns its priced size/configuration variants and the set of
     /// delivery options offered for it, so delivery types can differ from one mattress to the next.
-    /// An item is either global - sold in every territory - or one territory's own. Managers look
-    /// after their territory's items; only system admins and administrators change global ones.
+    /// Every territory has its own catalog; managers look after their own territories' items.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class ProductController(
         ApplicationDbContext db,
-        IHttpClientFactory httpClientFactory,
-        IConfiguration config,
-        ILogger<BasicController> logger,
-        TokenService tokenService)
-        : BasicController(db, httpClientFactory, config, logger, tokenService)
+        ILogger<BasicController> logger)
+        : CatalogItemController(db, logger)
     {
-        #region Private Fields
-
-        private const string ManagersOnly = "Only a manager, administrator or system admin may change the catalog.";
-        private const string NotYourCatalog = "You can only change the catalog of your own territories.";
-
-        #endregion
-
         #region POST Methods
 
         /// <summary>
@@ -44,65 +35,58 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> AddProduct([FromBody] ProductDto request)
         {
-            try
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
+
+            if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Category))
+                return BadRequest(new { error = "Missing parameter." });
+
+            if (request.Name.Length > CatalogRules.MaxProductNameLength || (request.Brand?.Length ?? 0) > CatalogRules.MaxBrandLength)
+                return BadRequest(new { error = "Invalid parameter." });
+
+            if (!Enum.TryParse<ProductCategory>(request.Category, true, out var category))
+                return BadRequest(new { error = "Invalid parameter." });
+
+            var (territoryId, problem) = await CatalogTerritoryAsync(request.TerritoryId);
+            if (problem != null)
+                return problem;
+
+            var product = new Product
             {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden(ManagersOnly);
+                TerritoryId = territoryId,
+                Name = request.Name,
+                Brand = request.Brand ?? string.Empty,
+                Category = category,
+                Notes = request.Notes,
+                SortOrder = request.SortOrder ?? 0,
+                IsActive = request.IsActive ?? true,
+                TrackInventory = request.TrackInventory ?? false,
+                HasWarranty = request.HasWarranty ?? CatalogRules.WarrantyByDefault(category),
+                WarrantyLength = CatalogRules.CleanWarrantyLength(request.WarrantyLength),
+            };
 
-                if (string.IsNullOrWhiteSpace(request.Name) || string.IsNullOrWhiteSpace(request.Category))
-                    return BadRequest(new { error = "Missing parameter." });
+            var componentError = await ValidateComponentsAsync(null, territoryId, request.Variants)
+                                 ?? await ValidateDeliveryOptionsAsync(territoryId, request.DeliveryOptions);
+            if (componentError != null)
+                return BadRequest(new { error = componentError });
 
-                if (request.Name.Length > 150 || (request.Brand?.Length ?? 0) > 100)
-                    return BadRequest(new { error = "Invalid parameter." });
+            var saleError = ValidateSales(request);
+            if (saleError != null)
+                return BadRequest(new { error = saleError });
 
-                if (!Enum.TryParse<ProductCategory>(request.Category, true, out var category))
-                    return BadRequest(new { error = "Invalid parameter." });
+            var optionError = ProductOptions.Validate(request.Options);
+            if (optionError != null)
+                return BadRequest(new { error = optionError });
 
-                var (territoryId, problem) = await CatalogTerritoryAsync(request.TerritoryId);
-                if (problem != null)
-                    return problem;
+            (product.SaleDiscountPercent, product.SaleDiscountAmount) = CatalogRules.CleanSale(request.SaleDiscountPercent, request.SaleDiscountAmount);
+            ApplyVariants(product, request.Variants);
+            ApplyDeliveryOptions(product, request.DeliveryOptions);
+            ProductOptions.AddTo(product, request.Options);
 
-                var product = new Product
-                {
-                    TerritoryId = territoryId,
-                    Name = request.Name,
-                    Brand = request.Brand ?? string.Empty,
-                    Category = category,
-                    Notes = request.Notes,
-                    SortOrder = request.SortOrder ?? 0,
-                    IsActive = request.IsActive ?? true,
-                    TrackInventory = request.TrackInventory ?? false,
-                    HasWarranty = request.HasWarranty ?? WarrantyByDefault(category),
-                    WarrantyLength = CleanWarrantyLength(request.WarrantyLength),
-                };
+            DB.Products.Add(product);
+            await DB.SaveChangesAsync();
 
-                var componentError = await ValidateComponentsAsync(null, territoryId, request.Variants)
-                                     ?? await ValidateDeliveryOptionsAsync(territoryId, request.DeliveryOptions);
-                if (componentError != null)
-                    return BadRequest(new { error = componentError });
-
-                var saleError = ValidateSales(request);
-                if (saleError != null)
-                    return BadRequest(new { error = saleError });
-
-                var optionError = ValidateOptions(request.Options);
-                if (optionError != null)
-                    return BadRequest(new { error = optionError });
-
-                (product.SaleDiscountPercent, product.SaleDiscountAmount) = CleanSale(request.SaleDiscountPercent, request.SaleDiscountAmount);
-                ApplyVariants(product, request.Variants);
-                ApplyDeliveryOptions(product, request.DeliveryOptions);
-                SyncOptions(product, request.Options);
-
-                DB.Products.Add(product);
-                await DB.SaveChangesAsync();
-
-                return Ok(await LoadDtoAsync(product.Id));
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while adding the product.", e);
-            }
+            return Ok(await LoadDtoAsync(product.Id));
         }
 
         /// <summary>
@@ -120,33 +104,24 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> CopyProduct(int id, [FromQuery] int? toTerritoryId = null)
         {
-            try
-            {
-                var source = await DB.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id);
-                if (source == null || !Visible(source.TerritoryId))
-                    return NotFound(new { error = "Product not found." });
+            var source = (await DB.Products.AsNoTracking().FirstOrDefaultAsync(p => p.Id == id)).IfVisibleTo(Scope);
+            if (source == null)
+                return NotFound(new { error = "Product not found." });
 
-                var (territoryId, problem) = await CatalogTerritoryAsync(toTerritoryId);
-                if (problem != null)
-                    return problem;
+            var (territoryId, problem) = await CatalogTerritoryAsync(toTerritoryId);
+            if (problem != null)
+                return problem;
 
-                if (source.TerritoryId == territoryId)
-                    return BadRequest(new { error = "That product is already in this territory's catalog." });
+            if (source.TerritoryId == territoryId)
+                return BadRequest(new { error = "That product is already in this territory's catalog." });
 
-                var brand = source.Brand.ToLower();
-                var name = source.Name.ToLower();
-                if (await DB.Products.AnyAsync(p => p.TerritoryId == territoryId && p.Brand.ToLower() == brand && p.Name.ToLower() == name))
-                    return BadRequest(new { error = $"This territory's catalog already has {source.Name}. Edit that one instead." });
+            if (await DB.Products.Where(p => p.TerritoryId == territoryId).WithBrandAndName(source.Brand, source.Name).AnyAsync())
+                return BadRequest(new { error = $"This territory's catalog already has {source.Name}. Edit that one instead." });
 
-                var (copy, notes) = await CatalogCopy.CopyProductAsync(DB, source.Id, territoryId);
+            var (copy, notes) = await CatalogCopy.CopyProductAsync(DB, source.Id, territoryId);
 
-                Trace(TraceEventType.Information, $"{GetCurrentUserName()} copied {source.Name} into territory {territoryId}.");
-                return Ok(new ProductCopyResultDto { Product = await LoadDtoAsync(copy.Id), Notes = notes });
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while copying the product.", e);
-            }
+            Trace(TraceEventType.Information, $"{GetCurrentUserName()} copied {source.Name} into territory {territoryId}.");
+            return Ok(new ProductCopyResultDto { Product = await LoadDtoAsync(copy.Id), Notes = notes });
         }
 
         #endregion
@@ -164,40 +139,22 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetProducts([FromQuery] bool includeInactive = false)
         {
-            try
-            {
-                var visible = Scope.VisibleTerritoryIds;
-                var query = DB.Products
-                    .Where(p => p.TerritoryId != null && (visible == null || visible.Contains(p.TerritoryId.Value)))
-                    .Include(p => p.Territory)
-                    .Include(p => p.Variants)
-                    .ThenInclude(v => v.Components)
-                    .ThenInclude(c => c.ComponentVariant)
-                    .ThenInclude(cv => cv!.Product)
-                    .Include(p => p.DeliveryOptions)
-                    .ThenInclude(d => d.DeliveryOption)
-                    .Include(p => p.Options)
-                    .ThenInclude(o => o.Choices)
-                    .AsSplitQuery()
-                    .AsNoTracking()
-                    .AsQueryable();
+            var query = DB.Products
+                .VisibleTo(Scope)
+                .WithEverything()
+                .AsNoTracking();
 
-                if (!includeInactive)
-                    query = query.Where(p => p.IsActive);
+            if (!includeInactive)
+                query = query.Where(p => p.IsActive);
 
-                var products = await query
-                    .OrderBy(p => p.Category)
-                    .ThenBy(p => p.SortOrder)
-                    .ThenBy(p => p.Name)
-                    .ToListAsync();
+            var products = await query
+                .OrderBy(p => p.Category)
+                .ThenBy(p => p.SortOrder)
+                .ThenBy(p => p.Name)
+                .ToListAsync();
 
-                var onHand = await OnHandAsync(products);
-                return Ok(products.Select(p => ToDto(p, includeInactive, onHand)).ToList());
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while getting products.", e);
-            }
+            var onHand = await OnHandAsync(products);
+            return Ok(products.Select(p => ToDto(p, includeInactive, onHand)).ToList());
         }
 
         /// <summary>
@@ -209,18 +166,11 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetProduct(int id)
         {
-            try
-            {
-                var dto = await LoadDtoAsync(id);
-                if (dto == null || !Visible(dto.TerritoryId))
-                    return NotFound(new { error = "Product not found." });
+            var dto = await LoadDtoAsync(id);
+            if (dto == null || !Scope.CanSee(dto.TerritoryId))
+                return NotFound(new { error = "Product not found." });
 
-                return Ok(dto);
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while getting the product.", e);
-            }
+            return Ok(dto);
         }
 
         /// <summary>
@@ -231,14 +181,7 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public IActionResult GetCategories()
         {
-            try
-            {
-                return Ok(Enum.GetNames<ProductCategory>());
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while getting categories.", e);
-            }
+            return Ok(Enum.GetNames<ProductCategory>());
         }
 
         #endregion
@@ -255,159 +198,138 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> UpdateProduct([FromBody] ProductDto request)
         {
-            try
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
+
+            if (request.Id == null)
+                return BadRequest(new { error = "Missing parameter." });
+
+            var product = await DB.Products
+                .ForEditing()
+                .FirstOrDefaultAsync(p => p.Id == request.Id.Value);
+
+            product = product.IfVisibleTo(Scope);
+            if (product == null)
+                return NotFound(new { error = "Product not found." });
+
+            if (DenyUnlessEditable(product.TerritoryId) is { } notEditable)
+                return notEditable;
+
+            var componentError = await ValidateComponentsAsync(product.Id, product.TerritoryId, request.Variants)
+                                 ?? await ValidateDeliveryOptionsAsync(product.TerritoryId, request.DeliveryOptions);
+            if (componentError != null)
+                return BadRequest(new { error = componentError });
+
+            var saleError = ValidateSales(request);
+            if (saleError != null)
+                return BadRequest(new { error = saleError });
+
+            var optionError = ProductOptions.Validate(request.Options);
+            if (optionError != null)
+                return BadRequest(new { error = optionError });
+
+            // The editor always sends the whole sale; 0 or nothing clears it.
+            if (request.SaleDiscountPercent != null || request.SaleDiscountAmount != null)
+                (product.SaleDiscountPercent, product.SaleDiscountAmount) = CatalogRules.CleanSale(request.SaleDiscountPercent, request.SaleDiscountAmount);
+
+            if (request.Name != null)
             {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden(ManagersOnly);
+                if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > CatalogRules.MaxProductNameLength)
+                    return BadRequest(new { error = "Invalid parameter." });
 
-                if (request.Id == null)
-                    return BadRequest(new { error = "Missing parameter." });
+                product.Name = request.Name;
+            }
 
-                var product = await DB.Products
-                    .Include(p => p.Variants)
-                    .ThenInclude(v => v.Components)
-                    .Include(p => p.DeliveryOptions)
-                    .Include(p => p.Options)
-                    .ThenInclude(o => o.Choices)
-                    .AsSplitQuery()
-                    .FirstOrDefaultAsync(p => p.Id == request.Id.Value);
+            if (request.Brand != null)
+            {
+                if (request.Brand.Length > CatalogRules.MaxBrandLength)
+                    return BadRequest(new { error = "Invalid parameter." });
 
-                if (product == null || !Visible(product.TerritoryId))
-                    return NotFound(new { error = "Product not found." });
+                product.Brand = request.Brand;
+            }
 
-                if (!CanEditCatalog(product.TerritoryId))
-                    return Forbidden(NotYourCatalog);
+            if (request.Category != null)
+            {
+                if (!Enum.TryParse<ProductCategory>(request.Category, true, out var category))
+                    return BadRequest(new { error = "Invalid parameter." });
 
-                var componentError = await ValidateComponentsAsync(product.Id, product.TerritoryId, request.Variants)
-                                     ?? await ValidateDeliveryOptionsAsync(product.TerritoryId, request.DeliveryOptions);
-                if (componentError != null)
-                    return BadRequest(new { error = componentError });
+                product.Category = category;
+            }
 
-                var saleError = ValidateSales(request);
-                if (saleError != null)
-                    return BadRequest(new { error = saleError });
+            if (request.Notes != null)
+                product.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes;
 
-                var optionError = ValidateOptions(request.Options);
-                if (optionError != null)
-                    return BadRequest(new { error = optionError });
+            if (request.SortOrder != null)
+                product.SortOrder = request.SortOrder.Value;
 
-                // The editor always sends the whole sale; 0 or nothing clears it.
-                if (request.SaleDiscountPercent != null || request.SaleDiscountAmount != null)
-                    (product.SaleDiscountPercent, product.SaleDiscountAmount) = CleanSale(request.SaleDiscountPercent, request.SaleDiscountAmount);
+            if (request.IsActive != null)
+                product.IsActive = request.IsActive.Value;
 
-                if (request.Name != null)
+            if (request.TrackInventory != null)
+                product.TrackInventory = request.TrackInventory.Value;
+
+            if (request.HasWarranty != null)
+                product.HasWarranty = request.HasWarranty.Value;
+
+            if (request.WarrantyLength != null)
+                product.WarrantyLength = CatalogRules.CleanWarrantyLength(request.WarrantyLength);
+
+            if (request.Variants != null)
+            {
+                // Variants still referenced by a sold line are deactivated rather than removed,
+                // so historic receipts keep resolving.
+                var keepIds = request.Variants.Where(v => v.Id != null).Select(v => v.Id!.Value).ToHashSet();
+                var dropped = product.Variants.Where(v => !keepIds.Contains(v.Id)).ToList();
+
+                foreach (var variant in dropped)
                 {
-                    if (string.IsNullOrWhiteSpace(request.Name) || request.Name.Length > 150)
-                        return BadRequest(new { error = "Invalid parameter." });
+                    // A variant still bundled into another product is kept too, so that
+                    // bundle does not lose its component.
+                    var inUse = await DB.OrderLines.AnyAsync(l => l.ProductVariantId == variant.Id)
+                                || await DB.ProductVariantComponents.AnyAsync(c => c.ComponentVariantId == variant.Id);
 
-                    product.Name = request.Name;
+                    if (inUse)
+                        variant.IsActive = false;
+                    else
+                        DB.ProductVariants.Remove(variant);
                 }
 
-                if (request.Brand != null)
+                foreach (var dto in request.Variants)
                 {
-                    if (request.Brand.Length > 100)
-                        return BadRequest(new { error = "Invalid parameter." });
+                    var variant = dto.Id != null
+                        ? product.Variants.FirstOrDefault(v => v.Id == dto.Id.Value)
+                        : null;
 
-                    product.Brand = request.Brand;
-                }
-
-                if (request.Category != null)
-                {
-                    if (!Enum.TryParse<ProductCategory>(request.Category, true, out var category))
-                        return BadRequest(new { error = "Invalid parameter." });
-
-                    product.Category = category;
-                }
-
-                if (request.Notes != null)
-                    product.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes;
-
-                if (request.SortOrder != null)
-                    product.SortOrder = request.SortOrder.Value;
-
-                if (request.IsActive != null)
-                    product.IsActive = request.IsActive.Value;
-
-                if (request.TrackInventory != null)
-                    product.TrackInventory = request.TrackInventory.Value;
-
-                if (request.HasWarranty != null)
-                    product.HasWarranty = request.HasWarranty.Value;
-
-                if (request.WarrantyLength != null)
-                    product.WarrantyLength = CleanWarrantyLength(request.WarrantyLength);
-
-                if (request.Variants != null)
-                {
-                    // Variants still referenced by a sold line are deactivated rather than removed,
-                    // so historic receipts keep resolving.
-                    var keepIds = request.Variants.Where(v => v.Id != null).Select(v => v.Id!.Value).ToHashSet();
-                    var dropped = product.Variants.Where(v => !keepIds.Contains(v.Id)).ToList();
-
-                    foreach (var variant in dropped)
+                    if (variant == null)
                     {
-                        // A variant still bundled into another product is kept too, so that
-                        // bundle does not lose its component.
-                        var inUse = await DB.OrderLines.AnyAsync(l => l.ProductVariantId == variant.Id)
-                                    || await DB.ProductVariantComponents.AnyAsync(c => c.ComponentVariantId == variant.Id);
-
-                        if (inUse)
-                            variant.IsActive = false;
-                        else
-                            DB.ProductVariants.Remove(variant);
+                        variant = new ProductVariant();
+                        product.Variants.Add(variant);
                     }
 
-                    foreach (var dto in request.Variants)
+                    CopyVariant(variant, dto);
+
+                    if (dto.Components != null)
                     {
-                        var variant = dto.Id != null
-                            ? product.Variants.FirstOrDefault(v => v.Id == dto.Id.Value)
-                            : null;
-
-                        if (variant == null)
-                        {
-                            variant = new ProductVariant();
-                            product.Variants.Add(variant);
-                        }
-
-                        variant.Size = dto.Size ?? string.Empty;
-                        variant.Configuration = string.IsNullOrWhiteSpace(dto.Configuration) ? null : dto.Configuration;
-                        variant.Price = dto.Price;
-                        variant.SortOrder = dto.SortOrder ?? 0;
-                        variant.IsActive = dto.IsActive ?? true;
-                        variant.ExcludeFromInventory = dto.ExcludeFromInventory ?? false;
-                        variant.Notes = CleanSizeNotes(dto.Notes);
-                        variant.HasOwnSale = dto.HasOwnSale ?? false;
-                        (variant.SaleDiscountPercent, variant.SaleDiscountAmount) = variant.HasOwnSale
-                            ? CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount)
-                            : (null, null);
-
-                        if (dto.Components != null)
-                        {
-                            DB.ProductVariantComponents.RemoveRange(variant.Components);
-                            variant.Components.Clear();
-                            SetComponents(variant, dto.Components);
-                        }
+                        DB.ProductVariantComponents.RemoveRange(variant.Components);
+                        variant.Components.Clear();
+                        SetComponents(variant, dto.Components);
                     }
                 }
-
-                if (request.DeliveryOptions != null)
-                {
-                    DB.ProductDeliveryOptions.RemoveRange(product.DeliveryOptions);
-                    product.DeliveryOptions.Clear();
-                    ApplyDeliveryOptions(product, request.DeliveryOptions);
-                }
-
-                if (request.Options != null)
-                    await ReplaceOptionsAsync(DB, product, request.Options);
-
-                await DB.SaveChangesAsync();
-
-                return Ok(await LoadDtoAsync(product.Id));
             }
-            catch (Exception e)
+
+            if (request.DeliveryOptions != null)
             {
-                return ServerError("Internal error occurred while updating the product.", e);
+                DB.ProductDeliveryOptions.RemoveRange(product.DeliveryOptions);
+                product.DeliveryOptions.Clear();
+                ApplyDeliveryOptions(product, request.DeliveryOptions);
             }
+
+            if (request.Options != null)
+                await ProductOptions.ReplaceAsync(DB, product, request.Options);
+
+            await DB.SaveChangesAsync();
+
+            return Ok(await LoadDtoAsync(product.Id));
         }
 
         #endregion
@@ -425,55 +347,49 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> DeleteProduct(int id, [FromQuery] bool permanent = false)
         {
-            try
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
+
+            var product = await DB.Products
+                .Include(p => p.Variants)
+                .FirstOrDefaultAsync(p => p.Id == id);
+
+            product = product.IfVisibleTo(Scope);
+            if (product == null)
+                return NotFound(new { error = "Product not found." });
+
+            if (DenyUnlessEditable(product.TerritoryId) is { } notEditable)
+                return notEditable;
+
+            if (permanent)
             {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden(ManagersOnly);
+                if (!IsSystemAdmin())
+                    return Forbidden("Only a system admin can delete a product permanently.");
 
-                var product = await DB.Products
-                    .Include(p => p.Variants)
-                    .FirstOrDefaultAsync(p => p.Id == id);
-
-                if (product == null || !Visible(product.TerritoryId))
-                    return NotFound(new { error = "Product not found." });
-
-                if (!CanEditCatalog(product.TerritoryId))
-                    return Forbidden(NotYourCatalog);
-
-                if (permanent)
-                {
-                    if (!IsSystemAdmin())
-                        return Forbidden("Only a system admin can delete a product permanently.");
-
-                    await PermanentDelete.ProductAsync(DB, id);
-                    return Ok(new { archived = false });
-                }
-
-                var variantIds = product.Variants.Select(v => v.Id).ToList();
-                var isSold = await DB.OrderLines.AnyAsync(l => l.ProductVariantId != null
-                                                               && variantIds.Contains(l.ProductVariantId.Value));
-
-                // Something else still ships this product as part of a bundle.
-                var isBundled = await DB.ProductVariantComponents
-                    .AnyAsync(c => variantIds.Contains(c.ComponentVariantId)
-                                   && !variantIds.Contains(c.BundleVariantId));
-
-                if (isSold || isBundled)
-                {
-                    product.IsActive = false;
-                    await DB.SaveChangesAsync();
-                    return Ok(new { archived = true });
-                }
-
-                DB.Products.Remove(product);
-                await DB.SaveChangesAsync();
-
+                await PermanentDelete.ProductAsync(DB, id);
                 return Ok(new { archived = false });
             }
-            catch (Exception e)
+
+            var variantIds = product.Variants.Select(v => v.Id).ToList();
+            var isSold = await DB.OrderLines.AnyAsync(l => l.ProductVariantId != null
+                                                           && variantIds.Contains(l.ProductVariantId.Value));
+
+            // Something else still ships this product as part of a bundle.
+            var isBundled = await DB.ProductVariantComponents
+                .AnyAsync(c => variantIds.Contains(c.ComponentVariantId)
+                               && !variantIds.Contains(c.BundleVariantId));
+
+            if (isSold || isBundled)
             {
-                return ServerError("Internal error occurred while deleting the product.", e);
+                product.IsActive = false;
+                await DB.SaveChangesAsync();
+                return Ok(new { archived = true });
             }
+
+            DB.Products.Remove(product);
+            await DB.SaveChangesAsync();
+
+            return Ok(new { archived = false });
         }
 
         #endregion
@@ -492,24 +408,22 @@ namespace api.Controllers
 
             foreach (var dto in variants)
             {
-                var variant = new ProductVariant
-                {
-                    Size = dto.Size ?? string.Empty,
-                    Configuration = string.IsNullOrWhiteSpace(dto.Configuration) ? null : dto.Configuration,
-                    Price = dto.Price,
-                    SortOrder = dto.SortOrder ?? 0,
-                    IsActive = dto.IsActive ?? true,
-                    ExcludeFromInventory = dto.ExcludeFromInventory ?? false,
-                    Notes = CleanSizeNotes(dto.Notes),
-                    HasOwnSale = dto.HasOwnSale ?? false,
-                };
-                if (variant.HasOwnSale)
-                    (variant.SaleDiscountPercent, variant.SaleDiscountAmount) = CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount);
-
+                var variant = new ProductVariant();
+                CopyVariant(variant, dto);
                 SetComponents(variant, dto.Components);
                 product.Variants.Add(variant);
             }
         }
+
+        /// <summary>
+        /// Copies a size's fields from the editor onto a new or existing size. The editor sends
+        /// sizes as typed; a catalog file's are trimmed and placed in file order (CatalogTransfer).
+        /// </summary>
+        /// <param name="variant">Target size</param>
+        /// <param name="dto">The size as sent</param>
+        private static void CopyVariant(ProductVariant variant, ProductVariantDto dto) =>
+            CatalogFields.CopySize(variant, dto.Size, dto.Configuration, dto.Price, dto.SortOrder ?? 0, dto.IsActive,
+                dto.ExcludeFromInventory, dto.Notes, dto.HasOwnSale, dto.SaleDiscountPercent, dto.SaleDiscountAmount);
 
         /// <summary>
         /// Replaces a variant's bundle with the supplied components, merging duplicates.
@@ -534,14 +448,6 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// Whether the signed-in user can see a catalog item at all: it's in one of their territories'
-        /// catalogs (any territory's, for a system admin or administrator).
-        /// </summary>
-        /// <param name="itemTerritoryId">The item's territory</param>
-        /// <returns>True when visible.</returns>
-        private bool Visible(int? itemTerritoryId) => Scope.CanSee(itemTerritoryId);
-
-        /// <summary>
         /// Checks every bundle component in a save request. A product cannot include itself, a
         /// bundle cannot include another bundle - one level keeps the sheet and the stat tallies
         /// predictable - and everything in it has to be from the bundle's own territory's catalog.
@@ -562,7 +468,7 @@ namespace api.Controllers
             if (requested.Any(c => c.ComponentVariantId == null))
                 return "Pick an item and size for every bundled product.";
 
-            if (requested.Any(c => c.Quantity is < 1 or > 20))
+            if (requested.Any(c => !CatalogRules.IsValidBundleQuantity(c.Quantity)))
                 return "A bundled item's quantity must be between 1 and 20.";
 
             var ids = requested.Select(c => c.ComponentVariantId!.Value).Distinct().ToList();
@@ -614,45 +520,6 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// Whether a new product of a category has a warranty unless told otherwise: mattresses and
-        /// adjustable bases do.
-        /// </summary>
-        /// <param name="category">The product's category</param>
-        /// <returns>True for a mattress or a base.</returns>
-        internal static bool WarrantyByDefault(ProductCategory category) =>
-            category is ProductCategory.Mattress or ProductCategory.AdjustableBase;
-
-        /// <summary>
-        /// A warranty length as stored: trimmed, at most 60 characters, nothing when blank.
-        /// </summary>
-        /// <param name="length">What was typed</param>
-        /// <returns>The cleaned length, or null.</returns>
-        internal static string? CleanWarrantyLength(string? length)
-        {
-            var trimmed = length?.Trim();
-            if (string.IsNullOrEmpty(trimmed)) return null;
-            return trimmed.Length > 60 ? trimmed[..60] : trimmed;
-        }
-
-        /// <summary>
-        /// A size's note as stored: trimmed, at most 300 characters, nothing when blank.
-        /// </summary>
-        /// <param name="notes">What was typed</param>
-        /// <returns>The cleaned note, or null.</returns>
-        internal static string? CleanSizeNotes(string? notes)
-        {
-            var trimmed = notes?.Trim();
-            if (string.IsNullOrEmpty(trimmed)) return null;
-            return trimmed.Length > 300 ? trimmed[..300] : trimmed;
-        }
-
-        /// <summary>
-        /// A sale as stored: a percent, or else an amount, or nothing. Zero clears it.
-        /// </summary>
-        internal static (decimal? Percent, decimal? Amount) CleanSale(decimal? percent, decimal? amount) =>
-            percent is > 0 ? (percent, null) : amount is > 0 ? (null, amount) : (null, null);
-
-        /// <summary>
         /// Checks the product's and each size's sale: percents from 0 to 100, amounts 0 or more.
         /// </summary>
         /// <returns>An error message, or null.</returns>
@@ -662,51 +529,7 @@ namespace api.Controllers
             sales.AddRange((request.Variants ?? []).Select(v => (v.SaleDiscountPercent, v.SaleDiscountAmount)));
             sales.AddRange((request.DeliveryOptions ?? []).Select(d => (d.SaleDiscountPercent, d.SaleDiscountAmount)));
 
-            if (sales.Any(s => s.Percent is < 0 or > 100))
-                return "A sale percent must be between 0 and 100.";
-            if (sales.Any(s => s.Amount < 0))
-                return "A sale amount can't be negative.";
-            return null;
-        }
-
-        /// <summary>
-        /// Checks the selections in a save request: each needs a name and at least one choice,
-        /// every choice a name, and names can't repeat.
-        /// </summary>
-        /// <returns>An error message, or null.</returns>
-        internal static string? ValidateOptions(List<ProductOptionDto>? options)
-        {
-            if (options == null)
-                return null;
-
-            if (options.Count > 10)
-                return "A product can have at most 10 selections.";
-
-            foreach (var option in options)
-            {
-                var name = option.Name?.Trim() ?? "";
-                if (name.Length == 0)
-                    return "Every selection needs a name, such as Color.";
-                if (name.Length > 50)
-                    return "A selection's name can be at most 50 characters.";
-
-                var choices = (option.Choices ?? []).Where(c => c.IsActive ?? true).ToList();
-                if (choices.Count == 0)
-                    return $"Give \"{name}\" at least one choice.";
-                if (choices.Count > 50)
-                    return $"\"{name}\" can have at most 50 choices.";
-                if (choices.Any(c => string.IsNullOrWhiteSpace(c.Name) || c.Name.Trim().Length > 50))
-                    return $"Every choice for \"{name}\" needs a name of up to 50 characters.";
-                if (choices.GroupBy(c => c.Name!.Trim().ToLowerInvariant()).Any(g => g.Count() > 1))
-                    return $"\"{name}\" lists the same choice twice.";
-                if (choices.Any(c => c.PriceAdjustment is < -100000 or > 100000))
-                    return $"A price change for \"{name}\" is too large.";
-            }
-
-            if (options.GroupBy(o => o.Name!.Trim().ToLowerInvariant()).Any(g => g.Count() > 1))
-                return "Two selections have the same name.";
-
-            return null;
+            return CatalogRules.SalesProblem(sales);
         }
 
         /// <summary>
@@ -725,104 +548,6 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// Adds the selections from a save request to a new product.
-        /// </summary>
-        internal static void SyncOptions(Product product, List<ProductOptionDto>? options)
-        {
-            foreach (var (dto, index) in (options ?? []).Select((o, i) => (o, i)))
-            {
-                var option = new ProductOption();
-                CopyOption(option, dto, index);
-                foreach (var (choiceDto, choiceIndex) in (dto.Choices ?? []).Where(c => c.IsActive ?? true).Select((c, i) => (c, i)))
-                {
-                    var choice = new ProductOptionChoice();
-                    CopyChoice(choice, choiceDto, choiceIndex);
-                    option.Choices.Add(choice);
-                }
-                product.Options.Add(option);
-            }
-        }
-
-        /// <summary>
-        /// Brings an existing product's selections in line with a save request. A choice taken
-        /// out is retired rather than deleted, so stock and past sales still name it; a selection
-        /// taken out is removed, along with any stock counted by its choices.
-        /// </summary>
-        internal static async Task ReplaceOptionsAsync(ApplicationDbContext db, Product product, List<ProductOptionDto> options)
-        {
-            var keep = options.Where(o => o.Id != null).Select(o => o.Id!.Value).ToHashSet();
-            foreach (var gone in product.Options.Where(o => !keep.Contains(o.Id)).ToList())
-            {
-                await RemoveChoiceStockAsync(db, product, gone.Id);
-                db.ProductOptions.Remove(gone);
-                product.Options.Remove(gone);
-            }
-
-            foreach (var (dto, index) in options.Select((o, i) => (o, i)))
-            {
-                var option = dto.Id == null ? null : product.Options.FirstOrDefault(o => o.Id == dto.Id.Value);
-                if (option == null)
-                {
-                    option = new ProductOption();
-                    product.Options.Add(option);
-                }
-
-                // Counting stock per choice switched off: those counts no longer apply.
-                if (option.Id != 0 && option.TracksStock && !(dto.TracksStock ?? false))
-                    await RemoveChoiceStockAsync(db, product, option.Id);
-
-                CopyOption(option, dto, index);
-
-                var wanted = (dto.Choices ?? []).Where(c => c.IsActive ?? true).ToList();
-                var keepChoices = wanted.Where(c => c.Id != null).Select(c => c.Id!.Value).ToHashSet();
-                foreach (var retired in option.Choices.Where(c => c.Id != 0 && !keepChoices.Contains(c.Id)))
-                    retired.IsActive = false;
-
-                foreach (var (choiceDto, choiceIndex) in wanted.Select((c, i) => (c, i)))
-                {
-                    var choice = choiceDto.Id == null ? null : option.Choices.FirstOrDefault(c => c.Id == choiceDto.Id.Value);
-                    if (choice == null)
-                    {
-                        choice = new ProductOptionChoice();
-                        option.Choices.Add(choice);
-                    }
-                    CopyChoice(choice, choiceDto, choiceIndex);
-                }
-            }
-        }
-
-        /// <summary>
-        /// Clears the stock counted for a selection's choices, across the product's sizes and in
-        /// every territory.
-        /// </summary>
-        private static async Task RemoveChoiceStockAsync(ApplicationDbContext db, Product product, int optionId)
-        {
-            var variantIds = product.Variants.Select(v => v.Id).ToList();
-            var marker = $"{optionId}:";
-            var rows = await db.InventoryStocks
-                .Where(s => variantIds.Contains(s.ProductVariantId) && s.StockKey != "")
-                .ToListAsync();
-            db.InventoryStocks.RemoveRange(rows.Where(r => r.StockKey.Split('|').Any(part => part.StartsWith(marker))));
-        }
-
-        private static void CopyOption(ProductOption option, ProductOptionDto dto, int index)
-        {
-            option.Name = dto.Name!.Trim();
-            option.SortOrder = index + 1;
-            option.TracksStock = dto.TracksStock ?? false;
-            // A selection that counts stock always needs a choice, or there is nothing to count against.
-            option.IsRequired = option.TracksStock || (dto.IsRequired ?? true);
-        }
-
-        private static void CopyChoice(ProductOptionChoice choice, ProductOptionChoiceDto dto, int index)
-        {
-            choice.Name = dto.Name!.Trim();
-            choice.PriceAdjustment = dto.PriceAdjustment is null or 0 ? null : dto.PriceAdjustment;
-            choice.SortOrder = index + 1;
-            choice.IsActive = true;
-        }
-
-        /// <summary>
         /// Copies delivery availability DTOs onto a product.
         /// </summary>
         /// <param name="product">Target product</param>
@@ -837,20 +562,10 @@ namespace api.Controllers
                 if (dto.DeliveryOptionId == null)
                     continue;
 
-                var hasOwnSale = dto.HasOwnSale ?? false;
-                var (salePercent, saleAmount) = hasOwnSale
-                    ? CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount)
-                    : (null, null);
-
-                product.DeliveryOptions.Add(new ProductDeliveryOption
-                {
-                    DeliveryOptionId = dto.DeliveryOptionId.Value,
-                    PriceOverride = dto.PriceOverride,
-                    IsDefault = dto.IsDefault ?? false,
-                    HasOwnSale = hasOwnSale,
-                    SaleDiscountPercent = salePercent,
-                    SaleDiscountAmount = saleAmount,
-                });
+                var choice = CatalogFields.NewDeliveryChoice(dto.PriceOverride, dto.IsDefault, dto.HasOwnSale,
+                    dto.SaleDiscountPercent, dto.SaleDiscountAmount);
+                choice.DeliveryOptionId = dto.DeliveryOptionId.Value;
+                product.DeliveryOptions.Add(choice);
             }
         }
 
@@ -862,16 +577,7 @@ namespace api.Controllers
         private async Task<ProductDto?> LoadDtoAsync(int id)
         {
             var product = await DB.Products
-                .Include(p => p.Territory)
-                .Include(p => p.Variants)
-                .ThenInclude(v => v.Components)
-                .ThenInclude(c => c.ComponentVariant)
-                .ThenInclude(cv => cv!.Product)
-                .Include(p => p.DeliveryOptions)
-                .ThenInclude(d => d.DeliveryOption)
-                .Include(p => p.Options)
-                .ThenInclude(o => o.Choices)
-                .AsSplitQuery()
+                .WithEverything()
                 .AsNoTracking()
                 .FirstOrDefaultAsync(p => p.Id == id);
 
@@ -889,6 +595,7 @@ namespace api.Controllers
         {
             // Every combination of counted choices, for the stock shown on the floor.
             var combinations = Choices.Combinations(product);
+            var counted = Choices.CountedOptions(product).Select(o => o.Id).ToHashSet();
 
             return new ProductDto
             {
@@ -907,6 +614,8 @@ namespace api.Controllers
                 WarrantyLength = product.WarrantyLength,
                 SaleDiscountPercent = product.SaleDiscountPercent,
                 SaleDiscountAmount = product.SaleDiscountAmount,
+                EffectiveSalePercent = CatalogRules.CleanSale(product.SaleDiscountPercent, product.SaleDiscountAmount).Percent,
+                EffectiveSaleAmount = CatalogRules.CleanSale(product.SaleDiscountPercent, product.SaleDiscountAmount).Amount,
                 Options = product.Options
                     .OrderBy(o => o.SortOrder)
                     .ThenBy(o => o.Id)
@@ -917,6 +626,7 @@ namespace api.Controllers
                         SortOrder = o.SortOrder,
                         IsRequired = o.IsRequired,
                         TracksStock = o.TracksStock,
+                        CountsStock = counted.Contains(o.Id),
                         Choices = o.Choices
                             .Where(c => c.IsActive)
                             .OrderBy(c => c.SortOrder)
@@ -950,12 +660,15 @@ namespace api.Controllers
                         HasOwnSale = v.HasOwnSale,
                         SaleDiscountPercent = v.SaleDiscountPercent,
                         SaleDiscountAmount = v.SaleDiscountAmount,
+                        EffectiveSalePercent = Choices.SaleFor(product, v).Percent,
+                        EffectiveSaleAmount = Choices.SaleFor(product, v).Amount,
                         Stocks = combinations.Count == 1 && combinations[0].Key == ""
                             ? null
                             : combinations.Select(c => new ChoiceStockDto
                             {
                                 StockKey = c.Key,
                                 Label = c.Label,
+                                ChoiceIds = StockKeys.Parts(c.Key).Select(p => p!.Value.ChoiceId).ToList(),
                                 QuantityOnHand = onHand?.GetValueOrDefault((v.Id, c.Key)),
                             }).ToList(),
                         Components = v.Components
@@ -984,7 +697,7 @@ namespace api.Controllers
                         ProductId = d.ProductId,
                         DeliveryOptionId = d.DeliveryOptionId,
                         Name = d.DeliveryOption!.Name,
-                        Price = d.PriceOverride ?? d.DeliveryOption.Price,
+                        Price = CatalogRules.DeliveryPrice(d.DeliveryOption, d),
                         PriceOverride = d.PriceOverride,
                         IsTaxable = d.DeliveryOption.IsTaxable,
                         IsTakeWith = d.DeliveryOption.IsTakeWith,
@@ -994,6 +707,8 @@ namespace api.Controllers
                         SaleDiscountAmount = d.SaleDiscountAmount,
                         OptionSaleDiscountPercent = d.DeliveryOption.SaleDiscountPercent,
                         OptionSaleDiscountAmount = d.DeliveryOption.SaleDiscountAmount,
+                        EffectiveSalePercent = Choices.DeliverySaleFor(d.DeliveryOption, d).Percent,
+                        EffectiveSaleAmount = Choices.DeliverySaleFor(d.DeliveryOption, d).Amount,
                     })
                     .ToList(),
             };

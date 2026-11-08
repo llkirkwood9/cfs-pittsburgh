@@ -3,7 +3,7 @@ import ProtectedRoute from "../../../Routes/ProtectedRoute";
 
 export default function Screen() {
     return (
-        <ProtectedRoute roles={["Manager"]} territory="look after the catalog" inStack>
+        <ProtectedRoute screen="catalog">
             <CatalogPage />
         </ProtectedRoute>
     );

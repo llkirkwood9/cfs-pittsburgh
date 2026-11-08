@@ -1,7 +1,7 @@
 import { useIsFocused } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useEffect, useState } from "react";
-import { IsOnline, OnConnectionChange } from "../../Lib/Connection";
+import { IsOnline, OnConnectionChange } from "@shared/Lib/Connection";
 
 /**
  * White status bar text - the time, signal and battery - for a screen whose top is dark whatever

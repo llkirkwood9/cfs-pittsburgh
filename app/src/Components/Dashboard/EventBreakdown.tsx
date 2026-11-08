@@ -2,9 +2,9 @@ import { Pressable, View } from "react-native";
 import Icon from "../Elements/Icon";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
-import { FormatCurrency, FormatShortDate, IsPastEvent, IsUpcomingEvent } from "../../Lib/ModelHelpers";
-import type { EventTally } from "../../Models/DashboardStats";
-import type { Event } from "../../Models/Event";
+import { EventBreakdownRows } from "@shared/Lib/Dashboard";
+import { FormatCurrency, FormatShortDate } from "@shared/Lib/Format";
+import type { EventTally } from "@shared/Models/DashboardStats";
 
 type Props = {
     events: EventTally[];
@@ -12,32 +12,23 @@ type Props = {
     onSelect: (eventId: number) => void;
 };
 
-/** The parts of an event the Past and upcoming checks read. */
-const AsEvent = (tally: EventTally): Event => ({
-    isActive: tally.isActive,
-    eventDate: tally.eventDate ?? undefined,
-});
-
 /**
  * Every event side by side, for the overview: what each one sold, with a bar for its total sales
  * so the best fundraisers stand out. Tapping one opens its own figures. Events that haven't
  * happened yet are left out, since they have no sales.
  */
 const EventBreakdown = ({ events, onSelect }: Props) => {
-    const shown = events.filter((e) => !IsUpcomingEvent(AsEvent(e)));
-    const best = Math.max(0, ...shown.map((e) => e.totalSales ?? 0));
+    const rows = EventBreakdownRows(events);
 
     return (
         <View className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
             <Text className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 Events
             </Text>
-            {shown.length === 0 ? (
+            {rows.length === 0 ? (
                 <Text className="text-sm text-zinc-500 dark:text-zinc-400">No events yet.</Text>
             ) : (
-                shown.map((event, index) => {
-                    const total = event.totalSales ?? 0;
-                    const past = IsPastEvent(AsEvent(event));
+                rows.map(({ event, total, past, barPercent }, index) => {
                     return (
                         <Pressable
                             key={event.eventId}
@@ -76,7 +67,8 @@ const EventBreakdown = ({ events, onSelect }: Props) => {
                                     )}
                                 </View>
                                 <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                                    {FormatShortDate(event.eventDate)} · {event.completedOrderCount ?? 0} sale
+                                    {FormatShortDate(event.eventDate)} ·{" "}
+                                    {event.completedOrderCount ?? 0} sale
                                     {event.completedOrderCount === 1 ? "" : "s"} ·{" "}
                                     {event.mattressAndBaseCount ?? 0} matts/bases · average{" "}
                                     {FormatCurrency(event.averageSale)}
@@ -85,17 +77,22 @@ const EventBreakdown = ({ events, onSelect }: Props) => {
                                 <View className="mt-2 h-2 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-700">
                                     <View
                                         className="h-full rounded-full bg-sky-600 dark:bg-sky-500"
-                                        style={{ width: `${best > 0 ? (total / best) * 100 : 0}%` }}
+                                        style={{ width: `${barPercent}%` }}
                                     />
                                 </View>
                             </View>
                             <View className="ml-auto w-28 items-end">
-                                <Text className="font-bold tabular-nums">{FormatCurrency(total)}</Text>
-                                <Text className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                                <Text className="font-bold tabular-nums">
+                                    {FormatCurrency(total)}
+                                </Text>
+                                <Text className="text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
                                     Net {FormatCurrency(event.netSales)}
                                 </Text>
                             </View>
-                            <Icon icon="fa-solid fa-chevron-right" className="text-xs text-zinc-400" />
+                            <Icon
+                                icon="fa-solid fa-chevron-right"
+                                className="text-xs text-zinc-400"
+                            />
                         </Pressable>
                     );
                 })

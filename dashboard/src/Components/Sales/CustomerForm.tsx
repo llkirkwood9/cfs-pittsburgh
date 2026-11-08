@@ -1,12 +1,11 @@
-import { useState } from "react";
 import TextField from "../Elements/TextField";
-import { NormalizeCustomerField } from "../../Lib/ModelHelpers";
-import type { Order } from "../../Models/Order";
+import { useCustomerForm } from "@shared/Hooks/useSalesForms";
+import type { Order } from "@shared/Models/Order";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     order: Order;
     reps: string[];
-    disabled?: boolean;
     onSave: (changes: Order) => Promise<void>;
 };
 
@@ -18,25 +17,8 @@ type Props = {
  * That is deliberate: syncing the server copy back into the inputs would overwrite whatever the
  * rep is part way through typing.
  */
-const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
-    const [form, setForm] = useState<Order>(order);
-
-    const set = (field: keyof Order) => (value: string) =>
-        setForm((current) => ({ ...current, [field]: value }));
-
-    const commit = (field: keyof Order) => async () => {
-        const raw = form[field];
-        const value = typeof raw === "string" ? NormalizeCustomerField(field, raw) : (raw ?? "");
-        if (value !== raw) setForm((current) => ({ ...current, [field]: value }));
-
-        if ((value ?? "") === (order[field] ?? "")) return;
-        await onSave({ id: order.id, [field]: value } as Order);
-    };
-
-    const toggleSameAsBilling = async (checked: boolean) => {
-        setForm((current) => ({ ...current, deliverySameAsBilling: checked }));
-        await onSave({ id: order.id, deliverySameAsBilling: checked });
-    };
+const CustomerForm = ({ order, reps, onSave }: Props) => {
+    const { form, text, set, commit, toggleSameAsBilling } = useCustomerForm(order, onSave);
 
     const field = (
         label: string,
@@ -49,10 +31,9 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
     ) => (
         <TextField
             label={label}
-            value={(form[key] as string | null | undefined) ?? ""}
+            value={text(key)}
             onChange={set(key)}
             onBlur={commit(key)}
-            disabled={disabled}
             className={options?.className}
             inputMode={options?.inputMode}
             type={options?.type}
@@ -79,7 +60,6 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
                             value={form.cfsRepName ?? ""}
                             onChange={(e) => set("cfsRepName")(e.target.value)}
                             onBlur={commit("cfsRepName")}
-                            disabled={disabled}
                             className="min-h-[48px] w-full rounded-xl border border-zinc-300 bg-white px-3 text-base
                                 text-zinc-900 outline-hidden focus:border-sky-600 focus:ring-2 focus:ring-sky-600/30
                                 disabled:opacity-60 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
@@ -135,7 +115,6 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
                             type="checkbox"
                             checked={form.deliverySameAsBilling ?? true}
                             onChange={(e) => toggleSameAsBilling(e.target.checked)}
-                            disabled={disabled}
                             className="h-5 w-5 accent-sky-600"
                         />
                         <span className="text-zinc-700 dark:text-zinc-300">Same as billing</span>
@@ -179,9 +158,8 @@ const CustomerForm = ({ order, reps, disabled = false, onSave }: Props) => {
                     value={form.comments ?? ""}
                     onChange={(e) => set("comments")(e.target.value)}
                     onBlur={commit("comments")}
-                    disabled={disabled}
                     rows={3}
-                    maxLength={1000}
+                    maxLength={Limits.orderComments}
                     placeholder="Anything the delivery crew or checkout table needs to know"
                     className="w-full rounded-xl border border-zinc-300 bg-white p-3 text-base text-zinc-900
                         outline-hidden focus:border-sky-600 focus:ring-2 focus:ring-sky-600/30 disabled:opacity-60

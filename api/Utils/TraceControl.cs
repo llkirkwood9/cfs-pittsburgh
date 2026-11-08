@@ -10,9 +10,6 @@ namespace api.Utils
     {
         /// <summary>The Web API.</summary>
         Api = 0,
-
-        /// <summary>Background or seeding work.</summary>
-        Seed = 1,
     }
 
     /// <summary>
@@ -34,9 +31,49 @@ namespace api.Utils
         /// </summary>
         private static readonly TimeSpan SuppressionWindow = TimeSpan.FromSeconds(30);
 
+        /// <summary>
+        /// How many distinct messages are remembered before old ones are forgotten.
+        /// </summary>
+        private const int PruneAbove = 1000;
+
+        /// <summary>
+        /// How long a message with repeats still to report is remembered, so the count isn't lost
+        /// to an early prune.
+        /// </summary>
+        private static readonly TimeSpan KeepSuppressedFor = TimeSpan.FromHours(1);
+
+        /// <summary>
+        /// When old messages were last forgotten, as ticks.
+        /// </summary>
+        private static long _lastPruneTicks;
+
+        /// <summary>
+        /// The logger for code that has none of its own, set at startup.
+        /// </summary>
+        private static ILogger? _defaultLogger;
+
         #endregion
 
         #region Public Methods
+
+        /// <summary>
+        /// Sets the logger used by Trace calls that don't pass one. Called once at startup.
+        /// </summary>
+        /// <param name="logger">The logger</param>
+        public static void UseDefaultLogger(ILogger logger) => _defaultLogger = logger;
+
+        /// <summary>
+        /// Writes a trace through the default logger (see UseDefaultLogger); does nothing before
+        /// one is set.
+        /// </summary>
+        /// <param name="source">Which component is tracing</param>
+        /// <param name="eventType">Severity</param>
+        /// <param name="message">Message to trace</param>
+        public static void Trace(TraceControlSource source, TraceEventType eventType, string message)
+        {
+            if (_defaultLogger is { } logger)
+                Trace(source, eventType, logger, message);
+        }
 
         /// <summary>
         /// Writes a trace, suppressing identical repeats inside the suppression window.
@@ -103,11 +140,35 @@ namespace api.Utils
             }
 
             Duplicates[key] = new DuplicateState { LastWritten = now, SuppressedCount = 0, ShouldWrite = false };
+            Prune(now);
         }
 
         #endregion
 
         #region Private Methods
+
+        /// <summary>
+        /// Forgets messages last written longer ago than the suppression window once too many are
+        /// remembered, at most once a window. One with repeats still to report is kept a while longer.
+        /// </summary>
+        /// <param name="now">The current time</param>
+        private static void Prune(DateTime now)
+        {
+            if (Duplicates.Count <= PruneAbove)
+                return;
+
+            var last = Interlocked.Read(ref _lastPruneTicks);
+            if (now.Ticks - last < SuppressionWindow.Ticks
+                || Interlocked.CompareExchange(ref _lastPruneTicks, now.Ticks, last) != last)
+                return;
+
+            foreach (var (key, state) in Duplicates)
+            {
+                var age = now - state.LastWritten;
+                if (age > SuppressionWindow && (state.SuppressedCount == 0 || age > KeepSuppressedFor))
+                    Duplicates.TryRemove(key, out _);
+            }
+        }
 
         /// <summary>
         /// Finds the first stack frame outside this class for Error/Critical annotations.

@@ -4,7 +4,7 @@ import type { LayoutChangeEvent } from "react-native";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import Text from "../Elements/Text";
-import { useSettingsScope } from "./SettingsScope";
+import { useSettingsScope } from "@shared/Context/SettingsScope";
 
 type Props = {
     id: string;
@@ -67,7 +67,9 @@ const SettingsCard = ({
                         <Text className="text-lg font-semibold">{title}</Text>
                     </View>
                     {typeof description === "string" ? (
-                        <Text className="text-sm text-zinc-600 dark:text-zinc-400">{description}</Text>
+                        <Text className="text-sm text-zinc-600 dark:text-zinc-400">
+                            {description}
+                        </Text>
                     ) : (
                         description
                     )}

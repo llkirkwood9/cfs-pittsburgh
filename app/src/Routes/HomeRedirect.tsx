@@ -1,7 +1,7 @@
 import { Redirect } from "expo-router";
 import LoadingPage from "../Components/Elements/LoadingPage";
-import { useAuth } from "../Context/AuthContext";
-import { HomePathForRole } from "../Lib/RoleRoutes";
+import { useAuth } from "@shared/Context/AuthContext";
+import { HomePathForRole } from "../Lib/ScreenLinks";
 
 /**
  * The app's opening screen sends each crew member to the screen their role actually uses, rather

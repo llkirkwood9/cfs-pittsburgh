@@ -1,23 +1,12 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef } from "react";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Icon from "../Elements/Icon";
 import ListSkeleton from "../Elements/ListSkeleton";
 import SettingsCard from "./SettingsCard";
-import { useSettingsScope } from "./SettingsScope";
-import { FormatDateTime } from "../../Lib/ModelHelpers";
-import { Toast } from "../../Lib/Toast";
-import type {
-    ReceiptEmailPreview,
-    ReceiptEmailSettings as ReceiptEmail,
-} from "../../Models/ReceiptEmailSettings";
-import {
-    GetReceiptEmailSettings,
-    PreviewReceiptEmail,
-    SaveReceiptEmailSettings,
-} from "../../Services/SettingsServices";
-
-/** How long typing has to pause before the preview refreshes. */
-const PREVIEW_DELAY_MS = 400;
+import { FormatDateTime } from "@shared/Lib/Format";
+import { useSettingsScope } from "@shared/Context/SettingsScope";
+import { useSettingsReceiptEmail } from "@shared/Hooks/useSettingsReceiptEmail";
+import type { ReceiptEmailField } from "@shared/Hooks/useSettingsReceiptEmail";
 
 const label =
     "flex items-baseline justify-between gap-2 text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400";
@@ -29,46 +18,15 @@ const field =
  * preview for a sample order.
  */
 const ReceiptEmailSettings = () => {
-    const { settings: general, territoryId } = useSettingsScope();
-    const [saved, setSaved] = useState<ReceiptEmail | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [subject, setSubject] = useState<string>("");
-    const [body, setBody] = useState<string>("");
-    const [preview, setPreview] = useState<ReceiptEmailPreview | null>(null);
-    const [saving, setSaving] = useState<boolean>(false);
-    const [resetting, setResetting] = useState<boolean>(false);
+    const { settings: general } = useSettingsScope();
+    const email = useSettingsReceiptEmail();
+    const { saved, subject, body, maxSubject, maxBody, preview, unknown, resetting } = email;
     const subjectRef = useRef<HTMLInputElement>(null);
     const bodyRef = useRef<HTMLTextAreaElement>(null);
     // Where a tapped placeholder goes: the field used last.
-    const target = useRef<"subject" | "body">("body");
+    const target = useRef<ReceiptEmailField>("body");
 
-    useEffect(() => {
-        const load = async () => {
-            const found = await GetReceiptEmailSettings(territoryId);
-            setSaved(found);
-            setSubject(found?.subject ?? "");
-            setBody(found?.body ?? "");
-            setLoading(false);
-        };
-        load();
-    }, [territoryId]);
-
-    // Refresh the preview once typing pauses, or when the business details change. A newer
-    // request supersedes an older one.
-    useEffect(() => {
-        if (loading) return;
-        let current = true;
-        const timer = setTimeout(async () => {
-            const result = await PreviewReceiptEmail(subject, body, territoryId);
-            if (current && result) setPreview(result);
-        }, PREVIEW_DELAY_MS);
-        return () => {
-            current = false;
-            clearTimeout(timer);
-        };
-    }, [subject, body, loading, territoryId, general.companyName, general.customerServicePhone]);
-
-    if (loading) {
+    if (email.loading) {
         return (
             <section className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
                 <ListSkeleton rows={3} />
@@ -84,49 +42,20 @@ const ReceiptEmailSettings = () => {
         );
     }
 
-    const maxBody = saved.maxLength ?? 5000;
-    const maxSubject = saved.maxSubjectLength ?? 150;
-    const dirty = subject !== (saved.subject ?? "") || body !== (saved.body ?? "");
-    const unknown = preview?.unknownPlaceholders ?? [];
-
     // Puts a placeholder where the cursor is in the field used last, and leaves the cursor after it.
     const insert = (name: string) => {
-        const token = `{${name}}`;
-        const inSubject = target.current === "subject";
-        const el = inSubject ? subjectRef.current : bodyRef.current;
-        const value = inSubject ? subject : body;
-        const start = el?.selectionStart ?? value.length;
-        const end = el?.selectionEnd ?? value.length;
-        const next = value.slice(0, start) + token + value.slice(end);
-        if (next.length > (inSubject ? maxSubject : maxBody))
-            return Toast.Warning(`The ${inSubject ? "subject" : "email"} is as long as it can be.`);
-        if (inSubject) setSubject(next);
-        else setBody(next);
+        const which = target.current;
+        const el = which === "subject" ? subjectRef.current : bodyRef.current;
+        const length = (which === "subject" ? subject : body).length;
+        const caret = email.insert(which, name, {
+            start: el?.selectionStart ?? length,
+            end: el?.selectionEnd ?? length,
+        });
+        if (caret === null) return;
         requestAnimationFrame(() => {
             el?.focus();
-            el?.setSelectionRange(start + token.length, start + token.length);
+            el?.setSelectionRange(caret, caret);
         });
-    };
-
-    const save = async (nextSubject: string, nextBody: string) => {
-        setSaving(true);
-        const result = await SaveReceiptEmailSettings(nextSubject, nextBody, territoryId);
-        setSaving(false);
-        if (!result) return false;
-        setSaved(result);
-        setSubject(result.subject ?? "");
-        setBody(result.body ?? "");
-        return true;
-    };
-
-    const handleSave = async () => {
-        if (!body.trim()) return setResetting(true);
-        if (await save(subject, body)) Toast.Success("Receipt email saved.");
-    };
-
-    const handleReset = async () => {
-        setResetting(false);
-        if (await save("", "")) Toast.Success("Receipt email is back to the default wording.");
     };
 
     return (
@@ -154,14 +83,11 @@ const ReceiptEmailSettings = () => {
                           saved.updatedAt ? ` on ${FormatDateTime(saved.updatedAt)}` : ""
                       }.`
             }
-            dirty={dirty}
-            saving={saving}
-            onSave={handleSave}
-            onDiscard={() => {
-                setSubject(saved.subject ?? "");
-                setBody(saved.body ?? "");
-            }}
-            onReset={saved.isDefault ? undefined : () => setResetting(true)}
+            dirty={email.dirty}
+            saving={email.saving}
+            onSave={email.handleSave}
+            onDiscard={email.discard}
+            onReset={saved.isDefault ? undefined : () => email.setResetting(true)}
         >
             <div className="grid gap-4 lg:grid-cols-2">
                 {/* Editor */}
@@ -171,7 +97,7 @@ const ReceiptEmailSettings = () => {
                         <input
                             ref={subjectRef}
                             value={subject}
-                            onChange={(e) => setSubject(e.target.value)}
+                            onChange={(e) => email.setSubject(e.target.value)}
                             onFocus={() => (target.current = "subject")}
                             maxLength={maxSubject}
                             className={`${field} min-h-[48px]`}
@@ -188,7 +114,7 @@ const ReceiptEmailSettings = () => {
                         <textarea
                             ref={bodyRef}
                             value={body}
-                            onChange={(e) => setBody(e.target.value)}
+                            onChange={(e) => email.setBody(e.target.value)}
                             onFocus={() => (target.current = "body")}
                             maxLength={maxBody}
                             rows={14}
@@ -295,8 +221,8 @@ const ReceiptEmailSettings = () => {
                     title="Go back to the default wording"
                     message="Replace the receipt email's subject and message with the default wording? Your current wording will be lost."
                     confirmText="Use the default"
-                    onConfirm={handleReset}
-                    onCancel={() => setResetting(false)}
+                    onConfirm={email.handleReset}
+                    onCancel={() => email.setResetting(false)}
                 />
             )}
         </SettingsCard>

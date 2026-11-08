@@ -1,7 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import SettingsCard from "./SettingsCard";
-import { useSettingsScope } from "./SettingsScope";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Grid from "../Elements/Grid";
 import HtmlPreview from "../Elements/HtmlPreview";
@@ -10,20 +9,10 @@ import ListSkeleton from "../Elements/ListSkeleton";
 import Text from "../Elements/Text";
 import { useTheme } from "../../Hooks/UseTheme";
 import { cx } from "../../Lib/ClassNames";
-import { FormatDateTime } from "../../Lib/ModelHelpers";
-import { Toast } from "../../Lib/Toast";
-import type {
-    ReceiptEmailPreview,
-    ReceiptEmailSettings as ReceiptEmail,
-} from "../../Models/ReceiptEmailSettings";
-import {
-    GetReceiptEmailSettings,
-    PreviewReceiptEmail,
-    SaveReceiptEmailSettings,
-} from "../../Services/SettingsServices";
-
-/** How long typing has to pause before the preview refreshes. */
-const PREVIEW_DELAY_MS = 400;
+import { FormatDateTime } from "@shared/Lib/Format";
+import { useSettingsScope } from "@shared/Context/SettingsScope";
+import { useSettingsReceiptEmail } from "@shared/Hooks/useSettingsReceiptEmail";
+import type { ReceiptEmailField } from "@shared/Hooks/useSettingsReceiptEmail";
 
 const label = "text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400";
 const field =
@@ -40,50 +29,19 @@ type Props = {
  * preview for a sample order.
  */
 const ReceiptEmailSettings = ({ onLayout }: Props) => {
-    const { settings: general, territoryId } = useSettingsScope();
     const { isDark } = useTheme();
-    const [saved, setSaved] = useState<ReceiptEmail | null>(null);
-    const [loading, setLoading] = useState<boolean>(true);
-    const [subject, setSubject] = useState<string>("");
-    const [body, setBody] = useState<string>("");
-    const [preview, setPreview] = useState<ReceiptEmailPreview | null>(null);
-    const [saving, setSaving] = useState<boolean>(false);
-    const [resetting, setResetting] = useState<boolean>(false);
+    const { settings: general } = useSettingsScope();
+    const email = useSettingsReceiptEmail();
+    const { saved, subject, body, maxSubject, maxBody, preview, unknown, resetting } = email;
     const [showHelp, setShowHelp] = useState<boolean>(false);
     // Where a tapped placeholder goes: the field used last, at its cursor.
-    const target = useRef<"subject" | "body">("body");
-    const selections = useRef<Record<"subject" | "body", Selection | null>>({
+    const target = useRef<ReceiptEmailField>("body");
+    const selections = useRef<Record<ReceiptEmailField, Selection | null>>({
         subject: null,
         body: null,
     });
 
-    useEffect(() => {
-        const load = async () => {
-            const found = await GetReceiptEmailSettings(territoryId);
-            setSaved(found);
-            setSubject(found?.subject ?? "");
-            setBody(found?.body ?? "");
-            setLoading(false);
-        };
-        load();
-    }, [territoryId]);
-
-    // Refresh the preview once typing pauses, or when the business details change. A newer
-    // request supersedes an older one.
-    useEffect(() => {
-        if (loading) return;
-        let current = true;
-        const timer = setTimeout(async () => {
-            const result = await PreviewReceiptEmail(subject, body, territoryId);
-            if (current && result) setPreview(result);
-        }, PREVIEW_DELAY_MS);
-        return () => {
-            current = false;
-            clearTimeout(timer);
-        };
-    }, [subject, body, loading, territoryId, general.companyName, general.customerServicePhone]);
-
-    if (loading) {
+    if (email.loading) {
         return (
             <View className="rounded-xl bg-white p-4 raised-sm dark:bg-zinc-800">
                 <ListSkeleton rows={3} />
@@ -99,45 +57,13 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
         );
     }
 
-    const maxBody = saved.maxLength ?? 5000;
-    const maxSubject = saved.maxSubjectLength ?? 150;
-    const dirty = subject !== (saved.subject ?? "") || body !== (saved.body ?? "");
-    const unknown = preview?.unknownPlaceholders ?? [];
-
     // Puts a placeholder where the cursor is in the field used last.
     const insert = (name: string) => {
-        const token = `{${name}}`;
-        const inSubject = target.current === "subject";
-        const value = inSubject ? subject : body;
-        const at = selections.current[target.current] ?? { start: value.length, end: value.length };
-        const next = value.slice(0, at.start) + token + value.slice(at.end);
-        if (next.length > (inSubject ? maxSubject : maxBody))
-            return Toast.Warning(`The ${inSubject ? "subject" : "email"} is as long as it can be.`);
-        if (inSubject) setSubject(next);
-        else setBody(next);
-        const after = at.start + token.length;
-        selections.current[target.current] = { start: after, end: after };
-    };
-
-    const save = async (nextSubject: string, nextBody: string) => {
-        setSaving(true);
-        const result = await SaveReceiptEmailSettings(nextSubject, nextBody, territoryId);
-        setSaving(false);
-        if (!result) return false;
-        setSaved(result);
-        setSubject(result.subject ?? "");
-        setBody(result.body ?? "");
-        return true;
-    };
-
-    const handleSave = async () => {
-        if (!body.trim()) return setResetting(true);
-        if (await save(subject, body)) Toast.Success("Receipt email saved.");
-    };
-
-    const handleReset = async () => {
-        setResetting(false);
-        if (await save("", "")) Toast.Success("Receipt email is back to the default wording.");
+        const which = target.current;
+        const length = (which === "subject" ? subject : body).length;
+        const at = selections.current[which] ?? { start: length, end: length };
+        const caret = email.insert(which, name, at);
+        if (caret !== null) selections.current[which] = { start: caret, end: caret };
     };
 
     const placeholderColor = isDark ? "#71717a" : "#a1a1aa";
@@ -152,20 +78,26 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
                 <View
                     className={cx(
                         "flex-row items-center gap-1.5 rounded-full px-2.5 py-1",
-                        saved.isDefault ? "bg-zinc-100 dark:bg-zinc-700" : "bg-sky-100 dark:bg-sky-950/60"
+                        saved.isDefault
+                            ? "bg-zinc-100 dark:bg-zinc-700"
+                            : "bg-sky-100 dark:bg-sky-950/60"
                     )}
                 >
                     <Icon
                         icon={saved.isDefault ? "fa-solid fa-file-lines" : "fa-solid fa-pen"}
                         className={cx(
                             "text-xs",
-                            saved.isDefault ? "text-zinc-700 dark:text-zinc-200" : "text-sky-800 dark:text-sky-200"
+                            saved.isDefault
+                                ? "text-zinc-700 dark:text-zinc-200"
+                                : "text-sky-800 dark:text-sky-200"
                         )}
                     />
                     <Text
                         className={cx(
                             "text-xs font-semibold",
-                            saved.isDefault ? "text-zinc-700 dark:text-zinc-200" : "text-sky-800 dark:text-sky-200"
+                            saved.isDefault
+                                ? "text-zinc-700 dark:text-zinc-200"
+                                : "text-sky-800 dark:text-sky-200"
                         )}
                     >
                         {saved.isDefault ? "Default wording" : "Custom wording"}
@@ -179,14 +111,11 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
                           saved.updatedAt ? ` on ${FormatDateTime(saved.updatedAt)}` : ""
                       }.`
             }
-            dirty={dirty}
-            saving={saving}
-            onSave={handleSave}
-            onDiscard={() => {
-                setSubject(saved.subject ?? "");
-                setBody(saved.body ?? "");
-            }}
-            onReset={saved.isDefault ? undefined : () => setResetting(true)}
+            dirty={email.dirty}
+            saving={email.saving}
+            onSave={email.handleSave}
+            onDiscard={email.discard}
+            onReset={saved.isDefault ? undefined : () => email.setResetting(true)}
             onLayout={onLayout}
         >
             <Grid columns={{ base: 1, lg: 2 }} gap={16}>
@@ -196,9 +125,11 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
                         <Text className={label}>Subject</Text>
                         <TextInput
                             value={subject}
-                            onChangeText={setSubject}
+                            onChangeText={email.setSubject}
                             onFocus={() => (target.current = "subject")}
-                            onSelectionChange={(e) => (selections.current.subject = e.nativeEvent.selection)}
+                            onSelectionChange={(e) =>
+                                (selections.current.subject = e.nativeEvent.selection)
+                            }
                             maxLength={maxSubject}
                             accessibilityLabel="Subject"
                             placeholderTextColor={placeholderColor}
@@ -209,15 +140,17 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
                     <View className="mt-3 gap-1">
                         <View className="flex-row items-baseline justify-between gap-2">
                             <Text className={label}>Message</Text>
-                            <Text className="text-xs tabular-nums text-zinc-500 dark:text-zinc-400">
+                            <Text className="text-xs text-zinc-500 tabular-nums dark:text-zinc-400">
                                 {body.length.toLocaleString()} / {maxBody.toLocaleString()}
                             </Text>
                         </View>
                         <TextInput
                             value={body}
-                            onChangeText={setBody}
+                            onChangeText={email.setBody}
                             onFocus={() => (target.current = "body")}
-                            onSelectionChange={(e) => (selections.current.body = e.nativeEvent.selection)}
+                            onSelectionChange={(e) =>
+                                (selections.current.body = e.nativeEvent.selection)
+                            }
                             maxLength={maxBody}
                             multiline
                             numberOfLines={14}
@@ -236,9 +169,11 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
                             />
                             <Text className="flex-1 text-sm text-amber-700 dark:text-amber-400">
                                 {unknown.map((u) => `{${u}}`).join(", ")}{" "}
-                                {unknown.length === 1 ? "isn't a placeholder" : "aren't placeholders"}{" "}
-                                the app knows, so {unknown.length === 1 ? "it" : "they"} will be sent
-                                exactly as typed. Check the spelling against the list below.
+                                {unknown.length === 1
+                                    ? "isn't a placeholder"
+                                    : "aren't placeholders"}{" "}
+                                the app knows, so {unknown.length === 1 ? "it" : "they"} will be
+                                sent exactly as typed. Check the spelling against the list below.
                             </Text>
                         </View>
                     )}
@@ -252,8 +187,7 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
                                     onPress={() => insert(p.name ?? "")}
                                     accessibilityRole="button"
                                     accessibilityHint={p.description ?? undefined}
-                                    className="min-h-[36px] justify-center rounded-lg border border-zinc-300 bg-zinc-50 px-2.5
-                                        active:bg-sky-50 dark:border-zinc-600 dark:bg-zinc-900/40 dark:active:bg-sky-950/40"
+                                    className="min-h-[36px] justify-center rounded-lg border border-zinc-300 bg-zinc-50 px-2.5 active:bg-sky-50 dark:border-zinc-600 dark:bg-zinc-900/40 dark:active:bg-sky-950/40"
                                 >
                                     <Text className="font-mono text-xs text-zinc-800 dark:text-zinc-200">
                                         {`{${p.name}}`}
@@ -271,10 +205,14 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
                             className="min-h-[32px] flex-row items-center gap-2"
                         >
                             <Icon
-                                icon={showHelp ? "fa-solid fa-caret-down" : "fa-solid fa-caret-right"}
+                                icon={
+                                    showHelp ? "fa-solid fa-caret-down" : "fa-solid fa-caret-right"
+                                }
                                 className="text-sm text-zinc-500"
                             />
-                            <Text className="text-sm font-semibold">How the message is laid out</Text>
+                            <Text className="text-sm font-semibold">
+                                How the message is laid out
+                            </Text>
                         </Pressable>
                         {showHelp && (
                             <View className="mt-2 gap-1">
@@ -284,13 +222,19 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
                                     "Tap a placeholder above to add it.",
                                     "Put {WhatHappensNext} on its own line for the next steps.",
                                 ].map((line) => (
-                                    <Text key={line} className="text-sm text-zinc-700 dark:text-zinc-300">
+                                    <Text
+                                        key={line}
+                                        className="text-sm text-zinc-700 dark:text-zinc-300"
+                                    >
                                         • {line}
                                     </Text>
                                 ))}
                                 <View className="mt-2 gap-1.5">
                                     {(saved.placeholders ?? []).map((p) => (
-                                        <Text key={p.name} className="text-sm text-zinc-600 dark:text-zinc-400">
+                                        <Text
+                                            key={p.name}
+                                            className="text-sm text-zinc-600 dark:text-zinc-400"
+                                        >
                                             <Text className="font-mono text-xs font-semibold">{`{${p.name}}`}</Text>{" "}
                                             {p.description}
                                         </Text>
@@ -307,21 +251,32 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
                     <View className="overflow-hidden rounded-xl border border-zinc-300 dark:border-zinc-600">
                         <View className="border-b border-zinc-200 bg-zinc-50 px-3 py-2 dark:border-zinc-700 dark:bg-zinc-900/40">
                             <Text className="text-sm">
-                                <Text className="text-sm text-zinc-500 dark:text-zinc-400">From: </Text>
+                                <Text className="text-sm text-zinc-500 dark:text-zinc-400">
+                                    From:{" "}
+                                </Text>
                                 {general.appName}
                             </Text>
                             <Text className="text-sm">
-                                <Text className="text-sm text-zinc-500 dark:text-zinc-400">Subject: </Text>
+                                <Text className="text-sm text-zinc-500 dark:text-zinc-400">
+                                    Subject:{" "}
+                                </Text>
                                 <Text className="text-sm font-semibold">{preview?.subject}</Text>
                             </Text>
                             <View className="mt-0.5 flex-row items-center gap-1.5">
-                                <Icon icon="fa-solid fa-paperclip" className="text-xs text-zinc-500 dark:text-zinc-400" />
+                                <Icon
+                                    icon="fa-solid fa-paperclip"
+                                    className="text-xs text-zinc-500 dark:text-zinc-400"
+                                />
                                 <Text className="text-xs text-zinc-500 dark:text-zinc-400">
                                     {preview?.attachmentName ?? "CFS-Receipt.pdf"}
                                 </Text>
                             </View>
                         </View>
-                        <HtmlPreview html={preview?.html ?? ""} height={520} title="Receipt email preview" />
+                        <HtmlPreview
+                            html={preview?.html ?? ""}
+                            height={520}
+                            title="Receipt email preview"
+                        />
                     </View>
                 </View>
             </Grid>
@@ -331,8 +286,8 @@ const ReceiptEmailSettings = ({ onLayout }: Props) => {
                     title="Go back to the default wording"
                     message="Replace the receipt email's subject and message with the default wording? Your current wording will be lost."
                     confirmText="Use the default"
-                    onConfirm={handleReset}
-                    onCancel={() => setResetting(false)}
+                    onConfirm={email.handleReset}
+                    onCancel={() => email.setResetting(false)}
                 />
             )}
         </SettingsCard>

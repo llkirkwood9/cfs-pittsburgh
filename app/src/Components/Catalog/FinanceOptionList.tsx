@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { View } from "react-native";
 import Button from "../Elements/Button";
 import Checkbox from "../Elements/Checkbox";
@@ -9,8 +8,10 @@ import SortableList from "../Elements/SortableList";
 import SwipeRow from "../Elements/SwipeRow";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
-import { Toast } from "../../Lib/Toast";
-import type { FinanceOption } from "../../Models/FinanceOption";
+import { useCatalogOptionList } from "@shared/Hooks/useCatalogOptionList";
+import { FinanceOptionForm } from "@shared/Lib/CatalogOptions";
+import type { FinanceOption } from "@shared/Models/FinanceOption";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     options: FinanceOption[];
@@ -26,34 +27,8 @@ type Props = {
  * under Settings.
  */
 const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
-    const [editing, setEditing] = useState<FinanceOption | null>(null);
-    const [deleting, setDeleting] = useState<FinanceOption | null>(null);
-    const [saving, setSaving] = useState<boolean>(false);
-
-    const [name, setName] = useState<string>("");
-    const [isActive, setIsActive] = useState<boolean>(true);
-
-    const open = (option: FinanceOption) => {
-        setEditing(option);
-        setName(option.name ?? "");
-        setIsActive(option.isActive ?? true);
-    };
-
-    const handleSave = async () => {
-        if (!name.trim()) return Toast.Warning("Give the option a name.");
-
-        setSaving(true);
-        await onSave({ id: editing?.id, name: name.trim(), isActive });
-        setSaving(false);
-        setEditing(null);
-    };
-
-    const move = (index: number, by: number) => {
-        const ids = options.map((o) => o.id ?? 0);
-        const [id] = ids.splice(index, 1);
-        ids.splice(index + by, 0, id);
-        onReorder(ids);
-    };
+    const list = useCatalogOptionList(options, FinanceOptionForm, onSave, onDelete, onReorder);
+    const { draft, change, editing, deleting } = list;
 
     return (
         <View>
@@ -62,7 +37,7 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                 <Button
                     text="Add"
                     icon="fa-solid fa-plus"
-                    onClick={() => open({ isActive: true })}
+                    onClick={list.add}
                     className="bg-green-700 dark:bg-green-600"
                 />
             </View>
@@ -81,19 +56,21 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                 onReorder={(reordered) => onReorder(reordered.map((o) => o.id ?? 0))}
                 renderItem={(option, index) => (
                     <SwipeRow
-                        onPress={() => open(option)}
+                        onPress={() => list.open(option)}
                         actions={[
                             {
                                 label: "Delete",
                                 icon: "fa-solid fa-trash",
                                 tone: "danger",
-                                onPress: () => setDeleting(option),
+                                onPress: () => list.setDeleting(option),
                             },
                         ]}
                         accessibilityOnlyActions={[
-                            ...(index > 0 ? [{ label: "Move up", onPress: () => move(index, -1) }] : []),
+                            ...(index > 0
+                                ? [{ label: "Move up", onPress: () => list.move(index, -1) }]
+                                : []),
                             ...(index < options.length - 1
-                                ? [{ label: "Move down", onPress: () => move(index, 1) }]
+                                ? [{ label: "Move down", onPress: () => list.move(index, 1) }]
                                 : []),
                         ]}
                         accessibilityLabel={option.name ?? ""}
@@ -115,19 +92,19 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
             {editing && (
                 <Modal
                     title={editing.id ? "Edit financing option" : "New financing option"}
-                    onClose={() => setEditing(null)}
+                    onClose={list.close}
                     footer={
                         <>
                             <Button
                                 text="Cancel"
-                                onClick={() => setEditing(null)}
+                                onClick={list.close}
                                 className="bg-zinc-500 dark:bg-zinc-600"
                             />
                             <Button
                                 text="Save"
                                 icon="fa-solid fa-check"
-                                onClick={handleSave}
-                                loading={saving}
+                                onClick={list.save}
+                                loading={list.saving}
                             />
                         </>
                     }
@@ -135,12 +112,16 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                     <View className="gap-3">
                         <TextField
                             label="Name"
-                            value={name}
-                            onChange={setName}
-                            maxLength={100}
+                            value={draft.name}
+                            onChange={(value) => change({ name: value })}
+                            maxLength={Limits.optionListName}
                             placeholder="ex. 12 months SAC"
                         />
-                        <Checkbox label="Offered at checkout" checked={isActive} onChange={setIsActive} />
+                        <Checkbox
+                            label="Offered at checkout"
+                            checked={draft.isActive}
+                            onChange={(value) => change({ isActive: value })}
+                        />
                     </View>
                 </Modal>
             )}
@@ -151,11 +132,8 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                     message={`Delete "${deleting.name}"? Sales already recorded with it keep its name.`}
                     confirmText="Delete"
                     destructive
-                    onConfirm={async () => {
-                        if (deleting.id) await onDelete(deleting.id);
-                        setDeleting(null);
-                    }}
-                    onCancel={() => setDeleting(null)}
+                    onConfirm={list.confirmDelete}
+                    onCancel={() => list.setDeleting(null)}
                 />
             )}
         </View>

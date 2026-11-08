@@ -1,10 +1,11 @@
 using System.Diagnostics;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using api.Catalog;
 using api.Data;
 using api.Dtos;
 using api.Services;
 using api.Utils;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
 
 namespace api.Controllers
 {
@@ -16,11 +17,8 @@ namespace api.Controllers
     [Route("api/[controller]")]
     public class CatalogController(
         ApplicationDbContext db,
-        IHttpClientFactory httpClientFactory,
-        IConfiguration config,
-        ILogger<BasicController> logger,
-        TokenService tokenService)
-        : BasicController(db, httpClientFactory, config, logger, tokenService)
+        ILogger<BasicController> logger)
+        : BasicController(db, logger)
     {
         #region Private Fields
 
@@ -39,18 +37,10 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> ExportCatalog()
         {
-            try
-            {
-                if (!IsSystemAdmin())
-                    return StatusCode(403, new { error = SystemAdminOnly });
+            if (!IsSystemAdmin())
+                return Forbidden(SystemAdminOnly);
 
-                return Ok(await CatalogTransfer.ExportAsync(DB));
-            }
-            catch (Exception e)
-            {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while exporting the catalog.", exception = e.Message });
-            }
+            return Ok(await CatalogTransfer.ExportAsync(DB));
         }
 
         #endregion
@@ -73,7 +63,7 @@ namespace api.Controllers
             try
             {
                 if (!IsSystemAdmin())
-                    return StatusCode(403, new { error = SystemAdminOnly });
+                    return Forbidden(SystemAdminOnly);
 
                 if (request.Catalog == null || request.Mode is not ("update" or "replace"))
                     return BadRequest(new { error = "Missing parameter." });
@@ -88,11 +78,6 @@ namespace api.Controllers
             catch (CatalogImportException e)
             {
                 return BadRequest(new { error = e.Message });
-            }
-            catch (Exception e)
-            {
-                Trace(TraceEventType.Critical, e.Message);
-                return StatusCode(500, new { error = "Internal error occurred while restoring the catalog. Nothing was changed.", exception = e.Message });
             }
         }
 

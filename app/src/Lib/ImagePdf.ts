@@ -22,7 +22,13 @@ const ReadJpeg = (bytes: Uint8Array): JpegInfo => {
         }
         const marker = bytes[i + 1];
         // Start-of-frame markers, apart from DHT (C4), JPG (C8) and DAC (CC).
-        if (marker >= 0xc0 && marker <= 0xcf && marker !== 0xc4 && marker !== 0xc8 && marker !== 0xcc) {
+        if (
+            marker >= 0xc0 &&
+            marker <= 0xcf &&
+            marker !== 0xc4 &&
+            marker !== 0xc8 &&
+            marker !== 0xcc
+        ) {
             return {
                 height: (bytes[i + 5] << 8) | bytes[i + 6],
                 width: (bytes[i + 7] << 8) | bytes[i + 8],

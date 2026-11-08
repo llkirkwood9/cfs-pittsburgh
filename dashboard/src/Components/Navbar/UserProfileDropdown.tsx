@@ -2,9 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import ChangePasswordModal from "./ChangePasswordModal";
 import Icon from "../Elements/Icon";
-import { useAuth } from "../../Context/AuthContext";
+import { useAuth } from "@shared/Context/AuthContext";
+import { Initials } from "@shared/Models/User";
 import { DASHBOARD_VERSION } from "../../Lib/Version";
-import { UserRoleLabels } from "../../Models/User";
+import { UserRoleLabels } from "@shared/Models/User";
+import { Paths } from "../../Lib/ScreenLinks";
 
 /**
  * Shows who is signed in on this tablet and offers sign-out. The crew shares devices, so the
@@ -31,15 +33,10 @@ const UserProfileDropdown = () => {
     const handleLogout = async () => {
         setOpen(false);
         await logout();
-        navigate("/login", { replace: true });
+        navigate(Paths.login, { replace: true });
     };
 
-    const initials = (user?.name ?? "?")
-        .split(" ")
-        .map((part) => part.charAt(0))
-        .join("")
-        .slice(0, 2)
-        .toUpperCase();
+    const initials = Initials(user?.name);
 
     return (
         <div className="relative" ref={containerRef}>
@@ -70,8 +67,7 @@ const UserProfileDropdown = () => {
                                 : user?.territoryName
                                   ? ` · ${user.territoryName}`
                                   : ""}{" "}
-                            &middot; v
-                            {DASHBOARD_VERSION}
+                            &middot; v{DASHBOARD_VERSION}
                         </p>
                     </div>
                     <button

@@ -1,6 +1,6 @@
 import Icon from "../Elements/Icon";
-import { FormatCurrency, FormatElapsed } from "../../Lib/ModelHelpers";
-import type { OrderSummary } from "../../Models/OrderSummary";
+import { FormatCurrency, FormatElapsed } from "@shared/Lib/Format";
+import type { OrderSummary } from "@shared/Models/OrderSummary";
 
 type Props = {
     orders: OrderSummary[];

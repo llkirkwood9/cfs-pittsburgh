@@ -1,3 +1,5 @@
+using api.Settings;
+
 namespace api.Dtos
 {
     /// <summary>
@@ -155,6 +157,14 @@ namespace api.Dtos
         /// taken home) or warranty (an item on the order has a warranty)
         /// </summary>
         public string? AskWhen { get; set; }
+
+        /// <summary>
+        /// The DTO for a statement.
+        /// </summary>
+        /// <param name="term">The statement</param>
+        /// <returns>The DTO.</returns>
+        public static SalesTermDto From(SalesTerm term) =>
+            new() { Key = term.Key, Title = term.Title, Heading = term.Heading, Text = term.Text, AskWhen = term.AskWhen };
     }
 
     /// <summary>

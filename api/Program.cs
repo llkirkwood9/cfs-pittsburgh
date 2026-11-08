@@ -168,6 +168,9 @@ builder.Services.AddOpenApi();
 
 var app = builder.Build();
 
+// Code with no logger of its own (settings and catalog JSON readers) traces through this one.
+TraceControl.UseDefaultLogger(app.Services.GetRequiredService<ILoggerFactory>().CreateLogger("api"));
+
 if (trustForwarded)
     app.UseForwardedHeaders();
 
@@ -226,6 +229,8 @@ app.UseRateLimiter();
 // so a switched-off account or territory stops working straight away.
 app.UseMiddleware<AccessScopeMiddleware>();
 app.UseAuthorization();
+// One answer for any failure an endpoint doesn't handle itself.
+app.UseMiddleware<ApiExceptionMiddleware>();
 app.MapControllers();
 
 app.MapGet("/health", () => "Healthy").AllowAnonymous();
@@ -244,8 +249,8 @@ using (var scope = app.Services.CreateScope())
     var tokenService = scope.ServiceProvider.GetRequiredService<TokenService>();
     var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
 
-    // The database can still be starting when the API comes up (SQL Server shares the container in
-    // the Docker image; a managed database may be waking), so give it a minute before giving up.
+    // The database can still be starting when the API comes up (a PostgreSQL container started
+    // alongside it, or a managed database waking), so give it a minute before giving up.
     var attempts = int.TryParse(builder.Configuration["Startup:DatabaseAttempts"], out var configured)
         ? Math.Max(1, configured)
         : 12;
@@ -258,12 +263,12 @@ using (var scope = app.Services.CreateScope())
 
             // Every territory has its own catalog now: a database from before gives each territory
             // its own copy of what used to be global. Does nothing once that's done.
-            await api.Utils.CatalogCopy.SplitGlobalItemsAsync(db, message => logger.LogWarning("{Message}", message));
+            await api.Catalog.CatalogCopy.SplitGlobalItemsAsync(db, message => logger.LogWarning("{Message}", message));
 
             // SKIP_SEED_DATA in the Docker .env (Seed:Skip) leaves out the sample catalog,
             // delivery options and event.
             var skipSeed = builder.Configuration["Seed:Skip"]?.Trim().ToLowerInvariant() is "true" or "1" or "yes";
-            var generated = await api.Data.SeedData.SeedAsync(
+            var generated = await api.Seeding.SeedData.SeedAsync(
                 db, tokenService, builder.Configuration["Seed:AdminPassword"], accountsOnly: skipSeed);
             if (skipSeed && attempt == 1)
                 logger.LogWarning("Seed:Skip is set, so the sample catalog, delivery options and event were not loaded.");
@@ -275,7 +280,7 @@ using (var scope = app.Services.CreateScope())
                     "Created the first account. Username: admin  Temporary password: {Password}  (it must be changed at first sign-in)",
                     generated);
 
-            var promoted = await api.Data.SeedData.EnsureSystemAdminAsync(db);
+            var promoted = await api.Seeding.SeedData.EnsureSystemAdminAsync(db);
             if (promoted != null)
                 logger.LogWarning("No system admin account existed, so {Username} is now the system admin.", promoted);
             break;
@@ -288,7 +293,10 @@ using (var scope = app.Services.CreateScope())
         }
         catch (Exception e)
         {
+            // Serving on a database that isn't migrated would only fail later and less clearly,
+            // so the host stops and its supervisor (Docker, systemd) can restart it.
             logger.LogCritical("Startup migration or seed failed: {Message}", e.Message);
+            throw;
         }
     }
 }

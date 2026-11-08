@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Pressable, TextInput, View } from "react-native";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
@@ -6,8 +5,13 @@ import Modal from "../Elements/Modal";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
 import { PickTextFile } from "../../Lib/Files";
-import type { CatalogFile, CatalogImportMode, CatalogImportResult } from "../../Models/CatalogFile";
-import { ImportCatalog } from "../../Services/CatalogServices";
+import { useCatalogImport } from "@shared/Hooks/useCatalogImport";
+import {
+    CatalogFileSummary,
+    CatalogImportConfirmWord,
+    CatalogImportModes,
+} from "@shared/Lib/CatalogImport";
+import type { CatalogImportMode } from "@shared/Models/CatalogFile";
 
 type Props = {
     onClose: () => void;
@@ -15,65 +19,19 @@ type Props = {
     onRestored: () => void;
 };
 
-const CONFIRM_WORD = "REPLACE";
-
 /**
  * Restores a catalog file made with Export catalog (system admins only): either bringing matching
  * products in line with the file and adding the rest, or clearing the catalog and rebuilding it
  * from the file. The file is picked from Files, iCloud Drive or wherever it was saved.
  */
 const ImportCatalogModal = ({ onClose, onRestored }: Props) => {
-    const [file, setFile] = useState<CatalogFile | null>(null);
-    const [fileName, setFileName] = useState<string>("");
-    const [fileProblem, setFileProblem] = useState<string | null>(null);
-    const [mode, setMode] = useState<CatalogImportMode>("update");
-    const [typed, setTyped] = useState<string>("");
-    const [busy, setBusy] = useState<boolean>(false);
-    const [result, setResult] = useState<CatalogImportResult | null>(null);
+    const importer = useCatalogImport(onClose, onRestored);
+    const { file, fileName, fileProblem, mode, result, finish } = importer;
 
     const pick = async () => {
         const picked = await PickTextFile(["application/json", "text/plain", "*/*"]);
-        if (!picked) return;
-
-        setFile(null);
-        setFileProblem(null);
-        setFileName(picked.name);
-
-        try {
-            const parsed = JSON.parse(picked.text) as CatalogFile;
-            if (parsed?.format !== "cfs-catalog") {
-                setFileProblem("This isn't a catalog file. Choose a file made with Export catalog.");
-                return;
-            }
-            setFile(parsed);
-        } catch {
-            setFileProblem("This file couldn't be read. Choose a file made with Export catalog.");
-        }
+        if (picked) importer.readFile(picked.name, picked.text);
     };
-
-    const locked =
-        !file || busy || (mode === "replace" && typed.trim().toUpperCase() !== CONFIRM_WORD);
-
-    const restore = async () => {
-        if (!file || locked) return;
-        setBusy(true);
-        const done = await ImportCatalog(file, mode);
-        setBusy(false);
-        if (!done) return;
-        setResult(done);
-    };
-
-    // Reloading the catalog swaps the page for its skeleton, so wait until the result is read.
-    const finish = () => {
-        onClose();
-        onRestored();
-    };
-
-    const products = file?.products?.length ?? 0;
-    const deliveryOptions = file?.deliveryOptions?.length ?? 0;
-    // Null for a file made before financing options were exported.
-    const financeOptions = file?.financeOptions ? file.financeOptions.length : null;
-    const exported = file?.exportedAt ? new Date(file.exportedAt).toLocaleString("en-US") : null;
 
     if (result) {
         return (
@@ -140,7 +98,8 @@ const ImportCatalogModal = ({ onClose, onRestored }: Props) => {
         const selected = mode === value;
         return (
             <Pressable
-                onPress={() => setMode(value)}
+                key={value}
+                onPress={() => importer.setMode(value)}
                 accessibilityRole="radio"
                 accessibilityState={{ checked: selected }}
                 className={cx(
@@ -173,13 +132,17 @@ const ImportCatalogModal = ({ onClose, onRestored }: Props) => {
             onClose={onClose}
             footer={
                 <>
-                    <Button text="Cancel" onClick={onClose} className="bg-zinc-500 dark:bg-zinc-600" />
+                    <Button
+                        text="Cancel"
+                        onClick={onClose}
+                        className="bg-zinc-500 dark:bg-zinc-600"
+                    />
                     <Button
                         text={mode === "replace" ? "Clear and restore" : "Restore"}
                         icon="fa-solid fa-file-import"
-                        onClick={restore}
-                        disabled={locked}
-                        loading={busy}
+                        onClick={importer.restore}
+                        disabled={importer.locked}
+                        loading={importer.busy}
                         className={mode === "replace" ? "bg-red-700 dark:bg-red-600" : ""}
                     />
                 </>
@@ -195,7 +158,10 @@ const ImportCatalogModal = ({ onClose, onRestored }: Props) => {
                     onClick={pick}
                 />
                 {fileName ? (
-                    <Text className="flex-1 text-sm text-zinc-600 dark:text-zinc-300" numberOfLines={1}>
+                    <Text
+                        className="flex-1 text-sm text-zinc-600 dark:text-zinc-300"
+                        numberOfLines={1}
+                    >
                         {fileName}
                     </Text>
                 ) : null}
@@ -207,26 +173,12 @@ const ImportCatalogModal = ({ onClose, onRestored }: Props) => {
             )}
             {file && (
                 <Text className="mt-2 text-sm text-zinc-600 dark:text-zinc-300">
-                    {products} {products === 1 ? "product" : "products"}, {deliveryOptions} delivery{" "}
-                    {deliveryOptions === 1 ? "option" : "options"}
-                    {financeOptions === null
-                        ? " and no financing options (an older file - the current ones are kept)"
-                        : ` and ${financeOptions} financing ${financeOptions === 1 ? "option" : "options"}`}
-                    {exported ? `, exported ${exported}` : ""}.
+                    {CatalogFileSummary(file)}
                 </Text>
             )}
 
             <View className="mt-4 gap-2">
-                {choice(
-                    "update",
-                    "Update the catalog from this file",
-                    "Products in the file that are already in the catalog (same territory, brand and name) are changed to match it - sizes, prices, sales, selections, bundles and delivery. Anything new is added, each in the territory with the same name (or this territory, when the file names none that's here), and financing options are matched by territory and name. Products, delivery options and financing options that aren't in the file are left as they are, and stock counts are kept."
-                )}
-                {choice(
-                    "replace",
-                    "Clear the catalog and replace it",
-                    "Every product and delivery option, in every territory's catalog, is deleted for good - including ones that have been sold - with their stock counts and inventory history, and so are the financing options when the file has them. Then the catalog is rebuilt from the file. Past sales sheets still print exactly as they were sold."
-                )}
+                {CatalogImportModes.map((m) => choice(m.mode, m.title, m.text))}
             </View>
 
             {mode === "replace" && (
@@ -234,18 +186,17 @@ const ImportCatalogModal = ({ onClose, onRestored }: Props) => {
                     <Text className="text-sm font-semibold text-zinc-700 dark:text-zinc-300">
                         Type{" "}
                         <Text className="text-sm font-bold text-red-700 dark:text-red-400">
-                            {CONFIRM_WORD}
+                            {CatalogImportConfirmWord}
                         </Text>{" "}
                         to confirm
                     </Text>
                     <TextInput
-                        value={typed}
-                        onChangeText={setTyped}
+                        value={importer.typed}
+                        onChangeText={importer.setTyped}
                         autoCapitalize="characters"
                         autoCorrect={false}
-                        accessibilityLabel={`Type ${CONFIRM_WORD} to confirm`}
-                        className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900
-                            focus:border-red-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                        accessibilityLabel={`Type ${CatalogImportConfirmWord} to confirm`}
+                        className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base text-zinc-900 focus:border-red-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                     />
                 </View>
             )}

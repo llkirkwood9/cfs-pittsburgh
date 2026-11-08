@@ -1,65 +1,32 @@
-import { useCallback, useEffect, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import ReopenOrderModal from "../Components/Admin/ReopenOrderModal";
+import EventFilter from "../Components/Dashboard/EventFilter";
 import Button from "../Components/Elements/Button";
 import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import TabButton from "../Components/Elements/TabButton";
 import TextField from "../Components/Elements/TextField";
-import { useAuth } from "../Context/AuthContext";
-import { useTerritory } from "../Context/TerritoryContext";
+import { useTerritory } from "@shared/Context/TerritoryContext";
+import { useOrders } from "@shared/Hooks/useOrders";
+import { FormatCurrency, FormatShortDate, FormatTime } from "@shared/Lib/Format";
 import {
-    EventsForFilter,
-    FormatCurrency,
-    FormatShortDate,
-    FormatTime,
-    IsPastEvent,
-} from "../Lib/ModelHelpers";
-import { Toast } from "../Lib/Toast";
-import type { Event } from "../Models/Event";
-import type { OrderStatus } from "../Models/Order";
-import type { OrderSummary } from "../Models/OrderSummary";
-import { GetActiveEvent, GetEvents } from "../Services/EventServices";
-import {
-    DeleteOrder,
-    GetAllOrders,
-    GetOrdersForEvent,
-    ReopenOrder,
-    VoidOrder,
-} from "../Services/OrderServices";
-
-type Scope = { kind: "event"; eventId: number } | { kind: "all" };
+    CanReopenFromList,
+    CanVoidFromList,
+    DeleteOrderMessage,
+    OrderStatusFilters,
+    OrderStatusLabels,
+    SummarizeOrders,
+    VoidOrderMessage,
+} from "@shared/Lib/OrderList";
+import type { OrderStatus } from "@shared/Models/Order";
+import { Paths, ScreenLinks } from "../Lib/ScreenLinks";
 
 const statusStyles: Record<OrderStatus, string> = {
     Draft: "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200",
     AwaitingCheckout: "bg-amber-100 text-amber-800 dark:bg-amber-900/50 dark:text-amber-300",
     Completed: "bg-green-100 text-green-800 dark:bg-green-900/50 dark:text-green-300",
     Voided: "bg-red-100 text-red-800 dark:bg-red-900/50 dark:text-red-300",
-};
-
-const statusLabels: Record<OrderStatus, string> = {
-    Draft: "On the floor",
-    AwaitingCheckout: "At checkout",
-    Completed: "Completed",
-    Voided: "Voided",
-};
-
-/**
- * A line over the list: how many orders it holds, what they come to and what is still owed.
- * Voided orders are listed but not counted in the money.
- */
-const Summary = (orders: OrderSummary[]): string => {
-    const live = orders.filter((o) => o.status !== "Voided");
-    const total = live.reduce((sum, o) => sum + (o.total ?? 0), 0);
-    const owed = live.reduce((sum, o) => sum + (o.balanceDue ?? 0), 0);
-    return [
-        `${orders.length} order${orders.length === 1 ? "" : "s"}`,
-        `${FormatCurrency(total)} total`,
-        owed > 0 ? `${FormatCurrency(owed)} still owed` : null,
-    ]
-        .filter(Boolean)
-        .join(" · ");
 };
 
 /**
@@ -69,129 +36,33 @@ const Summary = (orders: OrderSummary[]): string => {
  * view, each event says which territory it's in.
  */
 const OrdersPage = () => {
-    const { user, hasRole } = useAuth();
-    const { canSwitch, territoryId: territoryInView } = useTerritory();
+    const { viewingAll: showTerritory } = useTerritory();
     const navigate = useNavigate();
-
-    const isManager = hasRole("Manager");
-    const isSystemAdmin = user?.role === "SystemAdmin";
-    const [removing, setRemoving] = useState<OrderSummary | null>(null);
-
-    const [events, setEvents] = useState<Event[]>([]);
-    const [scope, setScope] = useState<Scope | null>(null);
-    const [orders, setOrders] = useState<OrderSummary[]>([]);
-    const [statusFilter, setStatusFilter] = useState<OrderStatus | "All">("All");
-    const [search, setSearch] = useState<string>("");
-    const [loading, setLoading] = useState<boolean>(true);
-    const [reopening, setReopening] = useState<OrderSummary | null>(null);
-    const [voiding, setVoiding] = useState<OrderSummary | null>(null);
-
-    const load = useCallback(async (target: Scope, status: OrderStatus | "All", term: string) => {
-        setLoading(true);
-
-        const rows =
-            target.kind === "all"
-                ? await GetAllOrders({
-                      status: status === "All" ? undefined : status,
-                      search: term,
-                  })
-                : await GetOrdersForEvent(target.eventId, status === "All" ? undefined : status);
-
-        // The per-event endpoint has no search of its own, so narrow it here rather than
-        // making every caller pay for a query parameter only this page uses.
-        // A phone number matches on its digits alone, however it was typed or stored.
-        const term_ = term.trim().toLowerCase();
-        const digits = term_.replace(/\D/g, "");
-        const phoneMatch = (value?: string | null) =>
-            digits.length >= 4 && (value ?? "").replace(/\D/g, "").includes(digits);
-        setOrders(
-            term_ && target.kind === "event"
-                ? rows.filter(
-                      (o) =>
-                          (o.billingName ?? "").toLowerCase().includes(term_) ||
-                          (o.cfsRepName ?? "").toLowerCase().includes(term_) ||
-                          (o.billingEmail ?? "").toLowerCase().includes(term_) ||
-                          String(o.orderNumber ?? "").includes(term_) ||
-                          phoneMatch(o.billingCell) ||
-                          phoneMatch(o.billingAlt)
-                  )
-                : rows
-        );
-
-        setLoading(false);
-    }, []);
-
-    useEffect(() => {
-        const boot = async () => {
-            const [list, active] = await Promise.all([
-                isManager ? GetEvents() : Promise.resolve([]),
-                GetActiveEvent(),
-            ]);
-
-            setEvents(EventsForFilter(list));
-
-            // Between fundraisers there is no active event. A manager falls back to every event;
-            // everyone else has nothing current to show, and all-events history is for managers up.
-            if (!active?.id && !isManager) {
-                setScope(null);
-                setLoading(false);
-                return;
-            }
-
-            const target: Scope = active?.id
-                ? { kind: "event", eventId: active.id }
-                : { kind: "all" };
-
-            setScope(target);
-            await load(target, "All", "");
-        };
-
-        boot();
-    }, [isManager, load]);
-
-    if (!user) return <Navigate to="/unauthorized" replace />;
+    const {
+        isManager,
+        isSystemAdmin,
+        events,
+        scope,
+        orders,
+        statusFilter,
+        search,
+        setSearch,
+        loading,
+        switchScope,
+        switchStatus,
+        runSearch,
+        reopening,
+        setReopening,
+        handleReopen,
+        voiding,
+        setVoiding,
+        handleVoid,
+        removing,
+        setRemoving,
+        handleRemove,
+    } = useOrders();
 
     // Viewing every territory, each order says which one it came from.
-    const showTerritory = canSwitch && territoryInView == null;
-
-    const switchScope = async (target: Scope) => {
-        setScope(target);
-        await load(target, statusFilter, search);
-    };
-
-    const switchStatus = async (status: OrderStatus | "All") => {
-        setStatusFilter(status);
-        if (scope) await load(scope, status, search);
-    };
-
-    const runSearch = async () => {
-        if (scope) await load(scope, statusFilter, search);
-    };
-
-    const handleReopen = async (to: "floor" | "checkout") => {
-        if (!reopening?.id) return;
-
-        const result = await ReopenOrder(reopening.id, to);
-        if (!result) return;
-
-        setReopening(null);
-        Toast.Success(
-            `Order #${result.orderNumber} sent ${to === "checkout" ? "to checkout" : "to the sales floor"}.`
-        );
-        await runSearch();
-    };
-
-    const handleVoid = async () => {
-        if (!voiding?.id) return;
-
-        const id = voiding.id;
-        setVoiding(null);
-        const result = await VoidOrder(id);
-        if (!result) return;
-
-        Toast.Info(`Order #${result.orderNumber} voided.`);
-        await runSearch();
-    };
 
     return (
         <div className="mx-auto max-w-(--breakpoint-2xl) p-3 sm:p-4">
@@ -203,8 +74,11 @@ const OrdersPage = () => {
                             text="Print all completed sheets"
                             icon="fa-solid fa-print"
                             onClick={() =>
-                                navigate(`/events/${scope.eventId}/sheets`, {
-                                    state: { from: "/orders", label: "Back to orders" },
+                                navigate(Paths.eventSheets(scope.eventId), {
+                                    state: {
+                                        from: ScreenLinks.orders.path,
+                                        label: "Back to orders",
+                                    },
                                 })
                             }
                         />
@@ -219,32 +93,22 @@ const OrdersPage = () => {
             </div>
 
             {isManager && (
-                <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
-                    <TabButton
-                        text="All events"
-                        active={scope?.kind === "all"}
-                        onClick={() => switchScope({ kind: "all" })}
-                    />
-                    {events.map((event) => (
-                        <TabButton
-                            key={event.id}
-                            text={event.organization ?? ""}
-                            subtext={showTerritory ? (event.territoryName ?? undefined) : undefined}
-                            tag={IsPastEvent(event) ? "Past" : undefined}
-                            active={scope?.kind === "event" && scope.eventId === event.id}
-                            onClick={() =>
-                                event.id && switchScope({ kind: "event", eventId: event.id })
-                            }
-                        />
-                    ))}
-                </div>
+                <EventFilter
+                    events={events}
+                    allPicked={scope?.kind === "all"}
+                    pickedEventId={scope?.kind === "event" ? scope.eventId : null}
+                    showTerritory={showTerritory}
+                    onPickAll={() => switchScope({ kind: "all" })}
+                    onPickEvent={(eventId) => switchScope({ kind: "event", eventId })}
+                    className="mb-3"
+                />
             )}
 
             <div className="-mx-1 mb-3 flex gap-2 overflow-x-auto px-1 pb-1">
-                {(["All", "Completed", "AwaitingCheckout", "Draft", "Voided"] as const).map((s) => (
+                {OrderStatusFilters.map((s) => (
                     <TabButton
                         key={s}
-                        text={s === "All" ? "All" : statusLabels[s]}
+                        text={s === "All" ? "All" : OrderStatusLabels[s]}
                         active={statusFilter === s}
                         onClick={() => switchStatus(s)}
                     />
@@ -275,7 +139,9 @@ const OrdersPage = () => {
             </form>
 
             {!loading && scope && orders.length > 0 && (
-                <p className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">{Summary(orders)}</p>
+                <p className="mb-2 text-sm text-zinc-500 dark:text-zinc-400">
+                    {SummarizeOrders(orders)}
+                </p>
             )}
 
             {loading ? (
@@ -360,40 +226,38 @@ const OrdersPage = () => {
                                         statusStyles[order.status ?? "Draft"]
                                     }`}
                                 >
-                                    {statusLabels[order.status ?? "Draft"]}
+                                    {OrderStatusLabels[order.status ?? "Draft"]}
                                 </span>
 
                                 <Button
                                     text="Sales sheet"
                                     icon="fa-solid fa-file-lines"
                                     onClick={() =>
-                                        navigate(`/receipt/${order.id}`, {
-                                            state: { from: "/orders", label: "Back to orders" },
+                                        navigate(Paths.receipt(order.id!), {
+                                            state: {
+                                                from: ScreenLinks.orders.path,
+                                                label: "Back to orders",
+                                            },
                                         })
                                     }
-                                    className="min-h-[44px] px-3 text-sm"
+                                    className="min-h-11 px-3 text-sm"
                                 />
-                                {isManager &&
-                                    (order.status === "Draft" ||
-                                        order.status === "AwaitingCheckout") && (
-                                        <Button
-                                            text="Void"
-                                            icon="fa-solid fa-ban"
-                                            onClick={() => setVoiding(order)}
-                                            className="min-h-[44px] bg-red-700 px-3 text-sm hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
-                                        />
-                                    )}
-                                {isManager &&
-                                    (order.status === "Completed" ||
-                                        order.status === "AwaitingCheckout" ||
-                                        order.status === "Voided") && (
-                                        <Button
-                                            text="Reopen"
-                                            icon="fa-solid fa-arrow-rotate-left"
-                                            onClick={() => setReopening(order)}
-                                            className="min-h-[44px] bg-amber-600 px-3 text-sm hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700"
-                                        />
-                                    )}
+                                {isManager && CanVoidFromList(order) && (
+                                    <Button
+                                        text="Void"
+                                        icon="fa-solid fa-ban"
+                                        onClick={() => setVoiding(order)}
+                                        className="min-h-11 bg-red-700 px-3 text-sm hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
+                                    />
+                                )}
+                                {isManager && CanReopenFromList(order) && (
+                                    <Button
+                                        text="Reopen"
+                                        icon="fa-solid fa-arrow-rotate-left"
+                                        onClick={() => setReopening(order)}
+                                        className="min-h-11 bg-amber-600 px-3 text-sm hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700"
+                                    />
+                                )}
                                 {isSystemAdmin && (
                                     <button
                                         type="button"
@@ -415,20 +279,11 @@ const OrdersPage = () => {
             {removing && (
                 <ConfirmationModal
                     title={`Delete order #${removing.orderNumber}`}
-                    message={`Permanently delete order #${removing.orderNumber}${
-                        removing.billingName ? ` for ${removing.billingName}` : ""
-                    }, with its items and payments? It comes off every total and its sales sheet is gone. Stock that went home is not put back - reopen or void the sale first if it should be. This cannot be undone.`}
+                    message={DeleteOrderMessage(removing)}
                     confirmText="Delete for good"
                     confirmWord="DELETE"
                     destructive
-                    onConfirm={async () => {
-                        const id = removing.id;
-                        setRemoving(null);
-                        if (id && (await DeleteOrder(id, true))) {
-                            Toast.Success(`Order #${removing.orderNumber} deleted.`);
-                            if (scope) await load(scope, statusFilter, search);
-                        }
-                    }}
+                    onConfirm={handleRemove}
                     onCancel={() => setRemoving(null)}
                 />
             )}
@@ -436,13 +291,7 @@ const OrdersPage = () => {
             {voiding && (
                 <ConfirmationModal
                     title="Void order"
-                    message={`Void order #${voiding.orderNumber}${
-                        voiding.billingName ? ` for ${voiding.billingName}` : ""
-                    }? It ${
-                        voiding.status === "Draft"
-                            ? "comes off the sales floor"
-                            : "leaves the checkout queue"
-                    } and stays on file for the audit trail. It can be reopened later.`}
+                    message={VoidOrderMessage(voiding)}
                     confirmText="Void"
                     destructive
                     onConfirm={handleVoid}

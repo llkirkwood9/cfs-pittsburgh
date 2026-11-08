@@ -1,35 +1,18 @@
 import { Fragment } from "react";
 import type { CSSProperties } from "react";
-import {
-    FinancingComments,
-    FormatCurrency,
-    FormatShortDate,
-    FormatStampDate,
-    PaymentMethodLabels,
-    PrintedInitials,
-    PrintsOnSalesSheet,
-    SortLinesForPrint,
-} from "../../Lib/ModelHelpers";
+import { FormatCurrency, FormatShortDate, FormatStampDate } from "@shared/Lib/Format";
+import { PrintedInitials } from "@shared/Lib/Orders";
+import { MIN_ITEM_ROWS, ROW_PX, ReceiptModel } from "@shared/Lib/Receipt";
 import TermText from "../Elements/TermText";
-import { ChoicesText, LineDiscountText, LineHasDiscount } from "../../Lib/Pricing";
-import { useSettingsFor } from "../../Context/SettingsContext";
-import { DefaultSalesTerms, TermFor } from "../../Models/GeneralSettings";
-import type { SalesTerm, SalesTermKey } from "../../Models/GeneralSettings";
-import type { Order, OrderStatus } from "../../Models/Order";
-import type { PaymentMethod } from "../../Models/OrderPayment";
+import { ChoicesText, LineDiscountText, LineHasDiscount } from "@shared/Lib/Pricing";
+import { useSettingsFor } from "@shared/Context/SettingsContext";
+import { DefaultSalesTerms } from "@shared/Models/GeneralSettings";
+import type { SalesTermKey } from "@shared/Models/GeneralSettings";
+import type { Order } from "@shared/Models/Order";
 
 type Props = {
     order: Order;
 };
-
-/** Blank rows are padded out to this many so the printed grid matches the paper form. */
-const MIN_ITEM_ROWS = 14;
-
-/** Height of one item row on the paper form. The grid never grows taller than 14 of these. */
-const ROW_PX = 20;
-
-/** The shortest a row can get and still be readable. */
-const MIN_ROW_PX = 12;
 
 /** Roughly how tall a sheet prints with the standard grid, in CSS pixels. */
 const SHEET_PX = 940;
@@ -46,21 +29,6 @@ const DEFAULT_TERMS_CHARS = DefaultSalesTerms.reduce(
 
 const cell = "border border-black px-1 py-[3px] align-top";
 
-/** What a sheet for an unfinished order is stamped with, on screen and on paper. */
-const unfinished: Partial<Record<OrderStatus, { stamp: string; detail: string }>> = {
-    Draft: {
-        stamp: "NOT COMPLETED",
-        detail: "This order is still being written up on the sales floor.",
-    },
-    AwaitingCheckout: {
-        stamp: "NOT COMPLETED",
-        detail: "This order is waiting at the checkout table and has not been paid.",
-    },
-    Voided: {
-        stamp: "VOIDED",
-        detail: "This order was voided and is not a valid sale.",
-    },
-};
 const label = "text-[8px] font-bold uppercase leading-none";
 
 /**
@@ -70,57 +38,34 @@ const label = "text-[8px] font-bold uppercase leading-none";
 const ReceiptSheet = ({ order }: Props) => {
     // The business details of the territory the sale was taken in.
     const settings = useSettingsFor(order.territoryId);
-    // A completed sale shows the wording the customer initialled; anything else, today's.
-    const terms: SalesTerm[] = order.terms?.length ? order.terms : settings.terms;
-    const term = (key: SalesTermKey) => TermFor(terms, key);
-    const lines = SortLinesForPrint(order.lines ?? []).filter(PrintsOnSalesSheet);
-    const notice = unfinished[order.status ?? "Draft"];
-    const blanks = Math.max(0, MIN_ITEM_ROWS - lines.length - lines.filter((l) => l.notes).length);
+    const {
+        terms,
+        term,
+        lines,
+        notice,
+        blanks,
+        rows,
+        rowPx,
+        compact,
+        rowFont,
+        salesName,
+        checkoutName,
+        showCheckout,
+        financing,
+        paymentRows,
+    } = ReceiptModel(order, settings.terms);
 
-    // A sheet always prints on one page. With more lines than the paper grid holds, the rows get
-    // shorter so the grid stays the same height; past what that can absorb, the whole sheet is
-    // scaled down on paper.
-    const noteRows = lines.filter((l) => l.notes).length;
-    const rows = Math.max(lines.length + noteRows, MIN_ITEM_ROWS);
+    // A sheet always prints on one page. Past what shorter rows can absorb, the whole sheet is
+    // scaled down on paper. Longer terms than the paper form's push the sheet down too.
     const gridBudget = MIN_ITEM_ROWS * ROW_PX;
-    const rowPx = Math.max(MIN_ROW_PX, Math.min(ROW_PX, Math.floor(gridBudget / rows)));
-    const compact = rowPx < ROW_PX;
-    // Longer terms than the paper form's push the sheet down too.
     const termsChars = terms.reduce((sum, t) => sum + t.heading.length + t.text.length, 0);
     const termsPx =
         Math.max(0, Math.ceil((termsChars - DEFAULT_TERMS_CHARS) / TERMS_CHARS_PER_LINE)) *
         TERMS_LINE_PX;
     const overflowPx = Math.max(0, rows * rowPx - gridBudget) + termsPx;
     const printZoom = overflowPx > 0 ? SHEET_PX / (SHEET_PX + overflowPx) : 1;
-    const rowStyle = {
-        height: rowPx,
-        fontSize: rowPx >= ROW_PX ? 11 : rowPx >= 15 ? 10 : 9,
-        lineHeight: 1.1,
-    };
+    const rowStyle = { height: rowPx, fontSize: rowFont, lineHeight: 1.1 };
     const itemCell = compact ? "border border-black px-1 py-0 align-middle" : cell;
-
-    const paidBy = (method: PaymentMethod): string => {
-        const rows = (order.payments ?? []).filter((p) => p.method === method);
-        if (rows.length === 0) return "";
-        return FormatCurrency(rows.reduce((sum, p) => sum + (p.amount ?? 0), 0));
-    };
-
-    // The rep who wrote the sale and whoever checked the customer out. One name when they are
-    // the same person, or before checkout has happened.
-    const salesName = order.cfsRepName?.trim() ?? "";
-    const checkoutName = order.completedByName?.trim() ?? "";
-    const showCheckout =
-        checkoutName !== "" && checkoutName.toLowerCase() !== salesName.toLowerCase();
-
-    const hasLayaway = (order.payments ?? []).some((p) => p.method === "Layaway");
-
-    const checkNumbers = (order.payments ?? [])
-        .filter((p) => p.method === "Check" && p.checkNumber)
-        .map((p) => p.checkNumber)
-        .join(", ");
-
-    // Each financing payment's type, number and amount, printed under the comments.
-    const financing = FinancingComments(order);
 
     const addressBlock = (side: "billing" | "delivery") => {
         const get = (key: string): string => {
@@ -440,65 +385,43 @@ const ReceiptSheet = ({ order }: Props) => {
                         <td className={`${cell} font-semibold`}>Subtotal</td>
                         <td className={`${cell} text-right`}>{FormatCurrency(order.subtotal)}</td>
                     </tr>
-                    <tr>
-                        <td
-                            className={`${cell} align-top text-[11px]`}
-                            rowSpan={hasLayaway ? 5 : 4}
-                        >
-                            {order.comments}
-                            {financing.map((line, index) => (
-                                <div key={index} className="font-semibold">
-                                    {line}
-                                </div>
-                            ))}
-                        </td>
-                        <td className={`${cell} text-center font-semibold`}>
-                            {PaymentMethodLabels.VisaMc}
-                        </td>
-                        <td className={`${cell} text-right`}>{paidBy("VisaMc")}</td>
-                        <td className={`${cell} font-semibold`}>Sales Tax</td>
-                        <td className={`${cell} text-right`}>{FormatCurrency(order.taxAmount)}</td>
-                    </tr>
-                    <tr>
-                        <td className={`${cell} text-center font-semibold`}>Cash</td>
-                        <td className={`${cell} text-right`}>{paidBy("Cash")}</td>
-                        <td className={`${cell} font-semibold`}>Total</td>
-                        <td className={`${cell} text-right font-bold`}>
-                            {FormatCurrency((order.subtotal ?? 0) + (order.taxAmount ?? 0))}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td className={`${cell} text-center font-semibold`}>
-                            Check #{checkNumbers ? ` ${checkNumbers}` : ""}
-                        </td>
-                        <td className={`${cell} text-right`}>{paidBy("Check")}</td>
-                        <td className={`${cell} text-[9px] font-semibold`}>CC Processing Fee</td>
-                        <td className={`${cell} text-right`}>
-                            {(order.ccProcessingFee ?? 0) > 0
-                                ? FormatCurrency(order.ccProcessingFee)
-                                : order.waiveCcProcessingFee &&
-                                    (order.payments ?? []).some((p) => p.method === "VisaMc")
-                                  ? "Waived"
-                                  : "—"}
-                        </td>
-                    </tr>
-                    <tr>
-                        <td className={`${cell} text-center font-semibold`}>Financing</td>
-                        <td className={`${cell} text-right`}>{paidBy("Financing")}</td>
-                        <td className={`${cell} font-semibold`}>Balance Due</td>
-                        <td className={`${cell} text-right font-bold`}>
-                            {FormatCurrency(order.total)}
-                        </td>
-                    </tr>
-                    {hasLayaway && (
-                        <tr>
-                            <td className={`${cell} text-center font-semibold`}>Layaway</td>
-                            <td className={`${cell} text-right`}>{paidBy("Layaway")}</td>
-                            <td className={cell} colSpan={2}>
-                                &nbsp;
-                            </td>
+                    {paymentRows.map((row, index) => (
+                        <tr key={row.method}>
+                            {index === 0 && (
+                                <td
+                                    className={`${cell} align-top text-[11px]`}
+                                    rowSpan={paymentRows.length}
+                                >
+                                    {order.comments}
+                                    {financing.map((line, lineIndex) => (
+                                        <div key={lineIndex} className="font-semibold">
+                                            {line}
+                                        </div>
+                                    ))}
+                                </td>
+                            )}
+                            <td className={`${cell} text-center font-semibold`}>{row.method}</td>
+                            <td className={`${cell} text-right`}>{row.amount}</td>
+                            {row.totalLabel ? (
+                                <>
+                                    <td
+                                        className={`${cell} ${row.totalLabel === "CC Processing Fee" ? "text-[9px] " : ""}font-semibold`}
+                                    >
+                                        {row.totalLabel}
+                                    </td>
+                                    <td
+                                        className={`${cell} text-right${row.bold ? " font-bold" : ""}`}
+                                    >
+                                        {row.total}
+                                    </td>
+                                </>
+                            ) : (
+                                <td className={cell} colSpan={2}>
+                                    &nbsp;
+                                </td>
+                            )}
                         </tr>
-                    )}
+                    ))}
                 </tbody>
             </table>
 

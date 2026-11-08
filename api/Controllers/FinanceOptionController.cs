@@ -1,3 +1,4 @@
+using api.Catalog;
 using api.Data;
 using api.Dtos;
 using api.Models;
@@ -10,28 +11,20 @@ using Microsoft.EntityFrameworkCore;
 namespace api.Controllers
 {
     /// <summary>
-    /// The kinds of financing offered at checkout, kept in the catalog. Like delivery options, an
-    /// option is either global (every territory) or one territory's own; a manager changes only
-    /// their territory's. A financing payment stores the name it was recorded with, so options can
+    /// The kinds of financing offered at checkout, kept in the catalog. Like delivery options,
+    /// every territory has its own; a manager changes only their own territories'. A financing payment stores the name it was recorded with, so options can
     /// be renamed, switched off or removed freely.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     public class FinanceOptionController(
         ApplicationDbContext db,
-        IHttpClientFactory httpClientFactory,
-        IConfiguration config,
-        ILogger<BasicController> logger,
-        TokenService tokenService)
-        : BasicController(db, httpClientFactory, config, logger, tokenService)
+        ILogger<BasicController> logger)
+        : CatalogItemController(db, logger)
     {
         #region Private Fields
 
-        private const string CatalogOnly = "Only a manager, administrator or system admin may change the catalog.";
-
-        private const string NotYourCatalog = "You can only change the catalog of your own territories.";
-
-        private const int MaxNameLength = 100;
+        private const int MaxNameLength = CatalogRules.MaxFinanceNameLength;
 
         #endregion
 
@@ -46,42 +39,35 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> AddFinanceOption([FromBody] FinanceOptionDto request)
         {
-            try
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
+
+            var name = request.Name?.Trim();
+            if (string.IsNullOrEmpty(name))
+                return BadRequest(new { error = "Enter a name." });
+
+            if (name.Length > MaxNameLength)
+                return BadRequest(new { error = $"The name can be at most {MaxNameLength} characters." });
+
+            var (territoryId, problem) = await CatalogTerritoryAsync(request.TerritoryId);
+            if (problem != null)
+                return problem;
+
+            if (await NameClashesAsync(name, territoryId, null))
+                return BadRequest(new { error = "A financing option with that name already exists." });
+
+            var option = new FinanceOption
             {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden(CatalogOnly);
+                Name = name,
+                TerritoryId = territoryId,
+                IsActive = request.IsActive ?? true,
+                SortOrder = await NextSortOrderAsync(territoryId),
+            };
 
-                var name = request.Name?.Trim();
-                if (string.IsNullOrEmpty(name))
-                    return BadRequest(new { error = "Enter a name." });
+            DB.FinanceOptions.Add(option);
+            await DB.SaveChangesAsync();
 
-                if (name.Length > MaxNameLength)
-                    return BadRequest(new { error = $"The name can be at most {MaxNameLength} characters." });
-
-                var (territoryId, problem) = await CatalogTerritoryAsync(request.TerritoryId);
-                if (problem != null)
-                    return problem;
-
-                if (await NameClashesAsync(name, territoryId, null))
-                    return BadRequest(new { error = "A financing option with that name already exists." });
-
-                var option = new FinanceOption
-                {
-                    Name = name,
-                    TerritoryId = territoryId,
-                    IsActive = request.IsActive ?? true,
-                    SortOrder = await NextSortOrderAsync(territoryId),
-                };
-
-                DB.FinanceOptions.Add(option);
-                await DB.SaveChangesAsync();
-
-                return Ok(await LoadDtoAsync(option.Id));
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while adding the financing option.", e);
-            }
+            return Ok(await LoadDtoAsync(option.Id));
         }
 
         #endregion
@@ -100,17 +86,10 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> GetFinanceOptions([FromQuery] bool includeInactive = false, [FromQuery] int? territoryId = null)
         {
-            try
-            {
-                if (territoryId != null && !Scope.CanSee(territoryId))
-                    return Forbidden("You can't see that territory.");
+            if (territoryId != null && !Scope.CanSee(territoryId))
+                return Forbidden("You can't see that territory.");
 
-                return Ok(await ListAsync(territoryId is { } one ? [one] : Scope.VisibleTerritoryIds, includeInactive));
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while getting financing options.", e);
-            }
+            return Ok(await ListAsync(territoryId is { } one ? [one] : Scope.VisibleTerritoryIds, includeInactive));
         }
 
         #endregion
@@ -127,45 +106,38 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> UpdateFinanceOption([FromBody] FinanceOptionDto request)
         {
-            try
-            {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden(CatalogOnly);
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
 
-                if (request.Id == null)
-                    return BadRequest(new { error = "Missing parameter." });
+            if (request.Id == null)
+                return BadRequest(new { error = "Missing parameter." });
 
-                var option = await DB.FinanceOptions.FindAsync(request.Id.Value);
-                if (option == null || !Scope.CanSee(option.TerritoryId))
-                    return NotFound(new { error = "Financing option not found." });
+            var option = (await DB.FinanceOptions.FindAsync(request.Id.Value)).IfVisibleTo(Scope);
+            if (option == null)
+                return NotFound(new { error = "Financing option not found." });
 
-                if (!CanEditCatalog(option.TerritoryId))
-                    return Forbidden(NotYourCatalog);
+            if (DenyUnlessEditable(option.TerritoryId) is { } notEditable)
+                return notEditable;
 
-                var territoryId = option.TerritoryId;
-                var name = request.Name?.Trim() ?? option.Name;
-                if (name.Length == 0)
-                    return BadRequest(new { error = "Enter a name." });
+            var territoryId = option.TerritoryId;
+            var name = request.Name?.Trim() ?? option.Name;
+            if (name.Length == 0)
+                return BadRequest(new { error = "Enter a name." });
 
-                if (name.Length > MaxNameLength)
-                    return BadRequest(new { error = $"The name can be at most {MaxNameLength} characters." });
+            if (name.Length > MaxNameLength)
+                return BadRequest(new { error = $"The name can be at most {MaxNameLength} characters." });
 
-                if (await NameClashesAsync(name, territoryId, option.Id))
-                    return BadRequest(new { error = "A financing option with that name already exists." });
+            if (await NameClashesAsync(name, territoryId, option.Id))
+                return BadRequest(new { error = "A financing option with that name already exists." });
 
-                option.Name = name;
+            option.Name = name;
 
-                if (request.IsActive != null)
-                    option.IsActive = request.IsActive.Value;
+            if (request.IsActive != null)
+                option.IsActive = request.IsActive.Value;
 
-                await DB.SaveChangesAsync();
+            await DB.SaveChangesAsync();
 
-                return Ok(await LoadDtoAsync(option.Id));
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while updating the financing option.", e);
-            }
+            return Ok(await LoadDtoAsync(option.Id));
         }
 
         #endregion
@@ -181,36 +153,10 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> ReorderFinanceOptions([FromBody] List<int> ids)
         {
-            try
-            {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden(CatalogOnly);
+            if (await ReorderAsync(ids, id => DB.FinanceOptions.FindAsync(id), territoryId => DB.FinanceOptions.Where(f => f.TerritoryId == territoryId).ToListAsync()) is { } problem)
+                return problem;
 
-                if (ids.Count == 0 || ids.Distinct().Count() != ids.Count)
-                    return BadRequest(new { error = "Invalid parameter." });
-
-                var first = await DB.FinanceOptions.FindAsync(ids[0]);
-                if (first == null)
-                    return BadRequest(new { error = "The list has changed. Refresh and try again." });
-
-                var group = await DB.FinanceOptions.Where(f => f.TerritoryId == first.TerritoryId).ToListAsync();
-                if (group.Count != ids.Count || group.Any(o => !ids.Contains(o.Id)))
-                    return BadRequest(new { error = "The list has changed. Refresh and try again." });
-
-                if (!CanEditCatalog(first.TerritoryId))
-                    return Forbidden(NotYourCatalog);
-
-                foreach (var option in group)
-                    option.SortOrder = ids.IndexOf(option.Id) + 1;
-
-                await DB.SaveChangesAsync();
-
-                return Ok(await ListAsync(Scope.VisibleTerritoryIds, includeInactive: true));
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while reordering the financing options.", e);
-            }
+            return Ok(await ListAsync(Scope.VisibleTerritoryIds, includeInactive: true));
         }
 
         #endregion
@@ -226,27 +172,20 @@ namespace api.Controllers
         [Authorize(AuthenticationSchemes = "Bearer")]
         public async Task<IActionResult> DeleteFinanceOption(int id)
         {
-            try
-            {
-                if (!IsAtLeast(UserRole.Manager))
-                    return Forbidden(CatalogOnly);
+            if (DenyUnlessManager() is { } notManager)
+                return notManager;
 
-                var option = await DB.FinanceOptions.FindAsync(id);
-                if (option == null || !Scope.CanSee(option.TerritoryId))
-                    return NotFound(new { error = "Financing option not found." });
+            var option = (await DB.FinanceOptions.FindAsync(id)).IfVisibleTo(Scope);
+            if (option == null)
+                return NotFound(new { error = "Financing option not found." });
 
-                if (!CanEditCatalog(option.TerritoryId))
-                    return Forbidden(NotYourCatalog);
+            if (DenyUnlessEditable(option.TerritoryId) is { } notEditable)
+                return notEditable;
 
-                DB.FinanceOptions.Remove(option);
-                await DB.SaveChangesAsync();
+            DB.FinanceOptions.Remove(option);
+            await DB.SaveChangesAsync();
 
-                return Ok();
-            }
-            catch (Exception e)
-            {
-                return ServerError("Internal error occurred while deleting the financing option.", e);
-            }
+            return Ok();
         }
 
         #endregion
@@ -259,8 +198,7 @@ namespace api.Controllers
         /// </summary>
         private async Task<List<FinanceOptionDto>> ListAsync(List<int>? territories, bool includeInactive)
         {
-            var query = DB.FinanceOptions.Include(f => f.Territory).AsNoTracking()
-                .Where(f => f.TerritoryId != null && (territories == null || territories.Contains(f.TerritoryId.Value)));
+            var query = DB.FinanceOptions.Include(f => f.Territory).AsNoTracking().InTerritories(territories);
 
             if (!includeInactive)
                 query = query.Where(f => f.IsActive);

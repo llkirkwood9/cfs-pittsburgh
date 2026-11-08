@@ -1,5 +1,4 @@
 import { Redirect, router } from "expo-router";
-import { useState } from "react";
 import { Pressable, ScrollView, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import Button from "../Components/Elements/Button";
@@ -7,12 +6,11 @@ import Icon from "../Components/Elements/Icon";
 import KeyboardAvoider from "../Components/Elements/KeyboardAvoider";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
-import { useAuth } from "../Context/AuthContext";
-import { useSettings } from "../Context/SettingsContext";
-import { HomePathForRole } from "../Lib/RoleRoutes";
-import { GetServerUrl } from "../Lib/Server";
-import { GetItem, SetItem } from "../Lib/Storage";
-import { Toast } from "../Lib/Toast";
+import { useAuth } from "@shared/Context/AuthContext";
+import { useSettings } from "@shared/Context/SettingsContext";
+import { HomePathForRole } from "../Lib/ScreenLinks";
+import { useLogin } from "@shared/Hooks/useLogin";
+import { Limits } from "@shared/Lib/Limits";
 
 /**
  * Sign-in screen: username and password. Too many wrong passwords lock the account for a while,
@@ -21,36 +19,20 @@ import { Toast } from "../Lib/Toast";
  * (see Lib/Server).
  */
 const LoginPage = () => {
-    const { user, loading, login } = useAuth();
+    const { user, loading } = useAuth();
     const { settings } = useSettings();
-
-    const [username, setUsername] = useState<string>(() => GetItem("cfs.lastUsername") ?? "");
-    // Only the username is remembered on the device, never the password.
-    const [password, setPassword] = useState<string>("");
-    const [showPassword, setShowPassword] = useState<boolean>(false);
-    const [submitting, setSubmitting] = useState<boolean>(false);
+    const {
+        username,
+        setUsername,
+        password,
+        setPassword,
+        showPassword,
+        setShowPassword,
+        submitting,
+        submit,
+    } = useLogin((signedIn) => router.replace(HomePathForRole(signedIn.role)));
 
     if (!loading && user) return <Redirect href={HomePathForRole(user.role)} />;
-
-    const handleSubmit = async () => {
-        if (!GetServerUrl())
-            return Toast.Error(
-                "This build of the app has no server address. Set EXPO_PUBLIC_API_URL."
-            );
-        if (!username.trim()) return Toast.Warning("Enter your username.");
-        if (!password) return Toast.Warning("Enter your password.");
-
-        setSubmitting(true);
-        const signedIn = await login(username.trim(), password);
-        setSubmitting(false);
-
-        if (signedIn) {
-            SetItem("cfs.lastUsername", username.trim());
-            router.replace(HomePathForRole(signedIn.role));
-        } else {
-            setPassword("");
-        }
-    };
 
     return (
         <SafeAreaView className="flex-1 bg-zinc-900">
@@ -73,7 +55,7 @@ const LoginPage = () => {
                             value={username}
                             onChange={setUsername}
                             className="mb-4"
-                            maxLength={50}
+                            maxLength={Limits.username}
                             autoCapitalize="none"
                             autoComplete="username"
                         />
@@ -83,9 +65,9 @@ const LoginPage = () => {
                                 label="Password"
                                 value={password}
                                 onChange={setPassword}
-                                onSubmit={handleSubmit}
+                                onSubmit={submit}
                                 type={showPassword ? "text" : "password"}
-                                maxLength={128}
+                                maxLength={Limits.password}
                                 autoCapitalize="none"
                                 autoComplete="current-password"
                             />
@@ -109,7 +91,7 @@ const LoginPage = () => {
                         <Button
                             text="Sign in"
                             icon="fa-solid fa-right-to-bracket"
-                            onClick={handleSubmit}
+                            onClick={submit}
                             loading={submitting}
                             className="w-full"
                         />

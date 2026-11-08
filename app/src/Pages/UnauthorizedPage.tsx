@@ -4,8 +4,8 @@ import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
 import Page from "../Components/Elements/Page";
 import Text from "../Components/Elements/Text";
-import { useAuth } from "../Context/AuthContext";
-import { HomePathForRole } from "../Lib/RoleRoutes";
+import { useAuth } from "@shared/Context/AuthContext";
+import { HomePathForRole } from "../Lib/ScreenLinks";
 
 /**
  * Shown when a signed-in crew member reaches a screen their role does not cover.

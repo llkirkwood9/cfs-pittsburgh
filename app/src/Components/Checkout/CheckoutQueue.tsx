@@ -2,8 +2,8 @@ import { Pressable, View } from "react-native";
 import Icon from "../Elements/Icon";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
-import { FormatCurrency, FormatElapsed } from "../../Lib/ModelHelpers";
-import type { OrderSummary } from "../../Models/OrderSummary";
+import { FormatCurrency, FormatElapsed } from "@shared/Lib/Format";
+import type { OrderSummary } from "@shared/Models/OrderSummary";
 
 type Props = {
     orders: OrderSummary[];
@@ -68,7 +68,8 @@ const CheckoutQueue = ({ orders, activeId, onSelect }: Props) => {
                             </Text>
                             <Text className={cx("text-xs opacity-80", color)}>
                                 {order.cfsRepName} · {order.itemCount ?? 0} item
-                                {(order.itemCount ?? 0) === 1 ? "" : "s"} · {FormatElapsed(order.submittedAt)}
+                                {(order.itemCount ?? 0) === 1 ? "" : "s"} ·{" "}
+                                {FormatElapsed(order.submittedAt)}
                             </Text>
                         </View>
 

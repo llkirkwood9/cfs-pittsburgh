@@ -1,8 +1,7 @@
 import { useFocusEffect } from "expo-router";
 import { useCallback, useEffect, useRef } from "react";
 import { AppState } from "react-native";
-import { IsOnline } from "../Lib/Connection";
-import { GetActiveEvent } from "../Services/EventServices";
+import { GetActiveEvent } from "@shared/Services/EventServices";
 
 /**
  * Keeps a screen on the active event. Tabs stay loaded once opened, so a screen loaded before an
@@ -28,7 +27,7 @@ export const useActiveEventChange = (
         if (latest.current.activeId === undefined) return false;
         const active = await GetActiveEvent();
         // No answer from the server says nothing about the event: keep what is on screen.
-        if (!IsOnline()) return false;
+        if (active === undefined) return false;
         if ((active?.id ?? null) === latest.current.activeId) return false;
         await latest.current.reload();
         return true;

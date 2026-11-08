@@ -11,12 +11,12 @@ namespace api.Dtos
         public int? Id { get; set; }
 
         /// <summary>
-        /// The territory it belongs to, or null for a global option
+        /// The territory whose catalog it is in
         /// </summary>
         public int? TerritoryId { get; set; }
 
         /// <summary>
-        /// The territory's name, for display (null for a global option)
+        /// The territory's name, for display
         /// </summary>
         public string? TerritoryName { get; set; }
 

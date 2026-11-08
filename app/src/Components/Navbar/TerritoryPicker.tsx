@@ -3,7 +3,7 @@ import { Pressable, View } from "react-native";
 import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
 import Text from "../Elements/Text";
-import { useTerritory } from "../../Context/TerritoryContext";
+import { useTerritory } from "@shared/Context/TerritoryContext";
 import { cx } from "../../Lib/ClassNames";
 
 /**

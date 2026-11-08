@@ -6,7 +6,7 @@ namespace api.Models
     /// A delivery method or in-home service that can be attached to a product line,
     /// e.g. Drop Ship, White Glove, Haul Away, Take With.
     /// </summary>
-    public class DeliveryOption
+    public class DeliveryOption : ISortedCatalogItem
     {
         /// <summary>
         /// Primary Key - ID of delivery option

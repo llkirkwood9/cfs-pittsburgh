@@ -10,7 +10,11 @@ import type { DimensionValue, StyleProp, TextStyle, ViewStyle } from "react-nati
  */
 
 /** The serif the paper forms' small print is set in. */
-export const SERIF = Platform.select({ ios: "Times New Roman", android: "serif", default: "serif" });
+export const SERIF = Platform.select({
+    ios: "Times New Roman",
+    android: "serif",
+    default: "serif",
+});
 
 type CellProps = {
     children?: ReactNode;

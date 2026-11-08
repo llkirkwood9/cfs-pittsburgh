@@ -1,56 +1,5 @@
-import { ParseMoney } from "../../Lib/ModelHelpers";
-
-/** How a sale is set: none, a percent off, a fixed amount off each item - or, for a size, the product's. */
-export type SaleMode = "none" | "percent" | "amount" | "follow";
-
-/** A sale being edited: its mode and the number typed. */
-export type SaleDraft = { mode: SaleMode; text: string };
-
-/**
- * A sale as the editor shows it.
- * @param percent Percent off, if any.
- * @param amount Amount off, if any.
- * @param follow For a size: whether it follows the product's sale.
- * @returns The draft.
- */
-export const ToSaleDraft = (
-    percent?: number | null,
-    amount?: number | null,
-    follow = false
-): SaleDraft =>
-    follow
-        ? { mode: "follow", text: "" }
-        : (percent ?? 0) > 0
-          ? { mode: "percent", text: String(percent) }
-          : (amount ?? 0) > 0
-            ? { mode: "amount", text: String(amount) }
-            : { mode: "none", text: "" };
-
-/**
- * A sale draft as saved: percent and amount (0 clears).
- * @param draft The draft.
- * @returns Percent and amount.
- */
-export const FromSaleDraft = (draft: SaleDraft): { percent: number; amount: number } => {
-    const value = ParseMoney(draft.text) ?? 0;
-    return {
-        percent: draft.mode === "percent" ? value : 0,
-        amount: draft.mode === "amount" ? value : 0,
-    };
-};
-
-/**
- * Why a sale draft can't be saved, or null when it's fine.
- * @param draft The draft.
- * @returns A message, or null.
- */
-export const SaleProblem = (draft: SaleDraft): string | null => {
-    if (draft.mode !== "percent" && draft.mode !== "amount") return null;
-    const value = ParseMoney(draft.text);
-    if (value === null || value <= 0) return "Enter how much the sale takes off.";
-    if (draft.mode === "percent" && value > 100) return "A sale can take off at most 100%.";
-    return null;
-};
+import { PickSaleMode, SaleModes, SaleModeText } from "@shared/Lib/CatalogDrafts";
+import type { SaleDraft } from "@shared/Lib/CatalogDrafts";
 
 type Props = {
     draft: SaleDraft;
@@ -64,13 +13,6 @@ type Props = {
     label?: string;
 };
 
-const modes: { mode: SaleMode; label: string }[] = [
-    { mode: "follow", label: "Same as item" },
-    { mode: "none", label: "No sale" },
-    { mode: "percent", label: "% off" },
-    { mode: "amount", label: "$ off" },
-];
-
 /**
  * Picks a sale: none, a percent off, or a fixed amount off each item. For a single size it can
  * also follow the product's sale, which it does unless told otherwise.
@@ -83,7 +25,7 @@ const SaleEditor = ({
     followName = "Same as item",
     label = "Sale",
 }: Props) => {
-    const shown = modes.filter((m) => allowFollow || m.mode !== "follow");
+    const shown = SaleModes.filter((m) => allowFollow || m.mode !== "follow");
 
     return (
         <div className="flex flex-col gap-1">
@@ -102,23 +44,14 @@ const SaleEditor = ({
                             type="button"
                             role="radio"
                             aria-checked={draft.mode === m.mode}
-                            onClick={() =>
-                                onChange({
-                                    mode: m.mode,
-                                    text: m.mode === draft.mode ? draft.text : "",
-                                })
-                            }
+                            onClick={() => onChange(PickSaleMode(draft, m.mode))}
                             className={`min-h-[40px] px-3 text-sm font-semibold transition-colors ${
                                 draft.mode === m.mode
                                     ? "bg-sky-700 text-white dark:bg-sky-600"
                                     : "bg-white text-zinc-700 hover:bg-zinc-100 dark:bg-zinc-800 dark:text-zinc-200 dark:hover:bg-zinc-700"
                             }`}
                         >
-                            {m.mode === "follow"
-                                ? followLabel
-                                    ? `${followName} (${followLabel})`
-                                    : followName
-                                : m.label}
+                            {SaleModeText(m.mode, followName, followLabel)}
                         </button>
                     ))}
                 </div>

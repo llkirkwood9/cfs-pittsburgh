@@ -1,4 +1,4 @@
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { TextInput, View } from "react-native";
 // The gesture handler's scroll view, so a stroke on the signature pad wins over scrolling.
 import { ScrollView } from "react-native-gesture-handler";
@@ -8,14 +8,14 @@ import Icon from "../Elements/Icon";
 import SignaturePad from "../Elements/SignaturePad";
 import Text from "../Elements/Text";
 import { RenderTermText } from "../Elements/TermText";
-import { useSettingsFor } from "../../Context/SettingsContext";
+import { useSettingsFor } from "@shared/Context/SettingsContext";
 import { useBreakpoint } from "../../Hooks/UseBreakpoint";
 import { cx } from "../../Lib/ClassNames";
-import { AddressLines, RequiredTerms, SortLinesForPrint } from "../../Lib/ModelHelpers";
-import { Toast } from "../../Lib/Toast";
-import { TermFor } from "../../Models/GeneralSettings";
-import type { SalesTermKey } from "../../Models/GeneralSettings";
-import type { Order } from "../../Models/Order";
+import { useCheckoutAcknowledgements } from "@shared/Hooks/useCheckoutForms";
+import { DetailsSummaryOf } from "@shared/Lib/Checkout";
+import { TermFor } from "@shared/Models/GeneralSettings";
+import type { Order } from "@shared/Models/Order";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     order: Order;
@@ -23,63 +23,13 @@ type Props = {
     onClose: () => void;
 };
 
-type InitialsKey =
-    "customerInfoInitials" | "warrantyInitials" | "dropShipInitials" | "advisoryInitials";
-
-/** Which of the order's initials each statement takes, in signing order. */
-const allSteps: { term: SalesTermKey; key: InitialsKey }[] = [
-    { term: "customerInfo", key: "customerInfoInitials" },
-    { term: "warranty", key: "warrantyInitials" },
-    { term: "dropShip", key: "dropShipInitials" },
-    { term: "advisory", key: "advisoryInitials" },
-];
-
 /**
  * Everything the customer is confirming on the first step: who they are, how to reach them, where
  * the order goes and how each item is getting there.
  */
 const DetailsSummary = ({ order }: { order: Order }) => {
     const { sm } = useBreakpoint();
-    const billing = AddressLines({
-        address: order.billingAddress,
-        unit: order.billingUnit,
-        floor: order.billingFloor,
-        suite: order.billingSuite,
-        city: order.billingCity,
-        state: order.billingState,
-        zip: order.billingZip,
-    });
-    const delivery = order.deliverySameAsBilling
-        ? null
-        : AddressLines({
-              address: order.deliveryAddress,
-              unit: order.deliveryUnit,
-              floor: order.deliveryFloor,
-              suite: order.deliverySuite,
-              city: order.deliveryCity,
-              state: order.deliveryState,
-              zip: order.deliveryZip,
-          });
-    const phones = [order.billingCell, order.billingAlt].filter(Boolean).join(" / ");
-
-    // Each item with the way it is leaving: its shipping row, or Take With.
-    const lines = SortLinesForPrint(order.lines ?? []);
-    const items = lines
-        .filter((l) => l.lineType === "Product" || l.lineType === "Custom")
-        .map((item) => {
-            const methods = lines
-                .filter((l) => l.parentLineId === item.id && l.lineType === "Delivery")
-                .map((l) => l.description);
-            return {
-                id: item.id,
-                name: `${item.quantity && item.quantity > 1 ? `${item.quantity} x ` : ""}${item.description}`,
-                how: methods.length
-                    ? methods.join(" + ")
-                    : item.takeWith
-                      ? "Take With"
-                      : "Drop Ship",
-            };
-        });
+    const { billing, delivery, phones, items } = DetailsSummaryOf(order);
 
     const missing = (
         <Text className="text-lg italic text-amber-700 dark:text-amber-400">Not given</Text>
@@ -171,54 +121,23 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
     // The wording of the territory the sale is being taken in.
     const settings = useSettingsFor(order.territoryId);
 
-    const [step, setStep] = useState<number>(0);
-    const [initials, setInitials] = useState<Record<string, string>>({
-        customerInfoInitials: order.customerInfoInitials ?? "",
-        warrantyInitials: order.warrantyInitials ?? "",
-        dropShipInitials: order.dropShipInitials ?? "",
-        advisoryInitials: order.advisoryInitials ?? "",
-    });
-    const [signature, setSignature] = useState<string | null>(order.customerSignature ?? null);
-    const [printedName, setPrintedName] = useState<string>(
-        order.customerSignatureName ?? order.billingName ?? ""
-    );
-    const [saving, setSaving] = useState<boolean>(false);
-
-    // Only the statements this order needs - a pillow taken home today skips the warranty, drop
-    // ship and details steps - then the signature.
-    const required = RequiredTerms(order);
-    const steps = allSteps.filter((s) => required.includes(s.term));
-    const totalSteps = steps.length + 1;
-    const isSignatureStep = step === steps.length;
-    // With no statements to initial the sheet opens on the signature, and this is never shown.
-    const current = steps[Math.min(step, steps.length - 1)] ?? allSteps[allSteps.length - 1];
+    const {
+        step,
+        totalSteps,
+        isSignatureStep,
+        current,
+        currentInitials,
+        setCurrentInitials,
+        signature,
+        setSignature,
+        printedName,
+        setPrintedName,
+        saving,
+        next,
+        back,
+        finish,
+    } = useCheckoutAcknowledgements(order, onSave, onClose);
     const term = TermFor(settings.terms, current.term);
-
-    const next = () => {
-        if (!isSignatureStep && !initials[current.key].trim())
-            return Toast.Warning("Please add your initials to continue.");
-
-        setStep((value) => Math.min(value + 1, totalSteps - 1));
-    };
-
-    const handleFinish = async () => {
-        if (!printedName.trim()) return Toast.Warning("Please print your name.");
-        if (!signature) return Toast.Warning("Please sign in the box above.");
-
-        setSaving(true);
-        await onSave({
-            id: order.id,
-            customerInfoInitials: initials.customerInfoInitials.trim(),
-            warrantyInitials: initials.warrantyInitials.trim(),
-            dropShipInitials: initials.dropShipInitials.trim(),
-            advisoryInitials: initials.advisoryInitials.trim(),
-            customerSignatureName: printedName.trim(),
-            customerSignature: signature,
-            signedDate: new Date().toISOString(),
-        });
-        setSaving(false);
-        onClose();
-    };
 
     return (
         <FullScreenSheet
@@ -255,14 +174,14 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
                     <Button
                         text={step === 0 ? "Cancel" : "Back"}
                         icon={step === 0 ? undefined : "fa-solid fa-arrow-left"}
-                        onClick={() => (step === 0 ? onClose() : setStep((value) => value - 1))}
+                        onClick={back}
                         className="min-h-[60px] bg-zinc-500 px-6 text-lg dark:bg-zinc-600"
                     />
                     {isSignatureStep ? (
                         <Button
                             text="Done"
                             icon="fa-solid fa-check"
-                            onClick={handleFinish}
+                            onClick={finish}
                             loading={saving}
                             className="min-h-[60px] flex-1 bg-green-700 text-lg dark:bg-green-600"
                         />
@@ -310,22 +229,15 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
                                 </Text>
                                 <TextInput
                                     key={current.key}
-                                    value={initials[current.key]}
-                                    onChangeText={(text) =>
-                                        setInitials((value) => ({
-                                            ...value,
-                                            [current.key]: text.toUpperCase(),
-                                        }))
-                                    }
-                                    maxLength={10}
+                                    value={currentInitials}
+                                    onChangeText={setCurrentInitials}
+                                    maxLength={Limits.initials}
                                     autoCapitalize="characters"
                                     autoCorrect={false}
                                     placeholder="AB"
                                     placeholderTextColor="#a1a1aa"
                                     accessibilityLabel="Your initials"
-                                    className="mt-2 min-h-[72px] w-40 rounded-2xl border-2 border-zinc-300 bg-white
-                                        text-center text-3xl font-bold tracking-widest text-zinc-900
-                                        focus:border-sky-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                                    className="mt-2 min-h-[72px] w-40 rounded-2xl border-2 border-zinc-300 bg-white text-center text-3xl font-bold tracking-widest text-zinc-900 focus:border-sky-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                                 />
                             </View>
                         </>
@@ -344,12 +256,10 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
                                 <TextInput
                                     value={printedName}
                                     onChangeText={setPrintedName}
-                                    maxLength={150}
+                                    maxLength={Limits.printedName}
                                     autoCapitalize="words"
                                     accessibilityLabel="Print your name"
-                                    className="mt-2 min-h-[60px] w-full rounded-2xl border-2 border-zinc-300 bg-white px-4
-                                        text-lg text-zinc-900 focus:border-sky-600
-                                        dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                                    className="mt-2 min-h-[60px] w-full rounded-2xl border-2 border-zinc-300 bg-white px-4 text-lg text-zinc-900 focus:border-sky-600 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
                                 />
                             </View>
 
