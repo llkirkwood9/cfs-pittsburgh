@@ -1,5 +1,6 @@
 import type { NavigateFunction } from "react-router-dom";
 import type { Foreground } from "@shared/Lib/Connection";
+import { client } from "./api";
 import type { ServerErrorDetails } from "@shared/Lib/ErrorHandler";
 import { Paths } from "./ScreenLinks";
 
@@ -7,16 +8,9 @@ import { Paths } from "./ScreenLinks";
  * What the shared code (../../shared, imported as @shared) needs from the dashboard: the API
  * client, toasts, and the way to the error page. The shared code imports this module as "@host".
  */
-export {
-    default as api,
-    endSession,
-    hasStoredSession,
-    refreshSession,
-    setTerritoryHeader,
-    startSession,
-    subscribePasswordRequired,
-    subscribeTokenChanged,
-} from "./api";
+export { client };
+export { DownloadCsv } from "./SalesExport";
+export { sheetPdf } from "./SheetPdf";
 export { Toast } from "./Toast";
 
 export const OFFLINE_MESSAGE =

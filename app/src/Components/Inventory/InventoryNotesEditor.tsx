@@ -1,11 +1,10 @@
-import { useEffect, useState } from "react";
 import { View } from "react-native";
 import Button from "../Elements/Button";
 import Text from "../Elements/Text";
 import TextArea from "../Elements/TextArea";
 import { cx } from "../../Lib/ClassNames";
-import { Toast } from "../../Lib/Toast";
-import { SaveInventoryNotes } from "@shared/Services/InventoryServices";
+import { useInventoryNotes } from "@shared/Hooks/useInventoryNotes";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     eventId: number;
@@ -20,25 +19,7 @@ type Props = {
  * the event's printable sheets.
  */
 const InventoryNotesEditor = ({ eventId, notes, onSaved, className = "" }: Props) => {
-    const [value, setValue] = useState<string>(notes ?? "");
-    const [saving, setSaving] = useState<boolean>(false);
-
-    // Pick up notes saved elsewhere, e.g. after a refresh.
-    useEffect(() => {
-        setValue(notes ?? "");
-    }, [notes]);
-
-    const dirty = value.trim() !== (notes ?? "").trim();
-
-    const save = async () => {
-        setSaving(true);
-        const saved = await SaveInventoryNotes(eventId, value.trim());
-        setSaving(false);
-
-        if (saved === undefined) return;
-        onSaved(saved);
-        Toast.Success(saved ? "Inventory sheet notes saved." : "Inventory sheet notes cleared.");
-    };
+    const { value, setValue, dirty, saving, save } = useInventoryNotes(eventId, notes, onSaved);
 
     return (
         <View className={cx("rounded-xl bg-white p-3 raised-sm dark:bg-zinc-800", className)}>
@@ -47,7 +28,7 @@ const InventoryNotesEditor = ({ eventId, notes, onSaved, className = "" }: Props
                 value={value}
                 onChange={setValue}
                 placeholder="ex. One lavender pillow kept as a floor sample"
-                maxLength={2000}
+                maxLength={Limits.inventoryNotes}
                 rows={3}
             />
             <View className="mt-2 flex-row flex-wrap items-center justify-between gap-2">

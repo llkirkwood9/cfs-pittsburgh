@@ -1,5 +1,5 @@
-import { api } from "@host";
-import { HandleAxiosError } from "../Lib/ErrorHandler";
+import { client } from "@host";
+import { CallApi } from "./CallApi";
 import type { Event } from "../Models/Event";
 
 //*************************************//
@@ -12,13 +12,10 @@ import type { Event } from "../Models/Event";
  * @returns The created event, or null on failure.
  */
 export const AddEvent = async (newEventData: Event): Promise<Event | null> => {
-    try {
-        const response = await api.post<Event>("/api/Event/event", newEventData);
+    return CallApi(async () => {
+        const response = await client.api.post<Event>("/api/Event/event", newEventData);
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //************************************//
@@ -30,13 +27,10 @@ export const AddEvent = async (newEventData: Event): Promise<Event | null> => {
  * @returns All events, or null on failure.
  */
 export const GetEvents = async (): Promise<Event[] | null> => {
-    try {
-        const response = await api.get<Event[]>("/api/Event/events");
+    return CallApi(async () => {
+        const response = await client.api.get<Event[]>("/api/Event/events");
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -44,14 +38,11 @@ export const GetEvents = async (): Promise<Event[] | null> => {
  * @returns The active event, null when none is active, or undefined on failure.
  */
 export const GetActiveEvent = async (): Promise<Event | null | undefined> => {
-    try {
-        const response = await api.get<Event>("/api/Event/event/active");
+    return CallApi(async () => {
+        const response = await client.api.get<Event>("/api/Event/event/active");
         // 204 No Content means no event is active right now, which is not an error.
         return response.status === 204 ? null : response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return undefined;
-    }
+    }, undefined);
 };
 
 /**
@@ -60,13 +51,10 @@ export const GetActiveEvent = async (): Promise<Event | null | undefined> => {
  * @returns The event, or null on failure.
  */
 export const GetEvent = async (id: number): Promise<Event | null> => {
-    try {
-        const response = await api.get<Event>(`/api/Event/event/${id}`);
+    return CallApi(async () => {
+        const response = await client.api.get<Event>(`/api/Event/event/${id}`);
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //**************************************//
@@ -79,13 +67,10 @@ export const GetEvent = async (id: number): Promise<Event | null> => {
  * @returns The updated event, or null on failure.
  */
 export const UpdateEvent = async (eventData: Event): Promise<Event | null> => {
-    try {
-        const response = await api.patch<Event>("/api/Event/event", eventData);
+    return CallApi(async () => {
+        const response = await client.api.patch<Event>("/api/Event/event", eventData);
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //***************************************//
@@ -99,14 +84,11 @@ export const UpdateEvent = async (eventData: Event): Promise<Event | null> => {
  * @returns True if the operation was successful, false otherwise.
  */
 export const DeleteEvent = async (id: number, permanent = false): Promise<boolean> => {
-    try {
+    return CallApi(async () => {
         // permanent is system-admin-only: it deletes for good instead of archiving or refusing.
-        const response = await api.delete(`/api/Event/event/${id}`, {
+        const response = await client.api.delete(`/api/Event/event/${id}`, {
             params: permanent ? { permanent: true } : undefined,
         });
         return response.status === 200;
-    } catch (error) {
-        HandleAxiosError(error);
-        return false;
-    }
+    }, false);
 };

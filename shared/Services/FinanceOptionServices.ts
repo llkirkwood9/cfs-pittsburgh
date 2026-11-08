@@ -1,5 +1,5 @@
-import { api } from "@host";
-import { HandleAxiosError } from "../Lib/ErrorHandler";
+import { client } from "@host";
+import { CallApi } from "./CallApi";
 import type { FinanceOption } from "../Models/FinanceOption";
 
 //*************************************//
@@ -12,13 +12,13 @@ import type { FinanceOption } from "../Models/FinanceOption";
  * @returns The created option, or null on failure.
  */
 export const AddFinanceOption = async (option: FinanceOption): Promise<FinanceOption | null> => {
-    try {
-        const response = await api.post<FinanceOption>("/api/FinanceOption/financeoption", option);
+    return CallApi(async () => {
+        const response = await client.api.post<FinanceOption>(
+            "/api/FinanceOption/financeoption",
+            option
+        );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //************************************//
@@ -35,15 +35,16 @@ export const GetFinanceOptions = async (
     includeInactive = false,
     territoryId?: number | null
 ): Promise<FinanceOption[] | null> => {
-    try {
-        const response = await api.get<FinanceOption[]>("/api/FinanceOption/financeoptions", {
-            params: territoryId == null ? { includeInactive } : { includeInactive, territoryId },
-        });
+    return CallApi(async () => {
+        const response = await client.api.get<FinanceOption[]>(
+            "/api/FinanceOption/financeoptions",
+            {
+                params:
+                    territoryId == null ? { includeInactive } : { includeInactive, territoryId },
+            }
+        );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //**************************************//
@@ -56,13 +57,13 @@ export const GetFinanceOptions = async (
  * @returns The updated option, or null on failure.
  */
 export const UpdateFinanceOption = async (option: FinanceOption): Promise<FinanceOption | null> => {
-    try {
-        const response = await api.patch<FinanceOption>("/api/FinanceOption/financeoption", option);
+    return CallApi(async () => {
+        const response = await client.api.patch<FinanceOption>(
+            "/api/FinanceOption/financeoption",
+            option
+        );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //************************************//
@@ -75,16 +76,13 @@ export const UpdateFinanceOption = async (option: FinanceOption): Promise<Financ
  * @returns The options as the catalog lists them, or null on failure.
  */
 export const ReorderFinanceOptions = async (ids: number[]): Promise<FinanceOption[] | null> => {
-    try {
-        const response = await api.put<FinanceOption[]>(
+    return CallApi(async () => {
+        const response = await client.api.put<FinanceOption[]>(
             "/api/FinanceOption/financeoptions/order",
             ids
         );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //***************************************//
@@ -97,11 +95,8 @@ export const ReorderFinanceOptions = async (ids: number[]): Promise<FinanceOptio
  * @returns True if the operation was successful, false otherwise.
  */
 export const DeleteFinanceOption = async (id: number): Promise<boolean> => {
-    try {
-        const response = await api.delete(`/api/FinanceOption/financeoption/${id}`);
+    return CallApi(async () => {
+        const response = await client.api.delete(`/api/FinanceOption/financeoption/${id}`);
         return response.status === 200;
-    } catch (error) {
-        HandleAxiosError(error);
-        return false;
-    }
+    }, false);
 };

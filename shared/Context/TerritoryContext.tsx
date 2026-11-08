@@ -2,7 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from "react";
 import { useAuth } from "./AuthContext";
 import { SharedStorageKeys } from "../Lib/StorageKeys";
-import { DeviceStorage, setTerritoryHeader } from "@host";
+import { client, DeviceStorage } from "@host";
 import { IsCompanyWide } from "../Models/User";
 import { ActiveTerritories } from "../Models/Territory";
 import type { Territory } from "../Models/Territory";
@@ -76,7 +76,7 @@ export const TerritoryProvider = ({ children }: { children: ReactNode }) => {
 
     // Set synchronously during render, so the requests children make on this render already
     // carry it.
-    setTerritoryHeader(canSwitch ? selected : null);
+    client.setTerritoryHeader(canSwitch ? selected : null);
 
     const setTerritoryId = useCallback((id: number | null) => {
         setSelected(id);

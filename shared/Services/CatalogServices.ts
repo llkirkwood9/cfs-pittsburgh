@@ -1,5 +1,5 @@
-import { api } from "@host";
-import { HandleAxiosError } from "../Lib/ErrorHandler";
+import { client } from "@host";
+import { CallApi } from "./CallApi";
 import type { CatalogFile, CatalogImportMode, CatalogImportResult } from "../Models/CatalogFile";
 
 //************************************//
@@ -11,13 +11,10 @@ import type { CatalogFile, CatalogImportMode, CatalogImportResult } from "../Mod
  * @returns The catalog file, or null on failure.
  */
 export const ExportCatalog = async (): Promise<CatalogFile | null> => {
-    try {
-        const response = await api.get<CatalogFile>("/api/Catalog/export");
+    return CallApi(async () => {
+        const response = await client.api.get<CatalogFile>("/api/Catalog/export");
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //*************************************//
@@ -35,14 +32,11 @@ export const ImportCatalog = async (
     catalog: CatalogFile,
     mode: CatalogImportMode
 ): Promise<CatalogImportResult | null> => {
-    try {
-        const response = await api.post<CatalogImportResult>("/api/Catalog/import", {
+    return CallApi(async () => {
+        const response = await client.api.post<CatalogImportResult>("/api/Catalog/import", {
             mode,
             catalog,
         });
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };

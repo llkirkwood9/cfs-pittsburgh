@@ -9,6 +9,7 @@ import { useCheckoutAcknowledgements } from "@shared/Hooks/useCheckoutForms";
 import { DetailsSummaryOf } from "@shared/Lib/Checkout";
 import { TermFor } from "@shared/Models/GeneralSettings";
 import type { Order } from "@shared/Models/Order";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     order: Order;
@@ -167,7 +168,7 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
                                 <input
                                     value={currentInitials}
                                     onChange={(e) => setCurrentInitials(e.target.value)}
-                                    maxLength={10}
+                                    maxLength={Limits.initials}
                                     autoCapitalize="characters"
                                     autoCorrect="off"
                                     placeholder="AB"
@@ -195,7 +196,7 @@ const AcknowledgementSheet = ({ order, onSave, onClose }: Props) => {
                                 <input
                                     value={printedName}
                                     onChange={(e) => setPrintedName(e.target.value)}
-                                    maxLength={150}
+                                    maxLength={Limits.printedName}
                                     autoCapitalize="words"
                                     className="mt-2 min-h-[60px] w-full rounded-2xl border-2 border-zinc-300 bg-white px-4
                                         text-lg text-zinc-900 outline-hidden focus:border-sky-600

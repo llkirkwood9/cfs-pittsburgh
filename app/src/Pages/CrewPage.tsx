@@ -19,6 +19,7 @@ import { useCrew } from "@shared/Hooks/useCrew";
 import { CrewRoleBlurbs, CrewTerritoryText, NeedsTerritory } from "@shared/Lib/Crew";
 import { FormatDateTime, FormatElapsed } from "@shared/Lib/Format";
 import { UserRoleLabels } from "@shared/Models/User";
+import { Limits } from "@shared/Lib/Limits";
 
 /**
  * Crew administration. Accounts are created here; there is no self-service signup, which keeps
@@ -212,14 +213,14 @@ const CrewPage = () => {
                             label="Name"
                             value={form.name}
                             onChange={(v) => setField("name", v)}
-                            maxLength={150}
+                            maxLength={Limits.crewName}
                             autoCapitalize="words"
                         />
                         <TextField
                             label="Username"
                             value={form.username}
                             onChange={(v) => setField("username", v)}
-                            maxLength={50}
+                            maxLength={Limits.username}
                             autoCapitalize="none"
                         />
                         <TextField
@@ -228,7 +229,7 @@ const CrewPage = () => {
                             onChange={(v) => setField("email", v)}
                             type="email"
                             inputMode="email"
-                            maxLength={200}
+                            maxLength={Limits.crewEmail}
                         />
                         <View className="gap-1">
                             <View className="flex-row items-end gap-2">
@@ -240,7 +241,7 @@ const CrewPage = () => {
                                     }
                                     value={form.password}
                                     onChange={(v) => setField("password", v)}
-                                    maxLength={128}
+                                    maxLength={Limits.password}
                                     autoCapitalize="none"
                                     className="min-w-0 flex-1"
                                 />

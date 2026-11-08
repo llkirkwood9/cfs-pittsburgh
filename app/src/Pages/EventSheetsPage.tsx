@@ -1,5 +1,5 @@
 import { Stack, useLocalSearchParams } from "expo-router";
-import { createRef, useMemo, useState } from "react";
+import { createRef, useMemo } from "react";
 import { ScrollView, View } from "react-native";
 import ReceiptSheet from "../Components/Checkout/ReceiptSheet";
 import SheetViewer from "../Components/Checkout/SheetViewer";
@@ -12,13 +12,8 @@ import Text from "../Components/Elements/Text";
 import InventoryNotesEditor from "../Components/Inventory/InventoryNotesEditor";
 import InventorySheet from "../Components/Inventory/InventorySheet";
 import { FormatCurrency, FormatShortDate } from "@shared/Lib/Format";
-import { DownloadCsv } from "../Lib/SalesExport";
 import { useEventSheets } from "@shared/Hooks/useEventSheets";
-import { BuildSalesCsv, EventFileBase } from "@shared/Lib/SalesCsv";
-import { PdfUpload, PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
 import type { SheetRef } from "../Lib/SheetPdf";
-import { Toast } from "../Lib/Toast";
-import { EmailEventReport } from "@shared/Services/EmailServices";
 
 /**
  * Every completed sales sheet for one event, stacked one per printed page, between the stat sheet
@@ -29,11 +24,22 @@ import { EmailEventReport } from "@shared/Services/EmailServices";
  */
 const EventSheetsPage = () => {
     const { eventId } = useLocalSearchParams<{ eventId: string }>();
-    const { saleEvent, orders, stats, inventory, loading, emailStatus, notesSaved } =
-        useEventSheets(Number(eventId));
-
-    const [emailing, setEmailing] = useState<boolean>(false);
-    const [printProgress, setPrintProgress] = useState<string | null>(null);
+    const {
+        saleEvent,
+        orders,
+        stats,
+        inventory,
+        loading,
+        notesSaved,
+        total,
+        downloadCsv,
+        print,
+        printProgress,
+        emailing,
+        startEmail,
+        stopEmail,
+        sendReport,
+    } = useEventSheets(Number(eventId));
 
     // One ref per page, in print order: the stat sheet, each sales sheet, the inventory sheet.
     const statRef = useMemo<SheetRef>(() => createRef<View>(), []);
@@ -47,37 +53,6 @@ const EventSheetsPage = () => {
         ...orderRefs,
         ...(inventory.length > 0 ? [inventoryRef] : []),
     ];
-
-    const fileBase = EventFileBase(saleEvent);
-
-    const handleDownload = async () => {
-        if (orders.length === 0) return Toast.Warning("There are no completed sales to export.");
-        await DownloadCsv(`${fileBase}-sales.csv`, BuildSalesCsv(orders));
-    };
-
-    // Printed from the same PDF that email sends, so the sheets come out the same from any device.
-    const handlePrint = async () => {
-        if (pages.length === 0) return Toast.Warning("There are no completed sales to print.");
-
-        setPrintProgress("Making the PDF...");
-        await PrintSheetsPdf(
-            pages,
-            (page, total) => setPrintProgress(`Making the PDF: ${page} of ${total}...`),
-            `${fileBase}-sales-sheets`
-        );
-        setPrintProgress(null);
-    };
-
-    const handleEmail = () => {
-        if (!emailStatus?.configured)
-            return Toast.Warning(
-                "Email isn't set up on this server yet. Ask whoever runs the app to add the email settings."
-            );
-        if (pages.length === 0) return Toast.Warning("There are no completed sales to report yet.");
-        setEmailing(true);
-    };
-
-    const total = orders.reduce((sum, o) => sum + (o.total ?? 0), 0);
 
     return (
         <View className="flex-1 bg-zinc-200 dark:bg-zinc-900">
@@ -94,19 +69,19 @@ const EventSheetsPage = () => {
                         <Button
                             text="Share CSV"
                             icon="fa-solid fa-file-csv"
-                            onClick={handleDownload}
+                            onClick={downloadCsv}
                             className="bg-green-700 dark:bg-green-600"
                         />
                         <Button
                             text="Email report"
                             icon="fa-solid fa-envelope"
-                            onClick={handleEmail}
+                            onClick={startEmail}
                             className="bg-zinc-600 dark:bg-zinc-600"
                         />
                         <Button
                             text={printProgress ?? "Print"}
                             icon="fa-solid fa-print"
-                            onClick={handlePrint}
+                            onClick={() => print(pages)}
                             loading={printProgress !== null}
                             disabled={printProgress !== null}
                         />
@@ -178,15 +153,8 @@ const EventSheetsPage = () => {
                         inventory.length > 0 ? " and the accessory inventory sheet" : ""
                     }.`}
                     withMessage
-                    onSend={async (to, message, report) => {
-                        const pdf = await TryBuildSheetsPdf(pages, (page, count) =>
-                            report(`Making the PDF: page ${page} of ${count}...`)
-                        );
-                        if (!pdf) return null;
-                        report("Sending...");
-                        return EmailEventReport(saleEvent.id!, to, message, PdfUpload(pdf));
-                    }}
-                    onClose={() => setEmailing(false)}
+                    onSend={(to, message, progress) => sendReport(pages, to, message, progress)}
+                    onClose={stopEmail}
                 />
             )}
         </View>

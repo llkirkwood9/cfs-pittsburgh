@@ -13,6 +13,7 @@ import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
 import { useTerritories } from "@shared/Hooks/useTerritories";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
+import { Limits } from "@shared/Lib/Limits";
 
 /**
  * Territories, for system admins and administrators. Each one has its own crew, events, stock,
@@ -168,7 +169,7 @@ const TerritoriesPage = () => {
                         value={page.name}
                         onChange={page.setName}
                         onSubmit={page.save}
-                        maxLength={100}
+                        maxLength={Limits.territoryName}
                         autoFocus
                         autoCapitalize="words"
                     />

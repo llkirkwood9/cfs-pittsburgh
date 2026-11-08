@@ -1,5 +1,5 @@
-import { api } from "@host";
-import { HandleAxiosError } from "../Lib/ErrorHandler";
+import { client } from "@host";
+import { CallApi } from "./CallApi";
 
 /** Whether the server can send email, and the address it sends from. */
 export type EmailStatus = {
@@ -20,7 +20,7 @@ const SendForm = async (url: string, pdf: PdfUpload, to: string, message?: strin
     if (message) form.append("message", message);
     form.append("pdf", pdf, "sheets.pdf");
     // Overrides the instance's JSON default; the browser fills in the multipart boundary.
-    const response = await api.post<{ sentTo: string[] }>(url, form, {
+    const response = await client.api.post<{ sentTo: string[] }>(url, form, {
         headers: { "Content-Type": "multipart/form-data" },
         timeout: 120000,
     });
@@ -43,12 +43,9 @@ export const EmailReceipt = async (
     to: string,
     pdf: PdfUpload
 ): Promise<string[] | null> => {
-    try {
+    return CallApi(async () => {
         return await SendForm(`/api/Email/order/${orderId}/receipt`, pdf, to);
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -65,12 +62,9 @@ export const EmailEventReport = async (
     message: string,
     pdf: PdfUpload
 ): Promise<string[] | null> => {
-    try {
+    return CallApi(async () => {
         return await SendForm(`/api/Email/event/${eventId}/report`, pdf, to, message);
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //************************************//
@@ -83,7 +77,7 @@ export const EmailEventReport = async (
  */
 export const GetEmailStatus = async (): Promise<EmailStatus> => {
     try {
-        const response = await api.get<EmailStatus>("/api/Email/status");
+        const response = await client.api.get<EmailStatus>("/api/Email/status");
         return response.data;
     } catch {
         // A quiet failure: the email button simply says email isn't available.

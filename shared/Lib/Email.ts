@@ -1,3 +1,7 @@
+/** What the email buttons say when the server has no email settings. */
+export const EMAIL_NOT_SET_UP =
+    "Email isn't set up on this server yet. Ask whoever runs the app to add the email settings.";
+
 /** The most addresses one email goes to. */
 const MAX_ADDRESSES = 10;
 

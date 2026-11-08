@@ -14,13 +14,13 @@ import { cx } from "../Lib/ClassNames";
 import { GetServerUrl } from "../Lib/Server";
 import { ScreenLinks } from "../Lib/ScreenLinks";
 import { APP_VERSION } from "../Lib/Version";
-import { CanOpen, MenuScreens, Screens } from "@shared/Lib/Screens";
+import { CanOpen, MenuIcons, MenuScreens, Screens } from "@shared/Lib/Screens";
 
 /** The dashboard's menu past the four tabs on the bar, in the same order. */
 const items = MenuScreens.filter((screen) => ScreenLinks[screen].inMore).map((screen) => ({
     screen,
     href: ScreenLinks[screen].href,
-    icon: ScreenLinks[screen].icon,
+    icon: MenuIcons[screen],
     label: Screens[screen].title,
 }));
 

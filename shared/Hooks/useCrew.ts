@@ -3,9 +3,7 @@ import { Toast } from "@host";
 import { useAuth } from "../Context/AuthContext";
 import { useTerritory } from "../Context/TerritoryContext";
 import {
-    AssignableRoles,
     BuildCrewMember,
-    CanManageCrew,
     MakePassword,
     NewCrewTerritoryIds,
     TerritoriesElsewhere,
@@ -13,8 +11,14 @@ import {
 import type { CrewForm, RandomValues } from "../Lib/Crew";
 import { ActiveTerritories } from "../Models/Territory";
 import { HasRole, IsCompanyWide } from "../Models/User";
-import type { User } from "../Models/User";
-import { AddUser, DeleteUser, GetUsers, UpdateUser } from "../Services/UserServices";
+import type { User, UserRole } from "../Models/User";
+import {
+    AddUser,
+    DeleteUser,
+    GetAssignableRoles,
+    GetUsers,
+    UpdateUser,
+} from "../Services/UserServices";
 
 const emptyForm: CrewForm = {
     name: "",
@@ -42,10 +46,16 @@ export const useCrew = (randomValues: RandomValues) => {
     const [saving, setSaving] = useState<boolean>(false);
     const [deactivating, setDeactivating] = useState<User | null>(null);
     const [removing, setRemoving] = useState<User | null>(null);
+    // The roles this user may give, as the server decides them.
+    const [assignable, setAssignable] = useState<UserRole[]>([]);
 
     const load = useCallback(async () => {
         setUsers((await GetUsers()) ?? []);
         setLoading(false);
+    }, []);
+
+    useEffect(() => {
+        GetAssignableRoles().then((roles) => setAssignable(roles ?? []));
     }, []);
 
     useEffect(() => {
@@ -54,14 +64,14 @@ export const useCrew = (randomValues: RandomValues) => {
 
     const isSystemAdmin = HasRole(user?.role, "SystemAdmin");
     const companyWide = IsCompanyWide(user?.role);
-    const assignable = AssignableRoles(user?.role);
     // The territories this user can put people in: every switched-on one for system admins and
     // administrators, a manager's own for a manager.
     const activeTerritories = ActiveTerritories(territories);
     // Someone with only one territory to offer doesn't need to choose.
     const chooseTerritories = companyWide || activeTerritories.length > 1;
 
-    const canManage = (crew: User): boolean => (user ? CanManageCrew(user, crew) : false);
+    // Whether this user may change an account, as the server says on the crew list.
+    const canManage = (crew: User): boolean => crew.canEdit === true;
 
     /**
      * Changes one field of the open form.

@@ -7,6 +7,7 @@ import TextField from "../Elements/TextField";
 import { cx } from "../../Lib/ClassNames";
 import { OptionEdits } from "@shared/Lib/CatalogDrafts";
 import type { DraftChoice, DraftOption } from "@shared/Lib/CatalogDrafts";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     options: DraftOption[];
@@ -61,7 +62,7 @@ const OptionsEditor = ({ options, onChange, trackInventory }: Props) => {
                                 value={option.name}
                                 onChange={(value) => setOption(option.key, { name: value })}
                                 placeholder="Color"
-                                maxLength={50}
+                                maxLength={Limits.optionName}
                                 autoCapitalize="words"
                                 className="min-w-[160px] flex-1"
                             />
@@ -128,7 +129,7 @@ const OptionsEditor = ({ options, onChange, trackInventory }: Props) => {
                                         onChangeText={(value) =>
                                             setChoice(option.key, choice.key, { name: value })
                                         }
-                                        maxLength={50}
+                                        maxLength={Limits.optionName}
                                         placeholder="Choice, ex. Gray"
                                         placeholderTextColor="#a1a1aa"
                                         accessibilityLabel={`${option.name || "Selection"} choice`}

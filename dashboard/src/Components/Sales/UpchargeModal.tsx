@@ -4,6 +4,7 @@ import TextField from "../Elements/TextField";
 import { useUpchargeEditor } from "@shared/Hooks/useSalesForms";
 import { FormatCurrency } from "@shared/Lib/Format";
 import type { OrderLine } from "@shared/Models/OrderLine";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     /** The item the upcharge is for. */
@@ -61,7 +62,7 @@ const UpchargeModal = ({ parentLine, line, onSave, onClose }: Props) => {
                     onChange={setReason}
                     placeholder="ex. Custom size"
                     className="sm:col-span-2"
-                    maxLength={300}
+                    maxLength={Limits.upchargeReason}
                     autoFocus
                 />
                 <TextField

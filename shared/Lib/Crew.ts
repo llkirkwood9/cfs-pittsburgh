@@ -47,37 +47,6 @@ export const MakePassword = (randomValues: RandomValues): string => {
 };
 
 /**
- * Whether the signed-in user may change a crew member's account. Matches the API: system admins
- * manage everyone, administrators everyone but system admins, managers only the Sales and
- * Checkout crew of their own territories (and themselves, for their details).
- * @param user The signed-in user.
- * @param crew The account.
- * @returns True when they may edit it.
- */
-export const CanManageCrew = (user: User, crew: User): boolean => {
-    if (user.role === "SystemAdmin") return true;
-    if (user.role === "Admin") return crew.role !== "SystemAdmin";
-    if (crew.id === user.id) return true;
-    const own = user.territoryIds ?? [];
-    return (
-        (crew.territoryIds ?? []).some((id) => own.includes(id)) &&
-        (crew.role === "Sales" || crew.role === "Checkout" || crew.role === "SalesCheckout")
-    );
-};
-
-/**
- * The roles someone can give: never above their own, and a manager can't make managers.
- * @param role The signed-in user's role.
- * @returns The roles, least senior first.
- */
-export const AssignableRoles = (role: UserRole | null | undefined): UserRole[] =>
-    CrewRoles.filter((r) => {
-        if (r === "SystemAdmin") return role === "SystemAdmin";
-        if (r === "Admin" || r === "Manager") return IsCompanyWide(role);
-        return true;
-    });
-
-/**
  * Where a crew member works, as the list shows it after their role, e.g. " · Butler, Erie".
  * @param crew The account.
  * @returns The text, or an empty string.

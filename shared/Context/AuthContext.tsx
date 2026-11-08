@@ -1,13 +1,6 @@
 import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import {
-    endSession,
-    hasStoredSession,
-    refreshSession,
-    startSession,
-    subscribePasswordRequired,
-    subscribeTokenChanged,
-} from "@host";
+import { client } from "@host";
 import { GetCurrentUser, Login as LoginRequest } from "../Services/AuthServices";
 import { HasRole } from "../Models/User";
 import type { AuthResponse } from "../Models/AuthResponse";
@@ -46,11 +39,11 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const restoring = useRef<boolean>(true);
 
     useEffect(() => {
-        const offToken = subscribeTokenChanged((token) => {
+        const offToken = client.subscribeTokenChanged((token) => {
             if (!token) setUser(null);
         });
         // The API refuses everything but changing the password until a new one is chosen.
-        const offPassword = subscribePasswordRequired(() =>
+        const offPassword = client.subscribePasswordRequired(() =>
             setUser((current) => (current ? { ...current, mustChangePassword: true } : current))
         );
 
@@ -62,7 +55,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
 
     useEffect(() => {
         const restore = async () => {
-            if (!hasStoredSession()) {
+            if (!client.hasStoredSession()) {
                 restoring.current = false;
                 setLoading(false);
                 return;
@@ -72,7 +65,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
             // request timeout; past this the crew member goes to the sign-in screen.
             let session: AuthResponse | null = null;
             try {
-                session = await Promise.race([refreshSession(), wait(RESTORE_WAIT_MS)]);
+                session = await Promise.race([client.refreshSession(), wait(RESTORE_WAIT_MS)]);
             } catch {
                 // Offline at start-up: the sign-in screen, with the session still kept.
             }
@@ -89,7 +82,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
         const result = await LoginRequest(username, password);
         if (!result?.accessToken) return null;
 
-        startSession(result);
+        client.startSession(result);
         setUser(result.user ?? null);
         return result.user ?? null;
     };
@@ -97,7 +90,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     const logout = async (): Promise<void> => {
         restoring.current = false;
         // Tell the server, but don't keep the crew member waiting on one that can't be reached.
-        await Promise.race([endSession(), wait(LOGOUT_WAIT_MS)]);
+        await Promise.race([client.endSession(), wait(LOGOUT_WAIT_MS)]);
         setUser(null);
         setLoading(false);
     };

@@ -1,5 +1,6 @@
 import { FormatCurrency } from "./Format";
 import {
+    CardFeeWaived,
     FinancingComments,
     PaidBy,
     PaymentMethodLabels,
@@ -91,8 +92,7 @@ export const ReceiptModel = (order: Order, settingsTerms: SalesTerm[]) => {
     const cardFee =
         (order.ccProcessingFee ?? 0) > 0
             ? FormatCurrency(order.ccProcessingFee)
-            : order.waiveCcProcessingFee &&
-                (order.payments ?? []).some((p) => p.method === "VisaMc")
+            : CardFeeWaived(order)
               ? "Waived"
               : "—";
 

@@ -1,5 +1,5 @@
-import { api } from "@host";
-import { HandleAxiosError } from "../Lib/ErrorHandler";
+import { client } from "@host";
+import { CallApi } from "./CallApi";
 import type { DashboardStats } from "../Models/DashboardStats";
 import type { TerritoryStats } from "../Models/Territory";
 
@@ -13,13 +13,12 @@ import type { TerritoryStats } from "../Models/Territory";
  * @returns The computed stat sheet, or null on failure.
  */
 export const GetStatsForEvent = async (eventId: number): Promise<DashboardStats | null> => {
-    try {
-        const response = await api.get<DashboardStats>(`/api/Dashboard/stats/event/${eventId}`);
+    return CallApi(async () => {
+        const response = await client.api.get<DashboardStats>(
+            `/api/Dashboard/stats/event/${eventId}`
+        );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -28,13 +27,10 @@ export const GetStatsForEvent = async (eventId: number): Promise<DashboardStats 
  * @returns The computed stat sheet, or null on failure.
  */
 export const GetStatsForAllEvents = async (): Promise<DashboardStats | null> => {
-    try {
-        const response = await api.get<DashboardStats>("/api/Dashboard/stats/all");
+    return CallApi(async () => {
+        const response = await client.api.get<DashboardStats>("/api/Dashboard/stats/all");
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -47,13 +43,13 @@ export const GetTerritoryComparison = async (
     from?: string,
     to?: string
 ): Promise<TerritoryStats[] | null> => {
-    try {
-        const response = await api.get<TerritoryStats[]>("/api/Dashboard/stats/territories", {
-            params: { from, to },
-        });
+    return CallApi(async () => {
+        const response = await client.api.get<TerritoryStats[]>(
+            "/api/Dashboard/stats/territories",
+            {
+                params: { from, to },
+            }
+        );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };

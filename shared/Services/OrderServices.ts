@@ -1,6 +1,6 @@
-import { api } from "@host";
+import { client } from "@host";
 import { CheckoutQueueChanged } from "../Lib/CheckoutWaiting";
-import { HandleAxiosError } from "../Lib/ErrorHandler";
+import { CallApi } from "./CallApi";
 import type { Order, OrderStatus } from "../Models/Order";
 import type { OrderLine } from "../Models/OrderLine";
 import type { OrderPayment } from "../Models/OrderPayment";
@@ -17,16 +17,13 @@ import type { OrderSummary } from "../Models/OrderSummary";
  * @returns The created order, or null on failure.
  */
 export const AddOrder = async (eventId: number, draftLabel?: string): Promise<Order | null> => {
-    try {
-        const response = await api.post<Order>("/api/Order/order", {
+    return CallApi(async () => {
+        const response = await client.api.post<Order>("/api/Order/order", {
             eventId,
             draftLabel,
         });
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -37,13 +34,10 @@ export const AddOrder = async (eventId: number, draftLabel?: string): Promise<Or
  * @returns The recalculated order, or null on failure.
  */
 export const AddOrderLine = async (orderId: number, line: OrderLine): Promise<Order | null> => {
-    try {
-        const response = await api.post<Order>(`/api/Order/order/${orderId}/line`, line);
+    return CallApi(async () => {
+        const response = await client.api.post<Order>(`/api/Order/order/${orderId}/line`, line);
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -56,13 +50,13 @@ export const AddOrderPayment = async (
     orderId: number,
     payment: OrderPayment
 ): Promise<Order | null> => {
-    try {
-        const response = await api.post<Order>(`/api/Order/order/${orderId}/payment`, payment);
+    return CallApi(async () => {
+        const response = await client.api.post<Order>(
+            `/api/Order/order/${orderId}/payment`,
+            payment
+        );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -71,14 +65,11 @@ export const AddOrderPayment = async (
  * @returns The submitted order, or null on failure.
  */
 export const SubmitOrder = async (orderId: number): Promise<Order | null> => {
-    try {
-        const response = await api.post<Order>(`/api/Order/order/${orderId}/submit`);
+    return CallApi(async () => {
+        const response = await client.api.post<Order>(`/api/Order/order/${orderId}/submit`);
         CheckoutQueueChanged();
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -87,14 +78,11 @@ export const SubmitOrder = async (orderId: number): Promise<Order | null> => {
  * @returns The completed order, or null on failure.
  */
 export const CompleteOrder = async (orderId: number): Promise<Order | null> => {
-    try {
-        const response = await api.post<Order>(`/api/Order/order/${orderId}/complete`);
+    return CallApi(async () => {
+        const response = await client.api.post<Order>(`/api/Order/order/${orderId}/complete`);
         CheckoutQueueChanged();
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -108,16 +96,13 @@ export const ReopenOrder = async (
     orderId: number,
     to: "floor" | "checkout" = "floor"
 ): Promise<Order | null> => {
-    try {
-        const response = await api.post<Order>(`/api/Order/order/${orderId}/reopen`, null, {
+    return CallApi(async () => {
+        const response = await client.api.post<Order>(`/api/Order/order/${orderId}/reopen`, null, {
             params: { to },
         });
         CheckoutQueueChanged();
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -126,14 +111,11 @@ export const ReopenOrder = async (
  * @returns The voided order, or null on failure.
  */
 export const VoidOrder = async (orderId: number): Promise<Order | null> => {
-    try {
-        const response = await api.post<Order>(`/api/Order/order/${orderId}/void`);
+    return CallApi(async () => {
+        const response = await client.api.post<Order>(`/api/Order/order/${orderId}/void`);
         CheckoutQueueChanged();
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //************************************//
@@ -150,15 +132,15 @@ export const GetOrdersForEvent = async (
     eventId: number,
     status?: OrderStatus
 ): Promise<OrderSummary[] | null> => {
-    try {
-        const response = await api.get<OrderSummary[]>(`/api/Order/orders/event/${eventId}`, {
-            params: status ? { status } : undefined,
-        });
+    return CallApi(async () => {
+        const response = await client.api.get<OrderSummary[]>(
+            `/api/Order/orders/event/${eventId}`,
+            {
+                params: status ? { status } : undefined,
+            }
+        );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -168,18 +150,15 @@ export const GetOrdersForEvent = async (
  * @returns Draft summaries, or null on failure.
  */
 export const GetDrafts = async (eventId: number, all = false): Promise<OrderSummary[] | null> => {
-    try {
-        const response = await api.get<OrderSummary[]>(
+    return CallApi(async () => {
+        const response = await client.api.get<OrderSummary[]>(
             `/api/Order/orders/drafts/event/${eventId}`,
             {
                 params: { all },
             }
         );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -188,15 +167,12 @@ export const GetDrafts = async (eventId: number, all = false): Promise<OrderSumm
  * @returns Order summaries awaiting checkout, or null on failure.
  */
 export const GetCheckoutQueue = async (eventId: number): Promise<OrderSummary[] | null> => {
-    try {
-        const response = await api.get<OrderSummary[]>(
+    return CallApi(async () => {
+        const response = await client.api.get<OrderSummary[]>(
             `/api/Order/orders/checkout/event/${eventId}`
         );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -209,8 +185,8 @@ export const GetAllOrders = async (options?: {
     search?: string;
     take?: number;
 }): Promise<OrderSummary[] | null> => {
-    try {
-        const response = await api.get<OrderSummary[]>("/api/Order/orders", {
+    return CallApi(async () => {
+        const response = await client.api.get<OrderSummary[]>("/api/Order/orders", {
             params: {
                 status: options?.status,
                 search: options?.search || undefined,
@@ -218,10 +194,7 @@ export const GetAllOrders = async (options?: {
             },
         });
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -234,15 +207,15 @@ export const GetSalesSheetsForEvent = async (
     eventId: number,
     status?: OrderStatus
 ): Promise<Order[] | null> => {
-    try {
-        const response = await api.get<Order[]>(`/api/Order/orders/event/${eventId}/sheets`, {
-            params: status ? { status } : undefined,
-        });
+    return CallApi(async () => {
+        const response = await client.api.get<Order[]>(
+            `/api/Order/orders/event/${eventId}/sheets`,
+            {
+                params: status ? { status } : undefined,
+            }
+        );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -251,13 +224,10 @@ export const GetSalesSheetsForEvent = async (
  * @returns The order, or null on failure.
  */
 export const GetOrder = async (id: number): Promise<Order | null> => {
-    try {
-        const response = await api.get<Order>(`/api/Order/order/${id}`);
+    return CallApi(async () => {
+        const response = await client.api.get<Order>(`/api/Order/order/${id}`);
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //**************************************//
@@ -270,13 +240,10 @@ export const GetOrder = async (id: number): Promise<Order | null> => {
  * @returns The recalculated order, or null on failure.
  */
 export const UpdateOrder = async (orderData: Order): Promise<Order | null> => {
-    try {
-        const response = await api.patch<Order>("/api/Order/order", orderData);
+    return CallApi(async () => {
+        const response = await client.api.patch<Order>("/api/Order/order", orderData);
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -289,13 +256,13 @@ export const ReorderOrderLines = async (
     orderId: number,
     itemIds: number[]
 ): Promise<Order | null> => {
-    try {
-        const response = await api.put<Order>(`/api/Order/order/${orderId}/lines/order`, itemIds);
+    return CallApi(async () => {
+        const response = await client.api.put<Order>(
+            `/api/Order/order/${orderId}/lines/order`,
+            itemIds
+        );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -304,13 +271,10 @@ export const ReorderOrderLines = async (
  * @returns The recalculated order, or null on failure.
  */
 export const UpdateOrderLine = async (line: OrderLine): Promise<Order | null> => {
-    try {
-        const response = await api.patch<Order>("/api/Order/line", line);
+    return CallApi(async () => {
+        const response = await client.api.patch<Order>("/api/Order/line", line);
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //***************************************//
@@ -324,17 +288,14 @@ export const UpdateOrderLine = async (line: OrderLine): Promise<Order | null> =>
  * @returns True if the operation was successful, false otherwise.
  */
 export const DeleteOrder = async (id: number, permanent = false): Promise<boolean> => {
-    try {
+    return CallApi(async () => {
         // permanent is system-admin-only: it deletes for good instead of archiving or refusing.
-        const response = await api.delete(`/api/Order/order/${id}`, {
+        const response = await client.api.delete(`/api/Order/order/${id}`, {
             params: permanent ? { permanent: true } : undefined,
         });
         CheckoutQueueChanged();
         return response.status === 200;
-    } catch (error) {
-        HandleAxiosError(error);
-        return false;
-    }
+    }, false);
 };
 
 /**
@@ -343,13 +304,10 @@ export const DeleteOrder = async (id: number, permanent = false): Promise<boolea
  * @returns The recalculated order, or null on failure.
  */
 export const DeleteOrderLine = async (id: number): Promise<Order | null> => {
-    try {
-        const response = await api.delete<Order>(`/api/Order/line/${id}`);
+    return CallApi(async () => {
+        const response = await client.api.delete<Order>(`/api/Order/line/${id}`);
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -358,11 +316,8 @@ export const DeleteOrderLine = async (id: number): Promise<Order | null> => {
  * @returns The recalculated order, or null on failure.
  */
 export const DeleteOrderPayment = async (id: number): Promise<Order | null> => {
-    try {
-        const response = await api.delete<Order>(`/api/Order/payment/${id}`);
+    return CallApi(async () => {
+        const response = await client.api.delete<Order>(`/api/Order/payment/${id}`);
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };

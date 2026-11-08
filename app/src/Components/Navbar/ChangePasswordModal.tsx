@@ -5,6 +5,7 @@ import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
 import { useAuth } from "@shared/Context/AuthContext";
 import { useChangePassword } from "@shared/Hooks/useChangePassword";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     onClose: () => void;
@@ -55,7 +56,7 @@ const ChangePasswordModal = ({ onClose, forced = false }: Props) => {
                     value={current}
                     onChange={setCurrent}
                     type="password"
-                    maxLength={128}
+                    maxLength={Limits.password}
                     autoComplete="current-password"
                     autoFocus
                 />
@@ -64,7 +65,7 @@ const ChangePasswordModal = ({ onClose, forced = false }: Props) => {
                     value={next}
                     onChange={setNext}
                     type="password"
-                    maxLength={128}
+                    maxLength={Limits.password}
                     autoComplete="new-password"
                 />
                 <TextField
@@ -73,7 +74,7 @@ const ChangePasswordModal = ({ onClose, forced = false }: Props) => {
                     onChange={setConfirm}
                     onSubmit={save}
                     type="password"
-                    maxLength={128}
+                    maxLength={Limits.password}
                     autoComplete="new-password"
                 />
                 <Text className="text-xs text-zinc-500 dark:text-zinc-400">

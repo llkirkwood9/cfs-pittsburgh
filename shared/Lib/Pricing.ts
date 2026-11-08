@@ -127,33 +127,12 @@ export const SizeTracked = (product: Product, variant?: ProductVariant | null): 
     Boolean(product.trackInventory && variant && !variant.excludeFromInventory);
 
 /**
- * The selections whose stock is counted, in the order the server builds stock keys.
+ * The selections whose stock is counted, as the server says (countsStock), by selection id.
  * @param product The product.
  * @returns The counted selections.
  */
 export const CountedOptions = (product: Product): ProductOption[] =>
-    product.trackInventory
-        ? (product.options ?? [])
-              .filter((o) => o.tracksStock && (o.choices ?? []).length > 0)
-              .sort((a, b) => (a.id ?? 0) - (b.id ?? 0))
-        : [];
-
-/**
- * The stock key for the choices picked, matching the server: counted selections as
- * "selection:choice", by selection id, joined with "|". Null while a counted one is unpicked.
- * @param product The product.
- * @param picked Selection id to choice id.
- * @returns The key ("" when nothing is counted), or null when incomplete.
- */
-export const StockKeyFor = (product: Product, picked: Record<number, number>): string | null => {
-    const parts: string[] = [];
-    for (const option of CountedOptions(product)) {
-        const choice = picked[option.id ?? 0];
-        if (choice === undefined) return null;
-        parts.push(`${option.id}:${choice}`);
-    }
-    return parts.join("|");
-};
+    (product.options ?? []).filter((o) => o.countsStock).sort((a, b) => (a.id ?? 0) - (b.id ?? 0));
 
 /**
  * Units on hand of a size for the choices picked, or null when the size isn't tracked or a
@@ -169,10 +148,15 @@ export const StockFor = (
     picked: Record<number, number>
 ): number | null => {
     if (!variant || !SizeTracked(product, variant)) return null;
-    const key = StockKeyFor(product, picked);
-    if (key === null) return null;
-    if (key === "") return variant.quantityOnHand ?? 0;
-    return variant.stocks?.find((s) => s.stockKey === key)?.quantityOnHand ?? 0;
+    const counted = CountedOptions(product);
+    if (counted.some((o) => picked[o.id ?? 0] === undefined)) return null;
+    if (counted.length === 0) return variant.quantityOnHand ?? 0;
+    // The server lists each combination with the choices it's made of; find the one picked.
+    const chosen = new Set(Object.values(picked));
+    return (
+        variant.stocks?.find((s) => (s.choiceIds ?? []).every((id) => chosen.has(id)))
+            ?.quantityOnHand ?? 0
+    );
 };
 
 /**

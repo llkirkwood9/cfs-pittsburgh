@@ -1,5 +1,5 @@
-import { api } from "@host";
-import { HandleAxiosError } from "../Lib/ErrorHandler";
+import { client } from "@host";
+import { CallApi } from "./CallApi";
 import type { Territory } from "../Models/Territory";
 
 //*************************************//
@@ -17,16 +17,13 @@ export const AddTerritory = async (
     name: string,
     copyCatalogFromTerritoryId?: number | null
 ): Promise<Territory | null> => {
-    try {
-        const response = await api.post<Territory>("/api/Territory/territory", {
+    return CallApi(async () => {
+        const response = await client.api.post<Territory>("/api/Territory/territory", {
             name,
             copyCatalogFromTerritoryId: copyCatalogFromTerritoryId ?? undefined,
         });
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //************************************//
@@ -40,15 +37,12 @@ export const AddTerritory = async (
  * @returns The territories, or null on failure.
  */
 export const GetTerritories = async (includeInactive = false): Promise<Territory[] | null> => {
-    try {
-        const response = await api.get<Territory[]>("/api/Territory/territories", {
+    return CallApi(async () => {
+        const response = await client.api.get<Territory[]>("/api/Territory/territories", {
             params: { includeInactive },
         });
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //**************************************//
@@ -61,13 +55,10 @@ export const GetTerritories = async (includeInactive = false): Promise<Territory
  * @returns The updated territory, or null on failure.
  */
 export const UpdateTerritory = async (territory: Territory): Promise<Territory | null> => {
-    try {
-        const response = await api.patch<Territory>("/api/Territory/territory", territory);
+    return CallApi(async () => {
+        const response = await client.api.patch<Territory>("/api/Territory/territory", territory);
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //***************************************//
@@ -80,11 +71,8 @@ export const UpdateTerritory = async (territory: Territory): Promise<Territory |
  * @returns True when it was deleted.
  */
 export const DeleteTerritory = async (id: number): Promise<boolean> => {
-    try {
-        await api.delete(`/api/Territory/territory/${id}`);
+    return CallApi(async () => {
+        await client.api.delete(`/api/Territory/territory/${id}`);
         return true;
-    } catch (error) {
-        HandleAxiosError(error);
-        return false;
-    }
+    }, false);
 };

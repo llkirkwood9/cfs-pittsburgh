@@ -1,6 +1,6 @@
-import { api } from "@host";
-import { HandleAxiosError } from "../Lib/ErrorHandler";
-import type { User } from "../Models/User";
+import { client } from "@host";
+import { CallApi } from "./CallApi";
+import type { User, UserRole } from "../Models/User";
 
 //*************************************//
 //*********** POST METHODS ************//
@@ -12,13 +12,10 @@ import type { User } from "../Models/User";
  * @returns The created user, or null on failure.
  */
 export const AddUser = async (newUserData: User): Promise<User | null> => {
-    try {
-        const response = await api.post<User>("/api/User/user", newUserData);
+    return CallApi(async () => {
+        const response = await client.api.post<User>("/api/User/user", newUserData);
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //************************************//
@@ -30,13 +27,21 @@ export const AddUser = async (newUserData: User): Promise<User | null> => {
  * @returns All users, or null on failure.
  */
 export const GetUsers = async (): Promise<User[] | null> => {
-    try {
-        const response = await api.get<User[]>("/api/User/users");
+    return CallApi(async () => {
+        const response = await client.api.get<User[]>("/api/User/users");
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
+};
+
+/**
+ * Lists the roles the signed-in user may give a crew account.
+ * @returns The roles, or null on failure.
+ */
+export const GetAssignableRoles = async (): Promise<UserRole[] | null> => {
+    return CallApi(async () => {
+        const response = await client.api.get<UserRole[]>("/api/User/assignable-roles");
+        return response.data;
+    }, null);
 };
 
 /**
@@ -44,13 +49,10 @@ export const GetUsers = async (): Promise<User[] | null> => {
  * @returns Rep names, or null on failure.
  */
 export const GetReps = async (): Promise<string[] | null> => {
-    try {
-        const response = await api.get<string[]>("/api/User/reps");
+    return CallApi(async () => {
+        const response = await client.api.get<string[]>("/api/User/reps");
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //**************************************//
@@ -63,13 +65,10 @@ export const GetReps = async (): Promise<string[] | null> => {
  * @returns The updated user, or null on failure.
  */
 export const UpdateUser = async (userData: User): Promise<User | null> => {
-    try {
-        const response = await api.patch<User>("/api/User/user", userData);
+    return CallApi(async () => {
+        const response = await client.api.patch<User>("/api/User/user", userData);
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //***************************************//
@@ -83,14 +82,11 @@ export const UpdateUser = async (userData: User): Promise<User | null> => {
  * @returns True if the operation was successful, false otherwise.
  */
 export const DeleteUser = async (id: number, permanent = false): Promise<boolean> => {
-    try {
+    return CallApi(async () => {
         // permanent is system-admin-only: it deletes for good instead of archiving or refusing.
-        const response = await api.delete(`/api/User/user/${id}`, {
+        const response = await client.api.delete(`/api/User/user/${id}`, {
             params: permanent ? { permanent: true } : undefined,
         });
         return response.status === 200;
-    } catch (error) {
-        HandleAxiosError(error);
-        return false;
-    }
+    }, false);
 };

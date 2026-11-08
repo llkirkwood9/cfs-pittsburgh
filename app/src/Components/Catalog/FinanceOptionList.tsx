@@ -11,6 +11,7 @@ import TextField from "../Elements/TextField";
 import { useCatalogOptionList } from "@shared/Hooks/useCatalogOptionList";
 import { FinanceOptionForm } from "@shared/Lib/CatalogOptions";
 import type { FinanceOption } from "@shared/Models/FinanceOption";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     options: FinanceOption[];
@@ -113,7 +114,7 @@ const FinanceOptionList = ({ options, onSave, onDelete, onReorder }: Props) => {
                             label="Name"
                             value={draft.name}
                             onChange={(value) => change({ name: value })}
-                            maxLength={100}
+                            maxLength={Limits.optionListName}
                             placeholder="ex. 12 months SAC"
                         />
                         <Checkbox

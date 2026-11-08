@@ -3,6 +3,7 @@ import { Toast } from "@host";
 import { useAuth } from "../Context/AuthContext";
 import { DEFAULT_PASSWORD_POLICY, PasswordChangeProblem } from "../Lib/Passwords";
 import { ChangePassword, GetPasswordPolicy } from "../Services/AuthServices";
+import type { PasswordPolicy } from "../Services/AuthServices";
 
 /**
  * The change-password form: the three fields, the rules in words, and saving. Every other device
@@ -15,7 +16,7 @@ export const useChangePassword = (onDone: () => void) => {
     const [current, setCurrent] = useState<string>("");
     const [next, setNext] = useState<string>("");
     const [confirm, setConfirm] = useState<string>("");
-    const [policy, setPolicy] = useState<string | null>(null);
+    const [policy, setPolicy] = useState<PasswordPolicy | null>(null);
     const [saving, setSaving] = useState<boolean>(false);
 
     useEffect(() => {
@@ -23,7 +24,7 @@ export const useChangePassword = (onDone: () => void) => {
     }, []);
 
     const save = async () => {
-        const problem = PasswordChangeProblem(current, next, confirm);
+        const problem = PasswordChangeProblem(current, next, confirm, policy?.minLength);
         if (problem) return Toast.Warning(problem);
 
         setSaving(true);
@@ -45,7 +46,7 @@ export const useChangePassword = (onDone: () => void) => {
         setNext,
         confirm,
         setConfirm,
-        policy: policy ?? DEFAULT_PASSWORD_POLICY,
+        policy: policy?.description ?? DEFAULT_PASSWORD_POLICY,
         saving,
         save,
     };

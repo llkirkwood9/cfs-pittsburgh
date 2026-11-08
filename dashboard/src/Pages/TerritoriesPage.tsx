@@ -5,6 +5,7 @@ import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import TextField from "../Components/Elements/TextField";
 import { useTerritories } from "@shared/Hooks/useTerritories";
+import { Limits } from "@shared/Lib/Limits";
 
 /**
  * Territories, for system admins and administrators. Each one has its own crew, events, stock,
@@ -153,7 +154,7 @@ const TerritoriesPage = () => {
                         label="Name"
                         value={page.name}
                         onChange={page.setName}
-                        maxLength={100}
+                        maxLength={Limits.territoryName}
                         autoFocus
                     />
                     {!editing.id && (

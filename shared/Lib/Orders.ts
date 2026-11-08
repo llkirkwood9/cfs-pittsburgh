@@ -233,6 +233,27 @@ export const NormalizeCustomer = (changes: Order): Order =>
     ) as Order;
 
 /**
+ * Whether a card is in play on an order: picked as the way it will be paid, or already paid with.
+ * The card fee, and the box that waives it, only mean something then.
+ * @param order The order.
+ * @param picked The payment method picked on screen, when it may not be saved yet; otherwise the
+ * order's own choice.
+ * @returns True when a card is in play.
+ */
+export const CardInPlay = (order: Order, picked?: PaymentMethod): boolean =>
+    (picked ? picked === "VisaMc" : Boolean(order.applyCcProcessingFee)) ||
+    (order.payments ?? []).some((p) => p.method === "VisaMc");
+
+/**
+ * Whether the card fee shows as Waived: a card is in play, no fee is charged, and the fee was
+ * waived.
+ * @param order The order.
+ * @returns True when the fee reads "Waived".
+ */
+export const CardFeeWaived = (order: Order): boolean =>
+    (order.ccProcessingFee ?? 0) <= 0 && Boolean(order.waiveCcProcessingFee) && CardInPlay(order);
+
+/**
  * The total paid on an order by one method. Also used by the sales export.
  * @param order The order.
  * @param method The payment method.

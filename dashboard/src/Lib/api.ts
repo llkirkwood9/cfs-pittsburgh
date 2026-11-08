@@ -19,7 +19,7 @@ const renewOnce = () =>
  * The dashboard's session: the long-lived part is an httpOnly cookie the page can't read at all,
  * so a reload renews the access token from it.
  */
-const client = CreateApiClient({
+export const client = CreateApiClient({
     // The session cookie rides along so the API can renew the access token.
     instance: { baseURL: API_URL, withCredentials: true },
     hasSession: () => true,
@@ -44,15 +44,3 @@ const client = CreateApiClient({
     forget: () => undefined,
     headersFor: () => ({}),
 });
-
-export const {
-    hasStoredSession,
-    startSession,
-    refreshSession,
-    endSession,
-    subscribeTokenChanged,
-    subscribePasswordRequired,
-    setTerritoryHeader,
-} = client;
-
-export default client.api;

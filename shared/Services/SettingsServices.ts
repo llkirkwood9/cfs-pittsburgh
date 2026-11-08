@@ -1,5 +1,5 @@
-import { api } from "@host";
-import { HandleAxiosError } from "../Lib/ErrorHandler";
+import { client } from "@host";
+import { CallApi } from "./CallApi";
 import type { GeneralSettings } from "../Models/GeneralSettings";
 import type { ReceiptEmailPreview, ReceiptEmailSettings } from "../Models/ReceiptEmailSettings";
 
@@ -20,7 +20,7 @@ export const PreviewReceiptEmail = async (
     territoryId: number | null = null
 ): Promise<ReceiptEmailPreview | null> => {
     try {
-        const response = await api.post<ReceiptEmailPreview>(
+        const response = await client.api.post<ReceiptEmailPreview>(
             "/api/Settings/receipt-email/preview",
             { subject, body },
             { params: { territoryId: territoryId ?? undefined } }
@@ -45,7 +45,7 @@ export const GetPublicSettings = async (): Promise<{
     appName?: string;
 } | null> => {
     try {
-        const response = await api.get<{ appName?: string }>("/api/Settings/public");
+        const response = await client.api.get<{ appName?: string }>("/api/Settings/public");
         return response.data;
     } catch {
         return null;
@@ -61,7 +61,7 @@ export const GetGeneralSettings = async (
     territoryId: number | null = null
 ): Promise<GeneralSettings | null> => {
     try {
-        const response = await api.get<GeneralSettings>("/api/Settings/general", {
+        const response = await client.api.get<GeneralSettings>("/api/Settings/general", {
             params: { territoryId: territoryId ?? undefined },
         });
         return response.data;
@@ -79,15 +79,12 @@ export const GetGeneralSettings = async (
 export const GetReceiptEmailSettings = async (
     territoryId: number | null = null
 ): Promise<ReceiptEmailSettings | null> => {
-    try {
-        const response = await api.get<ReceiptEmailSettings>("/api/Settings/receipt-email", {
+    return CallApi(async () => {
+        const response = await client.api.get<ReceiptEmailSettings>("/api/Settings/receipt-email", {
             params: { territoryId: territoryId ?? undefined },
         });
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //************************************//
@@ -105,15 +102,12 @@ export const SaveGeneralSettings = async (
     changes: Partial<Omit<GeneralSettings, "defaults">>,
     territoryId: number | null = null
 ): Promise<GeneralSettings | null> => {
-    try {
-        const response = await api.put<GeneralSettings>("/api/Settings/general", changes, {
+    return CallApi(async () => {
+        const response = await client.api.put<GeneralSettings>("/api/Settings/general", changes, {
             params: { territoryId: territoryId ?? undefined },
         });
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -129,15 +123,12 @@ export const SaveReceiptEmailSettings = async (
     body: string,
     territoryId: number | null = null
 ): Promise<ReceiptEmailSettings | null> => {
-    try {
-        const response = await api.put<ReceiptEmailSettings>(
+    return CallApi(async () => {
+        const response = await client.api.put<ReceiptEmailSettings>(
             "/api/Settings/receipt-email",
             { subject, body },
             { params: { territoryId: territoryId ?? undefined } }
         );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };

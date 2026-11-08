@@ -3,6 +3,7 @@ import Icon from "../Elements/Icon";
 import TextField from "../Elements/TextField";
 import { OptionEdits } from "@shared/Lib/CatalogDrafts";
 import type { DraftChoice, DraftOption } from "@shared/Lib/CatalogDrafts";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     options: DraftOption[];
@@ -55,7 +56,7 @@ const OptionsEditor = ({ options, onChange, trackInventory }: Props) => {
                                 value={option.name}
                                 onChange={(value) => setOption(option.key, { name: value })}
                                 placeholder="Color"
-                                maxLength={50}
+                                maxLength={Limits.optionName}
                                 className="min-w-40 flex-1"
                             />
                             <div className="flex gap-1">
@@ -137,7 +138,7 @@ const OptionsEditor = ({ options, onChange, trackInventory }: Props) => {
                                                 name: e.target.value,
                                             })
                                         }
-                                        maxLength={50}
+                                        maxLength={Limits.optionName}
                                         placeholder="Choice, ex. Gray"
                                         aria-label={`${option.name || "Selection"} choice`}
                                         className={chip}

@@ -17,6 +17,7 @@ import {
     StockLevelOf,
 } from "@shared/Lib/Inventory";
 import { Paths } from "../Lib/ScreenLinks";
+import { Limits } from "@shared/Lib/Limits";
 
 /**
  * On-hand stock for the accessories kept at the cart. The checkout team counts what arrives and
@@ -319,7 +320,7 @@ const InventoryPage = () => {
                             value={countNote}
                             onChange={setCountNote}
                             placeholder="ex. Delivery received"
-                            maxLength={300}
+                            maxLength={Limits.inventoryNote}
                         />
                         <p className="text-xs text-zinc-500 dark:text-zinc-400">
                             Currently {counting.quantityOnHand ?? 0}. Saving records the change and

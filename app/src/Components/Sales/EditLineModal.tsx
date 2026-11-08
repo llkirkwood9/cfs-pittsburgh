@@ -12,6 +12,7 @@ import { useLineEditor } from "@shared/Hooks/useSalesForms";
 import { FormatCurrency } from "@shared/Lib/Format";
 import { DiscountText, HasDiscount } from "@shared/Lib/Pricing";
 import type { OrderLine } from "@shared/Models/OrderLine";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     line: OrderLine;
@@ -74,11 +75,16 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
                         label="Description"
                         value={description}
                         onChange={setDescription}
-                        maxLength={300}
+                        maxLength={Limits.lineDescription}
                     />
                 </Cell>
-                <TextField label="Brand" value={brand} onChange={setBrand} maxLength={100} />
-                <TextField label="Size" value={size} onChange={setSize} maxLength={50} />
+                <TextField
+                    label="Brand"
+                    value={brand}
+                    onChange={setBrand}
+                    maxLength={Limits.brand}
+                />
+                <TextField label="Size" value={size} onChange={setSize} maxLength={Limits.size} />
                 <TextField
                     label="Unit price"
                     value={unitPrice}
@@ -142,7 +148,7 @@ const EditLineModal = ({ line, onSave, onClose }: Props) => {
                             value={notes}
                             onChange={setNotes}
                             placeholder="ex. Floor model"
-                            maxLength={500}
+                            maxLength={Limits.lineNotes}
                         />
                     </Cell>
                 )}

@@ -26,7 +26,7 @@ const sessionHeaders = (refreshToken: string) => ({
  * The app's session: the refresh token is kept in the phone's secure storage (Keychain /
  * Keystore) and renews the access token when the app opens and whenever it runs out.
  */
-const client = CreateApiClient({
+export const client = CreateApiClient({
     instance: { baseURL: SERVER, timeout: 30000 },
     hasSession: () => Boolean(GetServerUrl()) && Boolean(GetItem(StorageKeys.refreshToken)),
     renew: async () => {
@@ -50,23 +50,9 @@ const client = CreateApiClient({
         if (session.refreshToken) SetItem(StorageKeys.refreshToken, session.refreshToken);
     },
     forget: () => SetItem(StorageKeys.refreshToken, null),
-    headersFor: (url) => {
-        // Changing the password keeps this device signed in; the API knows it by its refresh token.
-        const stored = /\/api\/auth\/change-password/i.test(url)
-            ? GetItem(StorageKeys.refreshToken)
-            : null;
+    headersFor: (keepSession) => {
+        // The API knows this device's session by its refresh token.
+        const stored = keepSession ? GetItem(StorageKeys.refreshToken) : null;
         return stored ? sessionHeaders(stored) : { "X-CFS-Client": CLIENT };
     },
 });
-
-export const {
-    hasStoredSession,
-    startSession,
-    refreshSession,
-    endSession,
-    subscribeTokenChanged,
-    subscribePasswordRequired,
-    setTerritoryHeader,
-} = client;
-
-export default client.api;

@@ -77,6 +77,20 @@ export const MenuScreens = [
 /** A screen in the menu. */
 export type MenuScreenKey = (typeof MenuScreens)[number];
 
+/** Each menu screen's icon, the same in every menu. */
+export const MenuIcons: Record<MenuScreenKey, string> = {
+    sales: "fa-solid fa-cart-plus",
+    checkout: "fa-solid fa-cash-register",
+    orders: "fa-solid fa-file-lines",
+    dashboard: "fa-solid fa-chart-column",
+    inventory: "fa-solid fa-boxes-stacked",
+    catalog: "fa-solid fa-tags",
+    events: "fa-solid fa-calendar-days",
+    crew: "fa-solid fa-users",
+    settings: "fa-solid fa-gear",
+    territories: "fa-solid fa-map-location-dot",
+};
+
 /**
  * Whether someone in this role may open a screen.
  * @param key The screen.

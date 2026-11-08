@@ -17,6 +17,11 @@ export type ProductOption = {
     isRequired?: boolean;
     /** Whether stock is counted for each choice (and combination with other counted ones). */
     tracksStock?: boolean;
+    /**
+     * Whether stock is counted per choice of this selection right now, as the server decides it
+     * (returned, not saved). A counted selection must be picked before stock can be shown.
+     */
+    countsStock?: boolean;
     choices?: ProductOptionChoice[];
 };
 
@@ -26,6 +31,8 @@ export type ChoiceStock = {
     stockKey?: string;
     /** Its choices, e.g. "Gray / Striped". */
     label?: string;
+    /** The choice ids the combination is made of, one per counted selection. */
+    choiceIds?: number[];
     quantityOnHand?: number;
 };
 

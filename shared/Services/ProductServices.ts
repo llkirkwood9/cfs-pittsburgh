@@ -1,5 +1,5 @@
-import { api } from "@host";
-import { HandleAxiosError } from "../Lib/ErrorHandler";
+import { client } from "@host";
+import { CallApi } from "./CallApi";
 import type { Product, ProductCategory, ProductCopyResult } from "../Models/Product";
 
 //*************************************//
@@ -12,13 +12,12 @@ import type { Product, ProductCategory, ProductCopyResult } from "../Models/Prod
  * @returns The new product, with notes on delivery options added or bundled items left out, or null on failure.
  */
 export const CopyProduct = async (id: number): Promise<ProductCopyResult | null> => {
-    try {
-        const response = await api.post<ProductCopyResult>(`/api/Product/product/${id}/copy`);
+    return CallApi(async () => {
+        const response = await client.api.post<ProductCopyResult>(
+            `/api/Product/product/${id}/copy`
+        );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -27,13 +26,10 @@ export const CopyProduct = async (id: number): Promise<ProductCopyResult | null>
  * @returns The created product, or null on failure.
  */
 export const AddProduct = async (newProductData: Product): Promise<Product | null> => {
-    try {
-        const response = await api.post<Product>("/api/Product/product", newProductData);
+    return CallApi(async () => {
+        const response = await client.api.post<Product>("/api/Product/product", newProductData);
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //************************************//
@@ -49,17 +45,14 @@ export const GetProducts = async (
     includeInactive = false,
     territoryId?: number | null
 ): Promise<Product[] | null> => {
-    try {
-        const response = await api.get<Product[]>("/api/Product/products", {
+    return CallApi(async () => {
+        const response = await client.api.get<Product[]>("/api/Product/products", {
             params: { includeInactive },
             // Another territory's catalog, such as one to copy from; otherwise the one in view.
             headers: territoryId != null ? { "X-Territory-Id": String(territoryId) } : undefined,
         });
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -67,13 +60,10 @@ export const GetProducts = async (
  * @returns Category names, or null on failure.
  */
 export const GetCategories = async (): Promise<ProductCategory[] | null> => {
-    try {
-        const response = await api.get<ProductCategory[]>("/api/Product/categories");
+    return CallApi(async () => {
+        const response = await client.api.get<ProductCategory[]>("/api/Product/categories");
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //**************************************//
@@ -86,13 +76,10 @@ export const GetCategories = async (): Promise<ProductCategory[] | null> => {
  * @returns The updated product, or null on failure.
  */
 export const UpdateProduct = async (productData: Product): Promise<Product | null> => {
-    try {
-        const response = await api.patch<Product>("/api/Product/product", productData);
+    return CallApi(async () => {
+        const response = await client.api.patch<Product>("/api/Product/product", productData);
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //***************************************//
@@ -106,14 +93,11 @@ export const UpdateProduct = async (productData: Product): Promise<Product | nul
  * @returns True if the operation was successful, false otherwise.
  */
 export const DeleteProduct = async (id: number, permanent = false): Promise<boolean> => {
-    try {
+    return CallApi(async () => {
         // permanent is system-admin-only: it deletes for good instead of archiving or refusing.
-        const response = await api.delete(`/api/Product/product/${id}`, {
+        const response = await client.api.delete(`/api/Product/product/${id}`, {
             params: permanent ? { permanent: true } : undefined,
         });
         return response.status === 200;
-    } catch (error) {
-        HandleAxiosError(error);
-        return false;
-    }
+    }, false);
 };

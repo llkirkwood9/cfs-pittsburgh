@@ -1,5 +1,5 @@
-import { api } from "@host";
-import { HandleAxiosError } from "../Lib/ErrorHandler";
+import { client } from "@host";
+import { CallApi } from "./CallApi";
 import type { InventoryAdjustment, InventoryCount } from "../Models/InventoryAdjustment";
 import type { InventoryItem } from "../Models/InventoryItem";
 
@@ -16,13 +16,10 @@ import type { InventoryItem } from "../Models/InventoryItem";
 export const AdjustInventory = async (
     adjustment: InventoryAdjustment
 ): Promise<InventoryItem | null> => {
-    try {
-        const response = await api.post<InventoryItem>("/api/Inventory/adjust", adjustment);
+    return CallApi(async () => {
+        const response = await client.api.post<InventoryItem>("/api/Inventory/adjust", adjustment);
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -33,13 +30,10 @@ export const AdjustInventory = async (
 export const SaveInventoryCount = async (
     count: InventoryCount
 ): Promise<InventoryItem[] | null> => {
-    try {
-        const response = await api.post<InventoryItem[]>("/api/Inventory/count", count);
+    return CallApi(async () => {
+        const response = await client.api.post<InventoryItem[]>("/api/Inventory/count", count);
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -52,16 +46,13 @@ export const SaveInventoryNotes = async (
     eventId: number,
     notes: string
 ): Promise<string | null | undefined> => {
-    try {
-        const response = await api.put<{ notes?: string | null }>(
+    return CallApi(async () => {
+        const response = await client.api.put<{ notes?: string | null }>(
             `/api/Inventory/notes/event/${eventId}`,
             { notes }
         );
         return response.data.notes ?? null;
-    } catch (error) {
-        HandleAxiosError(error);
-        return undefined;
-    }
+    }, undefined);
 };
 
 //************************************//
@@ -74,15 +65,12 @@ export const SaveInventoryNotes = async (
  * @returns Inventory rows in catalog order, or null on failure.
  */
 export const GetInventory = async (eventId?: number): Promise<InventoryItem[] | null> => {
-    try {
-        const response = await api.get<InventoryItem[]>("/api/Inventory/items", {
+    return CallApi(async () => {
+        const response = await client.api.get<InventoryItem[]>("/api/Inventory/items", {
             params: eventId ? { eventId } : undefined,
         });
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -95,14 +83,11 @@ export const GetInventoryHistory = async (
     variantId: number,
     stockKey?: string
 ): Promise<InventoryAdjustment[] | null> => {
-    try {
-        const response = await api.get<InventoryAdjustment[]>(
+    return CallApi(async () => {
+        const response = await client.api.get<InventoryAdjustment[]>(
             `/api/Inventory/variant/${variantId}/history`,
             { params: stockKey ? { stockKey } : undefined }
         );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };

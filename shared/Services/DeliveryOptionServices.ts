@@ -1,5 +1,5 @@
-import { api } from "@host";
-import { HandleAxiosError } from "../Lib/ErrorHandler";
+import { client } from "@host";
+import { CallApi } from "./CallApi";
 import type { DeliveryOption } from "../Models/DeliveryOption";
 
 //*************************************//
@@ -14,16 +14,13 @@ import type { DeliveryOption } from "../Models/DeliveryOption";
 export const AddDeliveryOption = async (
     newOptionData: DeliveryOption
 ): Promise<DeliveryOption | null> => {
-    try {
-        const response = await api.post<DeliveryOption>(
+    return CallApi(async () => {
+        const response = await client.api.post<DeliveryOption>(
             "/api/DeliveryOption/deliveryoption",
             newOptionData
         );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //************************************//
@@ -38,15 +35,15 @@ export const AddDeliveryOption = async (
 export const GetDeliveryOptions = async (
     includeInactive = false
 ): Promise<DeliveryOption[] | null> => {
-    try {
-        const response = await api.get<DeliveryOption[]>("/api/DeliveryOption/deliveryoptions", {
-            params: { includeInactive },
-        });
+    return CallApi(async () => {
+        const response = await client.api.get<DeliveryOption[]>(
+            "/api/DeliveryOption/deliveryoptions",
+            {
+                params: { includeInactive },
+            }
+        );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //************************************//
@@ -59,16 +56,13 @@ export const GetDeliveryOptions = async (
  * @returns The options in their new order, or null on failure.
  */
 export const ReorderDeliveryOptions = async (ids: number[]): Promise<DeliveryOption[] | null> => {
-    try {
-        const response = await api.put<DeliveryOption[]>(
+    return CallApi(async () => {
+        const response = await client.api.put<DeliveryOption[]>(
             "/api/DeliveryOption/deliveryoptions/order",
             ids
         );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //**************************************//
@@ -83,16 +77,13 @@ export const ReorderDeliveryOptions = async (ids: number[]): Promise<DeliveryOpt
 export const UpdateDeliveryOption = async (
     optionData: DeliveryOption
 ): Promise<DeliveryOption | null> => {
-    try {
-        const response = await api.patch<DeliveryOption>(
+    return CallApi(async () => {
+        const response = await client.api.patch<DeliveryOption>(
             "/api/DeliveryOption/deliveryoption",
             optionData
         );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //***************************************//
@@ -106,14 +97,11 @@ export const UpdateDeliveryOption = async (
  * @returns True if the operation was successful, false otherwise.
  */
 export const DeleteDeliveryOption = async (id: number, permanent = false): Promise<boolean> => {
-    try {
+    return CallApi(async () => {
         // permanent is system-admin-only: it deletes for good instead of archiving or refusing.
-        const response = await api.delete(`/api/DeliveryOption/deliveryoption/${id}`, {
+        const response = await client.api.delete(`/api/DeliveryOption/deliveryoption/${id}`, {
             params: permanent ? { permanent: true } : undefined,
         });
         return response.status === 200;
-    } catch (error) {
-        HandleAxiosError(error);
-        return false;
-    }
+    }, false);
 };

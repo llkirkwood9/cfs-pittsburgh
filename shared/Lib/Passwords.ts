@@ -1,4 +1,4 @@
-/** The shortest password the server accepts. */
+/** The shortest password the server accepts, until its own rules have loaded. */
 export const MIN_PASSWORD_LENGTH = 8;
 
 /** The rules in words, until the server's own description has loaded. */
@@ -19,16 +19,18 @@ export const NewPasswordProblem = (password: string): string | null =>
  * @param current The current password.
  * @param next The new one.
  * @param confirm The new one typed again.
+ * @param minLength The shortest password the server accepts, once its rules have loaded.
  * @returns A message for the user, or null when the change can be sent.
  */
 export const PasswordChangeProblem = (
     current: string,
     next: string,
-    confirm: string
+    confirm: string,
+    minLength: number = MIN_PASSWORD_LENGTH
 ): string | null => {
     if (!current) return "Enter your current password.";
-    if (next.length < MIN_PASSWORD_LENGTH)
-        return `The new password must be at least ${MIN_PASSWORD_LENGTH} characters.`;
+    if (next.length < minLength)
+        return `The new password must be at least ${minLength} characters.`;
     if (next !== confirm) return "The new password and its confirmation don't match.";
     if (next === current) return "Choose a password different from your current one.";
     return null;

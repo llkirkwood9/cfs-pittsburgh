@@ -129,14 +129,6 @@ export const PaymentMethods: { key: PaymentMethod; label: string; icon: string }
     Object.keys(PaymentMethodLabels) as PaymentMethod[]
 ).map((key) => ({ key, label: PaymentMethodLabels[key], icon: PAYMENT_ICONS[key] }));
 
-/**
- * The card fee rate as a percent, e.g. "3.5" for 0.035.
- * @param rate The rate as a fraction.
- * @returns The percent, without trailing zeros.
- */
-export const CardFeePercent = (rate: number): string =>
-    (rate * 100).toFixed(2).replace(/\.?0+$/, "");
-
 /** The order field that holds each statement's initials. */
 export type InitialsKey =
     "customerInfoInitials" | "warrantyInitials" | "dropShipInitials" | "advisoryInitials";

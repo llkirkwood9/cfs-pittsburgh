@@ -1,5 +1,6 @@
 import { FormatCurrency, PercentAsRate, RateAsPercent } from "./Format";
 import type { GeneralSettings, SalesTerm } from "../Models/GeneralSettings";
+import { MAX_DEFAULT_EVENT_RATE_PERCENT } from "./Limits";
 
 /** The Settings screen's sections, in order, for the links at the top. */
 export const SettingsSections = [
@@ -90,12 +91,6 @@ export const DashboardProblem = (draft: DashboardDraft): string | null => {
     return null;
 };
 
-/**
- * The highest default rate for a new event, as a percent. Matches the server's limit for the
- * default rates (an event's own rates can go to 100%): it catches a rate typed in the wrong box.
- */
-export const MaxNewEventPercent = 25;
-
 /** New events' rates being edited, as typed percents. */
 export type NewEventDraft = { tax: string; fee: string };
 
@@ -112,13 +107,13 @@ export const ToNewEventDraft = (settings: GeneralSettings): NewEventDraft => ({
  */
 export const NewEventProblem = (draft: NewEventDraft): string | null => {
     const ok = (rate: number) =>
-        Number.isFinite(rate) && rate >= 0 && rate <= MaxNewEventPercent / 100;
+        Number.isFinite(rate) && rate >= 0 && rate <= MAX_DEFAULT_EVENT_RATE_PERCENT / 100;
     return ok(PercentAsRate(draft.tax)) &&
         ok(PercentAsRate(draft.fee)) &&
         draft.tax.trim() &&
         draft.fee.trim()
         ? null
-        : `Enter each rate as a percent from 0 to ${MaxNewEventPercent}.`;
+        : `Enter each rate as a percent from 0 to ${MAX_DEFAULT_EVENT_RATE_PERCENT}.`;
 };
 
 /**

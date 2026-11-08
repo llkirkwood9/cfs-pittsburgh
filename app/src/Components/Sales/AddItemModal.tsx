@@ -29,6 +29,7 @@ import { LowestPrice, ProductSortOptions } from "@shared/Lib/ProductSort";
 import type { OrderLine } from "@shared/Models/OrderLine";
 import type { Product } from "@shared/Models/Product";
 import ChoicePicker from "./ChoicePicker";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     products: Product[];
@@ -273,7 +274,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                             value={customDescription}
                             onChange={setCustomDescription}
                             placeholder="What is it?"
-                            maxLength={300}
+                            maxLength={Limits.lineDescription}
                             autoFocus
                         />
                     </Cell>
@@ -293,7 +294,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                             value={itemNotes}
                             onChange={setItemNotes}
                             placeholder="Printed under the item on the sales sheet"
-                            maxLength={500}
+                            maxLength={Limits.lineNotes}
                         />
                     </Cell>
                 </Grid>
@@ -619,7 +620,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                         value={itemNotes}
                         onChange={setItemNotes}
                         placeholder="ex. Floor model"
-                        maxLength={500}
+                        maxLength={Limits.lineNotes}
                     />
                 </View>
             )}

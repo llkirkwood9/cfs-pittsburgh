@@ -8,7 +8,7 @@ import UserProfileDropdown from "./UserProfileDropdown";
 import { useAuth } from "@shared/Context/AuthContext";
 import { useSettings } from "@shared/Context/SettingsContext";
 import { useCheckoutWaiting } from "@shared/Hooks/useCheckoutWaiting";
-import { MenuScreens, Screens, CanOpen } from "@shared/Lib/Screens";
+import { CanOpen, MenuIcons, MenuScreens, Screens } from "@shared/Lib/Screens";
 import type { MenuScreenKey } from "@shared/Lib/Screens";
 import { ScreenLinks } from "../../Lib/ScreenLinks";
 
@@ -23,7 +23,7 @@ type NavItem = {
 // when an administrator's menu is too long for the screen.
 const items: NavItem[] = MenuScreens.map((screen) => ({
     to: ScreenLinks[screen].path,
-    icon: ScreenLinks[screen].icon,
+    icon: MenuIcons[screen],
     label: Screens[screen].title,
     screen,
 }));

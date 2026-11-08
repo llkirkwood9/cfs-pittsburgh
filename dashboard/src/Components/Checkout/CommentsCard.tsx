@@ -1,6 +1,7 @@
 import { useState } from "react";
 import Button from "../Elements/Button";
 import type { Order } from "@shared/Models/Order";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     order: Order;
@@ -54,7 +55,7 @@ const CommentsCard = ({ order, readOnly = false, onSave }: Props) => {
                     onChange={(e) => setText(e.target.value)}
                     onBlur={save}
                     rows={3}
-                    maxLength={1000}
+                    maxLength={Limits.orderComments}
                     placeholder="Anything the delivery crew needs to know"
                     className="w-full rounded-xl border border-zinc-300 bg-white p-3 text-base text-zinc-900
                         outline-hidden focus:border-sky-600 focus:ring-2 focus:ring-sky-600/30

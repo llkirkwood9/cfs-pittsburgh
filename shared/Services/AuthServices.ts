@@ -1,5 +1,5 @@
-import { api } from "@host";
-import { HandleAxiosError } from "../Lib/ErrorHandler";
+import { client } from "@host";
+import { CallApi } from "./CallApi";
 import type { AuthResponse } from "../Models/AuthResponse";
 import type { User } from "../Models/User";
 
@@ -15,16 +15,13 @@ import type { User } from "../Models/User";
  * @returns The access token and profile, or null when sign-in failed.
  */
 export const Login = async (username: string, password: string): Promise<AuthResponse | null> => {
-    try {
-        const response = await api.post<AuthResponse>("/api/auth/login", {
+    return CallApi(async () => {
+        const response = await client.api.post<AuthResponse>("/api/auth/login", {
             username,
             password,
         });
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 /**
@@ -38,16 +35,15 @@ export const ChangePassword = async (
     currentPassword: string,
     newPassword: string
 ): Promise<User | null> => {
-    try {
-        const response = await api.post<User>("/api/auth/change-password", {
-            currentPassword,
-            newPassword,
-        });
+    return CallApi(async () => {
+        const response = await client.api.post<User>(
+            "/api/auth/change-password",
+            { currentPassword, newPassword },
+            // Keeps this device signed in; the API knows it by its session.
+            { keepSession: true }
+        );
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
 };
 
 //************************************//
@@ -59,23 +55,28 @@ export const ChangePassword = async (
  * @returns The profile, or null when not signed in.
  */
 export const GetCurrentUser = async (): Promise<User | null> => {
-    try {
-        const response = await api.get<User>("/api/auth/me");
+    return CallApi(async () => {
+        const response = await client.api.get<User>("/api/auth/me");
         return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
+    }, null);
+};
+
+/** The server's password rules. */
+export type PasswordPolicy = {
+    /** The shortest password it accepts. */
+    minLength?: number;
+    /** The rules in words. */
+    description?: string;
 };
 
 /**
- * The password rules in words, for the screens where one is chosen.
- * @returns The description, or null if it couldn't be loaded.
+ * The password rules, for the screens where one is chosen.
+ * @returns The rules, or null if they couldn't be loaded.
  */
-export const GetPasswordPolicy = async (): Promise<string | null> => {
+export const GetPasswordPolicy = async (): Promise<PasswordPolicy | null> => {
     try {
-        const response = await api.get<{ description?: string }>("/api/auth/password-policy");
-        return response.data.description ?? null;
+        const response = await client.api.get<PasswordPolicy>("/api/auth/password-policy");
+        return response.data;
     } catch {
         return null;
     }

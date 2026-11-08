@@ -3,11 +3,12 @@ import Icon from "../Elements/Icon";
 import TextField from "../Elements/TextField";
 import { useSettingsFor } from "@shared/Context/SettingsContext";
 import { OTHER_FINANCE, useCheckoutPayment } from "@shared/Hooks/useCheckoutForms";
-import { CardFeePercent, PaymentMethods } from "@shared/Lib/Checkout";
-import { FormatCurrency } from "@shared/Lib/Format";
+import { PaymentMethods } from "@shared/Lib/Checkout";
+import { FormatCurrency, FormatRate } from "@shared/Lib/Format";
 import { FinancingText, PaymentMethodLabels } from "@shared/Lib/Orders";
 import type { Order } from "@shared/Models/Order";
 import type { OrderPayment, PaymentMethod } from "@shared/Models/OrderPayment";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     order: Order;
@@ -83,7 +84,7 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                     ) : (
                         method === "VisaMc" && (
                             <p>
-                                <Icon icon="fa-solid fa-circle-info" /> A {CardFeePercent(feeRate)}%
+                                <Icon icon="fa-solid fa-circle-info" /> A {FormatRate(feeRate)}
                                 card processing fee of {FormatCurrency(order.ccProcessingFee)} is
                                 included.
                             </p>
@@ -154,7 +155,7 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                         label="Other financing type"
                         value={otherType}
                         onChange={setOtherType}
-                        maxLength={100}
+                        maxLength={Limits.financeType}
                         placeholder="ex. 12 months SAC"
                         className="sm:col-span-2"
                     />
@@ -164,7 +165,7 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                         label="Financing #"
                         value={financeNumber}
                         onChange={setFinanceNumber}
-                        maxLength={100}
+                        maxLength={Limits.financeNumber}
                         className="sm:col-span-2"
                     />
                 )}

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useRef } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import EmailDialog from "../Components/Elements/EmailDialog";
@@ -7,8 +7,7 @@ import ReceiptSheet from "../Components/Checkout/ReceiptSheet";
 import { useAuth } from "@shared/Context/AuthContext";
 import { useCheckoutReceipt } from "@shared/Hooks/useCheckoutReceipt";
 import { HomePathForRole } from "../Lib/ScreenLinks";
-import { FindSheets, PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
-import { EmailReceipt } from "@shared/Services/EmailServices";
+import { FindSheets } from "../Lib/SheetPdf";
 
 /**
  * The printable copy of a sale. Unfinished orders are stamped as such by the sheet itself. Print
@@ -32,9 +31,18 @@ const ReceiptPage = () => {
     };
     const backLabel = from?.label ?? "Back";
 
-    const { order, loading, emailStatus, completed, emailing, startEmail, stopEmail } =
-        useCheckoutReceipt(orderId);
-    const [printing, setPrinting] = useState<boolean>(false);
+    const {
+        order,
+        loading,
+        emailStatus,
+        completed,
+        emailing,
+        startEmail,
+        stopEmail,
+        printing,
+        print,
+        sendReceipt,
+    } = useCheckoutReceipt(orderId);
     const sheetRef = useRef<HTMLDivElement>(null);
 
     if (loading) return <LoadingPage />;
@@ -52,13 +60,6 @@ const ReceiptPage = () => {
             </div>
         );
     }
-
-    // Printed from the same PDF that email sends, so the sheet comes out the same from any device.
-    const handlePrint = async () => {
-        setPrinting(true);
-        await PrintSheetsPdf(FindSheets(sheetRef.current), `sales-sheet-${order.orderNumber}`);
-        setPrinting(false);
-    };
 
     return (
         <div className="print-root min-h-screen bg-zinc-200 py-4 dark:bg-zinc-900">
@@ -81,7 +82,7 @@ const ReceiptPage = () => {
                     <Button
                         text={printing ? "Making the PDF..." : "Print"}
                         icon="fa-solid fa-print"
-                        onClick={handlePrint}
+                        onClick={() => print(FindSheets(sheetRef.current))}
                         loading={printing}
                         disabled={printing}
                     />
@@ -103,13 +104,9 @@ const ReceiptPage = () => {
                         </>
                     }
                     initialTo={order.billingEmail}
-                    onSend={async (to, _message, progress) => {
-                        progress("Making the PDF...");
-                        const pdf = await TryBuildSheetsPdf(FindSheets(sheetRef.current));
-                        if (!pdf) return null;
-                        progress("Sending...");
-                        return EmailReceipt(order.id!, to, pdf);
-                    }}
+                    onSend={(to, _message, progress) =>
+                        sendReceipt(FindSheets(sheetRef.current), to, progress)
+                    }
                     onClose={stopEmail}
                 />
             )}

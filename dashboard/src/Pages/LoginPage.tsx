@@ -1,4 +1,3 @@
-import { useState } from "react";
 import type { FormEvent } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import Button from "../Components/Elements/Button";
@@ -7,7 +6,8 @@ import TextField from "../Components/Elements/TextField";
 import { useAuth } from "@shared/Context/AuthContext";
 import { useSettings } from "@shared/Context/SettingsContext";
 import { HomePathForRole } from "../Lib/ScreenLinks";
-import { Toast } from "../Lib/Toast";
+import { useLogin } from "@shared/Hooks/useLogin";
+import { Limits } from "@shared/Lib/Limits";
 
 /**
  * Sign-in screen: username and password. Too many wrong passwords lock the account for a while,
@@ -15,43 +15,25 @@ import { Toast } from "../Lib/Toast";
  * asked to choose their own straight afterwards.
  */
 const LoginPage = () => {
-    const { user, loading, login } = useAuth();
+    const { user, loading } = useAuth();
     const { settings } = useSettings();
     const navigate = useNavigate();
-
-    // Only the username is remembered on the device, never the password.
-    const [username, setUsername] = useState<string>(() => {
-        try {
-            return localStorage.getItem("cfs.lastUsername") ?? "";
-        } catch {
-            return "";
-        }
-    });
-    const [password, setPassword] = useState<string>("");
-    const [showPassword, setShowPassword] = useState<boolean>(false);
-    const [submitting, setSubmitting] = useState<boolean>(false);
+    const {
+        username,
+        setUsername,
+        password,
+        setPassword,
+        showPassword,
+        setShowPassword,
+        submitting,
+        submit,
+    } = useLogin((signedIn) => navigate(HomePathForRole(signedIn.role), { replace: true }));
 
     if (!loading && user) return <Navigate to={HomePathForRole(user.role)} replace />;
 
-    const handleSubmit = async (e?: FormEvent) => {
+    const handleSubmit = (e?: FormEvent) => {
         e?.preventDefault();
-        if (!username.trim()) return Toast.Warning("Enter your username.");
-        if (!password) return Toast.Warning("Enter your password.");
-
-        setSubmitting(true);
-        const signedIn = await login(username.trim(), password);
-        setSubmitting(false);
-
-        if (signedIn) {
-            try {
-                localStorage.setItem("cfs.lastUsername", username.trim());
-            } catch {
-                // Private browsing: just don't remember it.
-            }
-            navigate(HomePathForRole(signedIn.role), { replace: true });
-        } else {
-            setPassword("");
-        }
+        submit();
     };
 
     return (
@@ -75,7 +57,7 @@ const LoginPage = () => {
                     value={username}
                     onChange={setUsername}
                     className="mb-4"
-                    maxLength={50}
+                    maxLength={Limits.username}
                     autoComplete="username"
                     autoFocus={!username}
                 />
@@ -86,7 +68,7 @@ const LoginPage = () => {
                         value={password}
                         onChange={setPassword}
                         type={showPassword ? "text" : "password"}
-                        maxLength={128}
+                        maxLength={Limits.password}
                         autoComplete="current-password"
                         autoFocus={Boolean(username)}
                     />

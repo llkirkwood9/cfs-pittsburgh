@@ -9,6 +9,7 @@ import { DeliveryOptionForm } from "@shared/Lib/CatalogOptions";
 import { FormatCurrency } from "@shared/Lib/Format";
 import { CleanDiscount, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
 import type { DeliveryOption } from "@shared/Models/DeliveryOption";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     options: DeliveryOption[];
@@ -151,7 +152,7 @@ const DeliveryOptionList = ({
                             label="Name"
                             value={draft.name}
                             onChange={(value) => change({ name: value })}
-                            maxLength={100}
+                            maxLength={Limits.optionListName}
                         />
                         <TextField
                             label="Price"

@@ -9,11 +9,12 @@ import TextField from "../Elements/TextField";
 import { useSettingsFor } from "@shared/Context/SettingsContext";
 import { cx } from "../../Lib/ClassNames";
 import { OTHER_FINANCE, useCheckoutPayment } from "@shared/Hooks/useCheckoutForms";
-import { CardFeePercent, PaymentMethods } from "@shared/Lib/Checkout";
-import { FormatCurrency } from "@shared/Lib/Format";
+import { PaymentMethods } from "@shared/Lib/Checkout";
+import { FormatCurrency, FormatRate } from "@shared/Lib/Format";
 import { FinancingText, PaymentMethodLabels } from "@shared/Lib/Orders";
 import type { Order } from "@shared/Models/Order";
 import type { OrderPayment, PaymentMethod } from "@shared/Models/OrderPayment";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     order: Order;
@@ -93,7 +94,7 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                     ) : (
                         method === "VisaMc" && (
                             <Text className="text-sm text-amber-800 dark:text-amber-300">
-                                A {CardFeePercent(feeRate)}% card processing fee of{" "}
+                                A {FormatRate(feeRate)} card processing fee of{" "}
                                 {FormatCurrency(order.ccProcessingFee)} is included.
                             </Text>
                         )
@@ -155,7 +156,7 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                             label="Other financing type"
                             value={otherType}
                             onChange={setOtherType}
-                            maxLength={100}
+                            maxLength={Limits.financeType}
                             placeholder="ex. 12 months SAC"
                         />
                     </Cell>
@@ -166,7 +167,7 @@ const PaymentPanel = ({ order, onAdd, onRemove, onMethodChange, onWaiveFee }: Pr
                             label="Financing #"
                             value={financeNumber}
                             onChange={setFinanceNumber}
-                            maxLength={100}
+                            maxLength={Limits.financeNumber}
                             autoCapitalize="characters"
                         />
                     </Cell>

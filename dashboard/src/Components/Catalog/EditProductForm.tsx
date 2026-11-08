@@ -12,6 +12,7 @@ import { CleanDiscount } from "@shared/Lib/Pricing";
 import type { DeliveryOption } from "@shared/Models/DeliveryOption";
 import type { Product, ProductCategory } from "@shared/Models/Product";
 import type { Territory } from "@shared/Models/Territory";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     product: Product;
@@ -77,13 +78,13 @@ const EditProductForm = ({
                         label="Name"
                         value={draft.name}
                         onChange={(value) => change({ name: value })}
-                        maxLength={150}
+                        maxLength={Limits.productName}
                     />
                     <TextField
                         label="Brand"
                         value={draft.brand}
                         onChange={(value) => change({ brand: value })}
-                        maxLength={100}
+                        maxLength={Limits.brand}
                     />
 
                     <label className="flex flex-col gap-1">
@@ -143,7 +144,7 @@ const EditProductForm = ({
                         label="Warranty length"
                         value={draft.warrantyLength}
                         onChange={(value) => change({ warrantyLength: value })}
-                        maxLength={60}
+                        maxLength={Limits.warrantyLength}
                         placeholder="ex. 10 years"
                         disabled={!form.hasWarranty}
                     />
@@ -153,7 +154,7 @@ const EditProductForm = ({
                         value={draft.notes}
                         onChange={(value) => change({ notes: value })}
                         className="sm:col-span-2"
-                        maxLength={500}
+                        maxLength={Limits.productNotes}
                         placeholder="ex. Sale, warranty info"
                     />
 
@@ -194,7 +195,7 @@ const EditProductForm = ({
                                     value={variant.size ?? ""}
                                     onChange={(value) => setVariant(index, { size: value })}
                                     className="sm:col-span-3"
-                                    maxLength={50}
+                                    maxLength={Limits.size}
                                 />
                                 <TextField
                                     label="Configuration"
@@ -203,7 +204,7 @@ const EditProductForm = ({
                                         setVariant(index, { configuration: value })
                                     }
                                     className="sm:col-span-5"
-                                    maxLength={100}
+                                    maxLength={Limits.configuration}
                                     placeholder="Mattress Only"
                                 />
                                 <TextField
@@ -230,7 +231,7 @@ const EditProductForm = ({
                                     value={variant.notes ?? ""}
                                     onChange={(value) => setVariant(index, { notes: value })}
                                     className="col-span-full"
-                                    maxLength={300}
+                                    maxLength={Limits.sizeNotes}
                                     placeholder="ex. Not compressed"
                                 />
 

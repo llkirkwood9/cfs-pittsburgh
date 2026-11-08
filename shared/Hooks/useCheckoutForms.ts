@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Toast } from "@host";
 import { AcknowledgementSteps } from "../Lib/Checkout";
 import { ParseMoney } from "../Lib/Format";
-import { RequiredTerms } from "../Lib/Orders";
+import { CardInPlay, RequiredTerms } from "../Lib/Orders";
 import type { FinanceOption } from "../Models/FinanceOption";
 import type { Order } from "../Models/Order";
 import type { OrderPayment, PaymentMethod } from "../Models/OrderPayment";
@@ -122,8 +122,7 @@ export const useCheckoutPayment = (
         waived,
         toggleWaive,
         /** A card is in play: picked now, or already paid with - so the No card fee box shows. */
-        cardInPlay:
-            method === "VisaMc" || (order.payments ?? []).some((p) => p.method === "VisaMc"),
+        cardInPlay: CardInPlay(order, method),
         saving,
         add,
     };

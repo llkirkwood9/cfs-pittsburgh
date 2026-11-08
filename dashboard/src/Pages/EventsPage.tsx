@@ -10,6 +10,7 @@ import { DeleteEventMessage, IsPastEvent, IsUpcomingEvent, SplitEvents } from "@
 import { FormatRate, FormatShortDate } from "@shared/Lib/Format";
 import type { Event } from "@shared/Models/Event";
 import { Paths, ScreenLinks } from "../Lib/ScreenLinks";
+import { Limits } from "@shared/Lib/Limits";
 
 /**
  * Event administration. The sales tax rate, the card processing fee and the order number
@@ -220,7 +221,7 @@ const EventsPage = () => {
                             label="Organization"
                             value={form.organization}
                             onChange={(v) => setField("organization", v)}
-                            maxLength={150}
+                            maxLength={Limits.eventOrganization}
                             placeholder="ex. School Band"
                             className="sm:col-span-2"
                         />
@@ -228,7 +229,7 @@ const EventsPage = () => {
                             label="Cart"
                             value={form.cartName}
                             onChange={(v) => setField("cartName", v)}
-                            maxLength={100}
+                            maxLength={Limits.eventCart}
                         />
                         <TextField
                             label="Event date"

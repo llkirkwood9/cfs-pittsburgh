@@ -75,4 +75,6 @@ export type User = {
     isLockedOut?: boolean;
     /** When they last signed in (UTC). Only sent to a system admin. */
     lastLoginAt?: string | null;
+    /** Whether the signed-in user may change this account. Only on the crew list. */
+    canEdit?: boolean;
 };

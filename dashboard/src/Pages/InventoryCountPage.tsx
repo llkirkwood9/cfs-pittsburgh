@@ -9,6 +9,7 @@ import { CategoryNames } from "@shared/Lib/Catalog";
 import { InventoryRowKey, InventorySizeLabel, SignedDifference } from "@shared/Lib/Inventory";
 import { CountPhaseFrom } from "@shared/Lib/InventoryCount";
 import { ScreenLinks } from "../Lib/ScreenLinks";
+import { Limits } from "@shared/Lib/Limits";
 
 /**
  * A shelf count for the active event: the start-of-event count before the doors open, or the
@@ -180,7 +181,7 @@ const InventoryCountPage = () => {
                     value={note}
                     onChange={setNote}
                     placeholder={text.notePlaceholder}
-                    maxLength={300}
+                    maxLength={Limits.inventoryNote}
                 />
             </div>
 

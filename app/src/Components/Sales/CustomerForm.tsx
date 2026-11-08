@@ -7,6 +7,7 @@ import TextArea from "../Elements/TextArea";
 import TextField from "../Elements/TextField";
 import { useCustomerForm } from "@shared/Hooks/useSalesForms";
 import type { Order } from "@shared/Models/Order";
+import { Limits } from "@shared/Lib/Limits";
 
 type Props = {
     order: Order;
@@ -132,7 +133,7 @@ const CustomerForm = ({ order, reps, onSave }: Props) => {
                 onChange={set("comments")}
                 onBlur={commit("comments")}
                 rows={3}
-                maxLength={1000}
+                maxLength={Limits.orderComments}
                 placeholder="Anything the delivery crew or checkout table needs to know"
             />
         </View>

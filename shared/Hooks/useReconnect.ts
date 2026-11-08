@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, foreground, Toast } from "@host";
+import { client, foreground, Toast } from "@host";
 import { IsOnline, OnConnectionChange, SetOnline } from "../Lib/Connection";
 
 /** How often to check whether the server is back. */
@@ -23,7 +23,8 @@ export const useReconnect = (): boolean => {
         if (online) return;
 
         const check = () => {
-            api.get("/health", { timeout: CHECK_TIMEOUT_MS })
+            client.api
+                .get("/health", { timeout: CHECK_TIMEOUT_MS })
                 .then(() => {
                     SetOnline(true);
                     Toast.Success("Reconnected to the server.");

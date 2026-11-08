@@ -8,6 +8,7 @@ import { useCrew } from "@shared/Hooks/useCrew";
 import { CrewRoleBlurbs, CrewTerritoryText, NeedsTerritory } from "@shared/Lib/Crew";
 import { FormatDateTime, FormatElapsed } from "@shared/Lib/Format";
 import { UserRoleLabels } from "@shared/Models/User";
+import { Limits } from "@shared/Lib/Limits";
 
 const randomValues = (bytes: Uint32Array<ArrayBuffer>) => crypto.getRandomValues(bytes);
 
@@ -183,13 +184,13 @@ const CrewPage = () => {
                             label="Name"
                             value={form.name}
                             onChange={(v) => setField("name", v)}
-                            maxLength={150}
+                            maxLength={Limits.crewName}
                         />
                         <TextField
                             label="Username"
                             value={form.username}
                             onChange={(v) => setField("username", v)}
-                            maxLength={50}
+                            maxLength={Limits.username}
                         />
                         <TextField
                             label="Email"
@@ -197,7 +198,7 @@ const CrewPage = () => {
                             onChange={(v) => setField("email", v)}
                             type="email"
                             inputMode="email"
-                            maxLength={200}
+                            maxLength={Limits.crewEmail}
                         />
                         <div className="flex flex-col gap-1">
                             <div className="flex items-end gap-2">
@@ -209,7 +210,7 @@ const CrewPage = () => {
                                     }
                                     value={form.password}
                                     onChange={(v) => setField("password", v)}
-                                    maxLength={128}
+                                    maxLength={Limits.password}
                                     autoComplete="off"
                                     className="min-w-0 flex-1"
                                 />

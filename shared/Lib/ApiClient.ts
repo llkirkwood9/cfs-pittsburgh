@@ -3,6 +3,16 @@ import type { AxiosInstance, AxiosRequestConfig, InternalAxiosRequestConfig } fr
 import { SetOnline } from "./Connection";
 import type { AuthResponse } from "../Models/AuthResponse";
 
+declare module "axios" {
+    interface AxiosRequestConfig {
+        /**
+         * The request must name this device's session to the API, as changing the password does
+         * so that this device stays signed in while every other is signed out.
+         */
+        keepSession?: boolean;
+    }
+}
+
 /** Tells the API which territory a system admin or administrator is looking at. */
 export const TERRITORY_HEADER = "X-Territory-Id";
 
@@ -24,8 +34,11 @@ export type SessionTransport = {
     keep: (session: AuthResponse) => void;
     /** Forgets it. */
     forget: () => void;
-    /** Headers the host adds to a request, by its url. */
-    headersFor: (url: string) => Record<string, string>;
+    /**
+     * Headers the host adds to a request.
+     * @param keepSession The request must name this device's session (see keepSession).
+     */
+    headersFor: (keepSession: boolean) => Record<string, string>;
 };
 
 export type ApiClient = {
@@ -115,9 +128,11 @@ export const CreateApiClient = (transport: SessionTransport): ApiClient => {
     };
 
     api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
-        Object.entries(transport.headersFor(config.url ?? "")).forEach(([name, value]) => {
-            config.headers[name] = value;
-        });
+        Object.entries(transport.headersFor(Boolean(config.keepSession))).forEach(
+            ([name, value]) => {
+                config.headers[name] = value;
+            }
+        );
         if (accessToken) config.headers.Authorization = `Bearer ${accessToken}`;
         // A request may name another territory itself, such as reading a catalog to copy from.
         if (territoryId != null && !config.headers[TERRITORY_HEADER])

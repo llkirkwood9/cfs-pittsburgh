@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 import { Toast } from "@host";
+import { EMAIL_NOT_SET_UP } from "../Lib/Email";
+import { PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
+import type { Sheet } from "../Lib/SheetPdf";
 import type { Order } from "../Models/Order";
-import { GetEmailStatus } from "../Services/EmailServices";
+import { EmailReceipt, GetEmailStatus } from "../Services/EmailServices";
 import type { EmailStatus } from "../Services/EmailServices";
 import { GetOrder } from "../Services/OrderServices";
 
@@ -17,6 +20,7 @@ export const useCheckoutReceipt = (orderId: string | undefined) => {
     const [loading, setLoading] = useState<boolean>(true);
     const [emailStatus, setEmailStatus] = useState<EmailStatus | null>(null);
     const [emailing, setEmailing] = useState<boolean>(false);
+    const [printing, setPrinting] = useState<boolean>(false);
 
     useEffect(() => {
         const load = async () => {
@@ -36,10 +40,34 @@ export const useCheckoutReceipt = (orderId: string | undefined) => {
 
     const startEmail = () => {
         if (emailStatus?.configured) setEmailing(true);
-        else
-            Toast.Warning(
-                "Email isn't set up on this server yet. Ask whoever runs the app to add the email settings."
-            );
+        else Toast.Warning(EMAIL_NOT_SET_UP);
+    };
+
+    /**
+     * Prints the sales sheet. Call it straight from the tap.
+     * @param sheets The sheet on screen.
+     */
+    const print = async (sheets: Sheet[]) => {
+        if (!order) return;
+        setPrinting(true);
+        await PrintSheetsPdf(sheets, `sales-sheet-${order.orderNumber}`);
+        setPrinting(false);
+    };
+
+    /**
+     * Sends the sales sheet as a PDF, from the email dialog.
+     * @param sheets The sheet on screen.
+     * @param to The addresses.
+     * @param progress Told what it is doing.
+     * @returns The addresses it went to, or null when it failed.
+     */
+    const sendReceipt = async (sheets: Sheet[], to: string, progress: (status: string) => void) => {
+        if (!order?.id) return null;
+        progress("Making the PDF...");
+        const pdf = await TryBuildSheetsPdf(sheets);
+        if (!pdf) return null;
+        progress("Sending...");
+        return EmailReceipt(order.id, to, pdf);
     };
 
     return {
@@ -51,5 +79,8 @@ export const useCheckoutReceipt = (orderId: string | undefined) => {
         emailing,
         startEmail,
         stopEmail: () => setEmailing(false),
+        printing,
+        print,
+        sendReceipt,
     };
 };

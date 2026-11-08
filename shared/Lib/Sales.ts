@@ -1,5 +1,5 @@
 import { FormatCurrency, FormatRate } from "./Format";
-import { NormalizeCustomer, SortLinesForPrint } from "./Orders";
+import { CardFeeWaived, NormalizeCustomer, SortLinesForPrint } from "./Orders";
 import {
     ApplyDiscount,
     CleanDiscount,
@@ -40,11 +40,7 @@ export const OrderTotalRows = (order: Order): TotalRow[] => {
 
     if ((order.ccProcessingFee ?? 0) > 0)
         rows.push({ label: "CC processing fee", value: FormatCurrency(order.ccProcessingFee) });
-    else if (
-        order.waiveCcProcessingFee &&
-        (order.applyCcProcessingFee || (order.payments ?? []).some((p) => p.method === "VisaMc"))
-    )
-        rows.push({ label: "CC processing fee", value: "Waived" });
+    else if (CardFeeWaived(order)) rows.push({ label: "CC processing fee", value: "Waived" });
 
     const paid = (order.amountPaid ?? 0) > 0;
 

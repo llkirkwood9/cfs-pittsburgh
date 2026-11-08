@@ -21,6 +21,7 @@ import { FormatRate, FormatShortDate } from "@shared/Lib/Format";
 import { cx } from "../Lib/ClassNames";
 import type { Event } from "@shared/Models/Event";
 import { Paths } from "../Lib/ScreenLinks";
+import { Limits } from "@shared/Lib/Limits";
 
 /** A small rounded label beside an event's name. */
 const Tag = ({ text, box, color }: { text: string; box: string; color: string }) => (
@@ -256,7 +257,7 @@ const EventsPage = () => {
                                 label="Organization"
                                 value={form.organization}
                                 onChange={(v) => setField("organization", v)}
-                                maxLength={150}
+                                maxLength={Limits.eventOrganization}
                                 placeholder="e.g. School Band"
                                 autoCapitalize="words"
                             />
@@ -265,7 +266,7 @@ const EventsPage = () => {
                             label="Cart"
                             value={form.cartName}
                             onChange={(v) => setField("cartName", v)}
-                            maxLength={100}
+                            maxLength={Limits.eventCart}
                             autoCapitalize="words"
                         />
                         <DateField
