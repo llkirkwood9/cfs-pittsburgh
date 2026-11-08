@@ -1,7 +1,7 @@
 import { Pressable, View } from "react-native";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
-import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency } from "@shared/Lib/Format";
 import type { ProductOption } from "@shared/Models/ProductOption";
 
 type Props = {

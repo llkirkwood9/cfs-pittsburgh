@@ -1,5 +1,5 @@
 import type { ReactNode } from "react";
-import { FormatCurrency, FormatShortDate } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency, FormatShortDate } from "@shared/Lib/Format";
 import type { DashboardStats } from "@shared/Models/DashboardStats";
 import type { Event } from "@shared/Models/Event";
 import type { Order } from "@shared/Models/Order";

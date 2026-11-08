@@ -7,14 +7,9 @@ import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import TabButton from "../Components/Elements/TabButton";
 import TextField from "../Components/Elements/TextField";
-import {
-    CategoryNames,
-    FormatDateTime,
-    FormatTime,
-    GroupInventory,
-    InventoryRowKey,
-    InventorySizeLabel,
-} from "@shared/Lib/ModelHelpers";
+import { CategoryNames } from "@shared/Lib/Catalog";
+import { FormatDateTime, FormatTime } from "@shared/Lib/Format";
+import { GroupInventory, InventoryRowKey, InventorySizeLabel } from "@shared/Lib/Inventory";
 import { useSettings } from "../Context/SettingsContext";
 import { IsOnline } from "@shared/Lib/Connection";
 import { Toast } from "../Lib/Toast";

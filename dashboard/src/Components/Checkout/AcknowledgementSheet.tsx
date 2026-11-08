@@ -3,7 +3,7 @@ import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import SignaturePad from "../Elements/SignaturePad";
 import { useLockBodyScroll } from "../../Hooks/UseLockBodyScroll";
-import { AddressLines, RequiredTerms, SortLinesForPrint } from "@shared/Lib/ModelHelpers";
+import { AddressLines, RequiredTerms, SortLinesForPrint } from "@shared/Lib/Orders";
 import TermText from "../Elements/TermText";
 import { useSettingsFor } from "../../Context/SettingsContext";
 import { Toast } from "../../Lib/Toast";

@@ -5,16 +5,8 @@ import { Text, View } from "react-native";
 import { Blank, Cell, FieldLabel, Row, SheetText } from "./SheetTable";
 import { RenderTermText } from "../Elements/TermText";
 import { useSettingsFor } from "../../Context/SettingsContext";
-import {
-    FinancingComments,
-    FormatCurrency,
-    FormatShortDate,
-    FormatStampDate,
-    PaymentMethodLabels,
-    PrintedInitials,
-    PrintsOnSalesSheet,
-    SortLinesForPrint,
-} from "@shared/Lib/ModelHelpers";
+import { FormatCurrency, FormatShortDate, FormatStampDate } from "@shared/Lib/Format";
+import { FinancingComments, PaymentMethodLabels, PrintedInitials, PrintsOnSalesSheet, SortLinesForPrint } from "@shared/Lib/Orders";
 import { ChoicesText, LineDiscountText, LineHasDiscount } from "@shared/Lib/Pricing";
 import { SHEET_WIDTH } from "../../Lib/SheetPdf";
 import { TermFor } from "@shared/Models/GeneralSettings";

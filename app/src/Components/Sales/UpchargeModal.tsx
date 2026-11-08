@@ -4,7 +4,7 @@ import Grid, { Cell } from "../Elements/Grid";
 import Modal from "../Elements/Modal";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
-import { FormatCurrency, ParseMoney } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency, ParseMoney } from "@shared/Lib/Format";
 import { Toast } from "../../Lib/Toast";
 import type { OrderLine } from "@shared/Models/OrderLine";
 

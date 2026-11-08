@@ -15,7 +15,7 @@ import UpchargeModal from "../Components/Sales/UpchargeModal";
 import OrderLineList from "../Components/Sales/OrderLineList";
 import OrderTotals from "../Components/Sales/OrderTotals";
 import { useAuth } from "@shared/Context/AuthContext";
-import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency } from "@shared/Lib/Format";
 import { Toast } from "../Lib/Toast";
 import type { DeliveryOption } from "@shared/Models/DeliveryOption";
 import type { Event } from "@shared/Models/Event";

@@ -11,7 +11,7 @@ import { RenderTermText } from "../Elements/TermText";
 import { useSettingsFor } from "../../Context/SettingsContext";
 import { useBreakpoint } from "../../Hooks/UseBreakpoint";
 import { cx } from "../../Lib/ClassNames";
-import { AddressLines, RequiredTerms, SortLinesForPrint } from "@shared/Lib/ModelHelpers";
+import { AddressLines, RequiredTerms, SortLinesForPrint } from "@shared/Lib/Orders";
 import { Toast } from "../../Lib/Toast";
 import { TermFor } from "@shared/Models/GeneralSettings";
 import type { SalesTermKey } from "@shared/Models/GeneralSettings";

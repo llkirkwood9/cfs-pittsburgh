@@ -6,7 +6,7 @@ import Text from "../Elements/Text";
 import { useTerritory } from "../../Context/TerritoryContext";
 import { cx } from "../../Lib/ClassNames";
 import { IsOnline } from "@shared/Lib/Connection";
-import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency } from "@shared/Lib/Format";
 import type { TerritoryStats } from "@shared/Models/Territory";
 import { GetTerritoryComparison } from "@shared/Services/DashboardServices";
 

@@ -10,7 +10,7 @@ import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
 import TextField from "../Elements/TextField";
-import { ParseMoney } from "@shared/Lib/ModelHelpers";
+import { ParseMoney } from "@shared/Lib/Format";
 import { CleanDiscount, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
 import { Toast } from "../../Lib/Toast";
 import type { DeliveryOption } from "@shared/Models/DeliveryOption";

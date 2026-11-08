@@ -1,7 +1,8 @@
 import { useState } from "react";
 import Button from "../Elements/Button";
 import Modal from "../Elements/Modal";
-import { FormatCurrency, TakeWithBlocked } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency } from "@shared/Lib/Format";
+import { TakeWithBlocked } from "@shared/Lib/Inventory";
 import { ApplyDiscount, DeliverySaleFor, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
 import { Toast } from "../../Lib/Toast";
 import type { DeliveryOption } from "@shared/Models/DeliveryOption";

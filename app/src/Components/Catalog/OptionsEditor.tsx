@@ -5,7 +5,7 @@ import IconButton from "../Elements/IconButton";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
 import { cx } from "../../Lib/ClassNames";
-import { ParseMoney } from "@shared/Lib/ModelHelpers";
+import { ParseMoney } from "@shared/Lib/Format";
 import type { ProductOption } from "@shared/Models/ProductOption";
 
 /** A choice being edited. `key` is local, so new rows have something stable to key on. */

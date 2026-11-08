@@ -2,7 +2,7 @@ import { useState } from "react";
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
-import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency } from "@shared/Lib/Format";
 import type { OrderSummary } from "@shared/Models/OrderSummary";
 
 type Props = {

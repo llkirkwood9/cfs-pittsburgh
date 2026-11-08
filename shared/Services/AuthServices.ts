@@ -16,7 +16,10 @@ import type { User } from "../Models/User";
  */
 export const Login = async (username: string, password: string): Promise<AuthResponse | null> => {
     try {
-        const response = await api.post<AuthResponse>("/api/auth/login", { username, password });
+        const response = await api.post<AuthResponse>("/api/auth/login", {
+            username,
+            password,
+        });
         return response.data;
     } catch (error) {
         HandleAxiosError(error);

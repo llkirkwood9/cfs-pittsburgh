@@ -9,12 +9,8 @@ import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
 import { useSettingsFor } from "../../Context/SettingsContext";
 import { cx } from "../../Lib/ClassNames";
-import {
-    FinancingText,
-    FormatCurrency,
-    ParseMoney,
-    PaymentMethodLabels,
-} from "@shared/Lib/ModelHelpers";
+import { FormatCurrency, ParseMoney } from "@shared/Lib/Format";
+import { FinancingText, PaymentMethodLabels } from "@shared/Lib/Orders";
 import { Toast } from "../../Lib/Toast";
 import type { FinanceOption } from "@shared/Models/FinanceOption";
 import type { Order } from "@shared/Models/Order";

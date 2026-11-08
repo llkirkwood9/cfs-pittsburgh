@@ -41,7 +41,9 @@ export const PreviewReceiptEmail = async (
  * Gets what the sign-in screen may show before anyone signs in: the app name.
  * @returns The public settings, or null when they can't be read.
  */
-export const GetPublicSettings = async (): Promise<{ appName?: string } | null> => {
+export const GetPublicSettings = async (): Promise<{
+    appName?: string;
+} | null> => {
     try {
         const response = await api.get<{ appName?: string }>("/api/Settings/public");
         return response.data;

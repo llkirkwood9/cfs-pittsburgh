@@ -2,7 +2,7 @@ import { Pressable, View } from "react-native";
 import Icon from "../Elements/Icon";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
-import { FormatCurrency, FormatElapsed } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency, FormatElapsed } from "@shared/Lib/Format";
 import type { OrderSummary } from "@shared/Models/OrderSummary";
 
 type Props = {

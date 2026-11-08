@@ -3,7 +3,7 @@ import ConfirmationModal from "../Elements/ConfirmationModal";
 import TextField from "../Elements/TextField";
 import SettingsCard from "./SettingsCard";
 import { useSettingsScope } from "@shared/Context/SettingsScope";
-import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency } from "@shared/Lib/Format";
 import { Toast } from "../../Lib/Toast";
 import { DefaultGeneralSettings } from "@shared/Models/GeneralSettings";
 import { SaveGeneralSettings } from "@shared/Services/SettingsServices";

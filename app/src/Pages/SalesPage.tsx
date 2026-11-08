@@ -22,7 +22,7 @@ import { useAuth } from "@shared/Context/AuthContext";
 import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { useBreakpoint } from "../Hooks/UseBreakpoint";
-import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency } from "@shared/Lib/Format";
 import { Toast } from "../Lib/Toast";
 import type { DeliveryOption } from "@shared/Models/DeliveryOption";
 import type { Event } from "@shared/Models/Event";

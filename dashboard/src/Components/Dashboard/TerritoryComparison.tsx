@@ -3,7 +3,7 @@ import Icon from "../Elements/Icon";
 import TabButton from "../Elements/TabButton";
 import { useTerritory } from "../../Context/TerritoryContext";
 import { IsOnline } from "@shared/Lib/Connection";
-import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency } from "@shared/Lib/Format";
 import type { TerritoryStats } from "@shared/Models/Territory";
 import { GetTerritoryComparison } from "@shared/Services/DashboardServices";
 

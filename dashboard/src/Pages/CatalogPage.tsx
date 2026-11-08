@@ -12,7 +12,7 @@ import FinanceOptionList from "../Components/Catalog/FinanceOptionList";
 import ImportCatalogModal from "../Components/Catalog/ImportCatalogModal";
 import { useAuth } from "@shared/Context/AuthContext";
 import { useTerritory } from "../Context/TerritoryContext";
-import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency } from "@shared/Lib/Format";
 import { DiscountText, HasDiscount, OnSale, SaleFor } from "@shared/Lib/Pricing";
 import { ProductSortOptions, SortProducts, type ProductSortKey } from "@shared/Lib/ProductSort";
 import { Toast } from "../Lib/Toast";

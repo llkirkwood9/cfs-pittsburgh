@@ -6,7 +6,7 @@ import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import { useAuth } from "@shared/Context/AuthContext";
-import { FormatCurrency, FormatShortDate, FormatTime } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency, FormatShortDate, FormatTime } from "@shared/Lib/Format";
 import { Toast } from "../Lib/Toast";
 import type { Event } from "@shared/Models/Event";
 import type { InventoryItem } from "@shared/Models/InventoryItem";

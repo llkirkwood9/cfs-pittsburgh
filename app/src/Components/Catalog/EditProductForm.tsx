@@ -17,7 +17,7 @@ import SelectField from "../Elements/SelectField";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
 import { cx } from "../../Lib/ClassNames";
-import { ParseMoney } from "@shared/Lib/ModelHelpers";
+import { ParseMoney } from "@shared/Lib/Format";
 import { CleanDiscount, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
 import { Toast } from "../../Lib/Toast";
 import type { DeliveryOption } from "@shared/Models/DeliveryOption";

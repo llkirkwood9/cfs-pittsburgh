@@ -18,7 +18,10 @@ import type { OrderSummary } from "../Models/OrderSummary";
  */
 export const AddOrder = async (eventId: number, draftLabel?: string): Promise<Order | null> => {
     try {
-        const response = await api.post<Order>("/api/Order/order", { eventId, draftLabel });
+        const response = await api.post<Order>("/api/Order/order", {
+            eventId,
+            draftLabel,
+        });
         return response.data;
     } catch (error) {
         HandleAxiosError(error);

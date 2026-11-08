@@ -3,12 +3,8 @@ import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import TextField from "../Elements/TextField";
 import { useSettingsFor } from "../../Context/SettingsContext";
-import {
-    FinancingText,
-    FormatCurrency,
-    ParseMoney,
-    PaymentMethodLabels,
-} from "@shared/Lib/ModelHelpers";
+import { FormatCurrency, ParseMoney } from "@shared/Lib/Format";
+import { FinancingText, PaymentMethodLabels } from "@shared/Lib/Orders";
 import { Toast } from "../../Lib/Toast";
 import type { FinanceOption } from "@shared/Models/FinanceOption";
 import type { Order } from "@shared/Models/Order";

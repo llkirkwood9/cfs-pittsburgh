@@ -1,7 +1,7 @@
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
 import TextField from "../Elements/TextField";
-import { ParseMoney } from "@shared/Lib/ModelHelpers";
+import { ParseMoney } from "@shared/Lib/Format";
 import type { ProductOption } from "@shared/Models/ProductOption";
 
 /** A choice being edited. `key` is local, so new rows have something stable to key on. */

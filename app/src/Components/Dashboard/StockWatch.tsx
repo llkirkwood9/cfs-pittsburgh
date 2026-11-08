@@ -8,7 +8,7 @@ import { useAuth } from "@shared/Context/AuthContext";
 import { useSettings } from "../../Context/SettingsContext";
 import { cx } from "../../Lib/ClassNames";
 import { IsOnline } from "@shared/Lib/Connection";
-import { InventoryRowKey, InventorySizeLabel } from "@shared/Lib/ModelHelpers";
+import { InventoryRowKey, InventorySizeLabel } from "@shared/Lib/Inventory";
 import type { InventoryItem } from "@shared/Models/InventoryItem";
 import { GetInventory } from "@shared/Services/InventoryServices";
 

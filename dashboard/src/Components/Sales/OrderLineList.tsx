@@ -1,6 +1,7 @@
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
-import { FormatCurrency, PrintsOnSalesSheet, SortLinesForPrint } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency } from "@shared/Lib/Format";
+import { PrintsOnSalesSheet, SortLinesForPrint } from "@shared/Lib/Orders";
 import { ChoicesText, CleanDiscount, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
 import type { OrderLine } from "@shared/Models/OrderLine";
 

@@ -13,14 +13,10 @@ import Text from "../Elements/Text";
 import TextArea from "../Elements/TextArea";
 import TextField from "../Elements/TextField";
 import { cx } from "../../Lib/ClassNames";
-import {
-    FormatCurrency,
-    NeedsPrice,
-    ParseMoney,
-    TakeWithBlocked,
-    VariantLabel,
-    WarrantyText,
-} from "@shared/Lib/ModelHelpers";
+import { NeedsPrice, VariantLabel } from "@shared/Lib/Catalog";
+import { FormatCurrency, ParseMoney } from "@shared/Lib/Format";
+import { TakeWithBlocked } from "@shared/Lib/Inventory";
+import { WarrantyText } from "@shared/Lib/Orders";
 import {
     ApplyDiscount,
     ChoicesPriceChange,

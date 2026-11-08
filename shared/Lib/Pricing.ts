@@ -1,4 +1,4 @@
-import { FormatCurrency } from "./ModelHelpers";
+import { FormatCurrency } from "./Format";
 import type { DeliveryOption } from "../Models/DeliveryOption";
 import type { OrderLine } from "../Models/OrderLine";
 import type { Product } from "../Models/Product";

@@ -1,5 +1,5 @@
 import Icon from "../Elements/Icon";
-import { FormatCurrency, FormatElapsed } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency, FormatElapsed } from "@shared/Lib/Format";
 import type { OrderSummary } from "@shared/Models/OrderSummary";
 
 type Props = {

@@ -5,7 +5,7 @@ import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
-import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency } from "@shared/Lib/Format";
 import type { OrderSummary } from "@shared/Models/OrderSummary";
 
 type Props = {

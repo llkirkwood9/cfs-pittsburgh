@@ -7,7 +7,7 @@ import Grid, { Cell } from "../Elements/Grid";
 import Icon from "../Elements/Icon";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
-import { NormalizeCustomer } from "@shared/Lib/ModelHelpers";
+import { NormalizeCustomer } from "@shared/Lib/Orders";
 import { Toast } from "../../Lib/Toast";
 import type { Order } from "@shared/Models/Order";
 

@@ -1,4 +1,4 @@
-import { FormatCurrency, FormatRate } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency, FormatRate } from "@shared/Lib/Format";
 import type { Order } from "@shared/Models/Order";
 
 type Props = {

@@ -6,12 +6,8 @@ import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "@shared/Context/AuthContext";
-import {
-    CategoryNames,
-    GroupInventory,
-    InventoryRowKey,
-    InventorySizeLabel,
-} from "@shared/Lib/ModelHelpers";
+import { CategoryNames } from "@shared/Lib/Catalog";
+import { GroupInventory, InventoryRowKey, InventorySizeLabel } from "@shared/Lib/Inventory";
 import { Toast } from "../Lib/Toast";
 import type { Event } from "@shared/Models/Event";
 import type { InventoryItem } from "@shared/Models/InventoryItem";

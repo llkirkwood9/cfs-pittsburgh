@@ -1,4 +1,4 @@
-import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency } from "@shared/Lib/Format";
 import type { ProductOption } from "@shared/Models/ProductOption";
 
 type Props = {

@@ -10,7 +10,7 @@ import ListSkeleton from "../Elements/ListSkeleton";
 import Text from "../Elements/Text";
 import { useTheme } from "../../Hooks/UseTheme";
 import { cx } from "../../Lib/ClassNames";
-import { FormatDateTime } from "@shared/Lib/ModelHelpers";
+import { FormatDateTime } from "@shared/Lib/Format";
 import { Toast } from "../../Lib/Toast";
 import type {
     ReceiptEmailPreview,

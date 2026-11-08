@@ -4,7 +4,7 @@ import { useSettingsScope } from "@shared/Context/SettingsScope";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Grid from "../Elements/Grid";
 import TextField from "../Elements/TextField";
-import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency } from "@shared/Lib/Format";
 import { Toast } from "../../Lib/Toast";
 import { DefaultGeneralSettings } from "@shared/Models/GeneralSettings";
 import { SaveGeneralSettings } from "@shared/Services/SettingsServices";

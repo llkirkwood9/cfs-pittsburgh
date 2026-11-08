@@ -1,10 +1,6 @@
-import {
-    CategoryNames,
-    FormatShortDate,
-    GroupInventory,
-    InventoryRowKey,
-    InventorySizeLabel,
-} from "@shared/Lib/ModelHelpers";
+import { CategoryNames } from "@shared/Lib/Catalog";
+import { FormatShortDate } from "@shared/Lib/Format";
+import { GroupInventory, InventoryRowKey, InventorySizeLabel } from "@shared/Lib/Inventory";
 import type { Event } from "@shared/Models/Event";
 import type { InventoryItem } from "@shared/Models/InventoryItem";
 

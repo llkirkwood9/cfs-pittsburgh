@@ -2,7 +2,7 @@ import { View } from "react-native";
 import Text from "../Elements/Text";
 import { useBreakpoint } from "../../Hooks/UseBreakpoint";
 import { cx } from "../../Lib/ClassNames";
-import { FormatCurrency, FormatRate } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency, FormatRate } from "@shared/Lib/Format";
 import type { Order } from "@shared/Models/Order";
 
 type Props = {

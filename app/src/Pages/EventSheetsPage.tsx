@@ -12,7 +12,7 @@ import Text from "../Components/Elements/Text";
 import InventoryNotesEditor from "../Components/Inventory/InventoryNotesEditor";
 import InventorySheet from "../Components/Inventory/InventorySheet";
 import { useAuth } from "@shared/Context/AuthContext";
-import { FormatCurrency, FormatShortDate } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency, FormatShortDate } from "@shared/Lib/Format";
 import { BuildSalesCsv, DownloadCsv } from "../Lib/SalesExport";
 import { PdfUpload, PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
 import type { SheetRef } from "../Lib/SheetPdf";

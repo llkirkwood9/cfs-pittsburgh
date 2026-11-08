@@ -14,7 +14,10 @@ export const ProductSortOptions: { key: ProductSortKey; label: string }[] = [
 
 /** Natural, case-insensitive ordering, so "Agility 3000" sorts before "Agility 5000". */
 export const ByText = (a?: string | null, b?: string | null) =>
-    (a ?? "").localeCompare(b ?? "", undefined, { numeric: true, sensitivity: "base" });
+    (a ?? "").localeCompare(b ?? "", undefined, {
+        numeric: true,
+        sensitivity: "base",
+    });
 
 /**
  * The cheapest priced size of a product, used for price sorting and the "from" label. Null when

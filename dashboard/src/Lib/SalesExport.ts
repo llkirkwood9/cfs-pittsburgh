@@ -1,9 +1,4 @@
-import {
-    FinancingComments,
-    PaymentMethodLabels,
-    PrintsOnSalesSheet,
-    SortLinesForPrint,
-} from "@shared/Lib/ModelHelpers";
+import { FinancingComments, PaymentMethodLabels, PrintsOnSalesSheet, SortLinesForPrint } from "@shared/Lib/Orders";
 import type { Order } from "@shared/Models/Order";
 import type { PaymentMethod } from "@shared/Models/OrderPayment";
 

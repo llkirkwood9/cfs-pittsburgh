@@ -9,13 +9,8 @@ import TabButton from "../Components/Elements/TabButton";
 import TextField from "../Components/Elements/TextField";
 import { useAuth } from "@shared/Context/AuthContext";
 import { useTerritory } from "../Context/TerritoryContext";
-import {
-    EventsForFilter,
-    FormatCurrency,
-    FormatShortDate,
-    FormatTime,
-    IsPastEvent,
-} from "@shared/Lib/ModelHelpers";
+import { EventsForFilter, IsPastEvent } from "@shared/Lib/Events";
+import { FormatCurrency, FormatShortDate, FormatTime } from "@shared/Lib/Format";
 import { Toast } from "../Lib/Toast";
 import type { Event } from "@shared/Models/Event";
 import type { OrderStatus } from "@shared/Models/Order";

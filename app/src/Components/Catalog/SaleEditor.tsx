@@ -1,7 +1,7 @@
 import { Pressable, TextInput, View } from "react-native";
 import Text from "../Elements/Text";
 import { cx } from "../../Lib/ClassNames";
-import { ParseMoney } from "@shared/Lib/ModelHelpers";
+import { ParseMoney } from "@shared/Lib/Format";
 
 /** How a sale is set: none, a percent off, a fixed amount off each item - or, for a size, the product's. */
 export type SaleMode = "none" | "percent" | "amount" | "follow";

@@ -1,6 +1,6 @@
 import Button from "../Elements/Button";
 import Icon from "../Elements/Icon";
-import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency } from "@shared/Lib/Format";
 import type { OrderSummary } from "@shared/Models/OrderSummary";
 
 type Props = {

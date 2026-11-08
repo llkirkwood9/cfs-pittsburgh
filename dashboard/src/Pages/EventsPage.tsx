@@ -9,14 +9,8 @@ import TextField from "../Components/Elements/TextField";
 import { useAuth } from "@shared/Context/AuthContext";
 import { useSettings } from "../Context/SettingsContext";
 import { useTerritory } from "../Context/TerritoryContext";
-import {
-    FormatRate,
-    FormatShortDate,
-    IsPastEvent,
-    IsUpcomingEvent,
-    ParseMoney,
-    SplitEvents,
-} from "@shared/Lib/ModelHelpers";
+import { IsPastEvent, IsUpcomingEvent, SplitEvents } from "@shared/Lib/Events";
+import { FormatRate, FormatShortDate, ParseMoney } from "@shared/Lib/Format";
 import { Toast } from "../Lib/Toast";
 import type { Event } from "@shared/Models/Event";
 import { AddEvent, DeleteEvent, GetEvents, UpdateEvent } from "@shared/Services/EventServices";

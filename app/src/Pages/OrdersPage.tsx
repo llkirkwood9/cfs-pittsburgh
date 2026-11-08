@@ -17,13 +17,8 @@ import { useTerritory } from "../Context/TerritoryContext";
 import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
-import {
-    EventsForFilter,
-    FormatCurrency,
-    FormatShortDate,
-    FormatTime,
-    IsPastEvent,
-} from "@shared/Lib/ModelHelpers";
+import { EventsForFilter, IsPastEvent } from "@shared/Lib/Events";
+import { FormatCurrency, FormatShortDate, FormatTime } from "@shared/Lib/Format";
 import { Toast } from "../Lib/Toast";
 import type { Event } from "@shared/Models/Event";
 import type { OrderStatus } from "@shared/Models/Order";

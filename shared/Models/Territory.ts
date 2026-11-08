@@ -10,6 +10,15 @@ export type Territory = {
     createdAt?: string;
 };
 
+/**
+ * The territories still in use. A territory that has been switched off keeps its history but is
+ * no longer offered anywhere.
+ * @param territories Every territory.
+ * @returns The active ones.
+ */
+export const ActiveTerritories = (territories: Territory[]): Territory[] =>
+    territories.filter((t) => t.isActive !== false);
+
 /** One territory's row on the dashboard's side-by-side comparison. */
 export type TerritoryStats = {
     territoryId?: number;

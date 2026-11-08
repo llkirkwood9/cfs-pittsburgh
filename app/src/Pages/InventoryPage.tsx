@@ -17,14 +17,9 @@ import { useActiveEventChange } from "../Hooks/UseActiveEventChange";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
 import { IsOnline } from "@shared/Lib/Connection";
-import {
-    CategoryNames,
-    FormatDateTime,
-    FormatTime,
-    GroupInventory,
-    InventoryRowKey,
-    InventorySizeLabel,
-} from "@shared/Lib/ModelHelpers";
+import { CategoryNames } from "@shared/Lib/Catalog";
+import { FormatDateTime, FormatTime } from "@shared/Lib/Format";
+import { GroupInventory, InventoryRowKey, InventorySizeLabel } from "@shared/Lib/Inventory";
 import { Toast } from "../Lib/Toast";
 import type { Event } from "@shared/Models/Event";
 import type { InventoryAdjustment } from "@shared/Models/InventoryAdjustment";

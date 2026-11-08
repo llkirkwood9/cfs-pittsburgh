@@ -18,7 +18,7 @@ import { useAuth } from "@shared/Context/AuthContext";
 import { useTerritory } from "../Context/TerritoryContext";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { ShareTextFile } from "../Lib/Files";
-import { FormatCurrency } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency } from "@shared/Lib/Format";
 import { DiscountText, HasDiscount, OnSale, SaleFor } from "@shared/Lib/Pricing";
 import { ProductSortOptions, SortProducts } from "@shared/Lib/ProductSort";
 import type { ProductSortKey } from "@shared/Lib/ProductSort";

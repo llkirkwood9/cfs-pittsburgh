@@ -12,7 +12,7 @@ import SortableList from "../Elements/SortableList";
 import SwipeRow from "../Elements/SwipeRow";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
-import { FormatCurrency, ParseMoney } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency, ParseMoney } from "@shared/Lib/Format";
 import { CleanDiscount, DiscountText, HasDiscount } from "@shared/Lib/Pricing";
 import { Toast } from "../../Lib/Toast";
 import type { DeliveryOption } from "@shared/Models/DeliveryOption";

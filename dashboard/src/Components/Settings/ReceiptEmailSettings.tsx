@@ -4,7 +4,7 @@ import Icon from "../Elements/Icon";
 import ListSkeleton from "../Elements/ListSkeleton";
 import SettingsCard from "./SettingsCard";
 import { useSettingsScope } from "@shared/Context/SettingsScope";
-import { FormatDateTime } from "@shared/Lib/ModelHelpers";
+import { FormatDateTime } from "@shared/Lib/Format";
 import { Toast } from "../../Lib/Toast";
 import type {
     ReceiptEmailPreview,

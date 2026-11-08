@@ -134,7 +134,9 @@ export const CreateApiClient = (transport: SessionTransport): ApiClient => {
             // Any answer at all, even an error, means the server is reachable.
             SetOnline(Boolean(error.response));
 
-            const original = error.config as AxiosRequestConfig & { _retry?: boolean };
+            const original = error.config as AxiosRequestConfig & {
+                _retry?: boolean;
+            };
             const status = error.response?.status;
             const isAuthCall = /\/api\/auth\/(login|refresh|logout)/i.test(original?.url ?? "");
 

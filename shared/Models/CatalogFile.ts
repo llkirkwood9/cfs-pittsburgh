@@ -56,7 +56,11 @@ export interface CatalogProduct {
     saleDiscountPercent?: number | null;
     saleDiscountAmount?: number | null;
     variants?: CatalogVariant[];
-    deliveryOptions?: { name?: string; priceOverride?: number | null; isDefault?: boolean }[];
+    deliveryOptions?: {
+        name?: string;
+        priceOverride?: number | null;
+        isDefault?: boolean;
+    }[];
     options?: CatalogOption[] | null;
 }
 
@@ -68,7 +72,11 @@ export interface CatalogFile {
     deliveryOptions?: CatalogDeliveryOption[];
     products?: CatalogProduct[];
     /** Missing from files made before financing options were exported. */
-    financeOptions?: { name?: string; isActive?: boolean; territory?: string | null }[];
+    financeOptions?: {
+        name?: string;
+        isActive?: boolean;
+        territory?: string | null;
+    }[];
 }
 
 /** How a catalog file is restored. */

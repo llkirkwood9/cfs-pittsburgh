@@ -2,7 +2,7 @@ import { Children, isValidElement } from "react";
 import type { ReactNode, Ref } from "react";
 import { View } from "react-native";
 import { SheetText } from "../Checkout/SheetTable";
-import { FormatCurrency, FormatShortDate } from "@shared/Lib/ModelHelpers";
+import { FormatCurrency, FormatShortDate } from "@shared/Lib/Format";
 import { SHEET_WIDTH } from "../../Lib/SheetPdf";
 import type { DashboardStats } from "@shared/Models/DashboardStats";
 import type { Event } from "@shared/Models/Event";
