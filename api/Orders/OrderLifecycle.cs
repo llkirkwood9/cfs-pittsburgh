@@ -177,6 +177,24 @@ namespace api.Orders
             return null;
         }
 
+        /// <summary>
+        /// Clears an open order at close-out: voids it when it has to be kept (see
+        /// OrderRules.KeptWhenCleared), otherwise deletes it.
+        /// </summary>
+        /// <param name="db">EF context</param>
+        /// <param name="order">Order with its lines, payments and event loaded, tracked</param>
+        /// <param name="actor">Who is clearing it</param>
+        /// <returns>Whether it was voided (rather than deleted), or why it can't be cleared.</returns>
+        public static async Task<(bool Voided, OrderProblem? Problem)> ClearAsync(ApplicationDbContext db, Order order, OrderActor actor)
+        {
+            if (OrderRules.KeptWhenCleared(order))
+                return (true, await VoidAsync(db, order, actor));
+
+            db.Orders.Remove(order);
+            await db.SaveChangesAsync();
+            return (false, null);
+        }
+
         #endregion
 
         #region Private Methods

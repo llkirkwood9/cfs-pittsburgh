@@ -79,9 +79,6 @@ export const SplitEvents = (events: Event[]): { current: Event[]; past: Event[] 
         .sort((a, b) => eventDayKey(b).localeCompare(eventDayKey(a)) || (b.id ?? 0) - (a.id ?? 0)),
 });
 
-/** Where order numbers start for a company's first event. */
-export const FIRST_ORDER_NUMBER = 1001;
-
 /** What the event form holds while it's open. */
 export type EventForm = {
     organization: string;
@@ -101,29 +98,25 @@ export type EventForm = {
  * Fills the event form from an event, or from a new event's starting values.
  * @param event The event.
  * @param fallbackTerritoryId The territory to put it in when it has none yet.
- * @param defaults The rates a new event starts with, from Settings.
  * @returns The form.
  */
-export const EventToForm = (
-    event: Event,
-    fallbackTerritoryId: number | null,
-    defaults: Pick<GeneralSettings, "defaultSalesTaxRate" | "defaultCcProcessingFeeRate">
-): EventForm => ({
+export const EventToForm = (event: Event, fallbackTerritoryId: number | null): EventForm => ({
     organization: event.organization ?? "",
     cartName: event.cartName ?? "",
     // Today in the viewer's own time zone - toISOString would give tomorrow's date in the evening.
     eventDate: (event.eventDate ?? TodayKey()).slice(0, 10),
-    taxPercent: RateAsPercent(event.salesTaxRate ?? defaults.defaultSalesTaxRate),
-    feePercent: RateAsPercent(event.ccProcessingFeeRate ?? defaults.defaultCcProcessingFeeRate),
-    nextOrderNumber: String(event.nextOrderNumber ?? FIRST_ORDER_NUMBER),
+    taxPercent: event.salesTaxRate == null ? "" : RateAsPercent(event.salesTaxRate),
+    feePercent: event.ccProcessingFeeRate == null ? "" : RateAsPercent(event.ccProcessingFeeRate),
+    // Blank for a new event: the server carries on from the territory's last order number.
+    nextOrderNumber: event.nextOrderNumber == null ? "" : String(event.nextOrderNumber),
     isActive: event.isActive ?? true,
     territoryId: event.territoryId ?? fallbackTerritoryId,
 });
 
 /**
- * A new event's starting values: the tax rate and card fee set under Settings, the most recent
- * event's cart, and order numbers carrying on from the highest used so far so no two sales
- * sheets share a number.
+ * A new event's starting values: the tax rate and card fee set under Settings and the most recent
+ * event's cart. Its order numbers are left to the server, which carries on from the highest its
+ * territory has used so no two sales sheets share a number.
  * @param events Every event.
  * @param territoryId The territory it's for.
  * @param settings That territory's settings.
@@ -142,7 +135,6 @@ export const NewEventDefaults = (
         cartName: latest?.cartName,
         salesTaxRate: settings.defaultSalesTaxRate,
         ccProcessingFeeRate: settings.defaultCcProcessingFeeRate,
-        nextOrderNumber: Math.max(FIRST_ORDER_NUMBER, ...events.map((e) => e.nextOrderNumber ?? 0)),
         isActive: true,
     };
 };
@@ -182,7 +174,9 @@ export const BuildEvent = (
             eventDate: new Date(`${form.eventDate}T00:00:00`).toISOString(),
             salesTaxRate: tax / 100,
             ccProcessingFeeRate: fee / 100,
-            nextOrderNumber: Number(form.nextOrderNumber) || FIRST_ORDER_NUMBER,
+            // Left blank: a new event carries on from its territory's last number; an existing
+            // one keeps its own.
+            nextOrderNumber: Number(form.nextOrderNumber) || undefined,
             isActive: form.isActive,
             territoryId: picksTerritory ? (form.territoryId ?? undefined) : undefined,
         },

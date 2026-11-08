@@ -34,6 +34,10 @@ export type Product = {
     saleDiscountPercent?: number | null;
     /** A sale on every size, as a fixed amount off each item. */
     saleDiscountAmount?: number | null;
+    /** The sale on the product as a whole, as the server works it out (returned, not saved). */
+    effectiveSalePercent?: number | null;
+    /** The sale on the product as a whole, amount off each (returned, not saved). */
+    effectiveSaleAmount?: number | null;
     /** Choices the rep makes beyond size, such as Color. */
     options?: ProductOption[];
     variants?: ProductVariant[];

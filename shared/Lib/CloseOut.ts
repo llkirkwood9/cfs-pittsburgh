@@ -5,16 +5,6 @@ import { FormatCurrency, FormatTime } from "./Format";
 /** Balances below this are rounding, not money owed. */
 const OWED_TOLERANCE = 0.004;
 
-/**
- * Whether clearing an open order voids it rather than discarding it. A draft with nothing paid is
- * discarded - deleted, as the Sell screen does - but anything that reached checkout, or has a
- * payment on it, is voided so the record of it stays.
- * @param o The order.
- * @returns True when it is voided.
- */
-export const VoidsWhenCleared = (o: OrderSummary): boolean =>
-    o.status !== "Draft" || (o.total ?? 0) - (o.balanceDue ?? 0) > OWED_TOLERANCE;
-
 /** Orders about to be discarded or voided, waiting for a yes. */
 export type Clearing = {
     orders: OrderSummary[];
@@ -32,7 +22,9 @@ const orderName = (o: OrderSummary) =>
  * @returns What to confirm.
  */
 export const ClearOne = (o: OrderSummary): Clearing =>
-    VoidsWhenCleared(o)
+    // The server says which: a draft with nothing paid is deleted; anything that reached
+    // checkout, or has a payment on it, is voided so the record of it stays.
+    o.voidsWhenCleared
         ? {
               orders: [o],
               title: "Void order",
@@ -53,7 +45,7 @@ export const ClearOne = (o: OrderSummary): Clearing =>
  * @returns What to confirm.
  */
 export const ClearAll = (list: OrderSummary[], what: string): Clearing => {
-    const voiding = list.filter(VoidsWhenCleared).length;
+    const voiding = list.filter((o) => o.voidsWhenCleared).length;
     const discarding = list.length - voiding;
     const parts = [
         discarding ? `${discarding} discarded (deleted for good)` : null,

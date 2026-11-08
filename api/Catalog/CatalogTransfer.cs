@@ -519,17 +519,11 @@ namespace api.Catalog
 
             foreach (var ((v, variant), index) in pairs.Select((x, i) => (x, i)))
             {
-                variant.Size = v.Size?.Trim() ?? string.Empty;
-                variant.Configuration = string.IsNullOrWhiteSpace(v.Configuration) ? null : v.Configuration.Trim();
-                variant.Price = v.Price;
-                variant.SortOrder = index + 1;
-                variant.IsActive = v.IsActive ?? true;
-                variant.ExcludeFromInventory = v.ExcludeFromInventory ?? false;
-                variant.Notes = CatalogRules.CleanSizeNotes(v.Notes);
-                variant.HasOwnSale = v.HasOwnSale ?? false;
-                (variant.SaleDiscountPercent, variant.SaleDiscountAmount) = variant.HasOwnSale
-                    ? CatalogRules.CleanSale(v.SaleDiscountPercent, v.SaleDiscountAmount)
-                    : (null, null);
+                // A file's sizes are trimmed and placed in file order.
+                CatalogFields.CopySize(variant, v.Size, v.Configuration, v.Price, index + 1, v.IsActive,
+                    v.ExcludeFromInventory, v.Notes, v.HasOwnSale, v.SaleDiscountPercent, v.SaleDiscountAmount);
+                variant.Size = variant.Size.Trim();
+                variant.Configuration = variant.Configuration?.Trim();
 
                 // Rebuilt from the file once every product is in place.
                 db.ProductVariantComponents.RemoveRange(variant.Components);
@@ -555,15 +549,11 @@ namespace api.Catalog
                 if (product.DeliveryOptions.Any(x => x.DeliveryOption == option))
                     continue;
 
-                product.DeliveryOptions.Add(new ProductDeliveryOption
-                {
-                    DeliveryOption = option,
-                    PriceOverride = d.PriceOverride is < 0 ? null : d.PriceOverride,
-                    IsDefault = d.IsDefault ?? false,
-                    HasOwnSale = d.HasOwnSale ?? false,
-                    SaleDiscountPercent = d.HasOwnSale == true ? CatalogRules.CleanSale(d.SaleDiscountPercent, d.SaleDiscountAmount).Percent : null,
-                    SaleDiscountAmount = d.HasOwnSale == true ? CatalogRules.CleanSale(d.SaleDiscountPercent, d.SaleDiscountAmount).Amount : null,
-                });
+                // A negative price in a file is ignored: the option's own price applies.
+                var choice = CatalogFields.NewDeliveryChoice(d.PriceOverride is < 0 ? null : d.PriceOverride, d.IsDefault,
+                    d.HasOwnSale, d.SaleDiscountPercent, d.SaleDiscountAmount);
+                choice.DeliveryOption = option;
+                product.DeliveryOptions.Add(choice);
             }
 
             // Selections, keeping the ids of those (and their choices) that match by name, so stock

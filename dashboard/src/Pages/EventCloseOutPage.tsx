@@ -4,7 +4,7 @@ import ConfirmationModal from "../Components/Elements/ConfirmationModal";
 import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import { useCloseOut } from "@shared/Hooks/useCloseOut";
-import { CloseEventMessage, VoidsWhenCleared } from "@shared/Lib/CloseOut";
+import { CloseEventMessage } from "@shared/Lib/CloseOut";
 import type { CloseOutStep } from "@shared/Lib/CloseOut";
 import { FormatCurrency, FormatShortDate } from "@shared/Lib/Format";
 import type { OrderSummary } from "@shared/Models/OrderSummary";
@@ -72,8 +72,8 @@ const EventCloseOutPage = () => {
 
     const clearButton = (o: OrderSummary) => (
         <Button
-            text={VoidsWhenCleared(o) ? "Void" : "Discard"}
-            icon={VoidsWhenCleared(o) ? "fa-solid fa-ban" : "fa-solid fa-trash"}
+            text={o.voidsWhenCleared ? "Void" : "Discard"}
+            icon={o.voidsWhenCleared ? "fa-solid fa-ban" : "fa-solid fa-trash"}
             onClick={() => askOne(o)}
             className="min-h-[40px] shrink-0 bg-red-700 px-3 text-sm hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
         />

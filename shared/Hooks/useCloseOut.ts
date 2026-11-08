@@ -1,20 +1,14 @@
 import { useCallback, useEffect, useState } from "react";
 import { Toast } from "@host";
 import { useAuth } from "../Context/AuthContext";
-import {
-    ClearAll,
-    ClearOne,
-    CloseOutSteps,
-    SummarizeCloseOut,
-    VoidsWhenCleared,
-} from "../Lib/CloseOut";
+import { ClearAll, ClearOne, CloseOutSteps, SummarizeCloseOut } from "../Lib/CloseOut";
 import type { Clearing } from "../Lib/CloseOut";
 import type { Event } from "../Models/Event";
 import type { InventoryItem } from "../Models/InventoryItem";
 import type { OrderSummary } from "../Models/OrderSummary";
 import { GetEvent, UpdateEvent } from "../Services/EventServices";
 import { GetInventory } from "../Services/InventoryServices";
-import { DeleteOrder, GetOrdersForEvent, VoidOrder } from "../Services/OrderServices";
+import { ClearOrder, GetOrdersForEvent } from "../Services/OrderServices";
 
 /**
  * The event close-out screen: the event, its orders and stock, the checklist, clearing open
@@ -67,10 +61,8 @@ export const useCloseOut = (id: number) => {
         let done = 0;
         for (const o of list) {
             if (!o.id) continue;
-            const ok = VoidsWhenCleared(o)
-                ? Boolean(await VoidOrder(o.id))
-                : await DeleteOrder(o.id);
-            if (ok) done += 1;
+            // The server voids or deletes it, whichever the order calls for.
+            if ((await ClearOrder(o.id)) !== null) done += 1;
         }
         const remaining = await GetOrdersForEvent(id);
         if (remaining) setOrders(remaining);

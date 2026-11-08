@@ -46,6 +46,16 @@ namespace api.Orders
             return CheckoutGap.None;
         }
 
+        /// <summary>
+        /// Whether clearing an open order (close-out, or discarding a draft) has to keep it as
+        /// voided rather than delete it: it reached checkout, or money was taken on it. Only a
+        /// draft with nothing paid can be deleted, so a recorded payment is never lost.
+        /// </summary>
+        /// <param name="order">Order with its payments loaded</param>
+        /// <returns>True when it must be voided instead.</returns>
+        public static bool KeptWhenCleared(Order order) =>
+            order.Status != OrderStatus.Draft || order.Payments.Count > 0;
+
         #endregion
 
         #region Blank Drafts

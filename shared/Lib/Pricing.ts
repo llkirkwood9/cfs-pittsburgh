@@ -10,8 +10,9 @@ import type { ProductVariant } from "../Models/ProductVariant";
 export type Discount = { percent: number | null; amount: number | null };
 
 /**
- * A discount tidied the way the server stores it: a positive percent wins, else a positive
- * amount, else nothing.
+ * A discount in the shape the server keeps it: a positive percent wins, else a positive amount,
+ * else nothing. For showing a stored line's discounts and the rep's typed discount; the catalog
+ * sale comes worked out from the server (SaleFor, DeliverySaleFor).
  * @param percent Percent off.
  * @param amount Amount off each item.
  * @returns The discount.
@@ -23,35 +24,36 @@ export const CleanDiscount = (percent?: number | null, amount?: number | null): 
           ? { percent: null, amount: amount! }
           : { percent: null, amount: null };
 
+/** A sale as the server sends it, worked out. */
+const ServerSale = (item?: {
+    effectiveSalePercent?: number | null;
+    effectiveSaleAmount?: number | null;
+}): Discount => ({
+    percent: item?.effectiveSalePercent ?? null,
+    amount: item?.effectiveSaleAmount ?? null,
+});
+
 /**
- * The catalog sale on a size: its own when it has one, otherwise its product's. Matches the
- * server, which applies it when the item goes on an order.
+ * The catalog sale on a size (its own, or its product's), or on the product as a whole, as the
+ * server works it out and applies it when the item goes on an order.
  * @param product The product.
  * @param variant The size.
  * @returns The sale, or no discount.
  */
 export const SaleFor = (product: Product, variant?: ProductVariant): Discount =>
-    variant?.hasOwnSale
-        ? CleanDiscount(variant.saleDiscountPercent, variant.saleDiscountAmount)
-        : CleanDiscount(product.saleDiscountPercent, product.saleDiscountAmount);
+    variant ? ServerSale(variant) : ServerSale(product);
 
 /**
- * The sale on a product's delivery option: the product's own when it has one, otherwise the
- * option's. Matches the server, which applies it when the shipping is added to an order.
+ * The sale on a delivery option for a product (the product's own, or the option's), as the
+ * server works it out and applies it when the shipping is added to an order.
  * @param delivery The product's entry for the option, if it offers it.
- * @param option The delivery option itself, when there is no product entry to read it from.
+ * @param option The delivery option itself, when there is no product entry.
  * @returns The sale, or no discount.
  */
 export const DeliverySaleFor = (
     delivery?: ProductDeliveryOption,
     option?: DeliveryOption
-): Discount =>
-    delivery?.hasOwnSale
-        ? CleanDiscount(delivery.saleDiscountPercent, delivery.saleDiscountAmount)
-        : CleanDiscount(
-              delivery?.optionSaleDiscountPercent ?? option?.saleDiscountPercent,
-              delivery?.optionSaleDiscountAmount ?? option?.saleDiscountAmount
-          );
+): Discount => (delivery ? ServerSale(delivery) : ServerSale(option));
 
 /** Whether any size of a product is on sale. */
 export const OnSale = (product: Product): boolean =>
@@ -62,20 +64,39 @@ export const HasDiscount = (discount: Discount): boolean =>
     discount.percent !== null || discount.amount !== null;
 
 /**
- * A price with a discount taken off, never below zero.
+ * A price with one discount taken off, never below zero - unrounded, as the server works it.
  * @param price The price.
  * @param discount The discount.
  * @returns The discounted price.
  */
-export const ApplyDiscount = (price: number, discount: Discount): number => {
+const Discounted = (price: number, discount: Discount): number => {
     const off =
         discount.percent !== null
-            ? price * (discount.percent / 100)
+            ? price * (Math.min(discount.percent, 100) / 100)
             : discount.amount !== null
               ? discount.amount
               : 0;
     return Math.max(0, price - off);
 };
+
+/**
+ * Rounds to cents, halves away from zero, as the server does.
+ * @param value The amount.
+ * @returns The rounded amount.
+ */
+const RoundCents = (value: number): number =>
+    Math.sign(value) * (Math.round(Math.abs(value) * 100 + 1e-9) / 100);
+
+/**
+ * A preview of the price the server will charge each (OrderCalculator): the discounts taken off
+ * in turn - the catalog sale, then the rep's own - and rounded to cents once at the end. The
+ * server's figure on the saved line is the one that counts.
+ * @param price The price.
+ * @param discounts The discounts, in the order they come off.
+ * @returns The price each.
+ */
+export const PreviewPrice = (price: number, ...discounts: Discount[]): number =>
+    RoundCents(discounts.reduce(Discounted, price));
 
 /**
  * A discount as text, such as "20%" or "$300".

@@ -302,6 +302,8 @@ namespace api.Controllers
                 IsActive = option.IsActive,
                 SaleDiscountPercent = option.SaleDiscountPercent,
                 SaleDiscountAmount = option.SaleDiscountAmount,
+                EffectiveSalePercent = Choices.DeliverySaleFor(option, null).Percent,
+                EffectiveSaleAmount = Choices.DeliverySaleFor(option, null).Amount,
             };
         }
 

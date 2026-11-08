@@ -18,6 +18,10 @@ export type ProductVariant = {
     hasOwnSale?: boolean;
     saleDiscountPercent?: number | null;
     saleDiscountAmount?: number | null;
+    /** The sale taken when it's sold, as the server works it out (returned, not saved). */
+    effectiveSalePercent?: number | null;
+    /** The sale taken when it's sold, amount off each (returned, not saved). */
+    effectiveSaleAmount?: number | null;
     /** Stock per combination of counted choices, for products whose selections count stock. */
     stocks?: ChoiceStock[] | null;
     components?: ProductVariantComponent[];

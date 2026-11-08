@@ -74,7 +74,7 @@ namespace api.Controllers
                 CartName = request.CartName,
                 SalesTaxRate = request.SalesTaxRate ?? settings.DefaultSalesTaxRate,
                 CcProcessingFeeRate = request.CcProcessingFeeRate ?? settings.DefaultCcProcessingFeeRate,
-                NextOrderNumber = request.NextOrderNumber ?? Event.FirstOrderNumber,
+                NextOrderNumber = request.NextOrderNumber ?? await NextOrderNumberAsync(territoryId.Value),
                 IsActive = request.IsActive ?? true,
             };
 
@@ -284,6 +284,19 @@ namespace api.Controllers
         #endregion
 
         #region Private Methods
+
+        /// <summary>
+        /// Where a new event's order numbers start when none is given: carrying on from the
+        /// highest any of the territory's events has reached, so no two of its sales sheets share a
+        /// number - or the first number for a territory's first event.
+        /// </summary>
+        /// <param name="territoryId">The territory</param>
+        /// <returns>The next order number.</returns>
+        private async Task<int> NextOrderNumberAsync(int territoryId)
+        {
+            var highest = await DB.Events.Where(e => e.TerritoryId == territoryId).MaxAsync(e => (int?)e.NextOrderNumber);
+            return Math.Max(Event.FirstOrderNumber, highest ?? 0);
+        }
 
         /// <summary>
         /// Switches off every event in a territory, so the one being switched on is its only

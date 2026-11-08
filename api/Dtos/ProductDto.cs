@@ -57,6 +57,17 @@ namespace api.Dtos
         public decimal? SaleDiscountAmount { get; set; }
 
         /// <summary>
+        /// The sale on the product as a whole, for sizes without their own - percent off (returned, not saved). The server works it
+        /// out; at most one of the two is set.
+        /// </summary>
+        public decimal? EffectiveSalePercent { get; set; }
+
+        /// <summary>
+        /// The sale on the product as a whole, for sizes without their own - amount off each (returned, not saved)
+        /// </summary>
+        public decimal? EffectiveSaleAmount { get; set; }
+
+        /// <summary>
         /// Selections the rep makes beyond size, such as Color
         /// </summary>
         public List<ProductOptionDto>? Options { get; set; }

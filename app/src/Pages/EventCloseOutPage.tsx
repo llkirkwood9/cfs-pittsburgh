@@ -12,7 +12,7 @@ import Text from "../Components/Elements/Text";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
 import { useCloseOut } from "@shared/Hooks/useCloseOut";
-import { CloseEventMessage, VoidsWhenCleared } from "@shared/Lib/CloseOut";
+import { CloseEventMessage } from "@shared/Lib/CloseOut";
 import type { CloseOutStep } from "@shared/Lib/CloseOut";
 import { FormatCurrency, FormatShortDate } from "@shared/Lib/Format";
 import type { OrderSummary } from "@shared/Models/OrderSummary";
@@ -98,7 +98,7 @@ const EventCloseOutPage = () => {
                 const actions: SwipeAction[] =
                     step.clearable && canClear
                         ? [
-                              VoidsWhenCleared(o)
+                              o.voidsWhenCleared
                                   ? {
                                         label: "Void",
                                         icon: "fa-solid fa-ban",

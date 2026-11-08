@@ -121,5 +121,11 @@ namespace api.Dtos
         /// Last time any field changed
         /// </summary>
         public DateTime? UpdatedAt { get; set; }
+
+        /// <summary>
+        /// Whether clearing it at close-out voids it (it reached checkout or has a payment) rather
+        /// than deleting it
+        /// </summary>
+        public bool? VoidsWhenCleared { get; set; }
     }
 }

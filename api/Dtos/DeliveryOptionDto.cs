@@ -69,5 +69,16 @@ namespace api.Dtos
         /// A sale on this delivery option, as a fixed amount off, when there is no percent
         /// </summary>
         public decimal? SaleDiscountAmount { get; set; }
+
+        /// <summary>
+        /// The sale taken when this is sold - percent off (returned, not saved). The server works it
+        /// out; at most one of the two is set.
+        /// </summary>
+        public decimal? EffectiveSalePercent { get; set; }
+
+        /// <summary>
+        /// The sale taken when this is sold - amount off each (returned, not saved)
+        /// </summary>
+        public decimal? EffectiveSaleAmount { get; set; }
     }
 }

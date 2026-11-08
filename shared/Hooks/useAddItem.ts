@@ -15,7 +15,7 @@ import { CategoryShortNames, NeedsPrice } from "../Lib/Catalog";
 import { ParseMoney } from "../Lib/Format";
 import { TakeWithBlocked } from "../Lib/Inventory";
 import {
-    ApplyDiscount,
+    PreviewPrice,
     ChoicesPriceChange,
     CleanDiscount,
     CountedOptions,
@@ -96,19 +96,19 @@ export const useAddItem = (
     const choicesChange = selected ? ChoicesPriceChange(selected, picks) : 0;
     const listPrice = basePrice === null ? null : basePrice + choicesChange;
     const sale = selected && variant && !needsPrice ? SaleFor(selected, variant) : CleanDiscount();
-    const salePrice = listPrice === null ? null : ApplyDiscount(listPrice, sale);
+    const salePrice = listPrice === null ? null : PreviewPrice(listPrice, sale);
     const repDiscount =
         discountMode === "percent"
             ? CleanDiscount(ParseMoney(discount), null)
             : CleanDiscount(null, ParseMoney(discount));
-    const finalPrice = salePrice === null ? null : ApplyDiscount(salePrice, repDiscount);
+    const finalPrice = listPrice === null ? null : PreviewPrice(listPrice, sale, repDiscount);
 
     // The shipping picked, with its catalog sale (the product's own, or the option's). A rep's
     // discount on shipping is given afterwards, with Edit on its row.
     const shipping = selected?.deliveryOptions?.find((d) => d.deliveryOptionId === deliveryId);
     const shipList = shipping?.price ?? 0;
     const shipSale = shipping ? DeliverySaleFor(shipping) : CleanDiscount();
-    const shipSalePrice = ApplyDiscount(shipList, shipSale);
+    const shipSalePrice = PreviewPrice(shipList, shipSale);
     /** What the Add button adds: the items at their final price, plus the shipping. */
     const addTotal = (finalPrice ?? 0) * quantity + shipSalePrice;
 

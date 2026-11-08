@@ -1,7 +1,7 @@
 import { FormatCurrency, FormatRate } from "./Format";
 import { CardFeeWaived, NormalizeCustomer, SortLinesForPrint } from "./Orders";
 import {
-    ApplyDiscount,
+    PreviewPrice,
     CleanDiscount,
     DeliverySaleFor,
     DiscountText,
@@ -155,7 +155,7 @@ export const ServicePricing = (
     );
     const price = forProduct?.price ?? option.price ?? 0;
     const sale = DeliverySaleFor(forProduct, option);
-    return { price, sale, salePrice: ApplyDiscount(price, sale) };
+    return { price, sale, salePrice: PreviewPrice(price, sale) };
 };
 
 /** One field of the customer details sheet. */

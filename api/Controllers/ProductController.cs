@@ -421,20 +421,9 @@ namespace api.Controllers
         /// </summary>
         /// <param name="variant">Target size</param>
         /// <param name="dto">The size as sent</param>
-        private static void CopyVariant(ProductVariant variant, ProductVariantDto dto)
-        {
-            variant.Size = dto.Size ?? string.Empty;
-            variant.Configuration = string.IsNullOrWhiteSpace(dto.Configuration) ? null : dto.Configuration;
-            variant.Price = dto.Price;
-            variant.SortOrder = dto.SortOrder ?? 0;
-            variant.IsActive = dto.IsActive ?? true;
-            variant.ExcludeFromInventory = dto.ExcludeFromInventory ?? false;
-            variant.Notes = CatalogRules.CleanSizeNotes(dto.Notes);
-            variant.HasOwnSale = dto.HasOwnSale ?? false;
-            (variant.SaleDiscountPercent, variant.SaleDiscountAmount) = variant.HasOwnSale
-                ? CatalogRules.CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount)
-                : (null, null);
-        }
+        private static void CopyVariant(ProductVariant variant, ProductVariantDto dto) =>
+            CatalogFields.CopySize(variant, dto.Size, dto.Configuration, dto.Price, dto.SortOrder ?? 0, dto.IsActive,
+                dto.ExcludeFromInventory, dto.Notes, dto.HasOwnSale, dto.SaleDiscountPercent, dto.SaleDiscountAmount);
 
         /// <summary>
         /// Replaces a variant's bundle with the supplied components, merging duplicates.
@@ -573,20 +562,10 @@ namespace api.Controllers
                 if (dto.DeliveryOptionId == null)
                     continue;
 
-                var hasOwnSale = dto.HasOwnSale ?? false;
-                var (salePercent, saleAmount) = hasOwnSale
-                    ? CatalogRules.CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount)
-                    : (null, null);
-
-                product.DeliveryOptions.Add(new ProductDeliveryOption
-                {
-                    DeliveryOptionId = dto.DeliveryOptionId.Value,
-                    PriceOverride = dto.PriceOverride,
-                    IsDefault = dto.IsDefault ?? false,
-                    HasOwnSale = hasOwnSale,
-                    SaleDiscountPercent = salePercent,
-                    SaleDiscountAmount = saleAmount,
-                });
+                var choice = CatalogFields.NewDeliveryChoice(dto.PriceOverride, dto.IsDefault, dto.HasOwnSale,
+                    dto.SaleDiscountPercent, dto.SaleDiscountAmount);
+                choice.DeliveryOptionId = dto.DeliveryOptionId.Value;
+                product.DeliveryOptions.Add(choice);
             }
         }
 
@@ -635,6 +614,8 @@ namespace api.Controllers
                 WarrantyLength = product.WarrantyLength,
                 SaleDiscountPercent = product.SaleDiscountPercent,
                 SaleDiscountAmount = product.SaleDiscountAmount,
+                EffectiveSalePercent = CatalogRules.CleanSale(product.SaleDiscountPercent, product.SaleDiscountAmount).Percent,
+                EffectiveSaleAmount = CatalogRules.CleanSale(product.SaleDiscountPercent, product.SaleDiscountAmount).Amount,
                 Options = product.Options
                     .OrderBy(o => o.SortOrder)
                     .ThenBy(o => o.Id)
@@ -679,6 +660,8 @@ namespace api.Controllers
                         HasOwnSale = v.HasOwnSale,
                         SaleDiscountPercent = v.SaleDiscountPercent,
                         SaleDiscountAmount = v.SaleDiscountAmount,
+                        EffectiveSalePercent = Choices.SaleFor(product, v).Percent,
+                        EffectiveSaleAmount = Choices.SaleFor(product, v).Amount,
                         Stocks = combinations.Count == 1 && combinations[0].Key == ""
                             ? null
                             : combinations.Select(c => new ChoiceStockDto
@@ -724,6 +707,8 @@ namespace api.Controllers
                         SaleDiscountAmount = d.SaleDiscountAmount,
                         OptionSaleDiscountPercent = d.DeliveryOption.SaleDiscountPercent,
                         OptionSaleDiscountAmount = d.DeliveryOption.SaleDiscountAmount,
+                        EffectiveSalePercent = Choices.DeliverySaleFor(d.DeliveryOption, d).Percent,
+                        EffectiveSaleAmount = Choices.DeliverySaleFor(d.DeliveryOption, d).Amount,
                     })
                     .ToList(),
             };

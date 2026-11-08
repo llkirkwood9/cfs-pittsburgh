@@ -181,11 +181,20 @@ namespace api.Catalog
         /// </summary>
         /// <param name="variant">Size with its product loaded</param>
         /// <returns>Percent and amount off - at most one of them set.</returns>
-        public static (decimal? Percent, decimal? Amount) SaleFor(ProductVariant variant)
+        public static (decimal? Percent, decimal? Amount) SaleFor(ProductVariant variant) => SaleFor(variant.Product, variant);
+
+        /// <summary>
+        /// The catalog sale on a size of a product: the size's own when it has one, otherwise the
+        /// product's.
+        /// </summary>
+        /// <param name="product">The product</param>
+        /// <param name="variant">The size</param>
+        /// <returns>Percent and amount off - at most one of them set.</returns>
+        public static (decimal? Percent, decimal? Amount) SaleFor(Product? product, ProductVariant variant)
         {
             var (percent, amount) = variant.HasOwnSale
                 ? (variant.SaleDiscountPercent, variant.SaleDiscountAmount)
-                : (variant.Product?.SaleDiscountPercent, variant.Product?.SaleDiscountAmount);
+                : (product?.SaleDiscountPercent, product?.SaleDiscountAmount);
 
             return CatalogRules.CleanSale(percent, amount);
         }

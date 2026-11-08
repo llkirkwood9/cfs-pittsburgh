@@ -26,4 +26,9 @@ export type OrderSummary = {
     submittedAt?: string | null;
     completedAt?: string | null;
     updatedAt?: string;
+    /**
+     * Whether clearing it at close-out voids it (it reached checkout or has a payment) rather
+     * than deleting it. The server decides.
+     */
+    voidsWhenCleared?: boolean;
 };

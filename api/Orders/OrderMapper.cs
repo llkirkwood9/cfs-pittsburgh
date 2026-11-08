@@ -162,14 +162,15 @@ namespace api.Orders
         }
 
         /// <summary>
-        /// Orders loaded read-only with what ToSummaryDto reads: their lines and their event's
-        /// territory.
+        /// Orders loaded read-only with what ToSummaryDto reads: their lines, their payments and their
+        /// event's territory.
         /// </summary>
         /// <param name="query">Orders</param>
         /// <returns>The query with the summary's data included.</returns>
         public static IQueryable<Order> ForSummary(this IQueryable<Order> query) =>
             query
                 .Include(o => o.Lines)
+                .Include(o => o.Payments)
                 .Include(o => o.Event)
                 .ThenInclude(e => e!.Territory)
                 .AsNoTracking();
@@ -206,6 +207,7 @@ namespace api.Orders
                 SubmittedAt = order.SubmittedAt,
                 CompletedAt = order.CompletedAt,
                 UpdatedAt = order.UpdatedAt,
+                VoidsWhenCleared = OrderRules.KeptWhenCleared(order),
             };
         }
 

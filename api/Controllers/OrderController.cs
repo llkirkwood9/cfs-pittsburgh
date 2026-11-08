@@ -381,6 +381,27 @@ namespace api.Controllers
         }
 
         /// <summary>
+        /// Clears an open order at close-out: one that reached checkout or has a payment is voided,
+        /// so the record stays; a draft with nothing paid is deleted.
+        /// </summary>
+        /// <param name="id">Order id</param>
+        /// <returns>{ voided } saying which happened.</returns>
+        [HttpPost("order/{id}/clear")]
+        [Authorize(AuthenticationSchemes = "Bearer")]
+        public async Task<IActionResult> ClearOrder(int id)
+        {
+            var order = await LoadOrderAsync(id);
+            if (order == null)
+                return NotFound(new { error = "Order not found." });
+
+            var (voided, problem) = await OrderLifecycle.ClearAsync(DB, order, Actor());
+            if (problem != null)
+                return problem.Forbidden ? Forbidden(problem.Message) : BadRequest(new { error = problem.Message });
+
+            return Ok(new { voided });
+        }
+
+        /// <summary>
         /// Voids an order. The row is kept for the audit trail but drops out of every total. The
         /// checkout table may void an order waiting there; anything on the sales floor or already
         /// completed takes a manager or above.
@@ -872,7 +893,7 @@ namespace api.Controllers
             if (permanent && !IsSystemAdmin())
                 return Forbidden("Only a system admin can delete an order permanently.");
 
-            var order = (await DB.Orders.Include(o => o.Event).FirstOrDefaultAsync(o => o.Id == id)).IfVisibleTo(Scope);
+            var order = (await DB.Orders.Include(o => o.Event).Include(o => o.Payments).FirstOrDefaultAsync(o => o.Id == id)).IfVisibleTo(Scope);
             if (order == null)
                 return NotFound(new { error = "Order not found." });
 
@@ -886,6 +907,10 @@ namespace api.Controllers
 
             if (order.Status != OrderStatus.Draft)
                 return BadRequest(new { error = "Only a draft can be deleted. Void the order instead." });
+
+            // Deleting would take its payments with it.
+            if (OrderRules.KeptWhenCleared(order))
+                return BadRequest(new { error = "This draft has a payment recorded, so it can't be discarded. Send it to checkout, or have a manager void it." });
 
             DB.Orders.Remove(order);
             await DB.SaveChangesAsync();

@@ -72,6 +72,17 @@ namespace api.Dtos
         public decimal? SaleDiscountAmount { get; set; }
 
         /// <summary>
+        /// The sale taken when this is sold - percent off (returned, not saved). The server works it
+        /// out; at most one of the two is set.
+        /// </summary>
+        public decimal? EffectiveSalePercent { get; set; }
+
+        /// <summary>
+        /// The sale taken when this is sold - amount off each (returned, not saved)
+        /// </summary>
+        public decimal? EffectiveSaleAmount { get; set; }
+
+        /// <summary>
         /// Units on hand for each combination of counted choices, for products whose selections
         /// count stock
         /// </summary>

@@ -7,11 +7,10 @@ import { BuildEvent, EventToForm, NewEventDefaults, TerritoriesForEvent } from "
 import type { EventForm } from "../Lib/Events";
 import { RateAsPercent } from "../Lib/Format";
 import type { Event } from "../Models/Event";
-import { DefaultGeneralSettings } from "../Models/GeneralSettings";
 import { HasRole } from "../Models/User";
 import { AddEvent, DeleteEvent, GetEvents, UpdateEvent } from "../Services/EventServices";
 
-const emptyForm: EventForm = EventToForm({}, null, DefaultGeneralSettings);
+const emptyForm: EventForm = EventToForm({}, null);
 
 /**
  * The Events screen: the events, the add/edit form and deleting one. Anyone with more than one
@@ -60,7 +59,7 @@ export const useEvents = () => {
      */
     const open = (event: Event) => {
         setEditing(event);
-        setForm(EventToForm(event, homeTerritory, DefaultGeneralSettings));
+        setForm(EventToForm(event, homeTerritory));
     };
 
     /** Opens the form for a new event. */

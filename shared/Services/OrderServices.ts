@@ -118,6 +118,22 @@ export const VoidOrder = async (orderId: number): Promise<Order | null> => {
     }, null);
 };
 
+/**
+ * Clears an open order at close-out. The server voids one that reached checkout or has a payment,
+ * and deletes a draft with nothing paid.
+ * @param orderId The order id.
+ * @returns Whether it was voided (true) or deleted (false), or null on failure.
+ */
+export const ClearOrder = async (orderId: number): Promise<boolean | null> => {
+    return CallApi(async () => {
+        const response = await client.api.post<{ voided: boolean }>(
+            `/api/Order/order/${orderId}/clear`
+        );
+        CheckoutQueueChanged();
+        return response.data.voided;
+    }, null);
+};
+
 //************************************//
 //*********** GET METHODS ************//
 //************************************//

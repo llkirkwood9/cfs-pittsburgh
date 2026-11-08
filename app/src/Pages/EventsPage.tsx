@@ -289,6 +289,7 @@ const EventsPage = () => {
                         <TextField
                             label="Next order number"
                             value={form.nextOrderNumber}
+                            placeholder="Carries on from the last event"
                             onChange={(v) => setField("nextOrderNumber", v)}
                             inputMode="numeric"
                         />

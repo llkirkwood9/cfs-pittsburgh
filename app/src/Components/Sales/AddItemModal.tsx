@@ -18,7 +18,7 @@ import { CategoryShortNames, NeedsPrice, VariantLabel } from "@shared/Lib/Catalo
 import { FormatCurrency } from "@shared/Lib/Format";
 import { WarrantyText } from "@shared/Lib/Orders";
 import {
-    ApplyDiscount,
+    PreviewPrice,
     DeliverySaleFor,
     DiscountText,
     HasDiscount,
@@ -378,7 +378,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                                         className={cx("text-xs font-bold", color)}
                                                     >
                                                         {FormatCurrency(
-                                                            ApplyDiscount(v.price ?? 0, vSale)
+                                                            PreviewPrice(v.price ?? 0, vSale)
                                                         )}
                                                     </Text>{" "}
                                                     ({DiscountText(vSale)} off)
@@ -539,7 +539,7 @@ const AddItemModal = ({ products, onAdd, onClose }: Props) => {
                                                                 {FormatCurrency(option.price)}
                                                             </Text>{" "}
                                                             {FormatCurrency(
-                                                                ApplyDiscount(
+                                                                PreviewPrice(
                                                                     option.price ?? 0,
                                                                     optionSale
                                                                 )
