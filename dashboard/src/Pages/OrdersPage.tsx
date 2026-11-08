@@ -240,14 +240,14 @@ const OrdersPage = () => {
                                             },
                                         })
                                     }
-                                    className="min-h-[44px] px-3 text-sm"
+                                    className="min-h-11 px-3 text-sm"
                                 />
                                 {isManager && CanVoidFromList(order) && (
                                     <Button
                                         text="Void"
                                         icon="fa-solid fa-ban"
                                         onClick={() => setVoiding(order)}
-                                        className="min-h-[44px] bg-red-700 px-3 text-sm hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
+                                        className="min-h-11 bg-red-700 px-3 text-sm hover:bg-red-800 dark:bg-red-600 dark:hover:bg-red-700"
                                     />
                                 )}
                                 {isManager && CanReopenFromList(order) && (
@@ -255,7 +255,7 @@ const OrdersPage = () => {
                                         text="Reopen"
                                         icon="fa-solid fa-arrow-rotate-left"
                                         onClick={() => setReopening(order)}
-                                        className="min-h-[44px] bg-amber-600 px-3 text-sm hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700"
+                                        className="min-h-11 bg-amber-600 px-3 text-sm hover:bg-amber-700 dark:bg-amber-600 dark:hover:bg-amber-700"
                                     />
                                 )}
                                 {isSystemAdmin && (

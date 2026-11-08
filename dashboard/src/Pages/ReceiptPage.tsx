@@ -63,7 +63,7 @@ const ReceiptPage = () => {
 
     return (
         <div className="print-root min-h-screen bg-zinc-200 py-4 dark:bg-zinc-900">
-            <div className="no-print mx-auto mb-4 flex max-w-[8in] flex-wrap items-center gap-2 px-3">
+            <div className="no-print mx-auto mb-4 flex max-w-3xl flex-wrap items-center gap-2 px-3">
                 <Button
                     text={backLabel}
                     icon="fa-solid fa-arrow-left"
