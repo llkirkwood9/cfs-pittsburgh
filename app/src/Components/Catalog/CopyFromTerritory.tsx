@@ -30,7 +30,7 @@ const CopyFromTerritory = ({ territories, onCopied }: Props) => {
             copier.products.map((p) => ({
                 value: p.id ?? null,
                 label: `${p.brand ? `${p.brand} ` : ""}${p.name ?? ""}`,
-                hint: `${p.category ?? ""}${p.isActive === false ? " � archived" : ""}`,
+                hint: `${p.category ?? ""}${p.isActive === false ? " - archived" : ""}`,
             })),
         [copier.products]
     );

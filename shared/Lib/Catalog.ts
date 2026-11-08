@@ -114,7 +114,7 @@ export const SaleBadgeText = (product: Product): string =>
  * A tracked product's stock for its catalog row: the units on hand across its counted sizes, and
  * how many sizes aren't counted. Counts are added as kept, so an oversold size (below zero) shows.
  * @param product The product.
- * @returns e.g. "Tracked � 14 on hand (2 not counted)".
+ * @returns e.g. "Tracked - 14 on hand (2 not counted)".
  */
 export const ProductStockSummary = (product: Product): string => {
     const variants = product.variants ?? [];
@@ -129,7 +129,7 @@ export const ProductStockSummary = (product: Product): string => {
         0
     );
     const excluded = variants.filter((v) => v.excludeFromInventory).length;
-    return `Tracked � ${onHand} on hand${excluded ? ` (${excluded} not counted)` : ""}`;
+    return `Tracked - ${onHand} on hand${excluded ? ` (${excluded} not counted)` : ""}`;
 };
 
 /**
