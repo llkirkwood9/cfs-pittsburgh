@@ -18,7 +18,8 @@ import { SaleOffText } from "@shared/Lib/CatalogDrafts";
 import { CleanDiscount } from "@shared/Lib/Pricing";
 import type { DeliveryOption } from "@shared/Models/DeliveryOption";
 import type { Category } from "@shared/Models/Category";
-import type { Product } from "@shared/Models/Product";
+import type { Product, StatColumn } from "@shared/Models/Product";
+import { StatColumnNames } from "@shared/Lib/Catalog";
 import type { Territory } from "@shared/Models/Territory";
 import { Limits } from "@shared/Lib/Limits";
 
@@ -103,6 +104,15 @@ const EditProductForm = ({
                         value={draft.category}
                         options={form.categoryNames.map((c) => ({ value: c, label: c }))}
                         onChange={(value) => change({ category: value })}
+                    />
+                    <SelectField<StatColumn>
+                        label="Counts on the stat sheet as"
+                        value={draft.statColumn}
+                        options={(Object.keys(StatColumnNames) as StatColumn[]).map((c) => ({
+                            value: c,
+                            label: StatColumnNames[c],
+                        }))}
+                        onChange={(value) => change({ statColumn: value })}
                     />
                     <View className="flex-1 justify-end">
                         <Checkbox

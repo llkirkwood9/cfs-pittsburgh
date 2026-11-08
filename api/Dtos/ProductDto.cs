@@ -42,7 +42,8 @@ namespace api.Dtos
         public string? Category { get; set; }
 
         /// <summary>
-        /// The stat-sheet column its category counts in, as the enum name (returned, not saved)
+        /// The stat-sheet column it counts in, as the enum name; a new product left without one
+        /// counts as its category's items mostly do
         /// </summary>
         public string? StatColumn { get; set; }
 

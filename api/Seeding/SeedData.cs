@@ -273,6 +273,7 @@ namespace api.Seeding
 
                 // The seed file names stat-sheet columns ("Mattress"), which find their categories.
                 var category = await categories.ForAsync(territoryId, p.Category);
+                var column = CategoryLookup.OldColumnName(p.Category) ?? StatColumn.Misc;
                 var product = new Product
                 {
                     TerritoryId = territoryId,
@@ -283,7 +284,8 @@ namespace api.Seeding
                     SortOrder = p.SortOrder ?? 0,
                     IsActive = true,
                     TrackInventory = p.TrackInventory ?? false,
-                    HasWarranty = p.HasWarranty ?? CatalogRules.WarrantyByDefault(category.StatColumn),
+                    StatColumn = column,
+                    HasWarranty = p.HasWarranty ?? CatalogRules.WarrantyByDefault(column),
                     WarrantyLength = p.WarrantyLength,
                 };
 

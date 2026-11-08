@@ -258,7 +258,12 @@ export const useCatalog = ({ saveExport }: Options) => {
         /** Opens a blank product in the tab's category. */
         newProduct: (from: CatalogTab) =>
             setEditing(
-                NewProduct(from, territoryInView, CategoriesFor(categories, territoryInView))
+                NewProduct(
+                    from,
+                    territoryInView,
+                    CategoriesFor(categories, territoryInView),
+                    products.filter((p) => p.territoryId === territoryInView)
+                )
             ),
         openCopy,
         saveProduct,

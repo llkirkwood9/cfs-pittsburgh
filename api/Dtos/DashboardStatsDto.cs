@@ -192,6 +192,12 @@ namespace api.Dtos
         public List<ProductTallyDto>? WorstProducts { get; set; }
 
         /// <summary>
+        /// The catalog categories in view, in tab order, each name once - what the best and worst
+        /// sellers can be filtered by
+        /// </summary>
+        public List<string>? RankingCategories { get; set; }
+
+        /// <summary>
         /// Completed sales per rep
         /// </summary>
         public List<RepTallyDto>? RepTotals { get; set; }

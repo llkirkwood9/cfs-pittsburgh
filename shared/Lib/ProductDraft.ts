@@ -10,8 +10,7 @@ import {
 import type { DraftOption, SaleDraft } from "./CatalogDrafts";
 import { ParseMoney } from "./Format";
 import type { DeliveryOption } from "../Models/DeliveryOption";
-import type { Category } from "../Models/Category";
-import type { Product } from "../Models/Product";
+import type { Product, StatColumn } from "../Models/Product";
 import type { ProductDeliveryOption } from "../Models/ProductDeliveryOption";
 import type { ProductVariant } from "../Models/ProductVariant";
 
@@ -24,6 +23,8 @@ export type ProductDraft = {
     brand: string;
     /** The name of the category it's listed under. */
     category: string;
+    /** The stat-sheet column it counts in. */
+    statColumn: StatColumn;
     notes: string;
     isActive: boolean;
     trackInventory: boolean;
@@ -53,6 +54,7 @@ export const ToProductDraft = (product: Product): ProductDraft => ({
     name: product.name ?? "",
     brand: product.brand ?? "",
     category: product.category ?? "",
+    statColumn: product.statColumn ?? "Misc",
     notes: product.notes ?? "",
     isActive: product.isActive ?? true,
     trackInventory: product.trackInventory ?? false,
@@ -81,17 +83,14 @@ export const ToProductDraft = (product: Product): ProductDraft => ({
 });
 
 /**
- * Whether the product has a manufacturer warranty: as ticked, or until then by its category -
- * those counting as mattresses or bases have one.
+ * Whether the product has a manufacturer warranty: as ticked, or until then by its stat-sheet
+ * column - mattresses and bases have one.
  * @param draft The draft.
- * @param categories The product's territory's categories.
  * @returns True when it has a warranty.
  */
-export const DraftHasWarranty = (draft: ProductDraft, categories: Category[]): boolean => {
-    if (draft.warrantyChoice !== null) return draft.warrantyChoice;
-    const column = categories.find((c) => c.name === draft.category)?.statColumn;
-    return column === "Mattress" || column === "AdjustableBase";
-};
+export const DraftHasWarranty = (draft: ProductDraft): boolean =>
+    draft.warrantyChoice ??
+    (draft.statColumn === "Mattress" || draft.statColumn === "AdjustableBase");
 
 /**
  * The product's own sale on a delivery choice.
@@ -248,14 +247,9 @@ export const ProductDraftProblem = (draft: ProductDraft): string | null => {
  * The draft as saved.
  * @param product The product being edited, for what the form doesn't change.
  * @param draft The draft.
- * @param categories The product's territory's categories.
  * @returns The product to send.
  */
-export const DraftToProduct = (
-    product: Product,
-    draft: ProductDraft,
-    categories: Category[]
-): Product => {
+export const DraftToProduct = (product: Product, draft: ProductDraft): Product => {
     const itemSale = FromSaleDraft(draft.sale);
     return {
         id: product.id,
@@ -263,10 +257,11 @@ export const DraftToProduct = (
         name: draft.name.trim(),
         brand: draft.brand.trim(),
         category: draft.category,
+        statColumn: draft.statColumn,
         notes: draft.notes.trim(),
         isActive: draft.isActive,
         trackInventory: draft.trackInventory,
-        hasWarranty: DraftHasWarranty(draft, categories),
+        hasWarranty: DraftHasWarranty(draft),
         warrantyLength: draft.warrantyLength.trim(),
         sortOrder: product.sortOrder ?? 0,
         saleDiscountPercent: itemSale.percent,

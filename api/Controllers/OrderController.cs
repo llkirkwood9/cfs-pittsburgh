@@ -104,17 +104,11 @@ namespace api.Controllers
                     .Include(v => v.Product)
                     .ThenInclude(p => p!.Options)
                     .ThenInclude(o => o.Choices)
-                    .Include(v => v.Product)
-                    .ThenInclude(p => p!.Category)
                     .Include(v => v.Components)
                     .ThenInclude(c => c.ComponentVariant)
                     .ThenInclude(cv => cv!.Product)
                     .ThenInclude(cp => cp!.Options)
                     .ThenInclude(o => o.Choices)
-                    .Include(v => v.Components)
-                    .ThenInclude(c => c.ComponentVariant)
-                    .ThenInclude(cv => cv!.Product)
-                    .ThenInclude(cp => cp!.Category)
                     .AsSplitQuery()
                     .FirstOrDefaultAsync(v => v.Id == request.ProductVariantId.Value);
 

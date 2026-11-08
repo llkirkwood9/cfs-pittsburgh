@@ -1,10 +1,8 @@
-import type { StatColumn } from "./Product";
-
 export type ProductTally = {
     description?: string;
     brand?: string | null;
-    /** The stat-sheet column it counts in. */
-    category?: StatColumn;
+    /** The catalog category it's listed under now; none for an item typed in or gone from the catalog. */
+    category?: string | null;
     quantity?: number;
     revenue?: number;
 };
@@ -71,6 +69,8 @@ export type DashboardStats = {
     topProducts?: ProductTally[];
     /** The catalog's products that have sold the fewest units, fewest first. All events only. */
     worstProducts?: ProductTally[];
+    /** The catalog's categories in view, in tab order, to filter the best and worst sellers by. */
+    rankingCategories?: string[];
     repTotals?: RepTally[];
     /** Each event's headline figures, newest first; only in the overview of every event. */
     events?: EventTally[];

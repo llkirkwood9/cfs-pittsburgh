@@ -1,9 +1,9 @@
 namespace api.Models
 {
     /// <summary>
-    /// The stat-sheet column an item counts in. Every catalog category says which one its items
-    /// count in, and an order line keeps it, so the dashboard's tallies, the warranty default and
-    /// the receipt email's mattress advice work whatever the categories are called.
+    /// The stat-sheet column an item counts in. Every catalog product says which one it counts in,
+    /// and an order line keeps it, so the dashboard's tallies, the warranty default and the
+    /// receipt email's mattress advice work whatever its category is called.
     /// </summary>
     public enum StatColumn
     {

@@ -38,10 +38,11 @@ namespace api.Catalog
         public const string FileFormat = "cfs-catalog";
 
         /// <summary>
-        /// The layout version this code writes and reads. Version 2 added named categories; a
-        /// version 1 file's products name a stat-sheet column, which finds its category.
+        /// The layout version this code writes and reads. Version 2 added named categories, each
+        /// with a stat-sheet column; version 3 gives each product its own column instead. A version
+        /// 1 file's products name a stat-sheet column ("Mattress"), which finds its category.
         /// </summary>
-        public const int FileVersion = 2;
+        public const int FileVersion = 3;
 
         #endregion
 
@@ -98,7 +99,6 @@ namespace api.Catalog
                 Categories = categories.Select(c => new CatalogCategoryDto
                 {
                     Name = c.Name,
-                    StatColumn = c.StatColumn.ToString(),
                     Territory = c.Territory?.Name,
                 }).ToList(),
                 FinanceOptions = financeOptions.Select(f => new CatalogFinanceOptionDto
@@ -125,6 +125,7 @@ namespace api.Catalog
                     Name = p.Name,
                     Brand = p.Brand,
                     Category = p.Category?.Name,
+                    StatColumn = p.StatColumn.ToString(),
                     Notes = p.Notes,
                     SortOrder = p.SortOrder,
                     IsActive = p.IsActive,
@@ -232,6 +233,12 @@ namespace api.Catalog
             // A file from before categories could be named has none: its products find theirs by
             // stat-sheet column.
             var categories = new CategoryLookup(db);
+
+            // A version 2 file gave each category a stat-sheet column, which its products count in.
+            var categoryColumns = new Dictionary<(int, string), StatColumn?>();
+            foreach (var c in file.Categories ?? [])
+                categoryColumns[(TerritoryOf(c.Territory), Key(c.Name))] = ParseColumn(c.StatColumn);
+
             if (file.Categories != null)
                 await ImportCategoriesAsync(db, file.Categories, replace, TerritoryOf, categories);
 
@@ -271,6 +278,10 @@ namespace api.Catalog
 
                 product.TerritoryId = territoryId;
                 product.Category = await categories.ForAsync(territoryId, dto.Category);
+                product.StatColumn = ParseColumn(dto.StatColumn)
+                                     ?? categoryColumns.GetValueOrDefault((territoryId, Key(product.Category.Name)))
+                                     ?? CategoryLookup.OldColumnName(dto.Category)
+                                     ?? StatColumn.Misc;
                 var variants = await ApplyProductAsync(db, product, dto, deliveryOptions, result);
                 imported.Add(new Restored(dto, product, variants));
             }
@@ -322,7 +333,7 @@ namespace api.Catalog
                 var name = c.Name?.Trim() ?? "";
                 if (name.Length is 0 or > CatalogRules.MaxCategoryNameLength || CatalogRules.SameName(name, CatalogRules.AllCategoriesTab))
                     return $"Every category needs a name of up to {CatalogRules.MaxCategoryNameLength} characters, other than \"All\".";
-                if (!Enum.TryParse<StatColumn>(c.StatColumn, true, out var column) || !Enum.IsDefined(column))
+                if (c.StatColumn != null && ParseColumn(c.StatColumn) == null)
                     return $"Category \"{name}\": \"{c.StatColumn}\" isn't a stat sheet column.";
             }
             var repeatedCategory = categories.GroupBy(c => (Key(c.Territory), Key(c.Name))).FirstOrDefault(g => g.Count() > 1);
@@ -351,6 +362,8 @@ namespace api.Catalog
                     return $"{label}: the brand can be at most 100 characters.";
                 if ((p.Category?.Trim().Length ?? 0) is 0 or > CatalogRules.MaxCategoryNameLength || CatalogRules.SameName(p.Category, CatalogRules.AllCategoriesTab))
                     return $"{label}: the category needs a name of up to {CatalogRules.MaxCategoryNameLength} characters.";
+                if (p.StatColumn != null && ParseColumn(p.StatColumn) == null)
+                    return $"{label}: \"{p.StatColumn}\" isn't a stat sheet column.";
                 if (p.Notes is { Length: > 500 })
                     return $"{label}: the notes can be at most 500 characters.";
 
@@ -433,7 +446,7 @@ namespace api.Catalog
 
         /// <summary>
         /// Brings the categories in line with the file: a match by territory and name takes the
-        /// file's stat-sheet column and place, and anything new is added. A clear and replace
+        /// file's place, and anything new is added. A clear and replace
         /// deletes every territory's first (their products are already gone); otherwise categories
         /// not in the file are kept, after the file's ones.
         /// </summary>
@@ -446,12 +459,7 @@ namespace api.Catalog
 
             var fromFile = new List<Category>();
             foreach (var dto in categories)
-            {
-                var column = Enum.Parse<StatColumn>(dto.StatColumn!, true);
-                var category = await lookup.ForAsync(territoryOf(dto.Territory), dto.Name, column);
-                category.StatColumn = column;
-                fromFile.Add(category);
-            }
+                fromFile.Add(await lookup.ForAsync(territoryOf(dto.Territory), dto.Name));
             await db.SaveChangesAsync();
 
             foreach (var territory in fromFile.Select(c => c.TerritoryId).Distinct())
@@ -548,7 +556,7 @@ namespace api.Catalog
             product.IsActive = dto.IsActive ?? true;
             product.TrackInventory = dto.TrackInventory ?? false;
             // A file from before warranties were recorded goes by category.
-            product.HasWarranty = dto.HasWarranty ?? CatalogRules.WarrantyByDefault(product.Category!.StatColumn);
+            product.HasWarranty = dto.HasWarranty ?? CatalogRules.WarrantyByDefault(product.StatColumn);
             product.WarrantyLength = CatalogRules.CleanWarrantyLength(dto.WarrantyLength);
             (product.SaleDiscountPercent, product.SaleDiscountAmount) =
                 CatalogRules.CleanSale(dto.SaleDiscountPercent, dto.SaleDiscountAmount);
@@ -781,6 +789,13 @@ namespace api.Catalog
 
         /// <summary>A name for matching: trimmed and lower case, with nothing the same as blank.</summary>
         private static string Key(string? value) => CatalogRules.NameKey(value);
+
+        /// <summary>A stat-sheet column's enum name, or null when it's missing or not one.</summary>
+        private static StatColumn? ParseColumn(string? value) =>
+            !string.IsNullOrWhiteSpace(value) && !int.TryParse(value, out _)
+            && Enum.TryParse<StatColumn>(value, true, out var column) && Enum.IsDefined(column)
+                ? column
+                : null;
 
         /// <summary>Whether two names match, ignoring case and spaces around them.</summary>
         private static bool Same(string? a, string? b) => CatalogRules.SameName(a, b);

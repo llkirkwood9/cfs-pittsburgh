@@ -59,7 +59,8 @@ namespace api.Dtos
         public string? Name { get; set; }
 
         /// <summary>
-        /// The stat-sheet column its items count in, as the enum name
+        /// Only in version 2 files, from when a whole category counted in one stat-sheet column:
+        /// that column, as the enum name, which its products then count in
         /// </summary>
         public string? StatColumn { get; set; }
 
@@ -166,6 +167,12 @@ namespace api.Dtos
         /// categories could be named, the stat-sheet column, e.g. "Mattress")
         /// </summary>
         public string? Category { get; set; }
+
+        /// <summary>
+        /// The stat-sheet column it counts in, as the enum name. Left out of older files, where it
+        /// follows the category (its version 2 column, or the version 1 name "Mattress")
+        /// </summary>
+        public string? StatColumn { get; set; }
 
         /// <summary>
         /// Notes shown to the rep

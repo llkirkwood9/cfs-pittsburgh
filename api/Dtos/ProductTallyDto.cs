@@ -16,7 +16,7 @@ namespace api.Dtos
         public string? Brand { get; set; }
 
         /// <summary>
-        /// The stat-sheet column it counts in, as the enum name
+        /// The catalog category it is listed under now; none for an item typed in or no longer in the catalog
         /// </summary>
         public string? Category { get; set; }
 

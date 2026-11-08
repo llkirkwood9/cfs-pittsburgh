@@ -34,7 +34,7 @@ namespace api.Catalog
                 .OrderBy(c => c.SortOrder).ThenBy(c => c.Id)
                 .ToListAsync();
             foreach (var category in categories)
-                await batch.Categories.ForAsync(toTerritoryId, category.Name, category.StatColumn);
+                await batch.Categories.ForAsync(toTerritoryId, category.Name);
 
             var deliveryOptions = await db.DeliveryOptions.AsNoTracking()
                 .Where(d => d.TerritoryId == fromTerritoryId)
@@ -324,7 +324,8 @@ namespace api.Catalog
                 TerritoryId = batch.TerritoryId,
                 Name = source.Name,
                 Brand = source.Brand,
-                Category = await batch.Categories.ForAsync(batch.TerritoryId, source.Category!.Name, source.Category.StatColumn),
+                Category = await batch.Categories.ForAsync(batch.TerritoryId, source.Category!.Name),
+                StatColumn = source.StatColumn,
                 Notes = source.Notes,
                 SortOrder = source.SortOrder,
                 IsActive = source.IsActive,

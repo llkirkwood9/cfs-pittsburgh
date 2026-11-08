@@ -39,7 +39,9 @@ namespace api.Controllers
             if (saleEvent == null)
                 return NotFound(new { error = "Event not found." });
 
-            var stats = await BuildStatsAsync(DB, o => o.EventId == eventId);
+            var orders = await LoadOrdersAsync(DB, o => o.EventId == eventId);
+            var stats = Build(orders.Where(o => o.Status == OrderStatus.Completed).ToList(), orders);
+            await AddRankingsAsync(DB, stats, orders, [saleEvent.TerritoryId], withWorst: false);
             stats.EventId = saleEvent.Id;
             stats.Organization = saleEvent.Organization;
             stats.EventDate = saleEvent.EventDate;
@@ -99,7 +101,7 @@ namespace api.Controllers
                     };
                 })
                 .ToList();
-            stats.WorstProducts = await WorstSellersAsync(DB, orders, visible);
+            await AddRankingsAsync(DB, stats, orders, visible, withWorst: true);
 
             return Ok(stats);
         }
@@ -180,17 +182,63 @@ namespace api.Controllers
         #region Private Methods
 
         /// <summary>
-        /// Computes the stat sheet over whichever orders match the supplied filter.
+        /// Adds the best sellers - and, when asked, the worst - with each product under the
+        /// catalog category it is listed in now, and the categories in view to filter them by.
+        /// An item no longer in the catalog, or one typed in, is listed under no category.
         /// </summary>
         /// <param name="db">EF context</param>
-        /// <param name="filter">Which orders to include</param>
-        /// <returns>The computed stat sheet.</returns>
-        private static async Task<DashboardStatsDto> BuildStatsAsync(
-            ApplicationDbContext db,
-            System.Linq.Expressions.Expression<Func<Order, bool>> filter)
+        /// <param name="stats">The stat sheet to add to</param>
+        /// <param name="orders">The orders reported on, with their lines</param>
+        /// <param name="territories">The territories in view; null for every territory</param>
+        /// <param name="withWorst">Whether to list the worst sellers too</param>
+        private static async Task AddRankingsAsync(
+            ApplicationDbContext db, DashboardStatsDto stats, List<Order> orders, List<int>? territories, bool withWorst)
         {
-            var orders = await LoadOrdersAsync(db, filter);
-            return Build(orders.Where(o => o.Status == OrderStatus.Completed).ToList(), orders);
+            // Bundled items (a set's adjustable base, a free pillow) still count in their own
+            // stat-sheet columns, but the set itself is what was sold, so only it is listed here.
+            var lines = orders
+                .Where(o => o.Status == OrderStatus.Completed)
+                .SelectMany(o => o.Lines)
+                .Where(l => OrderRules.IsItem(l) && l.LineType != OrderLineType.Included)
+                .ToList();
+            var variantIds = lines.Where(l => l.ProductVariantId != null).Select(l => l.ProductVariantId!.Value).Distinct().ToList();
+            var categoryOf = await db.ProductVariants
+                .AsNoTracking()
+                .Where(v => variantIds.Contains(v.Id))
+                .Select(v => new { v.Id, v.Product!.Category!.Name })
+                .ToDictionaryAsync(v => v.Id, v => v.Name);
+
+            // Same product from different territories' catalogs counts as one, even if typed with
+            // different capitals or spacing.
+            stats.TopProducts = lines
+                .GroupBy(l => (
+                    Description: TallyKey(l.Description),
+                    Brand: TallyKey(l.Brand),
+                    Category: l.ProductVariantId is { } id ? categoryOf.GetValueOrDefault(id) : null))
+                .Select(g => new ProductTallyDto
+                {
+                    Description = g.First().Description,
+                    Brand = g.First().Brand,
+                    Category = g.Key.Category,
+                    Quantity = g.Sum(l => l.Quantity),
+                    Revenue = Math.Round(g.Sum(l => l.LineTotal), 2),
+                })
+                .OrderByDescending(p => p.Quantity)
+                .ThenByDescending(p => p.Revenue)
+                .ToList();
+
+            if (withWorst)
+                stats.WorstProducts = await WorstSellersAsync(db, orders, territories);
+
+            // Each name once, in tab order, when several territories are in view.
+            var categories = await db.Categories
+                .AsNoTracking()
+                .InTerritories(territories)
+                .OrderBy(c => c.SortOrder)
+                .ThenBy(c => c.Name)
+                .Select(c => c.Name)
+                .ToListAsync();
+            stats.RankingCategories = categories.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
 
         /// <summary>
@@ -213,7 +261,7 @@ namespace api.Controllers
                 .AsNoTracking()
                 .Where(p => p.IsActive)
                 .InTerritories(territories)
-                .Select(p => new { p.Id, p.Name, p.Brand, p.Category!.StatColumn, VariantIds = p.Variants.Select(v => v.Id).ToList() })
+                .Select(p => new { p.Id, p.Name, p.Brand, Category = p.Category!.Name, VariantIds = p.Variants.Select(v => v.Id).ToList() })
                 .ToListAsync();
 
             var sold = orders
@@ -226,7 +274,7 @@ namespace api.Controllers
             // Every territory keeps its own copy of a product, so with several territories in view
             // the copies are counted together as one product.
             return products
-                .GroupBy(p => (Name: TallyKey(p.Name), Brand: TallyKey(p.Brand), p.StatColumn))
+                .GroupBy(p => (Name: TallyKey(p.Name), Brand: TallyKey(p.Brand), Category: TallyKey(p.Category)))
                 .Select(g =>
                 {
                     var tallies = g.SelectMany(p => p.VariantIds).Where(sold.ContainsKey).Select(id => sold[id]).ToList();
@@ -234,7 +282,7 @@ namespace api.Controllers
                     {
                         Description = g.First().Name,
                         Brand = g.First().Brand,
-                        Category = g.Key.StatColumn.ToString(),
+                        Category = g.First().Category,
                         Quantity = tallies.Sum(t => t.Quantity),
                         Revenue = Math.Round(tallies.Sum(t => t.Revenue), 2),
                     };
@@ -358,25 +406,6 @@ namespace api.Controllers
                 Sales = completed
                     .OrderBy(o => o.CompletedAt ?? o.UpdatedAt)
                     .Select(o => new SaleMomentDto { At = o.CompletedAt ?? o.UpdatedAt, Total = o.Total })
-                    .ToList(),
-
-                // Bundled items (a set's adjustable base, a free pillow) still count in their own
-                // columns above, but the set itself is what was sold, so only it is listed here.
-                TopProducts = productLines
-                    .Where(l => l.LineType != OrderLineType.Included)
-                    // Same product from different territories' catalogs counts as one, even if typed
-                    // with different capitals or spacing.
-                    .GroupBy(l => (Description: TallyKey(l.Description), Brand: TallyKey(l.Brand), l.Category))
-                    .Select(g => new ProductTallyDto
-                    {
-                        Description = g.First().Description,
-                        Brand = g.First().Brand,
-                        Category = g.Key.Category.ToString(),
-                        Quantity = g.Sum(l => l.Quantity),
-                        Revenue = Math.Round(g.Sum(l => l.LineTotal), 2),
-                    })
-                    .OrderByDescending(p => p.Quantity)
-                    .ThenByDescending(p => p.Revenue)
                     .ToList(),
 
                 RepTotals = completed

@@ -31,11 +31,6 @@ namespace api.Dtos
         public string? Name { get; set; }
 
         /// <summary>
-        /// The stat-sheet column its items count in, as the enum name
-        /// </summary>
-        public string? StatColumn { get; set; }
-
-        /// <summary>
         /// Position on the tabs
         /// </summary>
         public int? SortOrder { get; set; }

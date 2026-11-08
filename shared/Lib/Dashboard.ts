@@ -4,9 +4,7 @@ import type {
     ProductTally,
     SaleMoment,
 } from "../Models/DashboardStats";
-import type { StatColumn } from "../Models/Product";
 import type { TerritoryStats } from "../Models/Territory";
-import { StatColumnNames } from "./Catalog";
 import { DateKey, IsPastEvent, IsUpcomingEvent } from "./Events";
 import { FormatCurrency, ParseServerTime } from "./Format";
 
@@ -120,13 +118,16 @@ export const TakenBy = (stats: DashboardStats | null): { label: string; value: n
     { label: "Layaway balance", value: stats?.layawayTotal ?? 0 },
 ];
 
-/** The category filter's choices on a best or worst sellers list. */
-export const RankingCategoryOptions: { value: StatColumn | "All"; label: string }[] = [
+/**
+ * The category filter's choices on a best or worst sellers list: the catalog's categories.
+ * @param categories The category names in view, in tab order.
+ * @returns The choices, "All" first.
+ */
+export const RankingCategoryOptions = (
+    categories: string[]
+): { value: string; label: string }[] => [
     { value: "All", label: "All categories" },
-    ...(Object.keys(StatColumnNames) as StatColumn[]).map((c) => ({
-        value: c,
-        label: StatColumnNames[c],
-    })),
+    ...categories.map((c) => ({ value: c, label: c })),
 ];
 
 /**
@@ -138,7 +139,7 @@ export const RankingCategoryOptions: { value: StatColumn | "All"; label: string 
  */
 export const RankProducts = (
     products: ProductTally[],
-    category: StatColumn | "All",
+    category: string,
     limit?: number
 ): ProductTally[] =>
     products.filter((p) => category === "All" || p.category === category).slice(0, limit);
@@ -149,8 +150,8 @@ export const RankProducts = (
  * @param empty What to say with every category picked.
  * @returns The line.
  */
-export const RankingEmptyText = (category: StatColumn | "All", empty: string): string =>
-    category === "All" ? empty : `No ${StatColumnNames[category].toLowerCase()} yet.`;
+export const RankingEmptyText = (category: string, empty: string): string =>
+    category === "All" ? empty : `Nothing in ${category} yet.`;
 
 /** One bar of the sales-by-hour chart. */
 export type SalesBucket = {

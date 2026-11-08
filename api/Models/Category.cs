@@ -21,13 +21,6 @@ namespace api.Models
         public string Name { get; set; } = string.Empty;
 
         /// <summary>
-        /// The stat-sheet column its items count in. Also decides whether a new product in it has a
-        /// warranty unless told otherwise, and which items the receipt email treats as mattresses
-        /// and adjustable bases.
-        /// </summary>
-        public StatColumn StatColumn { get; set; } = StatColumn.Misc;
-
-        /// <summary>
         /// Position within its territory's list
         /// </summary>
         public int SortOrder { get; set; }

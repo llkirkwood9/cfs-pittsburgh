@@ -173,27 +173,51 @@ export const DeliveryCountText = (product: Product): string => {
 };
 
 /**
+ * The stat-sheet column most of a category's products count in, for a new one; Other when it
+ * has none. The server falls back the same way for a product saved without one.
+ * @param products The territory's products.
+ * @param category The category's name.
+ * @returns The column.
+ */
+export const UsualStatColumn = (products: Product[], category: string | undefined): StatColumn => {
+    const counts = new Map<StatColumn, number>();
+    for (const p of products)
+        if (p.category === category && p.statColumn)
+            counts.set(p.statColumn, (counts.get(p.statColumn) ?? 0) + 1);
+    let best: StatColumn = "Misc";
+    for (const [column, count] of counts) if (count > (counts.get(best) ?? 0)) best = column;
+    return best;
+};
+
+/**
  * A blank product for New product: in the territory in view, and in the tab's category - or,
- * from the All tab, the first one that counts as Other.
+ * from the All tab, the one named Other, or else the first. It counts on the stat sheet as that
+ * category's items mostly do.
  * @param tab The tab New product was pressed on.
  * @param territoryId The territory in view.
  * @param categories That territory's categories.
+ * @param products That territory's products.
  * @returns The product to edit.
  */
 export const NewProduct = (
     tab: CatalogTab,
     territoryId: number | null,
-    categories: Category[]
-): Product => ({
-    territoryId,
-    category:
+    categories: Category[],
+    products: Product[]
+): Product => {
+    const category =
         tab !== AllTab && IsProductTab(tab)
             ? tab
-            : (categories.find((c) => c.statColumn === "Misc") ?? categories[0])?.name,
-    isActive: true,
-    variants: [],
-    deliveryOptions: [],
-});
+            : (categories.find((c) => c.name === "Other") ?? categories[0])?.name;
+    return {
+        territoryId,
+        category,
+        statColumn: UsualStatColumn(products, category),
+        isActive: true,
+        variants: [],
+        deliveryOptions: [],
+    };
+};
 
 /**
  * The user's other territories, whose catalogs a new item can be copied from.

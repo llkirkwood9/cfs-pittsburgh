@@ -11,7 +11,8 @@ import { SaleOffText } from "@shared/Lib/CatalogDrafts";
 import { CleanDiscount } from "@shared/Lib/Pricing";
 import type { DeliveryOption } from "@shared/Models/DeliveryOption";
 import type { Category } from "@shared/Models/Category";
-import type { Product } from "@shared/Models/Product";
+import type { Product, StatColumn } from "@shared/Models/Product";
+import { StatColumnNames } from "@shared/Lib/Catalog";
 import type { Territory } from "@shared/Models/Territory";
 import { Limits } from "@shared/Lib/Limits";
 
@@ -106,6 +107,25 @@ const EditProductForm = ({
                             {form.categoryNames.map((c) => (
                                 <option key={c} value={c}>
                                     {c}
+                                </option>
+                            ))}
+                        </select>
+                    </label>
+
+                    <label className="flex flex-col gap-1">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
+                            Counts on the stat sheet as
+                        </span>
+                        <select
+                            value={draft.statColumn}
+                            onChange={(e) => change({ statColumn: e.target.value as StatColumn })}
+                            className="min-h-[48px] rounded-xl border border-zinc-300 bg-white px-3 text-base
+                                text-zinc-900 outline-hidden focus:border-sky-600
+                                dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+                        >
+                            {(Object.keys(StatColumnNames) as StatColumn[]).map((c) => (
+                                <option key={c} value={c}>
+                                    {StatColumnNames[c]}
                                 </option>
                             ))}
                         </select>

@@ -102,7 +102,7 @@ export const useProductDraft = (
         if (problem) return Toast.Warning(problem);
 
         setSaving(true);
-        await onSave(DraftToProduct(product, draft, categories));
+        await onSave(DraftToProduct(product, draft));
         setSaving(false);
         onClose();
     };
@@ -110,7 +110,7 @@ export const useProductDraft = (
     return {
         draft,
         change,
-        hasWarranty: DraftHasWarranty(draft, categories),
+        hasWarranty: DraftHasWarranty(draft),
         /** The category names to pick from. */
         categoryNames: categories.map((c) => c.name ?? ""),
         /** What a size following the item's sale gets, for its label. */

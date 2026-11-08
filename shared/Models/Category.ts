@@ -1,5 +1,3 @@
-import type { StatColumn } from "./Product";
-
 /** A heading a territory's products are listed under, e.g. "Mattresses". */
 export type Category = {
     id?: number;
@@ -10,8 +8,6 @@ export type Category = {
     canEdit?: boolean;
     /** Shown on the tabs and as the inventory sheet's headings. */
     name?: string;
-    /** The stat-sheet column its items count in. */
-    statColumn?: StatColumn;
     sortOrder?: number;
     /** How many products are listed under it, archived ones included (returned, not saved). */
     productCount?: number;

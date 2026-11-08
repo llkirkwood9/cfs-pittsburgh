@@ -29,7 +29,7 @@ namespace api.Models
         public OrderLineType LineType { get; set; }
 
         /// <summary>
-        /// The stat-sheet column it counts in, kept from its category when sold, for the dashboard tallies
+        /// The stat-sheet column it counts in, kept from its product when sold, for the dashboard tallies
         /// </summary>
         public StatColumn Category { get; set; }
 

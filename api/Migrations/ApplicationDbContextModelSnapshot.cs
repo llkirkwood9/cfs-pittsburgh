@@ -60,9 +60,6 @@ namespace api.Migrations
                     b.Property<int>("SortOrder")
                         .HasColumnType("integer");
 
-                    b.Property<int>("StatColumn")
-                        .HasColumnType("integer");
-
                     b.Property<int?>("TerritoryId")
                         .HasColumnType("integer");
 
@@ -724,6 +721,9 @@ namespace api.Migrations
                         .HasColumnType("numeric(18,4)");
 
                     b.Property<int>("SortOrder")
+                        .HasColumnType("integer");
+
+                    b.Property<int>("StatColumn")
                         .HasColumnType("integer");
 
                     b.Property<int?>("TerritoryId")

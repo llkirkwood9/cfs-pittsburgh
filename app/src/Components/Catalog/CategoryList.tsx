@@ -3,17 +3,14 @@ import Button from "../Elements/Button";
 import ConfirmationModal from "../Elements/ConfirmationModal";
 import Icon from "../Elements/Icon";
 import Modal from "../Elements/Modal";
-import SelectField from "../Elements/SelectField";
 import SortableList from "../Elements/SortableList";
 import SwipeRow from "../Elements/SwipeRow";
 import Text from "../Elements/Text";
 import TextField from "../Elements/TextField";
 import { useCatalogOptionList } from "@shared/Hooks/useCatalogOptionList";
-import { StatColumnNames } from "@shared/Lib/Catalog";
 import { CategoryForm, CategorySummary } from "@shared/Lib/CatalogOptions";
 import { Limits } from "@shared/Lib/Limits";
 import type { Category } from "@shared/Models/Category";
-import type { StatColumn } from "@shared/Models/Product";
 
 type Props = {
     categories: Category[];
@@ -24,9 +21,9 @@ type Props = {
 };
 
 /**
- * The categories the territory's products are listed under, in the order of the tabs. Each one
- * says which stat-sheet column its items count in. Only an empty category can be deleted, so no
- * item is ever left without one.
+ * The categories the territory's products are listed under, in the order of the tabs. Only an
+ * empty category can be deleted, so no item is ever left without one. Which stat-sheet column an
+ * item counts in is set on the item itself.
  */
 const CategoryList = ({ categories, onSave, onDelete, onReorder }: Props) => {
     const list = useCatalogOptionList(categories, CategoryForm, onSave, onDelete, onReorder);
@@ -46,9 +43,8 @@ const CategoryList = ({ categories, onSave, onDelete, onReorder }: Props) => {
             </View>
 
             <Text className="mb-3 text-sm text-zinc-500 dark:text-zinc-400">
-                Products are listed under these tabs, in this order. Each category counts on the
-                stat sheet as one of its columns. Move a category&apos;s items to another one before
-                deleting it.
+                Products are listed under these tabs, in this order. Move a category&apos;s items to
+                another one before deleting it.
             </Text>
 
             {categories.length === 0 && (
@@ -92,10 +88,7 @@ const CategoryList = ({ categories, onSave, onDelete, onReorder }: Props) => {
                         <View className="min-w-0 flex-1">
                             <Text className="font-semibold">{category.name}</Text>
                             <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                                {CategorySummary(
-                                    category,
-                                    StatColumnNames[category.statColumn ?? "Misc"]
-                                )}
+                                {CategorySummary(category)}
                                 {severalTerritories && category.territoryName
                                     ? ` - ${category.territoryName}`
                                     : ""}
@@ -135,19 +128,6 @@ const CategoryList = ({ categories, onSave, onDelete, onReorder }: Props) => {
                             placeholder="ex. Hybrid Mattresses"
                             autoCapitalize="words"
                         />
-                        <SelectField<StatColumn>
-                            label="Counts on the stat sheet as"
-                            value={draft.statColumn}
-                            options={(Object.keys(StatColumnNames) as StatColumn[]).map((c) => ({
-                                value: c,
-                                label: StatColumnNames[c],
-                            }))}
-                            onChange={(value) => change({ statColumn: value })}
-                        />
-                        <Text className="text-xs text-zinc-500 dark:text-zinc-400">
-                            New items in Mattresses or Adjustable Bases have a warranty unless you
-                            untick it. Items already sold keep the column they were sold under.
-                        </Text>
                     </View>
                 </Modal>
             )}

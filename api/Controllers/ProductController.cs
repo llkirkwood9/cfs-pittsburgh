@@ -52,17 +52,26 @@ namespace api.Controllers
             if (category == null)
                 return BadRequest(new { error = UnknownCategoryMessage });
 
+            if (!TryStatColumn(request.StatColumn, out var requestedColumn))
+                return BadRequest(new { error = "Invalid parameter." });
+
+            // Left out (as by an older copy of the apps), it counts as the category's items do.
+            var column = requestedColumn
+                         ?? CategoryLookup.OldColumnName(request.Category)
+                         ?? await UsualStatColumnAsync(category.Id);
+
             var product = new Product
             {
                 TerritoryId = territoryId,
                 Name = request.Name,
                 Brand = request.Brand ?? string.Empty,
                 CategoryId = category.Id,
+                StatColumn = column,
                 Notes = request.Notes,
                 SortOrder = request.SortOrder ?? 0,
                 IsActive = request.IsActive ?? true,
                 TrackInventory = request.TrackInventory ?? false,
-                HasWarranty = request.HasWarranty ?? CatalogRules.WarrantyByDefault(category.StatColumn),
+                HasWarranty = request.HasWarranty ?? CatalogRules.WarrantyByDefault(column),
                 WarrantyLength = CatalogRules.CleanWarrantyLength(request.WarrantyLength),
             };
 
@@ -247,6 +256,11 @@ namespace api.Controllers
                 product.Category = category;
             }
 
+            if (!TryStatColumn(request.StatColumn, out var statColumn))
+                return BadRequest(new { error = "Invalid parameter." });
+            if (statColumn != null)
+                product.StatColumn = statColumn.Value;
+
             if (request.Notes != null)
                 product.Notes = string.IsNullOrWhiteSpace(request.Notes) ? null : request.Notes;
 
@@ -394,6 +408,32 @@ namespace api.Controllers
         /// </summary>
         private async Task<Category?> CategoryNamedAsync(int? territoryId, string? name) =>
             territoryId is { } id ? await new CategoryLookup(DB).FindAsync(id, name) : null;
+
+        /// <summary>
+        /// The stat-sheet column most of a category's products count in; Other when it has none.
+        /// </summary>
+        private async Task<StatColumn> UsualStatColumnAsync(int categoryId) =>
+            await DB.Products
+                .Where(p => p.CategoryId == categoryId)
+                .GroupBy(p => p.StatColumn)
+                .OrderByDescending(g => g.Count())
+                .ThenBy(g => g.Key)
+                .Select(g => (StatColumn?)g.Key)
+                .FirstOrDefaultAsync() ?? StatColumn.Misc;
+
+        /// <summary>
+        /// Reads a stat-sheet column's enum name; null when none was sent.
+        /// </summary>
+        private static bool TryStatColumn(string? value, out StatColumn? column)
+        {
+            column = null;
+            if (string.IsNullOrWhiteSpace(value))
+                return true;
+            if (int.TryParse(value, out _) || !Enum.TryParse<StatColumn>(value, true, out var parsed) || !Enum.IsDefined(parsed))
+                return false;
+            column = parsed;
+            return true;
+        }
 
         /// <summary>
         /// Copies variant DTOs onto a new product.
@@ -605,7 +645,7 @@ namespace api.Controllers
                 Name = product.Name,
                 Brand = product.Brand,
                 Category = product.Category?.Name,
-                StatColumn = product.Category?.StatColumn.ToString(),
+                StatColumn = product.StatColumn.ToString(),
                 Notes = product.Notes,
                 SortOrder = product.SortOrder,
                 IsActive = product.IsActive,

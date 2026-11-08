@@ -833,17 +833,18 @@ rows, each a size plus an optional configuration - `Queen / Mattress Only`, `Que
 `Queen / IMC61 Adjustable`, `Queen / ES200 Flex Head`. That is exactly how the price cards are
 laid out, and any product can be given any set of sizes without a schema change.
 
-**Each territory names its own categories.** `Category` rows (name, tab order, stat-sheet column)
-belong to a territory, and every product is in one of its territory's. Managers add, rename,
-reorder and delete them on the Catalog screen's Categories tab; a category with items in it can't
-be deleted until they are moved. Each category says which stat-sheet column its items count in
-(`StatColumn`: Mattresses, Adjustable Bases, Pillows, ... Other), which also sets the warranty
-default and which items the receipt email treats as mattresses. A new territory starts with one
-category per column (or a copy of the territory it copies its catalog from); databases from before
-named categories were upgraded the same way, with every item put in the category for its old
-fixed value. Copying an item or restoring a catalog file matches categories by name and adds
-missing ones; an older catalog file's fixed names ("Mattress", "AdjustableBase") find the category
-counting in that column.
+**Each territory names its own categories.** `Category` rows (name, tab order) belong to a
+territory, and every product is in one of its territory's. Managers add, rename, reorder and
+delete them on the Catalog screen's Categories tab; a category with items in it can't be deleted
+until they are moved. Each product says which stat-sheet column it counts in (`StatColumn`:
+Mattresses, Adjustable Bases, Pillows, ... Other), which also sets its warranty default and
+whether the receipt email treats it as a mattress; a new product starts on the column most of its
+category's items use. The dashboard's best and worst sellers filter by category. A new territory
+starts with the eight default categories (or a copy of the territory it copies its catalog from);
+databases from before named categories were upgraded the same way, with every item put in the
+category for its old fixed value and counting in that value's column. Copying an item or
+restoring a catalog file matches categories by name and adds missing ones; an older catalog
+file's fixed names ("Mattress", "AdjustableBase") find the default category and column.
 
 **A null price means "Inquire."** Where the price card reads Inquire, or the supplied documents
 don't give a price, the variant has a null price. The floor shows it as *Inquire* and makes the rep

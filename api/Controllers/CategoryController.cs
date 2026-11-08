@@ -13,9 +13,9 @@ namespace api.Controllers
 {
     /// <summary>
     /// The categories a territory's products are listed under. Like delivery and financing options,
-    /// every territory has its own list; a manager changes only their own territories'. Each
-    /// category says which stat-sheet column its items count in, and a sold line keeps that column,
-    /// so renaming or reordering categories never changes a past sale.
+    /// every territory has its own list; a manager changes only their own territories'.
+    /// Renaming or reordering categories never changes a past sale, which keeps each item's
+    /// stat-sheet column, not its category.
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
@@ -35,7 +35,7 @@ namespace api.Controllers
         /// <summary>
         /// Adds a category at the end of the list of the territory being worked (or the one given).
         /// </summary>
-        /// <param name="request">Name, stat-sheet column and optionally the territory</param>
+        /// <param name="request">Name and optionally the territory</param>
         /// <returns>The created category.</returns>
         [HttpPost("category")]
         [Authorize(AuthenticationSchemes = "Bearer")]
@@ -52,14 +52,10 @@ namespace api.Controllers
             if (await NameProblemAsync(name, territoryId, null) is { } nameProblem)
                 return BadRequest(new { error = nameProblem });
 
-            if (!TryColumn(request.StatColumn, StatColumn.Misc, out var column))
-                return BadRequest(new { error = "Invalid parameter." });
-
             var category = new Category
             {
                 TerritoryId = territoryId,
                 Name = name,
-                StatColumn = column,
                 SortOrder = (await DB.Categories.Where(c => c.TerritoryId == territoryId).MaxAsync(c => (int?)c.SortOrder) ?? 0) + 1,
             };
             DB.Categories.Add(category);
@@ -93,8 +89,7 @@ namespace api.Controllers
         #region PATCH Methods
 
         /// <summary>
-        /// Renames a category or changes the stat-sheet column its items count in. Items already
-        /// sold keep the column they were sold under.
+        /// Renames a category.
         /// </summary>
         /// <param name="request">Fields to change, including the id</param>
         /// <returns>The updated category.</returns>
@@ -119,11 +114,7 @@ namespace api.Controllers
             if (await NameProblemAsync(name, category.TerritoryId, category.Id) is { } nameProblem)
                 return BadRequest(new { error = nameProblem });
 
-            if (!TryColumn(request.StatColumn, category.StatColumn, out var column))
-                return BadRequest(new { error = "Invalid parameter." });
-
             category.Name = name;
-            category.StatColumn = column;
             await DB.SaveChangesAsync();
 
             return Ok(await LoadDtoAsync(category.Id));
@@ -227,7 +218,6 @@ namespace api.Controllers
             TerritoryName = territoryName,
             CanEdit = CanEditCatalog(category.TerritoryId),
             Name = category.Name,
-            StatColumn = category.StatColumn.ToString(),
             SortOrder = category.SortOrder,
             ProductCount = productCount,
         };
@@ -249,17 +239,6 @@ namespace api.Controllers
             if (await DB.Categories.AnyAsync(c => c.TerritoryId == territoryId && c.Id != exceptId && c.Name.ToLower() == lower))
                 return "There is already a category with that name.";
             return null;
-        }
-
-        /// <summary>
-        /// Reads a stat-sheet column's enum name; nothing keeps the given one.
-        /// </summary>
-        private static bool TryColumn(string? value, StatColumn keep, out StatColumn column)
-        {
-            column = keep;
-            if (string.IsNullOrWhiteSpace(value))
-                return true;
-            return Enum.TryParse(value, true, out column) && Enum.IsDefined(column) && !int.TryParse(value, out _);
         }
 
         #endregion

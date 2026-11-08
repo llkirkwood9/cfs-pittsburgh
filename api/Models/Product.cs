@@ -31,9 +31,15 @@ namespace api.Models
         public int CategoryId { get; set; }
 
         /// <summary>
-        /// Navigation to the category, which also says which stat-sheet column it counts in
+        /// Navigation to the category
         /// </summary>
         public Category? Category { get; set; }
+
+        /// <summary>
+        /// The stat-sheet column it counts in. Also decides whether it has a warranty unless told
+        /// otherwise, and whether the receipt email treats it as a mattress or adjustable base.
+        /// </summary>
+        public StatColumn StatColumn { get; set; } = StatColumn.Misc;
 
         /// <summary>
         /// Optional sales notes shown to the rep, e.g. "25% off sale"

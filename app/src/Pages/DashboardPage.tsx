@@ -30,7 +30,6 @@ import {
 } from "@shared/Lib/Dashboard";
 import { FormatCurrency } from "@shared/Lib/Format";
 import type { ProductTally } from "@shared/Models/DashboardStats";
-import type { StatColumn } from "@shared/Models/Product";
 
 /** A section card with an uppercase heading. */
 const Section = ({ title, children }: { title: string; children: React.ReactNode }) => (
@@ -48,24 +47,27 @@ const Section = ({ title, children }: { title: string; children: React.ReactNode
  */
 const ProductRanking = ({
     products,
+    categories,
     empty,
     limit,
 }: {
     products: ProductTally[];
+    /** The catalog's categories in view, to filter by. */
+    categories: string[];
     empty: string;
     /** How many to show; leave out to show them all. */
     limit?: number;
 }) => {
-    const [category, setCategory] = useState<StatColumn | "All">("All");
+    const [category, setCategory] = useState<string>("All");
     const shown = RankProducts(products, category, limit);
 
     return (
         <View className="gap-3">
-            <SelectField<StatColumn | "All">
+            <SelectField<string>
                 label="Category"
                 value={category}
                 onChange={setCategory}
-                options={RankingCategoryOptions}
+                options={RankingCategoryOptions(categories)}
             />
             {shown.length === 0 ? (
                 <Text className="text-sm text-zinc-500 dark:text-zinc-400">
@@ -304,6 +306,7 @@ const DashboardPage = () => {
             <Section title="Best sellers">
                 <ProductRanking
                     products={stats?.topProducts ?? []}
+                    categories={stats?.rankingCategories ?? []}
                     empty="No sales yet."
                     limit={scope === "event" ? BEST_SELLERS : undefined}
                 />
@@ -314,6 +317,7 @@ const DashboardPage = () => {
                     <Section title="Worst sellers">
                         <ProductRanking
                             products={stats?.worstProducts ?? []}
+                            categories={stats?.rankingCategories ?? []}
                             empty="No products yet."
                             limit={WORST_SELLERS}
                         />
