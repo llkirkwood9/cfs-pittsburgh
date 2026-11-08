@@ -1,31 +1,29 @@
 import { useCallback, useEffect, useState } from "react";
 import { Toast } from "@host";
 import { useAuth } from "../Context/AuthContext";
-import { BuildEvent, EventToForm, NewEventDefaults } from "../Lib/Events";
+import { useSettings } from "../Context/SettingsContext";
+import { useTerritory } from "../Context/TerritoryContext";
+import { BuildEvent, EventToForm, NewEventDefaults, TerritoriesForEvent } from "../Lib/Events";
 import type { EventForm } from "../Lib/Events";
 import { RateAsPercent } from "../Lib/Format";
 import type { Event } from "../Models/Event";
 import { DefaultGeneralSettings } from "../Models/GeneralSettings";
-import type { GeneralSettings } from "../Models/GeneralSettings";
 import { HasRole } from "../Models/User";
 import { AddEvent, DeleteEvent, GetEvents, UpdateEvent } from "../Services/EventServices";
 
 const emptyForm: EventForm = EventToForm({}, null, DefaultGeneralSettings);
 
 /**
- * The Events screen: the events, the add/edit form and deleting one.
- * @param settingsFor Reads a territory's settings, for a new event's rates.
- * @param territoryInView The territory picked in the menu bar, or null for all of them.
- * @param picksTerritory Whether the user picks which territory an event is in - anyone with more
- *     than one.
+ * The Events screen: the events, the add/edit form and deleting one. Anyone with more than one
+ * territory picks which territory an event is in, and with all of them in view each event is
+ * tagged with its territory.
  * @returns The screen's state and handlers.
  */
-export const useEvents = (
-    settingsFor: (territoryId: number | null | undefined) => Promise<GeneralSettings>,
-    territoryInView: number | null,
-    picksTerritory: boolean
-) => {
+export const useEvents = () => {
     const { user } = useAuth();
+    const { settingsFor } = useSettings();
+    const { territories, territoryId: territoryInView, canSwitch, viewingAll } = useTerritory();
+    const picksTerritory = canSwitch;
     // A system admin deletes an event for good, orders and all.
     const deletesForGood = HasRole(user?.role, "SystemAdmin");
 
@@ -37,7 +35,7 @@ export const useEvents = (
     const [form, setForm] = useState<EventForm>(emptyForm);
 
     const load = useCallback(async () => {
-        setEvents(await GetEvents());
+        setEvents((await GetEvents()) ?? []);
         setLoading(false);
     }, []);
 
@@ -124,6 +122,9 @@ export const useEvents = (
         open,
         openNew,
         pickTerritory,
+        picksTerritory,
+        showsTerritory: viewingAll,
+        territoryChoices: TerritoriesForEvent(territories, form.territoryId),
         saving,
         handleSave,
         deleting,

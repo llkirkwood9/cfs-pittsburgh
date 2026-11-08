@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Toast } from "@host";
 import { useAuth } from "../Context/AuthContext";
+import { useTerritory } from "../Context/TerritoryContext";
 import {
     AssignableRoles,
     BuildCrewMember,
@@ -11,7 +12,6 @@ import {
 } from "../Lib/Crew";
 import type { CrewForm, RandomValues } from "../Lib/Crew";
 import { ActiveTerritories } from "../Models/Territory";
-import type { Territory } from "../Models/Territory";
 import { HasRole, IsCompanyWide } from "../Models/User";
 import type { User } from "../Models/User";
 import { AddUser, DeleteUser, GetUsers, UpdateUser } from "../Services/UserServices";
@@ -29,17 +29,12 @@ const emptyForm: CrewForm = {
 
 /**
  * The Crew screen: the accounts, the add/edit form, and deactivating or deleting an account.
- * @param territories The territories the user can pick from.
- * @param territoryInView The territory picked in the menu bar, or null for all of them.
  * @param randomValues The platform's secure random source, for new passwords.
  * @returns The screen's state and handlers.
  */
-export const useCrew = (
-    territories: Territory[],
-    territoryInView: number | null,
-    randomValues: RandomValues
-) => {
+export const useCrew = (randomValues: RandomValues) => {
     const { user } = useAuth();
+    const { territories, territoryId: territoryInView } = useTerritory();
     const [users, setUsers] = useState<User[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
     const [editing, setEditing] = useState<User | null>(null);
@@ -49,7 +44,7 @@ export const useCrew = (
     const [removing, setRemoving] = useState<User | null>(null);
 
     const load = useCallback(async () => {
-        setUsers(await GetUsers());
+        setUsers((await GetUsers()) ?? []);
         setLoading(false);
     }, []);
 

@@ -13,7 +13,6 @@ import { useTerritory } from "@shared/Context/TerritoryContext";
 import { useDashboard } from "@shared/Hooks/useDashboard";
 import {
     BEST_SELLERS,
-    DASHBOARD_POLL_MS,
     DashboardTitle,
     RankingCategoryOptions,
     RankingEmptyText,
@@ -106,8 +105,7 @@ const ProductRanking = ({
  * them side by side.
  */
 const DashboardPage = () => {
-    const { canSwitch, territoryId: territoryInView, territoryName } = useTerritory();
-    const viewingAll = canSwitch && territoryInView == null;
+    const { viewingAll, territoryName } = useTerritory();
 
     const { events, scope, eventId, stats, loading, refresh, switchScope, switchEvent } =
         useDashboard();
@@ -134,7 +132,7 @@ const DashboardPage = () => {
                 />
             </div>
 
-            {viewingAll && <TerritoryComparison pollMs={DASHBOARD_POLL_MS} />}
+            {viewingAll && <TerritoryComparison />}
 
             <EventFilter
                 events={events}

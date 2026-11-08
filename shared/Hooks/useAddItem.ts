@@ -8,6 +8,7 @@ import {
     PickDelivery,
     PresetPicks,
     ToLineChoices,
+    type DiscountMode,
     type Picks,
 } from "../Lib/AddItem";
 import { CategoryShortNames, NeedsPrice } from "../Lib/Catalog";
@@ -31,9 +32,6 @@ import type { ProductVariant } from "../Models/ProductVariant";
 
 /** A category tab in the picker, or every product. */
 export type CategoryTab = ProductCategory | "All";
-
-/** The rep's own discount: a percent, or a fixed amount off each item. */
-export type DiscountMode = "percent" | "amount";
 
 /**
  * The floor's add-to-order flow: pick a category, pick a product, pick a size, its choices and a

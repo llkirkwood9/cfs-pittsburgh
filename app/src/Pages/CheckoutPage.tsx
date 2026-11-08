@@ -33,6 +33,7 @@ import {
     DeliverToText,
 } from "@shared/Lib/Checkout";
 import { FormatCurrency } from "@shared/Lib/Format";
+import { Paths } from "../Lib/ScreenLinks";
 
 /** A white card with an uppercase heading, as the checkout panel's sections are. */
 const Card = ({
@@ -121,8 +122,7 @@ const CheckoutPage = () => {
     // Back on this screen: read it again.
     useRefreshOnFocus(reload);
 
-    const openReceipt = (id: number) =>
-        router.push({ pathname: "/receipt/[orderId]", params: { orderId: String(id) } });
+    const openReceipt = (id: number) => router.push(Paths.receipt(id));
 
     // The receipt opens over this screen, which moves on to the next customer behind it.
     const handleComplete = async () => {

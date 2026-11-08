@@ -6,8 +6,9 @@ import ListSkeleton from "../Components/Elements/ListSkeleton";
 import TextField from "../Components/Elements/TextField";
 import { useInventoryCount } from "@shared/Hooks/useInventoryCount";
 import { CategoryNames } from "@shared/Lib/Catalog";
-import { InventoryRowKey, InventorySizeLabel } from "@shared/Lib/Inventory";
+import { InventoryRowKey, InventorySizeLabel, SignedDifference } from "@shared/Lib/Inventory";
 import { CountPhaseFrom } from "@shared/Lib/InventoryCount";
+import { ScreenLinks } from "../Lib/ScreenLinks";
 
 /**
  * A shelf count for the active event: the start-of-event count before the doors open, or the
@@ -60,7 +61,7 @@ const InventoryCountPage = () => {
                 <Button
                     text="Back to inventory"
                     icon="fa-solid fa-arrow-left"
-                    onClick={() => navigate("/inventory")}
+                    onClick={() => navigate(ScreenLinks.inventory.path)}
                     className="mt-4 bg-zinc-500 hover:bg-zinc-600"
                 />
             </div>
@@ -83,7 +84,7 @@ const InventoryCountPage = () => {
                     <Button
                         text="Back"
                         icon="fa-solid fa-arrow-left"
-                        onClick={() => navigate("/inventory")}
+                        onClick={() => navigate(ScreenLinks.inventory.path)}
                         className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                     />
                 </div>
@@ -139,7 +140,7 @@ const InventoryCountPage = () => {
                                                                 >
                                                                     {diff === 0
                                                                         ? "Matches"
-                                                                        : `${diff > 0 ? "+" : ""}${diff}`}
+                                                                        : SignedDifference(diff)}
                                                                 </span>
                                                             )}
                                                         </p>
@@ -212,7 +213,7 @@ const InventoryCountPage = () => {
                     title={`Save the ${phase === "start" ? "start-of-event" : "end-of-event"} count`}
                     message={confirmMessage}
                     confirmText={saving ? "Saving..." : "Save count"}
-                    onConfirm={() => save(() => navigate("/inventory"))}
+                    onConfirm={() => save(() => navigate(ScreenLinks.inventory.path))}
                     onCancel={() => setConfirming(false)}
                 />
             )}

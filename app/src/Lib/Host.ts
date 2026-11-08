@@ -1,6 +1,8 @@
 import { router } from "expo-router";
+import { AppState } from "react-native";
 import { GetServerUrl } from "./Server";
 import { GetItem, SetItem } from "./Storage";
+import type { Foreground } from "@shared/Lib/Connection";
 import type { ServerErrorDetails } from "@shared/Lib/ErrorHandler";
 
 /*
@@ -41,6 +43,17 @@ export const ShowServerError = ({ code, errorMessage, exception }: ServerErrorDe
     } catch {
         return false;
     }
+};
+
+/** The app is in front while it is active, so a phone in a pocket doesn't keep asking. */
+export const foreground: Foreground = {
+    isInFront: () => AppState.currentState === "active",
+    onReturn: (callback) => {
+        const subscription = AppState.addEventListener("change", (state) => {
+            if (state === "active") callback();
+        });
+        return () => subscription.remove();
+    },
 };
 
 /** A build made without a server address has nothing to talk to. */

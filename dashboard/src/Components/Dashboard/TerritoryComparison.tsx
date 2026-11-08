@@ -5,19 +5,14 @@ import { useDashboardComparison } from "@shared/Hooks/useDashboardComparison";
 import { ComparisonRanges } from "@shared/Lib/Dashboard";
 import { FormatCurrency } from "@shared/Lib/Format";
 
-type Props = {
-    /** Refresh interval in milliseconds, matching the rest of the dashboard. */
-    pollMs: number;
-};
-
 /**
  * Every territory side by side, for a system admin or administrator viewing all of them: completed
  * sales and the headline figures over the chosen dates. Tapping a territory switches the whole
  * dashboard to it.
  */
-const TerritoryComparison = ({ pollMs }: Props) => {
+const TerritoryComparison = () => {
     const { setTerritoryId } = useTerritory();
-    const { range, setRange, rows, top, totals } = useDashboardComparison(pollMs);
+    const { range, setRange, rows, top, totals } = useDashboardComparison();
 
     return (
         <section className="mb-4 rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">

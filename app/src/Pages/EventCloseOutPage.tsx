@@ -1,5 +1,4 @@
 import { router, Stack, useLocalSearchParams } from "expo-router";
-import type { Href } from "expo-router";
 import { useState } from "react";
 import { View } from "react-native";
 import Button from "../Components/Elements/Button";
@@ -17,16 +16,7 @@ import { CloseEventMessage, VoidsWhenCleared } from "@shared/Lib/CloseOut";
 import type { CloseOutStep } from "@shared/Lib/CloseOut";
 import { FormatCurrency, FormatShortDate } from "@shared/Lib/Format";
 import type { OrderSummary } from "@shared/Models/OrderSummary";
-
-/** Where an order opens: its sales sheet, or the checkout screen for one waiting to be paid. */
-const receipt = (o: OrderSummary): Href => ({
-    pathname: "/receipt/[orderId]",
-    params: { orderId: String(o.id) },
-});
-const checkout = (o: OrderSummary): Href => ({
-    pathname: "/checkout",
-    params: { orderId: String(o.id) },
-});
+import { Paths } from "../Lib/ScreenLinks";
 
 /**
  * Closing out an event: everything worth checking before the cart packs up, in one list. Orders
@@ -128,7 +118,11 @@ const EventCloseOutPage = () => {
                         key={o.id}
                         variant="row"
                         onPress={() =>
-                            router.navigate(step.key === "checkout" ? checkout(o) : receipt(o))
+                            router.navigate(
+                                step.key === "checkout"
+                                    ? Paths.checkoutOrder(o.id!)
+                                    : Paths.receipt(o.id!)
+                            )
                         }
                         actions={actions}
                         accessibilityLabel={`Order ${o.orderNumber}, ${o.billingName || "no name yet"}`}
@@ -173,12 +167,7 @@ const EventCloseOutPage = () => {
                 <Button
                     text={endAt ? "Recount" : "Count now"}
                     icon="fa-solid fa-clipboard-check"
-                    onClick={() =>
-                        router.push({
-                            pathname: "/more/inventory/count/[phase]",
-                            params: { phase: "end" },
-                        })
-                    }
+                    onClick={() => router.push(Paths.inventoryCount("end"))}
                     className="min-h-[40px] px-3 text-sm"
                 />
             );
@@ -251,12 +240,7 @@ const EventCloseOutPage = () => {
                             <Button
                                 text="Sales sheets"
                                 icon="fa-solid fa-print"
-                                onClick={() =>
-                                    router.push({
-                                        pathname: "/events/[eventId]/sheets",
-                                        params: { eventId: String(id) },
-                                    })
-                                }
+                                onClick={() => router.push(Paths.eventSheets(id))}
                                 className="min-h-[40px] px-3 text-sm"
                             />
                         </View>

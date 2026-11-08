@@ -71,9 +71,9 @@ export const SaveInventoryNotes = async (
 /**
  * Lists every tracked size with its on-hand count.
  * @param eventId Optional event, to include what its Take With sales used.
- * @returns Inventory rows in catalog order, or an empty list on failure.
+ * @returns Inventory rows in catalog order, or null on failure.
  */
-export const GetInventory = async (eventId?: number): Promise<InventoryItem[]> => {
+export const GetInventory = async (eventId?: number): Promise<InventoryItem[] | null> => {
     try {
         const response = await api.get<InventoryItem[]>("/api/Inventory/items", {
             params: eventId ? { eventId } : undefined,
@@ -81,7 +81,7 @@ export const GetInventory = async (eventId?: number): Promise<InventoryItem[]> =
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
-        return [];
+        return null;
     }
 };
 
@@ -89,12 +89,12 @@ export const GetInventory = async (eventId?: number): Promise<InventoryItem[]> =
  * Recent changes to one size's count (or one combination of its choices), newest first.
  * @param variantId The variant id.
  * @param stockKey Which combination of counted choices; empty for stock kept per size.
- * @returns Adjustment rows, or an empty list on failure.
+ * @returns Adjustment rows, or null on failure.
  */
 export const GetInventoryHistory = async (
     variantId: number,
     stockKey?: string
-): Promise<InventoryAdjustment[]> => {
+): Promise<InventoryAdjustment[] | null> => {
     try {
         const response = await api.get<InventoryAdjustment[]>(
             `/api/Inventory/variant/${variantId}/history`,
@@ -103,6 +103,6 @@ export const GetInventoryHistory = async (
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
-        return [];
+        return null;
     }
 };

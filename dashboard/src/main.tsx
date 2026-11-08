@@ -6,7 +6,7 @@ import { fas } from "@fortawesome/free-solid-svg-icons";
 import { AuthProvider } from "@shared/Context/AuthContext";
 import { SettingsProvider } from "@shared/Context/SettingsContext";
 import { TerritoryProvider } from "@shared/Context/TerritoryContext";
-import { applyTheme, readStoredTheme } from "./Lib/Theme";
+import { StartTheme } from "./Lib/Theme";
 import { router } from "./Routes/Routes";
 import "./index.css";
 
@@ -14,8 +14,8 @@ import "./index.css";
 // bundle and this app does not use an icon from either, which matters on venue wifi.
 library.add(fas);
 
-// The saved light/dark choice, before the first paint.
-applyTheme(readStoredTheme());
+// The saved light/dark choice, before the first paint, and whenever it changes.
+StartTheme();
 
 createRoot(document.getElementById("root")!).render(
     <StrictMode>

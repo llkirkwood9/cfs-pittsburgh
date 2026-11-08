@@ -8,6 +8,7 @@ import { CloseEventMessage, VoidsWhenCleared } from "@shared/Lib/CloseOut";
 import type { CloseOutStep } from "@shared/Lib/CloseOut";
 import { FormatCurrency, FormatShortDate } from "@shared/Lib/Format";
 import type { OrderSummary } from "@shared/Models/OrderSummary";
+import { Paths, ScreenLinks } from "../Lib/ScreenLinks";
 
 /**
  * Closing out an event: everything worth checking before the cart packs up, in one list. Orders
@@ -53,7 +54,7 @@ const EventCloseOutPage = () => {
                 <Button
                     text="Back to events"
                     icon="fa-solid fa-arrow-left"
-                    onClick={() => navigate("/events")}
+                    onClick={() => navigate(ScreenLinks.events.path)}
                     className="mt-4"
                 />
             </div>
@@ -86,10 +87,12 @@ const EventCloseOutPage = () => {
                         type="button"
                         onClick={() =>
                             navigate(
-                                step.key === "checkout" ? `/checkout/${o.id}` : `/receipt/${o.id}`,
+                                step.key === "checkout"
+                                    ? Paths.checkoutOrder(o.id!)
+                                    : Paths.receipt(o.id!),
                                 {
                                     state: {
-                                        from: `/events/${id}/close`,
+                                        from: Paths.eventClose(id),
                                         label: "Back to close-out",
                                     },
                                 }
@@ -136,7 +139,7 @@ const EventCloseOutPage = () => {
                 <Button
                     text={endAt ? "Recount" : "Count now"}
                     icon="fa-solid fa-clipboard-check"
-                    onClick={() => navigate("/inventory/count/end")}
+                    onClick={() => navigate(Paths.inventoryCount("end"))}
                     className="min-h-[40px] px-3 text-sm"
                 />
             );
@@ -151,7 +154,7 @@ const EventCloseOutPage = () => {
                 <Button
                     text="Back to events"
                     icon="fa-solid fa-arrow-left"
-                    onClick={() => navigate("/events")}
+                    onClick={() => navigate(ScreenLinks.events.path)}
                     className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                 />
             </div>
@@ -215,9 +218,9 @@ const EventCloseOutPage = () => {
                             text="Sales sheets"
                             icon="fa-solid fa-print"
                             onClick={() =>
-                                navigate(`/events/${id}/sheets`, {
+                                navigate(Paths.eventSheets(id), {
                                     state: {
-                                        from: `/events/${id}/close`,
+                                        from: Paths.eventClose(id),
                                         label: "Back to close-out",
                                     },
                                 })
@@ -252,7 +255,7 @@ const EventCloseOutPage = () => {
                     title={`Close ${saleEvent.organization}`}
                     message={CloseEventMessage(saleEvent.organization, blocking)}
                     confirmText={closing ? "Closing..." : "Close event"}
-                    onConfirm={() => closeEvent(() => navigate("/events"))}
+                    onConfirm={() => closeEvent(() => navigate(ScreenLinks.events.path))}
                     onCancel={() => setConfirming(false)}
                 />
             )}

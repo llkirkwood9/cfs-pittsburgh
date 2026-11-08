@@ -1,6 +1,5 @@
 import { useMemo, useState } from "react";
-import { BucketSales } from "@shared/Lib/Dashboard";
-import type { SalesBucket } from "@shared/Lib/Dashboard";
+import { SalesChart } from "@shared/Lib/Dashboard";
 import { FormatCurrency } from "@shared/Lib/Format";
 import type { SaleMoment } from "@shared/Models/DashboardStats";
 
@@ -17,16 +16,8 @@ const PLOT_PX = 150;
  * gives its exact figures, and a hidden table carries the same numbers for screen readers.
  */
 const SalesByHourChart = ({ sales }: Props) => {
-    const { buckets, byDay } = useMemo(() => BucketSales(sales), [sales]);
+    const { bars, byDay, max, busiest } = useMemo(() => SalesChart(sales, PLOT_PX), [sales]);
     const [focused, setFocused] = useState<number | null>(null);
-
-    const max = Math.max(0, ...buckets.map((b) => b.total));
-    const busiest = buckets.reduce<SalesBucket | null>(
-        (best, b) => (!best || b.total > best.total ? b : best),
-        null
-    );
-    // Crowded bars label every other one so the text never collides.
-    const labelEvery = buckets.length > 14 ? 3 : buckets.length > 8 ? 2 : 1;
 
     return (
         <section className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
@@ -34,7 +25,7 @@ const SalesByHourChart = ({ sales }: Props) => {
                 <h2 className="text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                     Sales by {byDay ? "day" : "hour"}
                 </h2>
-                {busiest && busiest.total > 0 && (
+                {busiest && (
                     <p className="text-xs text-zinc-600 dark:text-zinc-400">
                         Busiest:{" "}
                         <span className="font-semibold text-zinc-900 dark:text-zinc-100">
@@ -46,7 +37,7 @@ const SalesByHourChart = ({ sales }: Props) => {
                 )}
             </div>
 
-            {buckets.length === 0 ? (
+            {bars.length === 0 ? (
                 <p className="py-10 text-center text-sm text-zinc-500 dark:text-zinc-400">
                     No completed sales yet.
                 </p>
@@ -62,11 +53,7 @@ const SalesByHourChart = ({ sales }: Props) => {
                             style={{ height: PLOT_PX }}
                             aria-hidden="true"
                         >
-                            {buckets.map((b, i) => {
-                                const height =
-                                    max > 0
-                                        ? Math.max(b.total > 0 ? 3 : 0, (b.total / max) * PLOT_PX)
-                                        : 0;
+                            {bars.map((b, i) => {
                                 return (
                                     <button
                                         key={b.key}
@@ -83,36 +70,36 @@ const SalesByHourChart = ({ sales }: Props) => {
                                                     ? "bg-sky-700 dark:bg-sky-500"
                                                     : "bg-sky-600"
                                             }`}
-                                            style={{ height }}
+                                            style={{ height: b.height }}
                                         />
                                     </button>
                                 );
                             })}
                         </div>
                         <div className="mt-1 flex gap-[2px]" aria-hidden="true">
-                            {buckets.map((b, i) => (
+                            {bars.map((b) => (
                                 <span
                                     key={b.key}
                                     className="min-w-0 flex-1 truncate text-center text-[11px] text-zinc-500 dark:text-zinc-400"
                                 >
-                                    {i % labelEvery === 0 ? b.label : ""}
+                                    {b.showLabel ? b.label : ""}
                                 </span>
                             ))}
                         </div>
 
-                        {focused !== null && buckets[focused] && (
+                        {focused !== null && bars[focused] && (
                             <div
                                 className="pointer-events-none absolute top-0 z-10 -translate-x-1/2 rounded-lg bg-zinc-900 px-2.5 py-1.5
                                     text-xs text-white shadow-lg dark:bg-zinc-100 dark:text-zinc-900"
                                 style={{
-                                    left: `${((focused + 0.5) / buckets.length) * 100}%`,
+                                    left: `${((focused + 0.5) / bars.length) * 100}%`,
                                 }}
                             >
-                                <p className="font-semibold">{buckets[focused].long}</p>
+                                <p className="font-semibold">{bars[focused].long}</p>
                                 <p className="tabular-nums">
-                                    {FormatCurrency(buckets[focused].total)} &middot;{" "}
-                                    {buckets[focused].count} sale
-                                    {buckets[focused].count === 1 ? "" : "s"}
+                                    {FormatCurrency(bars[focused].total)} &middot;{" "}
+                                    {bars[focused].count} sale
+                                    {bars[focused].count === 1 ? "" : "s"}
                                 </p>
                             </div>
                         )}
@@ -128,7 +115,7 @@ const SalesByHourChart = ({ sales }: Props) => {
                             </tr>
                         </thead>
                         <tbody>
-                            {buckets.map((b) => (
+                            {bars.map((b) => (
                                 <tr key={b.key}>
                                     <td>{b.long}</td>
                                     <td>{b.count}</td>

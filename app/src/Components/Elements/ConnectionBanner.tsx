@@ -1,15 +1,9 @@
 import { StatusBar } from "expo-status-bar";
-import { useEffect, useState } from "react";
-import { AppState, View } from "react-native";
+import { View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import Icon from "./Icon";
 import Text from "./Text";
-import api from "../../Lib/api";
-import { IsOnline, OnConnectionChange, SetOnline } from "@shared/Lib/Connection";
-import { Toast } from "../../Lib/Toast";
-
-/** How often to check whether the server is back. */
-const RETRY_MS = 5000;
+import { useReconnect } from "@shared/Hooks/useReconnect";
 
 /**
  * A strip across the top of the screen while the server cannot be reached - usually the cart's
@@ -17,32 +11,8 @@ const RETRY_MS = 5000;
  * and disappears on its own once the server answers again.
  */
 const ConnectionBanner = () => {
-    const [online, setOnline] = useState<boolean>(IsOnline());
+    const online = useReconnect();
     const insets = useSafeAreaInsets();
-
-    useEffect(() => OnConnectionChange(setOnline), []);
-
-    useEffect(() => {
-        if (online) return;
-
-        const check = () => {
-            api.get("/health", { timeout: 4000 })
-                .then(() => {
-                    SetOnline(true);
-                    Toast.Success("Reconnected to the server.");
-                })
-                .catch(() => undefined);
-        };
-
-        const timer = setInterval(check, RETRY_MS);
-        const subscription = AppState.addEventListener("change", (state) => {
-            if (state === "active") check();
-        });
-        return () => {
-            clearInterval(timer);
-            subscription.remove();
-        };
-    }, [online]);
 
     if (online) return null;
 

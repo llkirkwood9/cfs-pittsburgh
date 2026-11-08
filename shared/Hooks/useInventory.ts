@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Toast } from "@host";
-import { IsOnline } from "../Lib/Connection";
 import {
     FilterInventory,
     GroupInventory,
@@ -39,9 +38,9 @@ export const useInventory = () => {
 
     const load = useCallback(async () => {
         const active = await GetActiveEvent();
-        const rows = await GetInventory(active?.id ?? undefined);
-        // A refresh that fails while the server cannot be reached keeps what is on screen.
-        if (IsOnline()) {
+        const rows = active === undefined ? null : await GetInventory(active?.id ?? undefined);
+        // A refresh that fails keeps what is on screen.
+        if (active !== undefined && rows) {
             setSaleEvent(active);
             setItems(rows);
         }
@@ -122,7 +121,7 @@ export const useInventory = () => {
         if (!item.productVariantId) return;
         setHistoryFor(item);
         setHistory(null);
-        setHistory(await GetInventoryHistory(item.productVariantId, item.stockKey));
+        setHistory((await GetInventoryHistory(item.productVariantId, item.stockKey)) ?? []);
     };
 
     const categories = useMemo(() => InventoryCategories(items), [items]);

@@ -5,18 +5,11 @@ import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import TextField from "../Components/Elements/TextField";
-import { useSettings } from "@shared/Context/SettingsContext";
-import { useTerritory } from "@shared/Context/TerritoryContext";
 import { useEvents } from "@shared/Hooks/useEvents";
-import {
-    DeleteEventMessage,
-    IsPastEvent,
-    IsUpcomingEvent,
-    SplitEvents,
-    TerritoriesForEvent,
-} from "@shared/Lib/Events";
+import { DeleteEventMessage, IsPastEvent, IsUpcomingEvent, SplitEvents } from "@shared/Lib/Events";
 import { FormatRate, FormatShortDate } from "@shared/Lib/Format";
 import type { Event } from "@shared/Models/Event";
+import { Paths, ScreenLinks } from "../Lib/ScreenLinks";
 
 /**
  * Event administration. The sales tax rate, the card processing fee and the order number
@@ -24,10 +17,6 @@ import type { Event } from "@shared/Models/Event";
  * belongs to a territory, and each territory has one active event at a time.
  */
 const EventsPage = () => {
-    const { settingsFor } = useSettings();
-    const { territories, territoryId: territoryInView, canSwitch } = useTerritory();
-    // Anyone with more than one territory chooses which an event is in.
-    const picksTerritory = canSwitch;
     const {
         events,
         loading,
@@ -39,12 +28,15 @@ const EventsPage = () => {
         open,
         openNew,
         pickTerritory,
+        picksTerritory,
+        showsTerritory,
+        territoryChoices,
         saving,
         handleSave,
         deleting,
         setDeleting,
         handleDelete,
-    } = useEvents(settingsFor, territoryInView, picksTerritory);
+    } = useEvents();
     const navigate = useNavigate();
 
     if (loading) {
@@ -84,7 +76,7 @@ const EventsPage = () => {
                     )}
                 </p>
                 <p className="flex flex-wrap gap-x-3 text-xs text-zinc-500 dark:text-zinc-400">
-                    {picksTerritory && territoryInView == null && event.territoryName && (
+                    {showsTerritory && event.territoryName && (
                         <span className="font-semibold text-zinc-700 dark:text-zinc-300">
                             <Icon icon="fa-solid fa-location-dot" className="mr-1" />
                             {event.territoryName}
@@ -103,7 +95,7 @@ const EventsPage = () => {
                     <Button
                         text="Close out"
                         icon="fa-solid fa-flag-checkered"
-                        onClick={() => navigate(`/events/${event.id}/close`)}
+                        onClick={() => navigate(Paths.eventClose(event.id!))}
                         className="min-h-[40px] bg-green-700 px-3 text-sm hover:bg-green-800 dark:bg-green-600 dark:hover:bg-green-700"
                     />
                 )}
@@ -111,8 +103,8 @@ const EventsPage = () => {
                     text="Sales sheets"
                     icon="fa-solid fa-print"
                     onClick={() =>
-                        navigate(`/events/${event.id}/sheets`, {
-                            state: { from: "/events", label: "Back to events" },
+                        navigate(Paths.eventSheets(event.id!), {
+                            state: { from: ScreenLinks.events.path, label: "Back to events" },
                         })
                     }
                     className="min-h-[40px] px-3 text-sm"
@@ -210,7 +202,7 @@ const EventsPage = () => {
                                         dark:border-zinc-600 dark:bg-zinc-800 dark:scheme-dark"
                                 >
                                     <option value="">Pick a territory...</option>
-                                    {TerritoriesForEvent(territories, form.territoryId).map((t) => (
+                                    {territoryChoices.map((t) => (
                                         <option key={t.id} value={t.id}>
                                             {t.name}
                                         </option>

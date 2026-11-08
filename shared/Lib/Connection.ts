@@ -5,6 +5,20 @@
  */
 type Listener = (online: boolean) => void;
 
+/**
+ * Whether the screen is in front, and word of when it comes back - the page, or the app. Each
+ * host provides one as `foreground` from "@host".
+ */
+export type Foreground = {
+    /** True while the screen is in front. */
+    isInFront: () => boolean;
+    /**
+     * Calls back each time the screen comes back to the front, or may have its connection back.
+     * @returns A function that stops listening.
+     */
+    onReturn: (callback: () => void) => () => void;
+};
+
 let online = true;
 let announced = false;
 const listeners = new Set<Listener>();

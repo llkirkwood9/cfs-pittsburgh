@@ -44,8 +44,8 @@ export const useCloseOut = (id: number) => {
             GetInventory(id),
         ]);
         setSaleEvent(found);
-        setOrders(list);
-        setInventory(stock);
+        setOrders(list ?? []);
+        setInventory(stock ?? []);
         setLoading(false);
     }, [id]);
 
@@ -72,7 +72,8 @@ export const useCloseOut = (id: number) => {
                 : await DeleteOrder(o.id);
             if (ok) done += 1;
         }
-        setOrders(await GetOrdersForEvent(id));
+        const remaining = await GetOrdersForEvent(id);
+        if (remaining) setOrders(remaining);
         setWorking(false);
         if (done) Toast.Success(`${done} order${done === 1 ? "" : "s"} cleared.`);
     };

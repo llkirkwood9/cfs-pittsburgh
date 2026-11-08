@@ -33,9 +33,11 @@ export const AddDeliveryOption = async (
 /**
  * Lists the delivery options.
  * @param includeInactive Pass true from the admin screen.
- * @returns Options in display order, or an empty list on failure.
+ * @returns Options in display order, or null on failure.
  */
-export const GetDeliveryOptions = async (includeInactive = false): Promise<DeliveryOption[]> => {
+export const GetDeliveryOptions = async (
+    includeInactive = false
+): Promise<DeliveryOption[] | null> => {
     try {
         const response = await api.get<DeliveryOption[]>("/api/DeliveryOption/deliveryoptions", {
             params: { includeInactive },
@@ -43,7 +45,7 @@ export const GetDeliveryOptions = async (includeInactive = false): Promise<Deliv
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
-        return [];
+        return null;
     }
 };
 

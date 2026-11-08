@@ -106,13 +106,3 @@ export const HomeScreenFor = (role?: UserRole | null): MenuScreenKey => {
             return "sales";
     }
 };
-
-/**
- * Whether the screens that work in one territory have one to work in: someone with a single
- * territory is always in it; someone who can switch must have picked one.
- * @param territoryId The territory in view, or null for all of them.
- * @param canSwitch Whether they can view more than one.
- * @returns True when there is one territory in view.
- */
-export const HasOneTerritory = (territoryId: number | null, canSwitch: boolean): boolean =>
-    territoryId != null || !canSwitch;

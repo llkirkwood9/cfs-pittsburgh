@@ -20,6 +20,31 @@ export const ScreenLinks: Record<MenuScreenKey, { href: Href; icon: string; inMo
     territories: { href: "/more/territories", icon: "fa-solid fa-map-location-dot", inMore: true },
 };
 
+/** The app's screens that open on one order or event, by the routes under src/app. */
+export const Paths = {
+    /** The checkout tab, open on one order. */
+    checkoutOrder: (orderId: number | string): Href => ({
+        pathname: "/checkout",
+        params: { orderId: String(orderId) },
+    }),
+    receipt: (orderId: number | string): Href => ({
+        pathname: "/receipt/[orderId]",
+        params: { orderId: String(orderId) },
+    }),
+    inventoryCount: (phase: string): Href => ({
+        pathname: "/more/inventory/count/[phase]",
+        params: { phase },
+    }),
+    eventClose: (eventId: number | string): Href => ({
+        pathname: "/more/events/[eventId]/close",
+        params: { eventId: String(eventId) },
+    }),
+    eventSheets: (eventId: number | string): Href => ({
+        pathname: "/events/[eventId]/sheets",
+        params: { eventId: String(eventId) },
+    }),
+};
+
 /**
  * Where a role lands after signing in.
  * @param role The signed-in user's role.

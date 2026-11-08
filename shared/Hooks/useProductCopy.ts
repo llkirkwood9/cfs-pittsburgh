@@ -23,7 +23,7 @@ export const useProductCopy = (onCopied: (product: Product) => void) => {
             setLoading(true);
             const found = await GetProducts(true, territoryId);
             if (cancelled) return;
-            setProducts(found);
+            setProducts(found ?? []);
             setLoading(false);
         };
         load();

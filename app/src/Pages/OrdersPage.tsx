@@ -30,6 +30,7 @@ import {
 } from "@shared/Lib/OrderList";
 import type { OrderStatus } from "@shared/Models/Order";
 import type { OrderSummary } from "@shared/Models/OrderSummary";
+import { Paths } from "../Lib/ScreenLinks";
 
 const statusStyles: Record<OrderStatus, { box: string; text: string }> = {
     Draft: { box: "bg-zinc-200 dark:bg-zinc-700", text: "text-zinc-700 dark:text-zinc-200" },
@@ -50,9 +51,8 @@ const statusStyles: Record<OrderStatus, { box: string; text: string }> = {
  * territories (a system admin or administrator, every territory).
  */
 const OrdersPage = () => {
-    const { canSwitch, territoryId: territoryInView } = useTerritory();
+    const { viewingAll: showTerritory } = useTerritory();
     // Viewing every territory, each order says which one it came from.
-    const showTerritory = canSwitch && territoryInView == null;
     const {
         isManager,
         isSystemAdmin,
@@ -107,12 +107,7 @@ const OrdersPage = () => {
                     <Button
                         text="Print all completed sheets"
                         icon="fa-solid fa-print"
-                        onClick={() =>
-                            router.push({
-                                pathname: "/events/[eventId]/sheets",
-                                params: { eventId: String(scope.eventId) },
-                            })
-                        }
+                        onClick={() => router.push(Paths.eventSheets(scope.eventId))}
                     />
                 )}
             </View>
@@ -218,12 +213,7 @@ const OrdersPage = () => {
 
         return (
             <SwipeRow
-                onPress={() =>
-                    router.push({
-                        pathname: "/receipt/[orderId]",
-                        params: { orderId: String(order.id) },
-                    })
-                }
+                onPress={() => router.push(Paths.receipt(order.id!))}
                 actions={actions}
                 accessibilityLabel={`Order ${order.orderNumber}, ${order.billingName || "no name"}, ${
                     OrderStatusLabels[order.status ?? "Draft"]

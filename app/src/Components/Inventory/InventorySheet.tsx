@@ -5,7 +5,13 @@ import type { DimensionValue } from "react-native";
 import { Cell, Row, SheetText } from "../Checkout/SheetTable";
 import { CategoryNames } from "@shared/Lib/Catalog";
 import { FormatShortDate } from "@shared/Lib/Format";
-import { GroupInventory, InventoryRowKey, InventorySizeLabel } from "@shared/Lib/Inventory";
+import {
+    GroupInventory,
+    InventoryRowKey,
+    InventorySizeLabel,
+    SheetDifference,
+    SheetExpected,
+} from "@shared/Lib/Inventory";
 import { SHEET_WIDTH } from "../../Lib/SheetPdf";
 import type { Event } from "@shared/Models/Event";
 import type { InventoryItem } from "@shared/Models/InventoryItem";
@@ -46,20 +52,14 @@ const HEAD = { backgroundColor: "#f4f4f5" };
 const InventorySheet = ({ saleEvent, items, sheetRef }: Props) => {
     const groups = GroupInventory(items);
 
-    // Once the end-of-event count is saved, Expected is what the app thought was on the shelf at
-    // that moment; before it, the current count, with Counted left blank to fill in by hand.
-    const counted = (size: InventoryItem) =>
-        size.countedAtEvent !== null && size.countedAtEvent !== undefined;
-    const expectedFor = (size: InventoryItem) =>
-        counted(size) ? (size.expectedAtCount ?? 0) : (size.quantityOnHand ?? 0);
-    const differenceFor = (size: InventoryItem) => {
-        if (!counted(size)) return "";
-        const diff = (size.countedAtEvent ?? 0) - expectedFor(size);
-        return diff === 0 ? "0" : diff > 0 ? `+${diff}` : String(diff);
-    };
-
     const headCell = (label: string, width: DimensionValue | undefined, center: boolean) => (
-        <Cell key={label} width={width} flex={width ? undefined : 1} align={center ? "center" : "left"} style={HEAD}>
+        <Cell
+            key={label}
+            width={width}
+            flex={width ? undefined : 1}
+            align={center ? "center" : "left"}
+            style={HEAD}
+        >
             <SheetText size={10} bold style={{ textTransform: "uppercase" }}>
                 {label}
             </SheetText>
@@ -121,7 +121,11 @@ const InventorySheet = ({ saleEvent, items, sheetRef }: Props) => {
                             <Row key={product.productId}>
                                 {/* The item spans its sizes, like a table cell's rowspan. */}
                                 <Cell width={`${ITEM}%`}>
-                                    <SheetText size={11} semibold style={{ textTransform: "uppercase" }}>
+                                    <SheetText
+                                        size={11}
+                                        semibold
+                                        style={{ textTransform: "uppercase" }}
+                                    >
                                         {product.name}
                                     </SheetText>
                                     {product.brand ? (
@@ -135,15 +139,32 @@ const InventorySheet = ({ saleEvent, items, sheetRef }: Props) => {
                                         <Fragment key={InventoryRowKey(size)}>
                                             <Row style={{ flexGrow: 1 }}>
                                                 <Cell width={inner(COLUMNS[0].width)} middle>
-                                                    <SheetText size={11} semibold style={{ textTransform: "uppercase" }}>
+                                                    <SheetText
+                                                        size={11}
+                                                        semibold
+                                                        style={{ textTransform: "uppercase" }}
+                                                    >
                                                         {InventorySizeLabel(size)}
                                                     </SheetText>
                                                 </Cell>
-                                                {valueCell(size.openingCountAtEvent ?? "", inner(COLUMNS[1].width))}
-                                                {valueCell(size.soldAtEvent ?? 0, inner(COLUMNS[2].width))}
-                                                {valueCell(expectedFor(size), inner(COLUMNS[3].width))}
-                                                {valueCell(size.countedAtEvent ?? "", inner(COLUMNS[4].width), true)}
-                                                {valueCell(differenceFor(size), undefined)}
+                                                {valueCell(
+                                                    size.openingCountAtEvent ?? "",
+                                                    inner(COLUMNS[1].width)
+                                                )}
+                                                {valueCell(
+                                                    size.soldAtEvent ?? 0,
+                                                    inner(COLUMNS[2].width)
+                                                )}
+                                                {valueCell(
+                                                    SheetExpected(size),
+                                                    inner(COLUMNS[3].width)
+                                                )}
+                                                {valueCell(
+                                                    size.countedAtEvent ?? "",
+                                                    inner(COLUMNS[4].width),
+                                                    true
+                                                )}
+                                                {valueCell(SheetDifference(size), undefined)}
                                             </Row>
                                         </Fragment>
                                     ))}
@@ -159,13 +180,23 @@ const InventorySheet = ({ saleEvent, items, sheetRef }: Props) => {
                     Notes:
                 </SheetText>
                 {saleEvent?.inventoryNotes ? (
-                    <View style={{ marginTop: 4, borderBottomWidth: 1, borderColor: "#000", paddingBottom: 4 }}>
+                    <View
+                        style={{
+                            marginTop: 4,
+                            borderBottomWidth: 1,
+                            borderColor: "#000",
+                            paddingBottom: 4,
+                        }}
+                    >
                         <SheetText size={12}>{saleEvent.inventoryNotes}</SheetText>
                     </View>
                 ) : null}
                 {/* Ruled lines are left under any typed notes for the crew to add to by hand. */}
                 {Array.from({ length: saleEvent?.inventoryNotes ? 2 : 3 }).map((_, index) => (
-                    <View key={index} style={{ height: 36, borderBottomWidth: 1, borderColor: "#000" }} />
+                    <View
+                        key={index}
+                        style={{ height: 36, borderBottomWidth: 1, borderColor: "#000" }}
+                    />
                 ))}
             </View>
         </View>

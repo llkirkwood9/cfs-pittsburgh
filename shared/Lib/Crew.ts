@@ -1,6 +1,7 @@
 import { IsCompanyWide } from "../Models/User";
 import type { User, UserRole } from "../Models/User";
 import type { Territory } from "../Models/Territory";
+import { NewPasswordProblem } from "./Passwords";
 
 /** Every role, least senior first, as the Crew screen offers them. */
 export const CrewRoles: UserRole[] = [
@@ -146,8 +147,8 @@ export const BuildCrewMember = (
     if (!form.name.trim()) return { problem: "Enter the crew member's name." };
     if (!form.username.trim()) return { problem: "Enter a username." };
     if (!id && !form.password) return { problem: "Set a starting password." };
-    if (form.password && form.password.length < 8)
-        return { problem: "The password must be at least 8 characters." };
+    const passwordProblem = form.password ? NewPasswordProblem(form.password) : null;
+    if (passwordProblem) return { problem: passwordProblem };
 
     // A manager's choices are only their own territories; any others the person works in stay.
     const offeredIds = offered.map((t) => t.id);

@@ -49,7 +49,7 @@ export const useOrders = () => {
 
             // The per-event endpoint has no search of its own, so narrow it here rather than
             // making every caller pay for a query parameter only this page uses.
-            setOrders(target.kind === "event" ? FilterOrders(rows, term) : rows);
+            setOrders(target.kind === "event" ? FilterOrders(rows ?? [], term) : (rows ?? []));
         },
         []
     );

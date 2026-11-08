@@ -6,6 +6,7 @@ import { useAuth } from "@shared/Context/AuthContext";
 import { Initials } from "@shared/Models/User";
 import { DASHBOARD_VERSION } from "../../Lib/Version";
 import { UserRoleLabels } from "@shared/Models/User";
+import { Paths } from "../../Lib/ScreenLinks";
 
 /**
  * Shows who is signed in on this tablet and offers sign-out. The crew shares devices, so the
@@ -32,7 +33,7 @@ const UserProfileDropdown = () => {
     const handleLogout = async () => {
         setOpen(false);
         await logout();
-        navigate("/login", { replace: true });
+        navigate(Paths.login, { replace: true });
     };
 
     const initials = Initials(user?.name);

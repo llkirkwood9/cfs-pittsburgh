@@ -36,9 +36,9 @@ export const useInventoryCount = (phase: CountPhase) => {
         const load = async () => {
             setLoading(true);
             const active = await GetActiveEvent();
-            setSaleEvent(active);
+            setSaleEvent(active ?? null);
             if (active?.id) {
-                const rows = await GetInventory(active.id);
+                const rows = (await GetInventory(active.id)) ?? [];
                 setItems(rows);
                 setCounts(PreviousCounts(rows, phase));
             }

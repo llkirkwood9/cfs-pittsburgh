@@ -8,6 +8,9 @@ import type { ProductVariantComponent } from "../Models/ProductVariantComponent"
 /** Selection id to choice id. */
 export type Picks = Record<number, number>;
 
+/** The rep's own discount: a percent, or a fixed amount off each item. */
+export type DiscountMode = "percent" | "amount";
+
 /**
  * Units on hand for a size across all its choices, or null when the size isn't tracked (the
  * product does not track inventory, or the size is left out). Used for the "in stock" labels;

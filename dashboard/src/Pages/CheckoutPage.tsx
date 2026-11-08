@@ -23,6 +23,7 @@ import {
     DeliverToText,
 } from "@shared/Lib/Checkout";
 import { FormatCurrency } from "@shared/Lib/Format";
+import { Paths, ScreenLinks } from "../Lib/ScreenLinks";
 
 /**
  * The checkout table. The queue on the left fills itself as reps complete orders; the panel on
@@ -53,10 +54,12 @@ const CheckoutPage = () => {
         editor,
     } = useCheckoutQueue(orderId ? Number(orderId) : undefined);
 
-    const openReceipt = (id?: number) =>
-        navigate(`/receipt/${id}`, {
-            state: { from: "/checkout", label: "Back to checkout" },
+    const openReceipt = (id?: number) => {
+        if (id == null) return;
+        navigate(Paths.receipt(id), {
+            state: { from: ScreenLinks.checkout.path, label: "Back to checkout" },
         });
+    };
 
     const handleComplete = async () => {
         const result = await complete();

@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from "react-router-dom";
 import Button from "../Components/Elements/Button";
 import Icon from "../Components/Elements/Icon";
+import { Paths } from "../Lib/ScreenLinks";
 
 type ErrorState = {
     code?: number;
@@ -42,7 +43,7 @@ const ErrorPage = () => {
                     <Button
                         text="Back to selling"
                         icon="fa-solid fa-arrow-left"
-                        onClick={() => navigate("/")}
+                        onClick={() => navigate(Paths.home)}
                         className="bg-zinc-500 hover:bg-zinc-600 dark:bg-zinc-600 dark:hover:bg-zinc-500"
                     />
                     <Button

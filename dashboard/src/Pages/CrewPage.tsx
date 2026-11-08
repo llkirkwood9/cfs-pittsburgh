@@ -4,7 +4,6 @@ import Icon from "../Components/Elements/Icon";
 import ListSkeleton from "../Components/Elements/ListSkeleton";
 import Modal from "../Components/Elements/Modal";
 import TextField from "../Components/Elements/TextField";
-import { useTerritory } from "@shared/Context/TerritoryContext";
 import { useCrew } from "@shared/Hooks/useCrew";
 import { CrewRoleBlurbs, CrewTerritoryText, NeedsTerritory } from "@shared/Lib/Crew";
 import { FormatDateTime, FormatElapsed } from "@shared/Lib/Format";
@@ -20,7 +19,6 @@ const randomValues = (bytes: Uint32Array<ArrayBuffer>) => crypto.getRandomValues
  * territory picked in the menu bar.
  */
 const CrewPage = () => {
-    const { territories, territoryId: territoryInView } = useTerritory();
     const {
         user,
         users,
@@ -47,7 +45,7 @@ const CrewPage = () => {
         removing,
         setRemoving,
         handleRemove,
-    } = useCrew(territories, territoryInView, randomValues);
+    } = useCrew(randomValues);
 
     if (loading) {
         return (

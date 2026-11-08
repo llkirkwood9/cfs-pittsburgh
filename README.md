@@ -104,7 +104,7 @@ dashboard/                  Vite + React 19 + TypeScript SPA, styled with Tailwi
 └── src/
     ├── Components/         Elements (Button, Icon, Modal, TextField, ...), Navbar, Sales,
     │                       Checkout, Catalog, ... including the customer-facing screens
-    ├── Hooks/              UseTheme, UseCheckoutWaiting, UseLockBodyScroll
+    ├── Hooks/              UseLockBodyScroll
     ├── Lib/                Host.ts (what shared/ needs from the dashboard, imported there as
     │                       @host), api.ts (the session cookie), Toast, Theme, ScreenLinks,
     │                       SheetPdf (print/email PDFs), SalesExport, Version

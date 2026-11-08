@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useState } from "react";
-import { IsOnline } from "../Lib/Connection";
 import { DASHBOARD_POLL_MS } from "../Lib/Dashboard";
 import type { DashboardScope } from "../Lib/Dashboard";
 import type { DashboardStats } from "../Models/DashboardStats";
@@ -22,14 +21,15 @@ export const useDashboard = () => {
      * shown with another's - the overview's net sales lighting up an event's stars.
      */
     const show = useCallback(async (nextScope: DashboardScope, id: number | null) => {
+        const asked = nextScope === "all" || id != null;
         const result =
             nextScope === "all"
                 ? await GetStatsForAllEvents()
                 : id
                   ? await GetStatsForEvent(id)
                   : null;
-        // Keep the last figures up while the server cannot be reached, rather than showing zeros.
-        if (!result && !IsOnline()) return;
+        // Keep the last figures up when the read fails, rather than showing zeros.
+        if (asked && !result) return;
         setScope(nextScope);
         setEventId(id);
         setStats(result);

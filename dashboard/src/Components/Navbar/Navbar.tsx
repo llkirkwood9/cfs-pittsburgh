@@ -7,9 +7,8 @@ import ThemeToggle from "./ThemeToggle";
 import UserProfileDropdown from "./UserProfileDropdown";
 import { useAuth } from "@shared/Context/AuthContext";
 import { useSettings } from "@shared/Context/SettingsContext";
-import { useTerritory } from "@shared/Context/TerritoryContext";
-import { useCheckoutWaiting } from "../../Hooks/UseCheckoutWaiting";
-import { HasOneTerritory, MenuScreens, Screens, CanOpen } from "@shared/Lib/Screens";
+import { useCheckoutWaiting } from "@shared/Hooks/useCheckoutWaiting";
+import { MenuScreens, Screens, CanOpen } from "@shared/Lib/Screens";
 import type { MenuScreenKey } from "@shared/Lib/Screens";
 import { ScreenLinks } from "../../Lib/ScreenLinks";
 
@@ -143,15 +142,10 @@ const MoreMenu = ({ overflow, placement, className = "" }: MoreProps) => {
  * screens on the bar and puts the rest behind More, so nothing is ever pushed off the edge.
  */
 const Navbar = () => {
-    const { user, hasRole } = useAuth();
+    const { user } = useAuth();
     const { settings } = useSettings();
     const visible = items.filter((item) => CanOpen(item.screen, user?.role));
-    // With every territory in view there's no one checkout table to count.
-    const { territoryId, canSwitch } = useTerritory();
-    const waiting = useCheckoutWaiting(
-        hasRole("Checkout") && HasOneTerritory(territoryId, canSwitch),
-        territoryId
-    );
+    const waiting = useCheckoutWaiting();
     const countFor = (item: NavItem) => (item.screen === "checkout" ? waiting : 0);
 
     const crowded = visible.length > MAX_TABS;

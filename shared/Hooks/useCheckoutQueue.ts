@@ -48,9 +48,12 @@ export const useCheckoutQueue = (orderId?: number) => {
 
     const refreshQueue = useCallback(async (eventId: number) => {
         const list = await GetCheckoutQueue(eventId);
-        setQueue(list);
-        if (IsOnline()) CheckoutQueueCounted(list.length);
-        return list;
+        // A failed read says nothing about the queue: keep the last one.
+        if (list) {
+            setQueue(list);
+            CheckoutQueueCounted(list.length);
+        }
+        return list ?? [];
     }, []);
 
     const openOrder = useCallback(async (id: number) => {
@@ -61,7 +64,7 @@ export const useCheckoutQueue = (orderId?: number) => {
     /** Reads the active event and everything for it, from scratch. */
     const load = useCallback(async () => {
         const active = await GetActiveEvent();
-        setSaleEvent(active);
+        setSaleEvent(active ?? null);
 
         if (!active?.id) {
             setQueue([]);
@@ -75,8 +78,8 @@ export const useCheckoutQueue = (orderId?: number) => {
             GetDeliveryOptions(),
         ]);
 
-        setProducts(catalog);
-        setDeliveryOptions(options);
+        setProducts(catalog ?? []);
+        setDeliveryOptions(options ?? []);
 
         if (orderId) await openOrder(orderId);
         else if (list[0]?.id) await openOrder(list[0].id);
@@ -95,7 +98,7 @@ export const useCheckoutQueue = (orderId?: number) => {
             // A poll that fails while the Wi-Fi is down keeps the queue on screen rather than
             // emptying it.
             GetCheckoutQueue(saleEvent.id!).then((list) => {
-                if (!IsOnline()) return;
+                if (!list) return;
                 setQueue(list);
                 CheckoutQueueCounted(list.length);
             });

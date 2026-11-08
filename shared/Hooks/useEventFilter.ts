@@ -22,10 +22,10 @@ export const useEventFilter = (withEvents: boolean) => {
             withEvents ? GetEvents() : Promise.resolve([] as Event[]),
             GetActiveEvent(),
         ]);
-        const list = EventsForFilter(all);
+        const list = EventsForFilter(all ?? []);
         setEvents(list);
         setActiveId(active?.id ?? null);
-        return { events: list, active };
+        return { events: list, active: active ?? null };
     }, [withEvents]);
 
     return { events, activeId, loadEvents };

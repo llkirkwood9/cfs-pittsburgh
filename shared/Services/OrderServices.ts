@@ -144,12 +144,12 @@ export const VoidOrder = async (orderId: number): Promise<Order | null> => {
  * Lists orders for an event, optionally filtered by status.
  * @param eventId The event id.
  * @param status An optional status filter.
- * @returns Order summaries, or an empty list on failure.
+ * @returns Order summaries, or null on failure.
  */
 export const GetOrdersForEvent = async (
     eventId: number,
     status?: OrderStatus
-): Promise<OrderSummary[]> => {
+): Promise<OrderSummary[] | null> => {
     try {
         const response = await api.get<OrderSummary[]>(`/api/Order/orders/event/${eventId}`, {
             params: status ? { status } : undefined,
@@ -157,7 +157,7 @@ export const GetOrdersForEvent = async (
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
-        return [];
+        return null;
     }
 };
 
@@ -165,9 +165,9 @@ export const GetOrdersForEvent = async (
  * Lists the drafts currently open, so a rep can juggle several customers at once.
  * @param eventId The event id.
  * @param all Pass true to see every rep's drafts rather than just your own.
- * @returns Draft summaries, or an empty list on failure.
+ * @returns Draft summaries, or null on failure.
  */
-export const GetDrafts = async (eventId: number, all = false): Promise<OrderSummary[]> => {
+export const GetDrafts = async (eventId: number, all = false): Promise<OrderSummary[] | null> => {
     try {
         const response = await api.get<OrderSummary[]>(
             `/api/Order/orders/drafts/event/${eventId}`,
@@ -178,16 +178,16 @@ export const GetDrafts = async (eventId: number, all = false): Promise<OrderSumm
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
-        return [];
+        return null;
     }
 };
 
 /**
  * The checkout queue for an event, oldest first.
  * @param eventId The event id.
- * @returns Order summaries awaiting checkout, or an empty list on failure.
+ * @returns Order summaries awaiting checkout, or null on failure.
  */
-export const GetCheckoutQueue = async (eventId: number): Promise<OrderSummary[]> => {
+export const GetCheckoutQueue = async (eventId: number): Promise<OrderSummary[] | null> => {
     try {
         const response = await api.get<OrderSummary[]>(
             `/api/Order/orders/checkout/event/${eventId}`
@@ -195,20 +195,20 @@ export const GetCheckoutQueue = async (eventId: number): Promise<OrderSummary[]>
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
-        return [];
+        return null;
     }
 };
 
 /**
  * Every order across every event, newest first. Admin only.
  * @param options Optional status filter, search term and row cap.
- * @returns Order summaries, or an empty list on failure.
+ * @returns Order summaries, or null on failure.
  */
 export const GetAllOrders = async (options?: {
     status?: OrderStatus;
     search?: string;
     take?: number;
-}): Promise<OrderSummary[]> => {
+}): Promise<OrderSummary[] | null> => {
     try {
         const response = await api.get<OrderSummary[]>("/api/Order/orders", {
             params: {
@@ -220,7 +220,7 @@ export const GetAllOrders = async (options?: {
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
-        return [];
+        return null;
     }
 };
 
@@ -228,12 +228,12 @@ export const GetAllOrders = async (options?: {
  * Full orders for an event, for printing every sales sheet at once or exporting. Admin only.
  * @param eventId The event id.
  * @param status Which orders to include; the API defaults to completed sales.
- * @returns Full orders in order-number order, or an empty list on failure.
+ * @returns Full orders in order-number order, or null on failure.
  */
 export const GetSalesSheetsForEvent = async (
     eventId: number,
     status?: OrderStatus
-): Promise<Order[]> => {
+): Promise<Order[] | null> => {
     try {
         const response = await api.get<Order[]>(`/api/Order/orders/event/${eventId}/sheets`, {
             params: status ? { status } : undefined,
@@ -241,7 +241,7 @@ export const GetSalesSheetsForEvent = async (
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
-        return [];
+        return null;
     }
 };
 
@@ -306,21 +306,6 @@ export const ReorderOrderLines = async (
 export const UpdateOrderLine = async (line: OrderLine): Promise<Order | null> => {
     try {
         const response = await api.patch<Order>("/api/Order/line", line);
-        return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
-        return null;
-    }
-};
-
-/**
- * Updates one payment row of an order.
- * @param payment The fields to change, including the payment id.
- * @returns The recalculated order, or null on failure.
- */
-export const UpdateOrderPayment = async (payment: OrderPayment): Promise<Order | null> => {
-    try {
-        const response = await api.patch<Order>("/api/Order/payment", payment);
         return response.data;
     } catch (error) {
         HandleAxiosError(error);

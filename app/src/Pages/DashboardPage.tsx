@@ -20,7 +20,6 @@ import { cx } from "../Lib/ClassNames";
 import { useDashboard } from "@shared/Hooks/useDashboard";
 import {
     BEST_SELLERS,
-    DASHBOARD_POLL_MS,
     DashboardTitle,
     RankingCategoryOptions,
     RankingEmptyText,
@@ -112,8 +111,7 @@ const ProductRanking = ({
  * Pull down to refresh; it also refreshes itself every few seconds.
  */
 const DashboardPage = () => {
-    const { canSwitch, territoryId: territoryInView, territoryName } = useTerritory();
-    const viewingAll = canSwitch && territoryInView == null;
+    const { viewingAll, territoryName } = useTerritory();
 
     const {
         events,
@@ -163,9 +161,7 @@ const DashboardPage = () => {
                 {DashboardTitle(scope, viewingAll, territoryName, stats)}
             </Text>
 
-            {viewingAll && (
-                <TerritoryComparison pollMs={DASHBOARD_POLL_MS} refreshKey={refreshKey} />
-            )}
+            {viewingAll && <TerritoryComparison refreshKey={refreshKey} />}
 
             <EventFilter
                 events={events}

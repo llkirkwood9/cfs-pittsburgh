@@ -17,6 +17,11 @@ type TerritoryContextValue = {
     territoryName: string;
     /** Anyone with more than one territory can switch between them, or view them all. */
     canSwitch: boolean;
+    /**
+     * True while someone who can switch has all of their territories in view, so the screens that
+     * work in one territory at a time have none to work in.
+     */
+    viewingAll: boolean;
     /** What viewing them all is called: "All territories", or "All my territories". */
     allLabel: string;
     /** Switch the territory in view. */
@@ -49,7 +54,7 @@ export const TerritoryProvider = ({ children }: { children: ReactNode }) => {
             setTerritories([]);
             return;
         }
-        setTerritories(await GetTerritories());
+        setTerritories((await GetTerritories()) ?? []);
     }, [user]);
 
     useEffect(() => {
@@ -67,6 +72,7 @@ export const TerritoryProvider = ({ children }: { children: ReactNode }) => {
     }, [canSwitch, selected, territories]);
 
     const territoryId = canSwitch ? selected : (own[0] ?? null);
+    const viewingAll = canSwitch && territoryId == null;
 
     // Set synchronously during render, so the requests children make on this render already
     // carry it.
@@ -94,6 +100,7 @@ export const TerritoryProvider = ({ children }: { children: ReactNode }) => {
                 territoryId,
                 territoryName,
                 canSwitch,
+                viewingAll,
                 allLabel,
                 setTerritoryId,
                 reload,

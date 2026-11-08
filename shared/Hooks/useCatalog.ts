@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Toast } from "@host";
 import { useAuth } from "../Context/AuthContext";
 import { useTerritory } from "../Context/TerritoryContext";
@@ -35,18 +35,16 @@ import {
 type Options = {
     /** Saves the exported catalog file where the platform keeps files. */
     saveExport: (fileName: string, text: string) => Promise<unknown> | void;
-    /** Show the skeleton again whenever the catalog is read again, not only the first time. */
-    skeletonOnReload?: boolean;
 };
 
 /**
  * The Catalog screen: the territory's products, delivery and financing options and categories,
  * the tab, search and sort, and saving, deleting and reordering. Deleting is for good for a
  * system admin, who can also export and restore the whole catalog.
- * @param options How the platform saves an export, and whether reloading shows the skeleton.
+ * @param options How the platform saves an export.
  * @returns The state and handlers.
  */
-export const useCatalog = ({ saveExport, skeletonOnReload = false }: Options) => {
+export const useCatalog = ({ saveExport }: Options) => {
     const { hasRole } = useAuth();
     const { territories, territoryId: territoryInView } = useTerritory();
     const isSystemAdmin = hasRole("SystemAdmin");
@@ -56,6 +54,9 @@ export const useCatalog = ({ saveExport, skeletonOnReload = false }: Options) =>
     const [financeOptions, setFinanceOptions] = useState<FinanceOption[]>([]);
     const [categories, setCategories] = useState<ProductCategory[]>([]);
     const [loading, setLoading] = useState<boolean>(true);
+    // True while the catalog is read again after the first time, as after a save.
+    const [reloading, setReloading] = useState<boolean>(false);
+    const loaded = useRef<boolean>(false);
 
     const [tab, setTab] = useState<CatalogTab>("Mattress");
     const [search, setSearch] = useState<string>("");
@@ -66,19 +67,21 @@ export const useCatalog = ({ saveExport, skeletonOnReload = false }: Options) =>
     const [exporting, setExporting] = useState<boolean>(false);
 
     const load = useCallback(async () => {
-        if (skeletonOnReload) setLoading(true);
+        if (loaded.current) setReloading(true);
         const [catalog, options, financing, cats] = await Promise.all([
             GetProducts(true),
             GetDeliveryOptions(true),
             GetFinanceOptions(true),
             GetCategories(),
         ]);
-        setProducts(catalog);
-        setDeliveryOptions(options);
-        setFinanceOptions(financing);
-        setCategories(cats);
+        setProducts(catalog ?? []);
+        setDeliveryOptions(options ?? []);
+        setFinanceOptions(financing ?? []);
+        setCategories(cats ?? []);
+        loaded.current = true;
         setLoading(false);
-    }, [skeletonOnReload]);
+        setReloading(false);
+    }, []);
 
     useEffect(() => {
         load();
@@ -158,13 +161,15 @@ export const useCatalog = ({ saveExport, skeletonOnReload = false }: Options) =>
         if (!saved) return;
 
         Toast.Success(`${saved.name} saved.`);
-        setFinanceOptions(await GetFinanceOptions(true));
+        const financing = await GetFinanceOptions(true);
+        if (financing) setFinanceOptions(financing);
     };
 
     const deleteFinanceOption = async (id: number) => {
         if (await DeleteFinanceOption(id)) {
             Toast.Success("Financing option removed.");
-            setFinanceOptions(await GetFinanceOptions(true));
+            const financing = await GetFinanceOptions(true);
+            if (financing) setFinanceOptions(financing);
         }
     };
 
@@ -177,6 +182,7 @@ export const useCatalog = ({ saveExport, skeletonOnReload = false }: Options) =>
         isSystemAdmin,
         load,
         loading,
+        reloading,
         products,
         deliveryOptions,
         financeOptions,

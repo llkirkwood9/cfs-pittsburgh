@@ -9,8 +9,6 @@ import { ComparisonRanges } from "@shared/Lib/Dashboard";
 import { FormatCurrency } from "@shared/Lib/Format";
 
 type Props = {
-    /** Refresh interval in milliseconds, matching the rest of the dashboard. */
-    pollMs: number;
     /** Changes when the page is pulled down, to read the figures again. */
     refreshKey?: number;
 };
@@ -20,9 +18,9 @@ type Props = {
  * sales and the headline figures over the chosen dates. Tapping a territory switches the whole
  * app to it.
  */
-const TerritoryComparison = ({ pollMs, refreshKey = 0 }: Props) => {
+const TerritoryComparison = ({ refreshKey = 0 }: Props) => {
     const { setTerritoryId } = useTerritory();
-    const { range, setRange, rows, top, totals } = useDashboardComparison(pollMs, refreshKey);
+    const { range, setRange, rows, top, totals } = useDashboardComparison(refreshKey);
 
     const meta = "text-xs text-zinc-500 dark:text-zinc-400";
 

@@ -35,7 +35,7 @@ export const useSalesFloor = (onDraftStarted: () => void) => {
     const [discardingDraft, setDiscardingDraft] = useState<boolean>(false);
 
     const refreshDrafts = useCallback(async (eventId: number) => {
-        const list = await GetDrafts(eventId);
+        const list = (await GetDrafts(eventId)) ?? [];
         setDrafts(list);
         return list;
     }, []);
@@ -43,7 +43,7 @@ export const useSalesFloor = (onDraftStarted: () => void) => {
     /** Reads the active event and everything for it, from scratch. */
     const load = useCallback(async () => {
         const active = await GetActiveEvent();
-        setSaleEvent(active);
+        setSaleEvent(active ?? null);
         // Drafts belong to their event, so a different event starts from its own.
         setDrafts([]);
         setOrder(null);
@@ -57,12 +57,12 @@ export const useSalesFloor = (onDraftStarted: () => void) => {
             GetDrafts(active.id),
         ]);
 
-        setProducts(catalog);
-        setDeliveryOptions(options);
-        setReps(repNames);
-        setDrafts(draftList);
+        setProducts(catalog ?? []);
+        setDeliveryOptions(options ?? []);
+        setReps(repNames ?? []);
+        setDrafts(draftList ?? []);
 
-        if (draftList.length > 0 && draftList[0].id) {
+        if (draftList?.[0]?.id) {
             const first = await GetOrder(draftList[0].id);
             setOrder(first);
         }
@@ -79,7 +79,7 @@ export const useSalesFloor = (onDraftStarted: () => void) => {
     const reloadDrafts = async () => {
         if (!saleEvent?.id) return load();
         const [list, catalog] = await Promise.all([refreshDrafts(saleEvent.id), GetProducts()]);
-        if (catalog.length) setProducts(catalog);
+        if (catalog) setProducts(catalog);
         const keep = order?.id && list.some((d) => d.id === order.id) ? order.id : list[0]?.id;
         setOrder(keep ? await GetOrder(keep) : null);
     };

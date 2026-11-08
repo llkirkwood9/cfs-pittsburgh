@@ -5,6 +5,7 @@ import LoadingPage from "../Components/Elements/LoadingPage";
 import { useAuth } from "@shared/Context/AuthContext";
 import { CanOpen, Screens } from "@shared/Lib/Screens";
 import type { ScreenKey } from "@shared/Lib/Screens";
+import { Paths } from "../Lib/ScreenLinks";
 
 type Props = {
     children: ReactNode;
@@ -20,8 +21,8 @@ const ProtectedRoute = ({ children, screen }: Props) => {
     const { user, loading } = useAuth();
 
     if (loading) return <LoadingPage />;
-    if (!user) return <Navigate to="/login" replace />;
-    if (!CanOpen(screen, user.role)) return <Navigate to="/unauthorized" replace />;
+    if (!user) return <Navigate to={Paths.login} replace />;
+    if (!CanOpen(screen, user.role)) return <Navigate to={Paths.unauthorized} replace />;
 
     const purpose = Screens[screen].territoryPurpose;
     return purpose ? <RequireTerritory purpose={purpose}>{children}</RequireTerritory> : children;

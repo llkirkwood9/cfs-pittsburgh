@@ -220,3 +220,36 @@ export const InventoryTotals = (
     totalUnits: items.reduce((sum, i) => sum + Math.max(0, i.quantityOnHand ?? 0), 0),
     outOfStock: items.filter((i) => (i.quantityOnHand ?? 0) <= 0).length,
 });
+
+/**
+ * A difference with its sign, as the sheets show it: +2, -1 or 0.
+ * @param diff The difference.
+ * @returns The text.
+ */
+export const SignedDifference = (diff: number): string => (diff > 0 ? `+${diff}` : String(diff));
+
+/**
+ * Whether a size's end-of-event count has been saved.
+ * @param size The inventory row.
+ * @returns True once counted.
+ */
+const CountedAtEvent = (size: InventoryItem): boolean =>
+    size.countedAtEvent !== null && size.countedAtEvent !== undefined;
+
+/**
+ * The Expected column of the Accessory Inventory Sheet. Once the end-of-event count is saved, it
+ * is what the app thought was on the shelf at that moment; before it, the current count, with
+ * Counted left blank to fill in by hand.
+ * @param size The inventory row.
+ * @returns The expected count.
+ */
+export const SheetExpected = (size: InventoryItem): number =>
+    CountedAtEvent(size) ? (size.expectedAtCount ?? 0) : (size.quantityOnHand ?? 0);
+
+/**
+ * The Difference column of the Accessory Inventory Sheet: blank until the count is saved.
+ * @param size The inventory row.
+ * @returns The signed difference between counted and expected, or "".
+ */
+export const SheetDifference = (size: InventoryItem): string =>
+    CountedAtEvent(size) ? SignedDifference((size.countedAtEvent ?? 0) - SheetExpected(size)) : "";

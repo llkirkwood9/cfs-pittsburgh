@@ -37,9 +37,9 @@ export const useEventSheets = (eventId: number) => {
             ]);
             setEmailStatus(status);
             setSaleEvent(found);
-            setOrders(sheets);
+            setOrders(sheets ?? []);
             setStats(figures);
-            setInventory(stock);
+            setInventory(stock ?? []);
             setLoading(false);
         };
 

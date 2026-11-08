@@ -20,6 +20,7 @@ import {
     VoidOrderMessage,
 } from "@shared/Lib/OrderList";
 import type { OrderStatus } from "@shared/Models/Order";
+import { Paths, ScreenLinks } from "../Lib/ScreenLinks";
 
 const statusStyles: Record<OrderStatus, string> = {
     Draft: "bg-zinc-200 text-zinc-700 dark:bg-zinc-700 dark:text-zinc-200",
@@ -35,7 +36,7 @@ const statusStyles: Record<OrderStatus, string> = {
  * view, each event says which territory it's in.
  */
 const OrdersPage = () => {
-    const { canSwitch, territoryId: territoryInView } = useTerritory();
+    const { viewingAll: showTerritory } = useTerritory();
     const navigate = useNavigate();
     const {
         isManager,
@@ -62,7 +63,6 @@ const OrdersPage = () => {
     } = useOrders();
 
     // Viewing every territory, each order says which one it came from.
-    const showTerritory = canSwitch && territoryInView == null;
 
     return (
         <div className="mx-auto max-w-(--breakpoint-2xl) p-3 sm:p-4">
@@ -74,8 +74,11 @@ const OrdersPage = () => {
                             text="Print all completed sheets"
                             icon="fa-solid fa-print"
                             onClick={() =>
-                                navigate(`/events/${scope.eventId}/sheets`, {
-                                    state: { from: "/orders", label: "Back to orders" },
+                                navigate(Paths.eventSheets(scope.eventId), {
+                                    state: {
+                                        from: ScreenLinks.orders.path,
+                                        label: "Back to orders",
+                                    },
                                 })
                             }
                         />
@@ -230,8 +233,11 @@ const OrdersPage = () => {
                                     text="Sales sheet"
                                     icon="fa-solid fa-file-lines"
                                     onClick={() =>
-                                        navigate(`/receipt/${order.id}`, {
-                                            state: { from: "/orders", label: "Back to orders" },
+                                        navigate(Paths.receipt(order.id!), {
+                                            state: {
+                                                from: ScreenLinks.orders.path,
+                                                label: "Back to orders",
+                                            },
                                         })
                                     }
                                     className="min-h-[44px] px-3 text-sm"

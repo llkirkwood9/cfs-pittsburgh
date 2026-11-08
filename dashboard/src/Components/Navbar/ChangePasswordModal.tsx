@@ -1,11 +1,9 @@
-import { useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import Button from "../Elements/Button";
 import Modal from "../Elements/Modal";
 import TextField from "../Elements/TextField";
 import { useAuth } from "@shared/Context/AuthContext";
-import { Toast } from "../../Lib/Toast";
-import { ChangePassword, GetPasswordPolicy } from "@shared/Services/AuthServices";
+import { useChangePassword } from "@shared/Hooks/useChangePassword";
 
 type Props = {
     onClose: () => void;
@@ -19,37 +17,13 @@ type Props = {
  * were signed in on is signed out.
  */
 const ChangePasswordModal = ({ onClose, forced = false }: Props) => {
-    const { user, setProfile, logout } = useAuth();
-    const [current, setCurrent] = useState<string>("");
-    const [next, setNext] = useState<string>("");
-    const [confirm, setConfirm] = useState<string>("");
-    const [policy, setPolicy] = useState<string | null>(null);
-    const [saving, setSaving] = useState<boolean>(false);
+    const { user, logout } = useAuth();
+    const { current, setCurrent, next, setNext, confirm, setConfirm, policy, saving, save } =
+        useChangePassword(onClose);
 
-    useEffect(() => {
-        GetPasswordPolicy().then(setPolicy);
-    }, []);
-
-    const save = async (e?: FormEvent) => {
+    const submit = (e?: FormEvent) => {
         e?.preventDefault();
-        if (!current) return Toast.Warning("Enter your current password.");
-        if (next.length < 8)
-            return Toast.Warning("The new password must be at least 8 characters.");
-        if (next !== confirm)
-            return Toast.Warning("The new password and its confirmation don't match.");
-        if (next === current)
-            return Toast.Warning("Choose a password different from your current one.");
-
-        setSaving(true);
-        const updated = await ChangePassword(current, next);
-        setSaving(false);
-
-        if (!updated) return;
-        setProfile({ ...user, ...updated, mustChangePassword: false });
-        Toast.Success(
-            "Your password has been changed. Any other devices you were signed in on have been signed out."
-        );
-        onClose();
+        save();
     };
 
     return (
@@ -75,13 +49,13 @@ const ChangePasswordModal = ({ onClose, forced = false }: Props) => {
                     <Button
                         text="Change password"
                         icon="fa-solid fa-key"
-                        onClick={save}
+                        onClick={submit}
                         loading={saving}
                     />
                 </>
             }
         >
-            <form onSubmit={save} className="space-y-3">
+            <form onSubmit={submit} className="space-y-3">
                 {forced && (
                     <p className="rounded-xl bg-sky-50 p-3 text-sm text-sky-900 dark:bg-sky-950/50 dark:text-sky-100">
                         Before you carry on, choose a password of your own. Use the password you
@@ -122,7 +96,7 @@ const ChangePasswordModal = ({ onClose, forced = false }: Props) => {
                     autoComplete="new-password"
                 />
                 <p className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {policy ?? "At least 8 characters."} Forgot it? Your manager can reset it.
+                    {policy} Forgot it? Your manager can reset it.
                 </p>
                 {/* Enter in any field submits. */}
                 <button type="submit" hidden />

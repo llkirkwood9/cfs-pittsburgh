@@ -29,12 +29,12 @@ export const AddFinanceOption = async (option: FinanceOption): Promise<FinanceOp
  * Lists the finance options.
  * @param includeInactive Pass true from the catalog screen.
  * @param territoryId List for this territory (such as an order's) instead of the one in view.
- * @returns Options in display order, or an empty list on failure.
+ * @returns Options in display order, or null on failure.
  */
 export const GetFinanceOptions = async (
     includeInactive = false,
     territoryId?: number | null
-): Promise<FinanceOption[]> => {
+): Promise<FinanceOption[] | null> => {
     try {
         const response = await api.get<FinanceOption[]>("/api/FinanceOption/financeoptions", {
             params: territoryId == null ? { includeInactive } : { includeInactive, territoryId },
@@ -42,7 +42,7 @@ export const GetFinanceOptions = async (
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
-        return [];
+        return null;
     }
 };
 

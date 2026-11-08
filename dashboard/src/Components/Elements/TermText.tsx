@@ -1,23 +1,18 @@
 import { Fragment } from "react";
 import type { ReactNode } from "react";
-
-/** **bold** and __underline__, which may be nested either way round. */
-const MARKS = /(\*\*[\s\S]+?\*\*|__[\s\S]+?__)/;
+import { ParseTermMarks } from "@shared/Lib/TermMarks";
+import type { TermPart } from "@shared/Lib/TermMarks";
 
 /**
- * Turns a term's light markup into text: **bold** and __underline__, as on the paper sheet
- * ("**__ALL SALES AND TRANSACTIONS ARE FINAL__**"). Anything else shows as typed - it is never
- * read as HTML.
- * @param text The term's paragraph.
+ * Draws a term's pieces.
+ * @param parts The pieces.
  * @returns The formatted text.
  */
-export const RenderTermText = (text: string): ReactNode =>
-    text.split(MARKS).map((part, i) => {
-        if (part.startsWith("**") && part.endsWith("**") && part.length > 4)
-            return <strong key={i}>{RenderTermText(part.slice(2, -2))}</strong>;
-        if (part.startsWith("__") && part.endsWith("__") && part.length > 4)
-            return <u key={i}>{RenderTermText(part.slice(2, -2))}</u>;
-        return <Fragment key={i}>{part}</Fragment>;
+const renderParts = (parts: TermPart[]): ReactNode =>
+    parts.map((part, i) => {
+        if (part.kind === "bold") return <strong key={i}>{renderParts(part.parts)}</strong>;
+        if (part.kind === "underline") return <u key={i}>{renderParts(part.parts)}</u>;
+        return <Fragment key={i}>{part.text}</Fragment>;
     });
 
 type Props = {
@@ -25,6 +20,6 @@ type Props = {
 };
 
 /** A term's paragraph with its bold and underlined parts. */
-const TermText = ({ text }: Props) => <>{RenderTermText(text)}</>;
+const TermText = ({ text }: Props) => <>{renderParts(ParseTermMarks(text))}</>;
 
 export default TermText;

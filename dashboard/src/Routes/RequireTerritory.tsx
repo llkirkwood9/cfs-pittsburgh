@@ -1,7 +1,6 @@
 import type { ReactNode } from "react";
 import Icon from "../Components/Elements/Icon";
 import { useTerritory } from "@shared/Context/TerritoryContext";
-import { HasOneTerritory } from "@shared/Lib/Screens";
 import { ActiveTerritories } from "@shared/Models/Territory";
 
 type Props = {
@@ -15,9 +14,9 @@ type Props = {
  * Someone with one territory is always in it; anyone viewing all of theirs is asked to pick one.
  */
 const RequireTerritory = ({ children, purpose }: Props) => {
-    const { territoryId, territories, canSwitch, allLabel, setTerritoryId } = useTerritory();
+    const { territories, viewingAll, allLabel, setTerritoryId } = useTerritory();
 
-    if (HasOneTerritory(territoryId, canSwitch)) return <>{children}</>;
+    if (!viewingAll) return <>{children}</>;
 
     const active = ActiveTerritories(territories);
 

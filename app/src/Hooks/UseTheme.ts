@@ -1,42 +1,15 @@
 import { colorScheme, useColorScheme } from "nativewind";
-import { useEffect, useState } from "react";
-import { GetItem, SetItem } from "../Lib/Storage";
-import { StorageKeys } from "../Lib/StorageKeys";
-
-import type { Theme } from "@shared/Lib/Themes";
-
-export type { Theme };
-
-
-let listeners: ((theme: Theme) => void)[] = [];
+import { useStoredTheme } from "@shared/Hooks/useStoredTheme";
+import { ReadStoredTheme, SubscribeThemeChanged } from "@shared/Lib/ThemeStore";
 
 /**
- * Reads the persisted theme preference.
- * @returns The stored theme, defaulting to "system".
- */
-const readStoredTheme = (): Theme => {
-    const stored = GetItem(StorageKeys.theme);
-    return stored === "light" || stored === "dark" || stored === "system" ? stored : "system";
-};
-
-/**
- * Applies the stored preference. Called once at start-up, after storage has loaded. NativeWind
- * also sets the native appearance, so switches, alerts and the status bar follow it.
+ * Applies the saved choice, and again whenever it changes. Called once at start-up, after storage
+ * has loaded. NativeWind also sets the native appearance, so switches, alerts and the status bar
+ * follow it.
  */
 export const ApplyStoredTheme = (): void => {
-    colorScheme.set(readStoredTheme());
-};
-
-/**
- * Subscribes to theme changes from outside React.
- * @param listener Called with the new preference.
- * @returns An unsubscribe function.
- */
-export const subscribeThemeChanged = (listener: (theme: Theme) => void): (() => void) => {
-    listeners.push(listener);
-    return () => {
-        listeners = listeners.filter((l) => l !== listener);
-    };
+    colorScheme.set(ReadStoredTheme());
+    SubscribeThemeChanged((theme) => colorScheme.set(theme));
 };
 
 /**
@@ -44,17 +17,7 @@ export const subscribeThemeChanged = (listener: (theme: Theme) => void): (() => 
  * @returns The current preference, whether dark styling applies now, and a setter.
  */
 export const useTheme = () => {
-    const [theme, setThemeState] = useState<Theme>(readStoredTheme);
+    const { theme, setTheme } = useStoredTheme();
     const { colorScheme: resolved } = useColorScheme();
-
-    useEffect(() => subscribeThemeChanged(setThemeState), []);
-
-    const setTheme = (next: Theme) => {
-        SetItem(StorageKeys.theme, next);
-        colorScheme.set(next);
-        setThemeState(next);
-        listeners.forEach((listener) => listener(next));
-    };
-
     return { theme, isDark: resolved === "dark", setTheme };
 };

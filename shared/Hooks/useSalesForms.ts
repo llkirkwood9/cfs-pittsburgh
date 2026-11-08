@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Toast } from "@host";
-import type { DiscountMode } from "./useAddItem";
+import type { DiscountMode } from "../Lib/AddItem";
 import { ParseMoney } from "../Lib/Format";
 import { TakeWithBlocked } from "../Lib/Inventory";
 import { NormalizeCustomerField } from "../Lib/Orders";

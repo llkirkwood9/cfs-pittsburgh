@@ -37,9 +37,9 @@ export const AddTerritory = async (
  * Lists the territories the signed-in user can see: every one for a system admin or administrator,
  * just their own for everyone else.
  * @param includeInactive Pass true to include switched-off territories.
- * @returns The territories, or an empty list on failure.
+ * @returns The territories, or null on failure.
  */
-export const GetTerritories = async (includeInactive = false): Promise<Territory[]> => {
+export const GetTerritories = async (includeInactive = false): Promise<Territory[] | null> => {
     try {
         const response = await api.get<Territory[]>("/api/Territory/territories", {
             params: { includeInactive },
@@ -47,7 +47,7 @@ export const GetTerritories = async (includeInactive = false): Promise<Territory
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
-        return [];
+        return null;
     }
 };
 

@@ -28,7 +28,7 @@ export const useTerritories = () => {
     const [deleting, setDeleting] = useState<Territory | null>(null);
 
     const load = useCallback(async () => {
-        setTerritories(await GetTerritories(true));
+        setTerritories((await GetTerritories(true)) ?? []);
         setLoading(false);
     }, []);
 

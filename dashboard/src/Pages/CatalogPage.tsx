@@ -44,10 +44,11 @@ const DownloadJson = (fileName: string, text: string) => {
  * across from another territory's catalog when adding one.
  */
 const CatalogPage = () => {
-    const catalog = useCatalog({ saveExport: DownloadJson, skeletonOnReload: true });
+    const catalog = useCatalog({ saveExport: DownloadJson });
     const { tab, setTab, filtered, isSystemAdmin, editing, deleting } = catalog;
 
-    if (catalog.loading) {
+    // Reading the catalog again, as after a save, shows the skeleton too.
+    if (catalog.loading || catalog.reloading) {
         return (
             <div className="mx-auto max-w-(--breakpoint-2xl) p-4">
                 <ListSkeleton rows={6} />

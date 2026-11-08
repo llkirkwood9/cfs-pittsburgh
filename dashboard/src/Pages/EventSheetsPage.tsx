@@ -15,6 +15,7 @@ import { BuildSalesCsv, EventFileBase } from "@shared/Lib/SalesCsv";
 import { FindSheets, PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
 import { Toast } from "../Lib/Toast";
 import { EmailEventReport } from "@shared/Services/EmailServices";
+import { ScreenLinks } from "../Lib/ScreenLinks";
 
 /**
  * Every completed sales sheet for one event, stacked one per printed page, between the stat sheet
@@ -37,7 +38,7 @@ const EventSheetsPage = () => {
     if (loading) return <LoadingPage />;
 
     const from = (location.state as { from?: string; label?: string } | null) ?? null;
-    const goBack = () => navigate(from?.from ?? "/events");
+    const goBack = () => navigate(from?.from ?? ScreenLinks.events.path);
 
     const fileBase = EventFileBase(saleEvent);
 

@@ -27,29 +27,29 @@ export const AddUser = async (newUserData: User): Promise<User | null> => {
 
 /**
  * Lists every crew account.
- * @returns All users, or an empty list on failure.
+ * @returns All users, or null on failure.
  */
-export const GetUsers = async (): Promise<User[]> => {
+export const GetUsers = async (): Promise<User[] | null> => {
     try {
         const response = await api.get<User[]>("/api/User/users");
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
-        return [];
+        return null;
     }
 };
 
 /**
  * Lists the names of active reps, for the CFS Rep Name picker.
- * @returns Rep names, or an empty list on failure.
+ * @returns Rep names, or null on failure.
  */
-export const GetReps = async (): Promise<string[]> => {
+export const GetReps = async (): Promise<string[] | null> => {
     try {
         const response = await api.get<string[]>("/api/User/reps");
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
-        return [];
+        return null;
     }
 };
 

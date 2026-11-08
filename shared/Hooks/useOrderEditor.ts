@@ -97,7 +97,7 @@ export const useOrderEditor = (
     const openAddItem = () => {
         setShowAddItem(true);
         GetProducts().then((catalog) => {
-            if (catalog.length) setProducts(catalog);
+            if (catalog) setProducts(catalog);
         });
     };
 

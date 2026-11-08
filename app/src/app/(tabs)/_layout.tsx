@@ -4,9 +4,8 @@ import { View } from "react-native";
 import LoadingPage from "../../Components/Elements/LoadingPage";
 import ChangePasswordModal from "../../Components/Navbar/ChangePasswordModal";
 import { useAuth } from "@shared/Context/AuthContext";
-import { useTerritory } from "@shared/Context/TerritoryContext";
-import { useCheckoutWaiting } from "../../Hooks/UseCheckoutWaiting";
-import { CanOpen, HasOneTerritory, Screens } from "@shared/Lib/Screens";
+import { useCheckoutWaiting } from "@shared/Hooks/useCheckoutWaiting";
+import { CanOpen, Screens } from "@shared/Lib/Screens";
 import type { ScreenKey } from "@shared/Lib/Screens";
 
 /**
@@ -18,15 +17,10 @@ import type { ScreenKey } from "@shared/Lib/Screens";
  * bar only appears once someone is signed in, and signing out leaves it.
  */
 export default function TabsLayout() {
-    const { user, loading, hasRole, logout } = useAuth();
+    const { user, loading, logout } = useAuth();
     const shows = (screen: ScreenKey) => CanOpen(screen, user?.role);
-    // Customers waiting at the checkout table, on the Checkout tab's badge - in the territory in
-    // view; with every territory in view there's no one checkout table to count.
-    const { territoryId, canSwitch } = useTerritory();
-    const waiting = useCheckoutWaiting(
-        Boolean(user) && hasRole("Checkout") && HasOneTerritory(territoryId, canSwitch),
-        territoryId
-    );
+    // Customers waiting at the checkout table, on the Checkout tab's badge.
+    const waiting = useCheckoutWaiting();
 
     if (loading) return <LoadingPage onSignOut={logout} />;
     if (!user) return <Redirect href="/login" />;

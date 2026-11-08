@@ -11,6 +11,7 @@ import { useSettings } from "@shared/Context/SettingsContext";
 import { setNavigateFunction } from "./Lib/Host";
 import { Screens } from "@shared/Lib/Screens";
 import type { RouteHandle } from "./Routes/Routes";
+import { Paths } from "./Lib/ScreenLinks";
 
 /**
  * Layout shell. The navbar is hidden on the sign-in screen and on the printable receipt so the
@@ -38,7 +39,8 @@ const App = () => {
 
     const showNavbar = Boolean(user) && !chromeless;
     // First sign-in, or a password a manager set: nothing else until they choose their own.
-    const mustChangePassword = Boolean(user?.mustChangePassword) && location.pathname !== "/login";
+    const mustChangePassword =
+        Boolean(user?.mustChangePassword) && location.pathname !== Paths.login;
 
     return (
         <div className="min-h-screen bg-zinc-100 text-zinc-900 transition-colors dark:bg-zinc-900 dark:text-zinc-100">

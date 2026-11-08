@@ -12,7 +12,7 @@ import { useTheme } from "../Hooks/UseTheme";
 import { cx } from "../Lib/ClassNames";
 import { useInventoryCount } from "@shared/Hooks/useInventoryCount";
 import { CategoryNames } from "@shared/Lib/Catalog";
-import { InventoryRowKey, InventorySizeLabel } from "@shared/Lib/Inventory";
+import { InventoryRowKey, InventorySizeLabel, SignedDifference } from "@shared/Lib/Inventory";
 import { CountPhaseFrom } from "@shared/Lib/InventoryCount";
 
 /**
@@ -176,7 +176,7 @@ const InventoryCountPage = () => {
                                                                     {"  "}
                                                                     {diff === 0
                                                                         ? "Matches"
-                                                                        : `${diff > 0 ? "+" : ""}${diff}`}
+                                                                        : SignedDifference(diff)}
                                                                 </Text>
                                                             )}
                                                         </Text>

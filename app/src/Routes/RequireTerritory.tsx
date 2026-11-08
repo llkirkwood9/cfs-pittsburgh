@@ -5,7 +5,6 @@ import Page from "../Components/Elements/Page";
 import Text from "../Components/Elements/Text";
 import { useTerritory } from "@shared/Context/TerritoryContext";
 import { useInMoreStack } from "./InMoreStack";
-import { HasOneTerritory } from "@shared/Lib/Screens";
 import { ActiveTerritories } from "@shared/Models/Territory";
 
 type Props = {
@@ -20,9 +19,9 @@ type Props = {
  */
 const RequireTerritory = ({ children, purpose }: Props) => {
     const inStack = useInMoreStack();
-    const { territoryId, territories, canSwitch, allLabel, setTerritoryId } = useTerritory();
+    const { territories, viewingAll, allLabel, setTerritoryId } = useTerritory();
 
-    if (HasOneTerritory(territoryId, canSwitch)) return <>{children}</>;
+    if (!viewingAll) return <>{children}</>;
 
     const active = ActiveTerritories(territories);
 

@@ -43,12 +43,12 @@ export const AddProduct = async (newProductData: Product): Promise<Product | nul
 /**
  * Lists the catalog.
  * @param includeInactive Pass true from the catalog admin screen.
- * @returns Products with variants and delivery options, or an empty list on failure.
+ * @returns Products with variants and delivery options, or null on failure.
  */
 export const GetProducts = async (
     includeInactive = false,
     territoryId?: number | null
-): Promise<Product[]> => {
+): Promise<Product[] | null> => {
     try {
         const response = await api.get<Product[]>("/api/Product/products", {
             params: { includeInactive },
@@ -58,36 +58,21 @@ export const GetProducts = async (
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
-        return [];
-    }
-};
-
-/**
- * Gets a single product.
- * @param id The product id.
- * @returns The product, or null on failure.
- */
-export const GetProduct = async (id: number): Promise<Product | null> => {
-    try {
-        const response = await api.get<Product>(`/api/Product/product/${id}`);
-        return response.data;
-    } catch (error) {
-        HandleAxiosError(error);
         return null;
     }
 };
 
 /**
  * Lists the product category names.
- * @returns Category names, or an empty list on failure.
+ * @returns Category names, or null on failure.
  */
-export const GetCategories = async (): Promise<ProductCategory[]> => {
+export const GetCategories = async (): Promise<ProductCategory[] | null> => {
     try {
         const response = await api.get<ProductCategory[]>("/api/Product/categories");
         return response.data;
     } catch (error) {
         HandleAxiosError(error);
-        return [];
+        return null;
     }
 };
 

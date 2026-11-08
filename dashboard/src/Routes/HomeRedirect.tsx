@@ -1,7 +1,7 @@
 import { Navigate } from "react-router-dom";
 import LoadingPage from "../Components/Elements/LoadingPage";
 import { useAuth } from "@shared/Context/AuthContext";
-import { HomePathForRole } from "../Lib/ScreenLinks";
+import { HomePathForRole, Paths } from "../Lib/ScreenLinks";
 
 /**
  * The root path sends each crew member to the screen their role actually uses, rather than
@@ -11,7 +11,7 @@ const HomeRedirect = () => {
     const { user, loading } = useAuth();
 
     if (loading) return <LoadingPage />;
-    if (!user) return <Navigate to="/login" replace />;
+    if (!user) return <Navigate to={Paths.login} replace />;
 
     return <Navigate to={HomePathForRole(user.role)} replace />;
 };

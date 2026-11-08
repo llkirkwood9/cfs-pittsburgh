@@ -16,6 +16,7 @@ import {
     InventorySizeLabel,
     StockLevelOf,
 } from "@shared/Lib/Inventory";
+import { Paths } from "../Lib/ScreenLinks";
 
 /**
  * On-hand stock for the accessories kept at the cart. The checkout team counts what arrives and
@@ -124,7 +125,7 @@ const InventoryPage = () => {
                             <Button
                                 text={c.at ? "Recount" : "Count now"}
                                 icon="fa-solid fa-clipboard-check"
-                                onClick={() => navigate(`/inventory/count/${c.phase}`)}
+                                onClick={() => navigate(Paths.inventoryCount(c.phase))}
                                 disabled={!saleEvent}
                                 className={`min-h-[44px] px-3 text-sm ${
                                     c.at

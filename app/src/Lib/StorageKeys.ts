@@ -5,5 +5,4 @@ export const StorageKeys = {
     refreshToken: "cfs.refreshToken",
     lastUsername: "cfs.lastUsername",
     ...SharedStorageKeys,
-    theme: "theme",
 } as const;

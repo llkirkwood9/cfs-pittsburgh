@@ -1,11 +1,5 @@
-import { useEffect, useState } from "react";
 import Icon from "./Icon";
-import api from "../../Lib/api";
-import { IsOnline, OnConnectionChange, SetOnline } from "@shared/Lib/Connection";
-import { Toast } from "../../Lib/Toast";
-
-/** How often to check whether the server is back. */
-const RETRY_MS = 5000;
+import { useReconnect } from "@shared/Hooks/useReconnect";
 
 /**
  * A strip across the top of the screen while the server cannot be reached - usually the cart's
@@ -13,29 +7,7 @@ const RETRY_MS = 5000;
  * answers again, so the crew knows to wait rather than keep re-entering things that did not save.
  */
 const ConnectionBanner = () => {
-    const [online, setOnline] = useState<boolean>(IsOnline());
-
-    useEffect(() => OnConnectionChange(setOnline), []);
-
-    useEffect(() => {
-        if (online) return;
-
-        const check = () => {
-            api.get("/health", { timeout: 4000 })
-                .then(() => {
-                    SetOnline(true);
-                    Toast.Success("Reconnected to the server.");
-                })
-                .catch(() => undefined);
-        };
-
-        const timer = setInterval(check, RETRY_MS);
-        window.addEventListener("online", check);
-        return () => {
-            clearInterval(timer);
-            window.removeEventListener("online", check);
-        };
-    }, [online]);
+    const online = useReconnect();
 
     if (online) return null;
 

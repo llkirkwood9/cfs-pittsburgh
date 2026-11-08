@@ -1,5 +1,7 @@
 import type { NavigateFunction } from "react-router-dom";
+import type { Foreground } from "@shared/Lib/Connection";
 import type { ServerErrorDetails } from "@shared/Lib/ErrorHandler";
+import { Paths } from "./ScreenLinks";
 
 /*
  * What the shared code (../../shared, imported as @shared) needs from the dashboard: the API
@@ -37,8 +39,24 @@ export const setNavigateFunction = (fn: NavigateFunction): void => {
  */
 export const ShowServerError = (details: ServerErrorDetails): boolean => {
     if (!navigate) return false;
-    navigate("/error", { state: details });
+    navigate(Paths.error, { state: details });
     return true;
+};
+
+/**
+ * The page is in front while its tab is visible. It calls back when the tab is shown again, and
+ * when the browser says the network is back.
+ */
+export const foreground: Foreground = {
+    isInFront: () => document.visibilityState === "visible",
+    onReturn: (callback) => {
+        document.addEventListener("visibilitychange", callback);
+        window.addEventListener("online", callback);
+        return () => {
+            document.removeEventListener("visibilitychange", callback);
+            window.removeEventListener("online", callback);
+        };
+    },
 };
 
 /** The dashboard is served by the API, or told its address when it is built. */

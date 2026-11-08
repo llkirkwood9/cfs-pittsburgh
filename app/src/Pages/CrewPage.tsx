@@ -13,7 +13,6 @@ import SwipeRow from "../Components/Elements/SwipeRow";
 import type { SwipeAction } from "../Components/Elements/SwipeRow";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
-import { useTerritory } from "@shared/Context/TerritoryContext";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { cx } from "../Lib/ClassNames";
 import { useCrew } from "@shared/Hooks/useCrew";
@@ -28,7 +27,6 @@ import { UserRoleLabels } from "@shared/Models/User";
  * administrators everyone, in the territory picked in the menu bar.
  */
 const CrewPage = () => {
-    const { territories, territoryId: territoryInView } = useTerritory();
     const {
         user,
         users,
@@ -56,7 +54,7 @@ const CrewPage = () => {
         removing,
         setRemoving,
         handleRemove,
-    } = useCrew(territories, territoryInView, Crypto.getRandomValues);
+    } = useCrew(Crypto.getRandomValues);
     const [refreshing, setRefreshing] = useState<boolean>(false);
 
     // Back on this screen: read it again.

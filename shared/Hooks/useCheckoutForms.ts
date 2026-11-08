@@ -30,7 +30,9 @@ export const useCheckoutPayment = (
     const [financeOptions, setFinanceOptions] = useState<FinanceOption[]>([]);
 
     useEffect(() => {
-        GetFinanceOptions(false, order.territoryId).then(setFinanceOptions);
+        GetFinanceOptions(false, order.territoryId).then((options) =>
+            setFinanceOptions(options ?? [])
+        );
     }, [order.territoryId]);
     // Cash is the default. It carries no card fee, so the selection shown always matches the
     // total shown; an order already switched to card reopens on card.

@@ -1,8 +1,7 @@
 import Icon from "../Elements/Icon";
-import { IsPastEvent, IsUpcomingEvent } from "@shared/Lib/Events";
+import { EventBreakdownRows } from "@shared/Lib/Dashboard";
 import { FormatCurrency, FormatShortDate } from "@shared/Lib/Format";
 import type { EventTally } from "@shared/Models/DashboardStats";
-import type { Event } from "@shared/Models/Event";
 
 type Props = {
     events: EventTally[];
@@ -10,33 +9,24 @@ type Props = {
     onSelect: (eventId: number) => void;
 };
 
-/** The parts of an event the Past and upcoming checks read. */
-const AsEvent = (tally: EventTally): Event => ({
-    isActive: tally.isActive,
-    eventDate: tally.eventDate ?? undefined,
-});
-
 /**
  * Every event side by side, for the overview: what each one sold, with a bar for its total sales
  * so the best fundraisers stand out. Tapping one opens its own figures. Events that haven't
  * happened yet are left out, since they have no sales.
  */
 const EventBreakdown = ({ events, onSelect }: Props) => {
-    const shown = events.filter((e) => !IsUpcomingEvent(AsEvent(e)));
-    const best = Math.max(0, ...shown.map((e) => e.totalSales ?? 0));
+    const rows = EventBreakdownRows(events);
 
     return (
         <section className="rounded-xl bg-white p-4 shadow-xs dark:bg-zinc-800">
             <h2 className="mb-3 text-sm font-bold uppercase tracking-wide text-zinc-500 dark:text-zinc-400">
                 Events
             </h2>
-            {shown.length === 0 ? (
+            {rows.length === 0 ? (
                 <p className="text-sm text-zinc-500 dark:text-zinc-400">No events yet.</p>
             ) : (
                 <ul className="divide-y divide-zinc-100 dark:divide-zinc-700">
-                    {shown.map((event) => {
-                        const total = event.totalSales ?? 0;
-                        const past = IsPastEvent(AsEvent(event));
+                    {rows.map(({ event, total, past, barPercent }) => {
                         return (
                             <li key={event.eventId}>
                                 <button
@@ -83,7 +73,7 @@ const EventBreakdown = ({ events, onSelect }: Props) => {
                                             <span
                                                 className="block h-full rounded-full bg-sky-600 dark:bg-sky-500"
                                                 style={{
-                                                    width: `${best > 0 ? (total / best) * 100 : 0}%`,
+                                                    width: `${barPercent}%`,
                                                 }}
                                             />
                                         </span>

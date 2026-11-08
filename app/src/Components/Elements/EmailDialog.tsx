@@ -8,6 +8,7 @@ import Text from "./Text";
 import TextArea from "./TextArea";
 import TextField from "./TextField";
 import { Toast } from "../../Lib/Toast";
+import { LooksLikeAddresses } from "@shared/Lib/Email";
 
 type Props = {
     title: string;
@@ -27,19 +28,6 @@ type Props = {
         progress: (status: string) => void
     ) => Promise<string[] | null>;
     onClose: () => void;
-};
-
-/** Loose check so an obvious typo is caught before the server is asked; the server checks properly. */
-const LooksLikeAddresses = (value: string) => {
-    const parts = value
-        .split(/[,;]/)
-        .map((p) => p.trim())
-        .filter(Boolean);
-    return (
-        parts.length > 0 &&
-        parts.length <= 10 &&
-        parts.every((p) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p))
-    );
 };
 
 /**

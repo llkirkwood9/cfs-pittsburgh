@@ -14,20 +14,13 @@ import SelectField from "../Components/Elements/SelectField";
 import SwipeRow from "../Components/Elements/SwipeRow";
 import Text from "../Components/Elements/Text";
 import TextField from "../Components/Elements/TextField";
-import { useSettings } from "@shared/Context/SettingsContext";
-import { useTerritory } from "@shared/Context/TerritoryContext";
 import { useRefreshOnFocus } from "../Hooks/UseRefreshOnFocus";
 import { useEvents } from "@shared/Hooks/useEvents";
-import {
-    DeleteEventMessage,
-    IsPastEvent,
-    IsUpcomingEvent,
-    SplitEvents,
-    TerritoriesForEvent,
-} from "@shared/Lib/Events";
+import { DeleteEventMessage, IsPastEvent, IsUpcomingEvent, SplitEvents } from "@shared/Lib/Events";
 import { FormatRate, FormatShortDate } from "@shared/Lib/Format";
 import { cx } from "../Lib/ClassNames";
 import type { Event } from "@shared/Models/Event";
+import { Paths } from "../Lib/ScreenLinks";
 
 /** A small rounded label beside an event's name. */
 const Tag = ({ text, box, color }: { text: string; box: string; color: string }) => (
@@ -42,10 +35,6 @@ const Tag = ({ text, box, color }: { text: string; box: string; color: string })
  * belongs to a territory, and each territory has one active event at a time.
  */
 const EventsPage = () => {
-    const { settingsFor } = useSettings();
-    const { territories, territoryId: territoryInView, canSwitch } = useTerritory();
-    // Anyone with more than one territory chooses which an event is in.
-    const picksTerritory = canSwitch;
     const {
         events,
         loading,
@@ -57,13 +46,16 @@ const EventsPage = () => {
         open,
         openNew,
         pickTerritory,
+        picksTerritory,
+        showsTerritory,
+        territoryChoices,
         saving,
         handleSave,
         deleting,
         setDeleting,
         handleDelete,
         load,
-    } = useEvents(settingsFor, territoryInView, picksTerritory);
+    } = useEvents();
     const [refreshing, setRefreshing] = useState<boolean>(false);
 
     // Back on this screen: read it again.
@@ -129,7 +121,7 @@ const EventsPage = () => {
                     )}
                 </View>
                 <View className="mt-0.5 flex-row flex-wrap gap-x-3">
-                    {picksTerritory && territoryInView == null && event.territoryName && (
+                    {showsTerritory && event.territoryName && (
                         <View className="flex-row items-center gap-1">
                             <Icon
                                 icon="fa-solid fa-location-dot"
@@ -161,24 +153,14 @@ const EventsPage = () => {
                     <Button
                         text="Close out"
                         icon="fa-solid fa-flag-checkered"
-                        onClick={() =>
-                            router.push({
-                                pathname: "/more/events/[eventId]/close",
-                                params: { eventId: String(event.id) },
-                            })
-                        }
+                        onClick={() => router.push(Paths.eventClose(event.id!))}
                         className="min-h-[40px] bg-green-700 px-3 text-sm dark:bg-green-600"
                     />
                 )}
                 <Button
                     text="Sales sheets"
                     icon="fa-solid fa-print"
-                    onClick={() =>
-                        router.push({
-                            pathname: "/events/[eventId]/sheets",
-                            params: { eventId: String(event.id) },
-                        })
-                    }
+                    onClick={() => router.push(Paths.eventSheets(event.id!))}
                     className="min-h-[40px] px-3 text-sm"
                 />
             </View>
@@ -255,9 +237,10 @@ const EventsPage = () => {
                                     label="Territory"
                                     value={form.territoryId}
                                     placeholder="Pick a territory..."
-                                    options={TerritoriesForEvent(territories, form.territoryId).map(
-                                        (t) => ({ value: t.id ?? null, label: t.name ?? "" })
-                                    )}
+                                    options={territoryChoices.map((t) => ({
+                                        value: t.id ?? null,
+                                        label: t.name ?? "",
+                                    }))}
                                     onChange={pickTerritory}
                                 />
                                 {editing.id != null && form.territoryId !== editing.territoryId && (

@@ -1,12 +1,12 @@
 import Icon from "../Elements/Icon";
-import { useTheme } from "../../Hooks/UseTheme";
+import { useStoredTheme } from "@shared/Hooks/useStoredTheme";
 import { NextTheme, ThemeIcon } from "@shared/Lib/Themes";
 
 /**
  * Cycles light, dark and system. Dark is the default many crews want under gym lighting.
  */
 const ThemeToggle = () => {
-    const { theme, setTheme } = useTheme();
+    const { theme, setTheme } = useStoredTheme();
 
     const cycle = () => setTheme(NextTheme(theme));
 
