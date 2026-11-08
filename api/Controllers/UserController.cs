@@ -113,7 +113,28 @@ namespace api.Controllers
 
             // Sign-in times are for the system admin's eyes only.
             var systemAdmin = IsSystemAdmin();
-            return Ok(users.Select(u => UserMapper.ToDto(u, systemAdmin)).ToList());
+            return Ok(users.Select(u =>
+            {
+                var dto = UserMapper.ToDto(u, systemAdmin);
+                dto.CanEdit = CanManage(u);
+                return dto;
+            }).ToList());
+        }
+
+        /// <summary>
+        /// The roles the signed-in user may give someone, least senior first: a manager the sales
+        /// and checkout roles, an administrator anything but system admin, a system admin anything.
+        /// </summary>
+        /// <returns>Role names.</returns>
+        [HttpGet("assignable-roles")]
+        [Authorize(AuthenticationSchemes = "Bearer")]
+        public IActionResult GetAssignableRoles()
+        {
+            if (!IsAtLeast(UserRole.Manager))
+                return Forbidden(ManagersOnly);
+
+            UserRole[] roles = [UserRole.Sales, UserRole.Checkout, UserRole.SalesCheckout, UserRole.Manager, UserRole.Admin, UserRole.SystemAdmin];
+            return Ok(roles.Where(CanGiveRole).Select(r => r.ToString()).ToList());
         }
 
         /// <summary>
@@ -321,6 +342,15 @@ namespace api.Controllers
                    && AccessScope.Rank(user.Role) < AccessScope.Rank(UserRole.Manager);
         }
 
+        /// <summary>
+        /// Whether the signed-in user may give a role: only a system admin makes system admins,
+        /// and a manager gives only the roles below manager. Checked on save by
+        /// CheckRoleAndTerritoriesAsync, which says why.
+        /// </summary>
+        private bool CanGiveRole(UserRole role) =>
+            (role != UserRole.SystemAdmin || Scope.Role == UserRole.SystemAdmin)
+            && (Scope.Role != UserRole.Manager || AccessScope.Rank(role) < AccessScope.Rank(UserRole.Manager));
+
         private static string CannotManage(User user) =>
             user.Role == UserRole.SystemAdmin
                 ? "Only a system admin can change a system admin's account."
@@ -349,6 +379,7 @@ namespace api.Controllers
         {
             var scope = Scope;
 
+            // CanGiveRole is the same rule, for the Crew screen's role list.
             if (role == UserRole.SystemAdmin && scope.Role != UserRole.SystemAdmin)
                 return ([], Forbidden("Only a system admin can make someone a system admin."));
 

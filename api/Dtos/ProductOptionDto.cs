@@ -31,6 +31,13 @@ namespace api.Dtos
         public bool? TracksStock { get; set; }
 
         /// <summary>
+        /// Whether stock is actually counted per choice of this selection right now (returned, not
+        /// saved): it tracks stock, the product tracks inventory and it has an active choice. A
+        /// counted selection must be picked before stock can be shown.
+        /// </summary>
+        public bool? CountsStock { get; set; }
+
+        /// <summary>
         /// The choices on offer
         /// </summary>
         public List<ProductOptionChoiceDto>? Choices { get; set; }
@@ -81,6 +88,12 @@ namespace api.Dtos
         /// Its choices, e.g. "Gray"
         /// </summary>
         public string? Label { get; set; }
+
+        /// <summary>
+        /// The choice ids the combination is made of, one per counted selection - pick these and
+        /// this is the stock in play
+        /// </summary>
+        public List<int>? ChoiceIds { get; set; }
 
         /// <summary>
         /// Units on hand

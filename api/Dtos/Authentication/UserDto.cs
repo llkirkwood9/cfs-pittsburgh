@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace api.Dtos.Authentication
 {
     /// <summary>
@@ -77,5 +79,11 @@ namespace api.Dtos.Authentication
         /// When they last signed in (UTC). Only sent to a system admin.
         /// </summary>
         public DateTime? LastLoginAt { get; set; }
+
+        /// <summary>
+        /// Whether the signed-in user may change this account (returned on the crew list only)
+        /// </summary>
+        [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
+        public bool? CanEdit { get; set; }
     }
 }

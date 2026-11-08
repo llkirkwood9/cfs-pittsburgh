@@ -8,6 +8,21 @@ using api.Utils;
 namespace api.Orders
 {
     /// <summary>
+    /// What's wrong with a line's description.
+    /// </summary>
+    public enum DescriptionGap
+    {
+        /// <summary>Nothing.</summary>
+        None = 0,
+
+        /// <summary>It's blank.</summary>
+        Missing = 1,
+
+        /// <summary>It's longer than MaxDescriptionLength.</summary>
+        TooLong = 2,
+    }
+
+    /// <summary>
     /// Builds order lines from the catalog. Each line snapshots what it needs from the catalog -
     /// name, size, price, warranty, the sale in force - so later catalog changes never alter an
     /// order already written.
@@ -241,6 +256,25 @@ namespace api.Orders
                 line.DiscountPercent = null;
                 line.DiscountAmount = amount == 0 ? null : amount;
             }
+        }
+
+        /// <summary>Longest description on a line.</summary>
+        public const int MaxDescriptionLength = 300;
+
+        /// <summary>
+        /// What's wrong with a line's description, if anything: missing (blank) or too long.
+        /// </summary>
+        /// <param name="description">The description as typed</param>
+        /// <param name="storedTrimmed">Whether it is stored trimmed (an upcharge's reason), so
+        /// only the trimmed text counts toward the limit</param>
+        /// <returns>What's wrong, or None.</returns>
+        public static DescriptionGap DescriptionProblem(string? description, bool storedTrimmed = false)
+        {
+            if (string.IsNullOrWhiteSpace(description))
+                return DescriptionGap.Missing;
+
+            var length = storedTrimmed ? description.Trim().Length : description.Length;
+            return length > MaxDescriptionLength ? DescriptionGap.TooLong : DescriptionGap.None;
         }
 
         /// <summary>

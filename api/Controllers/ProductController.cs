@@ -616,6 +616,7 @@ namespace api.Controllers
         {
             // Every combination of counted choices, for the stock shown on the floor.
             var combinations = Choices.Combinations(product);
+            var counted = Choices.CountedOptions(product).Select(o => o.Id).ToHashSet();
 
             return new ProductDto
             {
@@ -644,6 +645,7 @@ namespace api.Controllers
                         SortOrder = o.SortOrder,
                         IsRequired = o.IsRequired,
                         TracksStock = o.TracksStock,
+                        CountsStock = counted.Contains(o.Id),
                         Choices = o.Choices
                             .Where(c => c.IsActive)
                             .OrderBy(c => c.SortOrder)
@@ -683,6 +685,7 @@ namespace api.Controllers
                             {
                                 StockKey = c.Key,
                                 Label = c.Label,
+                                ChoiceIds = StockKeys.Parts(c.Key).Select(p => p!.Value.ChoiceId).ToList(),
                                 QuantityOnHand = onHand?.GetValueOrDefault((v.Id, c.Key)),
                             }).ToList(),
                         Components = v.Components

@@ -161,6 +161,7 @@ namespace api.Catalog
 
         /// <summary>
         /// A catalog name reduced to what SameName compares: trimmed and lower case; empty for none.
+        /// Spacing inside the name counts (the dashboard's sales tally uses a looser key).
         /// </summary>
         /// <param name="value">The name</param>
         /// <returns>The key.</returns>

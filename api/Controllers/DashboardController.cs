@@ -247,8 +247,11 @@ namespace api.Controllers
         }
 
         /// <summary>
-        /// A product name or brand reduced to what identifies it, so the same product in two
-        /// territories' catalogs lands in one tally: trimmed, single-spaced and lower case.
+        /// A product name or brand reduced to what identifies it in a sales tally, so the same
+        /// product in two territories' catalogs - or typed twice on custom lines - lands in one:
+        /// trimmed, single-spaced and lower case. Looser than CatalogRules.NameKey, which matches
+        /// catalog items up on import and copy and keeps inner spacing; a tally only groups
+        /// numbers, so a near-duplicate merging is harmless there.
         /// </summary>
         /// <param name="text">Name or brand</param>
         /// <returns>The key to group on.</returns>

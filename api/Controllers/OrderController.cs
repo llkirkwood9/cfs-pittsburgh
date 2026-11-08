@@ -165,11 +165,13 @@ namespace api.Controllers
                 if (parentLine == null || parentLine.LineType is not (OrderLineType.Product or OrderLineType.Custom))
                     return BadRequest(new { error = "Pick the item the upcharge is for." });
 
-                if (string.IsNullOrWhiteSpace(request.Description))
-                    return BadRequest(new { error = "Enter the reason for the upcharge." });
-
-                if (request.Description.Trim().Length > 300)
-                    return BadRequest(new { error = "The reason can be at most 300 characters." });
+                switch (OrderLines.DescriptionProblem(request.Description, storedTrimmed: true))
+                {
+                    case DescriptionGap.Missing:
+                        return BadRequest(new { error = "Enter the reason for the upcharge." });
+                    case DescriptionGap.TooLong:
+                        return BadRequest(new { error = "The reason can be at most 300 characters." });
+                }
 
                 if (request.UnitPrice is not > 0)
                     return BadRequest(new { error = "Enter the upcharge amount." });
@@ -177,18 +179,20 @@ namespace api.Controllers
                 line = new OrderLine
                 {
                     Category = ProductCategory.Misc,
-                    Description = request.Description.Trim(),
+                    Description = request.Description!.Trim(),
                     UnitPrice = request.UnitPrice.Value,
                     ParentLineId = parentLine.Id,
                 };
             }
             else
             {
-                if (string.IsNullOrWhiteSpace(request.Description))
-                    return BadRequest(new { error = "Missing parameter." });
-
-                if (request.Description.Length > 300)
-                    return BadRequest(new { error = "Invalid parameter." });
+                switch (OrderLines.DescriptionProblem(request.Description))
+                {
+                    case DescriptionGap.Missing:
+                        return BadRequest(new { error = "Missing parameter." });
+                    case DescriptionGap.TooLong:
+                        return BadRequest(new { error = "Invalid parameter." });
+                }
 
                 lineType = OrderLineType.Custom;
                 line = new OrderLine
@@ -198,7 +202,7 @@ namespace api.Controllers
                         : ProductCategory.Misc,
                     Brand = request.Brand,
                     Size = request.Size,
-                    Description = request.Description,
+                    Description = request.Description!,
                     UnitPrice = request.UnitPrice ?? 0m,
                 };
             }
@@ -705,7 +709,7 @@ namespace api.Controllers
 
             if (request.Description != null)
             {
-                if (string.IsNullOrWhiteSpace(request.Description) || request.Description.Length > 300)
+                if (OrderLines.DescriptionProblem(request.Description) != DescriptionGap.None)
                     return BadRequest(new { error = "Invalid parameter." });
 
                 line.Description = request.Description;
