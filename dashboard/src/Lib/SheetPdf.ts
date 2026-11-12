@@ -1,3 +1,4 @@
+import { SheetPdfError } from "@shared/Lib/SheetPdf";
 import type { SheetDetail, SheetPdfRenderer } from "@shared/Lib/SheetPdf";
 import { Toast } from "./Toast";
 
@@ -52,6 +53,39 @@ const InlineStylesheets = (doc: Document, css: Map<string, string>) => {
     });
 };
 
+/** The two PDF libraries, loaded once per page load. */
+let pdfLibraries: Promise<[typeof import("html2canvas-pro"), typeof import("jspdf")]> | null = null;
+
+/**
+ * Loads the PDF libraries, or hands back the ones already loaded. They are kept out of the main
+ * bundle because together they are larger than the rest of the app.
+ * @returns The libraries.
+ */
+const LoadPdfLibraries = () => {
+    pdfLibraries ??= Promise.all([import("html2canvas-pro"), import("jspdf")]).catch(
+        (error: unknown) => {
+            // Not kept, so the next try loads them again.
+            pdfLibraries = null;
+            throw error;
+        }
+    );
+    return pdfLibraries;
+};
+
+/**
+ * Starts loading the PDF libraries in the background once the dashboard has opened.
+ *
+ * Their file names change with every update of the dashboard, and the server only has the newest
+ * ones. A tab opened before an update and asked for a PDF after it would ask for files that no
+ * longer exist, and no PDF could be made until the page was reloaded. Loading them early, while
+ * the tab's files are still on the server, means the tab already has them when it prints.
+ */
+export const PreloadPdfLibraries = () => {
+    const load = () => void LoadPdfLibraries().catch(() => undefined);
+    if ("requestIdleCallback" in window) requestIdleCallback(load, { timeout: 5000 });
+    else setTimeout(load, 2000);
+};
+
 /**
  * Turns the sheets on screen into a PDF, one sheet per Letter page, so an emailed copy looks
  * exactly like the printed one. Each sheet is laid out at paper width while it is captured, so a
@@ -69,11 +103,13 @@ const BuildSheetsPdf = async (
     onProgress?: (page: number, total: number) => void,
     title?: string
 ): Promise<Blob> => {
-    // Loaded on demand: together they are larger than the rest of the app.
-    const [{ default: html2canvas }, { jsPDF }] = await Promise.all([
-        import("html2canvas-pro"),
-        import("jspdf"),
-    ]);
+    const [{ default: html2canvas }, { jsPDF }] = await LoadPdfLibraries().catch(() => {
+        // Offline, or the dashboard was updated before this tab loaded them: either way a
+        // reload fetches the files afresh.
+        throw new SheetPdfError(
+            "The PDF tools couldn't be loaded. Reload the page, then try again."
+        );
+    });
 
     const pdf = new jsPDF({
         unit: "in",

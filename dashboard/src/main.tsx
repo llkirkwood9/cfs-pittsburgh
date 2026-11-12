@@ -6,6 +6,7 @@ import { fas } from "@fortawesome/free-solid-svg-icons";
 import { AuthProvider } from "@shared/Context/AuthContext";
 import { SettingsProvider } from "@shared/Context/SettingsContext";
 import { TerritoryProvider } from "@shared/Context/TerritoryContext";
+import { PreloadPdfLibraries } from "./Lib/SheetPdf";
 import { StartTheme } from "./Lib/Theme";
 import { router } from "./Routes/Routes";
 import "./index.css";
@@ -28,3 +29,5 @@ createRoot(document.getElementById("root")!).render(
         </AuthProvider>
     </StrictMode>
 );
+
+PreloadPdfLibraries();

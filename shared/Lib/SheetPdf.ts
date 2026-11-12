@@ -1,6 +1,18 @@
 import { sheetPdf, Toast } from "@host";
 import type { PdfUpload } from "../Services/EmailServices";
 
+/** A failure a host can explain: its message is shown to the user as it is. */
+export class SheetPdfError extends Error {}
+
+/**
+ * What to tell the user when the PDF couldn't be made.
+ * @param error What the host threw.
+ * @param otherwise The message for any other failure.
+ * @returns The message.
+ */
+const FailureMessage = (error: unknown, otherwise: string): string =>
+    error instanceof SheetPdfError ? error.message : otherwise;
+
 /** How sharp each page is captured. */
 export type SheetDetail = {
     /** Pixels per CSS pixel when capturing; 1 is about 96 dpi on paper. A host may ignore it. */
@@ -97,7 +109,9 @@ export const TryBuildSheetsPdf = async (
         return null;
     } catch (error) {
         console.error("Building the PDF failed", error);
-        Toast.Error("The PDF couldn't be made. Try again, or print instead.");
+        Toast.Error(
+            FailureMessage(error, "The PDF couldn't be made. Try again, or print instead.")
+        );
         return null;
     }
 };
@@ -132,7 +146,7 @@ export const PrintSheetsPdf = async (
     } catch (error) {
         console.error("Building the PDF failed", error);
         sheetPdf.abandonPrint?.(started);
-        Toast.Error("The PDF couldn't be made. Try again.");
+        Toast.Error(FailureMessage(error, "The PDF couldn't be made. Try again."));
         return false;
     }
 
