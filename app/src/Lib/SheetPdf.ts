@@ -4,8 +4,8 @@ import type { RefObject } from "react";
 import type { View } from "react-native";
 import { captureRef } from "react-native-view-shot";
 import { BuildImagePdf } from "./ImagePdf";
-import type { SheetDetail, SheetPdfRenderer } from "@shared/Lib/SheetPdf";
-import type { PdfUpload } from "@shared/Services/EmailServices";
+import type { SheetDetail, SheetPdfRenderer, SheetPicture } from "@shared/Lib/SheetPdf";
+import type { FileUpload } from "@shared/Services/EmailServices";
 
 /**
  * The width every sheet is laid out at on screen, whatever the device: 8 inches, as on the
@@ -64,17 +64,33 @@ const BuildSheetsPdf = async (
 };
 
 /**
+ * Takes one sheet's picture, to email; the server puts the pictures in a PDF as BuildImagePdf
+ * does.
+ * @param sheet The sheet on screen.
+ * @param detail How sharp to capture; only the JPEG quality applies here.
+ * @returns The picture, as a file on the device.
+ */
+const CaptureSheet = async (sheet: SheetRef, { quality }: SheetDetail): Promise<SheetPicture> => {
+    const view = sheet.current;
+    if (!view) throw new Error("The sheet isn't on screen.");
+    const uri = await captureRef(view, { format: "jpg", quality, result: "tmpfile" });
+    // Let the screen repaint between pages so a long report doesn't freeze the tablet.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    return {
+        // React Native's FormData uploads a file from its uri; that shape isn't in the DOM
+        // FormData types the shared email service is written against.
+        file: { uri, name: "page.jpg", type: "image/jpeg" } as unknown as FileUpload,
+        bytes: new File(uri).size,
+    };
+};
+
+/**
  * How the app makes and prints the sheets' PDF: written to the device, printed through the
  * system print dialog (AirPrint on iOS, the print service on Android).
  */
 export const sheetPdf: SheetPdfRenderer<SheetRef, PdfFile> = {
     build: BuildSheetsPdf,
-    sizeOf: (pdf) => new File(pdf.uri).size,
-    // React Native's FormData uploads a file from its uri; that shape isn't in the DOM FormData
-    // types the shared email service is written against.
-    toUpload: (pdf) =>
-        ({ uri: pdf.uri, name: "sheets.pdf", type: "application/pdf" }) as unknown as PdfUpload,
-    tooLargeAdvice: "Use Print instead - the print screen can also save the PDF.",
+    capture: CaptureSheet,
     print: async (pdf) => {
         try {
             await Print.printAsync({ uri: pdf.uri });

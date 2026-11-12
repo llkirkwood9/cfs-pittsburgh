@@ -115,14 +115,26 @@ namespace api.Services
             };
             var port = int.TryParse(config["Email:Port"], out var configured) ? configured : 587;
 
-            using var client = new SmtpClient { Timeout = 20000 };
-            await client.ConnectAsync(host, port, security);
+            for (var attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    using var client = new SmtpClient { Timeout = 30000 };
+                    await client.ConnectAsync(host, port, security);
 
-            if (!string.IsNullOrWhiteSpace(username))
-                await client.AuthenticateAsync(username, config["Email:Password"] ?? string.Empty);
+                    if (!string.IsNullOrWhiteSpace(username))
+                        await client.AuthenticateAsync(username, config["Email:Password"] ?? string.Empty);
 
-            await client.SendAsync(message);
-            await client.DisconnectAsync(true);
+                    await client.SendAsync(message);
+                    await client.DisconnectAsync(true);
+                    break;
+                }
+                catch (Exception e) when (attempt < RetryDelays.Length + 1 && IsTemporary(e))
+                {
+                    logger.LogWarning("Sending \"{Subject}\" failed ({Error}); trying again.", subject, e.Message);
+                    await Task.Delay(RetryDelays[attempt - 1]);
+                }
+            }
 
             logger.LogInformation("Sent \"{Subject}\" to {Count} recipient(s).", subject, message.To.Count);
         }
@@ -130,6 +142,27 @@ namespace api.Services
         #endregion
 
         #region Private Methods
+
+        /// <summary>
+        /// How long to wait before each further try at a send that failed for a passing reason.
+        /// </summary>
+        private static readonly TimeSpan[] RetryDelays = [TimeSpan.FromSeconds(2), TimeSpan.FromSeconds(5)];
+
+        /// <summary>
+        /// Whether a failed send may work if tried again: the mail server was out of reach, timed
+        /// out, dropped the connection, or said to try later (a 4xx reply). A wrong password or a
+        /// refused address (a 5xx reply) fails the same way every time.
+        /// </summary>
+        /// <param name="error">What the send threw</param>
+        /// <returns>True when worth another try.</returns>
+        private static bool IsTemporary(Exception error) => error switch
+        {
+            SmtpCommandException command => (int)command.StatusCode is >= 400 and < 500,
+            AuthenticationException => false,
+            SmtpProtocolException or IOException or System.Net.Sockets.SocketException
+                or TimeoutException or OperationCanceledException => true,
+            _ => false,
+        };
 
         /// <summary>
         /// Wraps a body fragment in a complete HTML document. Filters mark down HTML mail with no

@@ -14,9 +14,11 @@ using api.Utils;
 namespace api.Controllers
 {
     /// <summary>
-    /// Emailing a customer their receipt, and an event's sheets. The dashboard builds the PDF from
-    /// the sheets on screen - so it matches the printed copy exactly - and uploads it here with
-    /// the recipients; this controller writes the message and sends it. Both need the Email
+    /// Emailing a customer their receipt, and an event's sheets. The dashboard or app takes a
+    /// picture of each sheet on screen - so the email matches the printed copy exactly - and
+    /// uploads the pictures one page at a time while it makes the rest (see PageUploads); the send
+    /// then makes them into a PDF, writes the message and sends it. A whole PDF uploaded with the
+    /// send, as app builds from before page uploads do, is still taken. Both need the Email
     /// settings filled in; until they are, the dashboard says email isn't set up.
     /// </summary>
     [ApiController]
@@ -24,7 +26,8 @@ namespace api.Controllers
     public class EmailController(
         ApplicationDbContext db,
         ILogger<BasicController> logger,
-        EmailService email)
+        EmailService email,
+        PageUploads pageUploads)
         : BasicController(db, logger)
     {
         #region Private Fields
@@ -58,6 +61,52 @@ namespace api.Controllers
         #region POST Methods
 
         /// <summary>
+        /// Starts uploading a stack of sheets, one page at a time, to email afterwards.
+        /// </summary>
+        /// <param name="request">How many pages there will be</param>
+        /// <returns>{ uploadId }</returns>
+        [HttpPost("pages")]
+        [Authorize(AuthenticationSchemes = "Bearer")]
+        public IActionResult StartPages([FromBody] PageUploadStartDto request)
+        {
+            if (!email.IsConfigured)
+                return BadRequest(new { error = NotConfigured });
+            if (request.PageCount is < 1 or > PageUploads.MaxPages)
+                return BadRequest(new { error = $"A PDF can have 1 to {PageUploads.MaxPages} pages." });
+
+            return Ok(new { uploadId = pageUploads.Start(GetCurrentUserId()!.Value, request.PageCount) });
+        }
+
+        /// <summary>
+        /// Takes one page's picture. Sending a page again replaces it.
+        /// </summary>
+        /// <param name="uploadId">From StartPages</param>
+        /// <param name="index">The page, from 0</param>
+        /// <param name="page">The page as a JPEG</param>
+        /// <returns>204 when kept.</returns>
+        [HttpPut("pages/{uploadId:guid}/{index:int}")]
+        [Authorize(AuthenticationSchemes = "Bearer")]
+        [Consumes("multipart/form-data")]
+        [RequestSizeLimit(PageUploads.MaxPageBytes + 64 * 1024)]
+        [RequestFormLimits(MultipartBodyLengthLimit = PageUploads.MaxPageBytes + 64 * 1024)]
+        public async Task<IActionResult> PutPage(Guid uploadId, int index, IFormFile? page)
+        {
+            if (page == null || page.Length == 0)
+                return BadRequest(new { error = "The page didn't come through." });
+            if (page.Length > PageUploads.MaxPageBytes)
+                return BadRequest(new { error = "One page's picture is too large." });
+
+            using var stream = new MemoryStream();
+            await page.CopyToAsync(stream);
+            var bytes = stream.ToArray();
+            if (!ImagePdf.IsJpeg(bytes))
+                return BadRequest(new { error = "That page isn't a JPEG picture." });
+
+            var problem = pageUploads.Put(uploadId, GetCurrentUserId()!.Value, index, bytes, MaxPdfBytes);
+            return problem == null ? NoContent() : BadRequest(new { error = problem });
+        }
+
+        /// <summary>
         /// Emails a completed sale's receipt to the customer as a PDF, with a thank-you note.
         /// </summary>
         /// <param name="orderId">Order id</param>
@@ -89,7 +138,7 @@ namespace api.Controllers
                     ? "This customer has no email address. Enter one to send the receipt to."
                     : "Check the email address - it doesn't look right." });
 
-            var (pdf, problem) = await ReadPdfAsync(request.Pdf);
+            var (pdf, problem) = await ReadSheetsAsync(request, $"Sales sheet {order.OrderNumber}");
             if (problem != null)
                 return problem;
 
@@ -99,7 +148,7 @@ namespace api.Controllers
             var (savedSubject, savedBody) = await SettingsStore.LoadReceiptEmailAsync(DB, territoryId);
             var (subject, html, text) = EmailTemplates.ReceiptMessage(order, order.Event, settings, savedBody, savedSubject);
             var attachment = (EmailTemplates.ReceiptAttachmentName(order), "application/pdf", pdf!);
-            var failure = await TrySendAsync(() => email.SendAsync(recipients, subject, html, text, [attachment], fromName: settings.AppName));
+            var failure = await TrySendAsync(request, () => email.SendAsync(recipients, subject, html, text, [attachment], fromName: settings.AppName));
             if (failure != null)
                 return failure;
 
@@ -135,7 +184,7 @@ namespace api.Controllers
                     ? "Enter at least one email address."
                     : "Check the email addresses - separate them with commas, up to 10." });
 
-            var (pdf, problem) = await ReadPdfAsync(request.Pdf);
+            var (pdf, problem) = await ReadSheetsAsync(request, $"{saleEvent.Organization} sheets");
             if (problem != null)
                 return problem;
 
@@ -150,7 +199,7 @@ namespace api.Controllers
             var settings = await SettingsStore.LoadAsync(DB, saleEvent.TerritoryId);
             var (subject, html, text) = EmailTemplates.ReportMessage(saleEvent, salesSheets, hasInventory, message, GetCurrentUserName(), settings.AppName);
             var name = $"{EmailTemplates.Slug(saleEvent.Organization, "event")}-{saleEvent.EventDate:yyyy-MM-dd}-sheets.pdf";
-            var failure = await TrySendAsync(() => email.SendAsync(recipients, subject, html, text, [(name, "application/pdf", pdf!)], fromName: settings.AppName));
+            var failure = await TrySendAsync(request, () => email.SendAsync(recipients, subject, html, text, [(name, "application/pdf", pdf!)], fromName: settings.AppName));
             if (failure != null)
                 return failure;
 
@@ -161,6 +210,24 @@ namespace api.Controllers
         #endregion
 
         #region Private Methods
+
+        /// <summary>
+        /// The sheets to attach: made from the pages uploaded for request.UploadId, or the whole
+        /// PDF sent with the request.
+        /// </summary>
+        /// <param name="request">The send</param>
+        /// <param name="title">The PDF's title</param>
+        /// <returns>The PDF, or the response to return instead.</returns>
+        private async Task<(byte[]? Pdf, IActionResult? Problem)> ReadSheetsAsync(EmailRequestDto request, string title)
+        {
+            if (request.UploadId is not { } uploadId)
+                return await ReadPdfAsync(request.Pdf);
+
+            var problem = pageUploads.Get(uploadId, GetCurrentUserId()!.Value, out var pages);
+            return problem == null
+                ? (ImagePdf.Build(pages, title), null)
+                : (null, BadRequest(new { error = problem }));
+        }
 
         /// <summary>
         /// Reads the uploaded PDF, checking it is there, small enough to email, and really a PDF.
@@ -186,15 +253,19 @@ namespace api.Controllers
 
         /// <summary>
         /// Sends, turning a mail server problem into a 502 the dashboard shows as a message, rather
-        /// than a 500 that takes the user to the error page.
+        /// than a 500 that takes the user to the error page. Uploaded pages are let go once sent,
+        /// and kept when the send fails, so trying again doesn't upload them again.
         /// </summary>
+        /// <param name="request">The send</param>
         /// <param name="send">The send to attempt</param>
         /// <returns>Null on success, otherwise the response to return.</returns>
-        private async Task<IActionResult?> TrySendAsync(Func<Task> send)
+        private async Task<IActionResult?> TrySendAsync(EmailRequestDto request, Func<Task> send)
         {
             try
             {
                 await send();
+                if (request.UploadId is { } uploadId)
+                    pageUploads.Finish(uploadId);
                 return null;
             }
             catch (Exception e)

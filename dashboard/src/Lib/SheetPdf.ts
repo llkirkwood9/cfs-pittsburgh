@@ -1,5 +1,5 @@
 import { SheetPdfError } from "@shared/Lib/SheetPdf";
-import type { SheetDetail, SheetPdfRenderer } from "@shared/Lib/SheetPdf";
+import type { SheetDetail, SheetPdfRenderer, SheetPicture } from "@shared/Lib/SheetPdf";
 import { Toast } from "./Toast";
 
 /** US Letter, in inches, with the same margin the printed sheets use. */
@@ -87,10 +87,77 @@ export const PreloadPdfLibraries = () => {
 };
 
 /**
- * Turns the sheets on screen into a PDF, one sheet per Letter page, so an emailed copy looks
- * exactly like the printed one. Each sheet is laid out at paper width while it is captured, so a
- * PDF built on a phone matches one built on a laptop. A sheet taller than a page is scaled down
- * to fit, as it is when printed.
+ * The PDF libraries, or a message to reload when they can't be loaded.
+ * @returns The libraries.
+ */
+const PdfLibraries = () =>
+    LoadPdfLibraries().catch(() => {
+        // Offline, or the dashboard was updated before this tab loaded them: either way a
+        // reload fetches the files afresh.
+        throw new SheetPdfError(
+            "The PDF tools couldn't be loaded. Reload the page, then try again."
+        );
+    });
+
+/**
+ * Draws one sheet onto a canvas, laid out at paper width whatever the screen size, so a picture
+ * taken on a phone matches one taken on a laptop.
+ * @param html2canvas The library.
+ * @param sheet The sheet element.
+ * @param detail How sharp to capture.
+ * @param css From LoadedStylesheets.
+ * @returns The canvas; set its size to 0 when done with it, to free its memory at once.
+ */
+const DrawSheet = (
+    html2canvas: (typeof import("html2canvas-pro"))["default"],
+    sheet: HTMLElement,
+    detail: SheetDetail,
+    css: Map<string, string>
+) =>
+    html2canvas(sheet, {
+        scale: detail.scale,
+        backgroundColor: "#ffffff",
+        logging: false,
+        // A desktop-sized window, so nothing in the copy switches to its phone layout.
+        windowWidth: 1280,
+        onclone: (doc, copy) => {
+            InlineStylesheets(doc, css);
+            copy.style.width = SHEET_WIDTH;
+            copy.style.maxWidth = SHEET_WIDTH;
+            copy.style.margin = "0";
+            copy.style.boxShadow = "none";
+        },
+    });
+
+/** Lets the screen repaint between pages, so a long report doesn't freeze the tablet. */
+const Repaint = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+/**
+ * Takes one sheet's picture, to email.
+ * @param sheet The sheet element.
+ * @param detail How sharp to capture.
+ * @returns The picture as a JPEG.
+ */
+const CaptureSheet = async (sheet: HTMLElement, detail: SheetDetail): Promise<SheetPicture> => {
+    const [{ default: html2canvas }] = await PdfLibraries();
+    const canvas = await DrawSheet(html2canvas, sheet, detail, LoadedStylesheets());
+    const file = await new Promise<Blob>((resolve, reject) =>
+        canvas.toBlob(
+            (blob) =>
+                blob ? resolve(blob) : reject(new Error("The sheet's picture couldn't be made.")),
+            "image/jpeg",
+            detail.quality
+        )
+    );
+    canvas.width = canvas.height = 0;
+    await Repaint();
+    return { file, bytes: file.size };
+};
+
+/**
+ * Turns the sheets on screen into a PDF, one sheet per Letter page, to print. An emailed copy is
+ * put together the same way by the server from CaptureSheet's pictures. A sheet taller than a
+ * page is scaled down to fit, as it is when printed.
  * @param sheets The sheet elements, in page order.
  * @param detail How sharp to capture.
  * @param onProgress Called before each page with its number and the total.
@@ -103,13 +170,7 @@ const BuildSheetsPdf = async (
     onProgress?: (page: number, total: number) => void,
     title?: string
 ): Promise<Blob> => {
-    const [{ default: html2canvas }, { jsPDF }] = await LoadPdfLibraries().catch(() => {
-        // Offline, or the dashboard was updated before this tab loaded them: either way a
-        // reload fetches the files afresh.
-        throw new SheetPdfError(
-            "The PDF tools couldn't be loaded. Reload the page, then try again."
-        );
-    });
+    const [{ default: html2canvas }, { jsPDF }] = await PdfLibraries();
 
     const pdf = new jsPDF({
         unit: "in",
@@ -125,20 +186,7 @@ const BuildSheetsPdf = async (
     for (let i = 0; i < sheets.length; i++) {
         onProgress?.(i + 1, sheets.length);
 
-        const canvas = await html2canvas(sheets[i], {
-            scale: detail.scale,
-            backgroundColor: "#ffffff",
-            logging: false,
-            // A desktop-sized window, so nothing in the copy switches to its phone layout.
-            windowWidth: 1280,
-            onclone: (doc, sheet) => {
-                InlineStylesheets(doc, css);
-                sheet.style.width = SHEET_WIDTH;
-                sheet.style.maxWidth = SHEET_WIDTH;
-                sheet.style.margin = "0";
-                sheet.style.boxShadow = "none";
-            },
-        });
+        const canvas = await DrawSheet(html2canvas, sheets[i], detail, css);
 
         const ratio = canvas.width / canvas.height;
         let w = boxW;
@@ -160,9 +208,8 @@ const BuildSheetsPdf = async (
             "FAST"
         );
 
-        // Let the screen repaint between pages so a long report doesn't freeze the tablet.
         canvas.width = canvas.height = 0;
-        await new Promise((resolve) => setTimeout(resolve, 0));
+        await Repaint();
     }
 
     return pdf.output("blob");
@@ -196,9 +243,7 @@ let printFrame: HTMLIFrameElement | null = null;
  */
 export const sheetPdf: SheetPdfRenderer<HTMLElement, Blob, Window | null> = {
     build: BuildSheetsPdf,
-    sizeOf: (pdf) => pdf.size,
-    toUpload: (pdf) => pdf,
-    tooLargeAdvice: "Use Print / Save PDF and share the file another way.",
+    capture: CaptureSheet,
     startPrint: (title) => {
         const tab = OpensPdfInTab() ? window.open("", "_blank") : null;
         if (tab) {

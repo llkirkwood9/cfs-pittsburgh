@@ -2,6 +2,7 @@ using System.Security.Claims;
 using System.Text;
 using System.Threading.RateLimiting;
 using api.Data;
+using api.Email;
 using api.Services;
 using api.Utils;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
@@ -61,6 +62,7 @@ builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseNpgsql
 builder.Services.AddHttpClient();
 builder.Services.AddSingleton<TokenService>();
 builder.Services.AddSingleton<EmailService>();
+builder.Services.AddSingleton<PageUploads>();
 
 // Behind a cloud load balancer the API sees the balancer's address and plain HTTP. The forwarded
 // headers give back the visitor's address (for rate limiting and lockout logs) and the original

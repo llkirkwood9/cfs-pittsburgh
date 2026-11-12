@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { Toast } from "@host";
 import { EMAIL_NOT_SET_UP } from "../Lib/Email";
-import { PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
+import { EmailSheets, PrintSheetsPdf } from "../Lib/SheetPdf";
 import type { Sheet } from "../Lib/SheetPdf";
 import type { Order } from "../Models/Order";
 import { EmailReceipt, GetEmailStatus } from "../Services/EmailServices";
@@ -62,12 +62,11 @@ export const useCheckoutReceipt = (orderId: string | undefined) => {
      * @returns The addresses it went to, or null when it failed.
      */
     const sendReceipt = async (sheets: Sheet[], to: string, progress: (status: string) => void) => {
-        if (!order?.id) return null;
-        progress("Making the PDF...");
-        const pdf = await TryBuildSheetsPdf(sheets);
-        if (!pdf) return null;
-        progress("Sending...");
-        return EmailReceipt(order.id, to, pdf);
+        const id = order?.id;
+        if (!id) return null;
+        return EmailSheets(`order:${id}`, sheets, progress, (uploadId) =>
+            EmailReceipt(id, to, uploadId)
+        );
     };
 
     return {

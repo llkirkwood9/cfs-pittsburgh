@@ -3,7 +3,8 @@ using Microsoft.AspNetCore.Http;
 namespace api.Dtos
 {
     /// <summary>
-    /// Who to email, an optional note, and the sheets as a PDF. Sent as multipart form data.
+    /// Who to email, an optional note, and the sheets: pages uploaded beforehand, or a whole PDF.
+    /// Sent as multipart form data.
     /// </summary>
     public class EmailRequestDto
     {
@@ -18,7 +19,12 @@ namespace api.Dtos
         public string? Message { get; set; }
 
         /// <summary>
-        /// The sheets, as built by the dashboard from what is on screen
+        /// The sheets' pages, uploaded one at a time beforehand (EmailController.StartPages)
+        /// </summary>
+        public Guid? UploadId { get; set; }
+
+        /// <summary>
+        /// The sheets as a whole PDF, from app builds that don't upload page by page
         /// </summary>
         public IFormFile? Pdf { get; set; }
     }

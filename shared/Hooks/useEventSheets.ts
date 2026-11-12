@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { DownloadCsv, Toast } from "@host";
 import { EMAIL_NOT_SET_UP } from "../Lib/Email";
 import { BuildSalesCsv, EventFileBase } from "../Lib/SalesCsv";
-import { PrintSheetsPdf, TryBuildSheetsPdf } from "../Lib/SheetPdf";
+import { EmailSheets, PrintSheetsPdf } from "../Lib/SheetPdf";
 import type { Sheet } from "../Lib/SheetPdf";
 import type { DashboardStats } from "../Models/DashboardStats";
 import type { Event } from "../Models/Event";
@@ -105,13 +105,11 @@ export const useEventSheets = (eventId: number) => {
         message: string,
         progress: (status: string) => void
     ) => {
-        if (!saleEvent?.id) return null;
-        const pdf = await TryBuildSheetsPdf(sheets, (page, total) =>
-            progress(`Making the PDF: page ${page} of ${total}...`)
+        const id = saleEvent?.id;
+        if (!id) return null;
+        return EmailSheets(`event:${id}`, sheets, progress, (uploadId) =>
+            EmailEventReport(id, to, message, uploadId)
         );
-        if (!pdf) return null;
-        progress("Sending...");
-        return EmailEventReport(saleEvent.id, to, message, pdf);
     };
 
     return {

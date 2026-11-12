@@ -1,5 +1,8 @@
+import { isAxiosError } from "axios";
 import { sheetPdf, Toast } from "@host";
-import type { PdfUpload } from "../Services/EmailServices";
+import { HandleAxiosError } from "./ErrorHandler";
+import { StartPageUpload, UploadPage } from "../Services/EmailServices";
+import type { FileUpload } from "../Services/EmailServices";
 
 /** A failure a host can explain: its message is shown to the user as it is. */
 export class SheetPdfError extends Error {}
@@ -21,9 +24,18 @@ export type SheetDetail = {
     quality: number;
 };
 
+/** One sheet's picture, ready to upload. */
+export type SheetPicture = {
+    /** The picture, as a JPEG. */
+    file: FileUpload;
+    /** Its size in bytes. */
+    bytes: number;
+};
+
 /**
- * What each host does to turn the sheets on its screen into a picture-per-page PDF, and to print
- * one. The shared code picks how sharp, keeps the PDF small enough to email, and reports failures.
+ * What each host does to turn the sheets on its screen into pictures - one at a time to email, or
+ * all in a PDF to print - and to print one. The shared code picks how sharp, keeps an email small
+ * enough to send, and reports failures.
  */
 export type SheetPdfRenderer<S, P, H = void> = {
     /**
@@ -39,12 +51,12 @@ export type SheetPdfRenderer<S, P, H = void> = {
         onProgress?: (page: number, total: number) => void,
         title?: string
     ) => Promise<P>;
-    /** The PDF's size in bytes. */
-    sizeOf: (pdf: P) => number;
-    /** The PDF as an upload for the email services. */
-    toUpload: (pdf: P) => PdfUpload;
-    /** What to do instead when the PDF is too large to email. */
-    tooLargeAdvice: string;
+    /**
+     * Takes one sheet's picture, as build would put it on its page.
+     * @param sheet The sheet.
+     * @param detail How sharp to capture.
+     */
+    capture: (sheet: S, detail: SheetDetail) => Promise<SheetPicture>;
     /**
      * Called straight from the tap, before the PDF is made - a browser only opens a new tab then.
      * @returns Whatever print needs later.
@@ -81,39 +93,168 @@ const DetailIndexFor = (pages: number): number => DETAIL.findIndex((d) => pages 
 
 /**
  * The largest PDF the server will email (most mail services refuse a message over about 25 MB,
- * and an attachment grows by a third when it is encoded). Matches the API's limit.
+ * and an attachment grows by a third when it is encoded). Matches the API's limit; the pictures
+ * add up to almost exactly the PDF's size.
  */
 const MAX_BYTES = 18 * 1024 * 1024;
 
+/** How many pages upload at once while the next ones are made. */
+const UPLOADS_AT_ONCE = 2;
+
+/** How long to wait before each further try at a page whose upload failed for a passing reason. */
+const RETRY_DELAYS = [1000, 2000, 4000, 8000];
+
+const TOO_LARGE =
+    "These sheets make a PDF too large to email. Print them, or save them as a PDF and share it another way.";
+
+const CONNECTION_DROPPED =
+    "The sheets couldn't be sent - the connection kept dropping. Try again where the signal is better.";
+
 /**
- * Makes the PDF for an email: a failure is reported to the user rather than thrown, and a PDF too
- * big to email is made again, less sharp, until it fits.
- * @param sheets The sheets, in page order.
- * @param onProgress Called before each page with its number and the total.
- * @returns The PDF as an upload, or null when it couldn't be made.
+ * Waits.
+ * @param ms How long.
  */
-export const TryBuildSheetsPdf = async (
-    sheets: Sheet[],
-    onProgress?: (page: number, total: number) => void
-): Promise<PdfUpload | null> => {
-    if (sheets.length === 0) {
-        Toast.Warning("There are no sheets to put in the PDF.");
-        return null;
-    }
-    try {
-        for (let i = DetailIndexFor(sheets.length); i < DETAIL.length; i++) {
-            const pdf = await sheetPdf.build(sheets, DETAIL[i].detail, onProgress);
-            if (sheetPdf.sizeOf(pdf) <= MAX_BYTES) return sheetPdf.toUpload(pdf);
+const Wait = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Whether a failed upload may work if sent again: no reply at all (the connection dropped or
+ * timed out), the server was busy, or it failed for its own reasons.
+ * @param error What the upload threw.
+ * @returns True when worth another try.
+ */
+const WorthRetrying = (error: unknown): boolean =>
+    isAxiosError(error) &&
+    (!error.response || error.response.status >= 500 || error.response.status === 429);
+
+/**
+ * Uploads one page, trying again with growing pauses while the connection keeps failing.
+ * @param uploadId The upload.
+ * @param index The page, from 0.
+ * @param picture The page.
+ */
+const UploadWithRetries = async (uploadId: string, index: number, picture: SheetPicture) => {
+    for (let attempt = 0; ; attempt++) {
+        try {
+            return await UploadPage(uploadId, index, picture.file);
+        } catch (error) {
+            if (attempt >= RETRY_DELAYS.length || !WorthRetrying(error)) throw error;
+            await Wait(RETRY_DELAYS[attempt]);
         }
-        Toast.Error(`These sheets make a PDF too large to email. ${sheetPdf.tooLargeAdvice}`);
-        return null;
-    } catch (error) {
-        console.error("Building the PDF failed", error);
-        Toast.Error(
-            FailureMessage(error, "The PDF couldn't be made. Try again, or print instead.")
+    }
+};
+
+/**
+ * Takes each sheet's picture and uploads it while the next is taken, so the upload is done almost
+ * as soon as the last picture is. A page that fails is sent again; a stack that would come to more
+ * than an email can carry is started again, less sharp, as soon as that is clear.
+ * @param sheets The sheets, in page order.
+ * @param progress Told how far it has got.
+ * @returns The upload's id; null when it failed and the user has been told why.
+ */
+const UploadSheets = async (
+    sheets: Sheet[],
+    progress: (status: string) => void
+): Promise<string | null> => {
+    const total = sheets.length;
+    const report = (sent: number) =>
+        progress(
+            total === 1 ? "Sending the sheet..." : `Sending the sheets: ${sent} of ${total}...`
         );
+
+    for (let level = DetailIndexFor(total); level < DETAIL.length; level++) {
+        const uploadId = await StartPageUpload(total);
+        if (!uploadId) return null;
+
+        const uploading = new Set<Promise<void>>();
+        let sent = 0;
+        let bytes = 0;
+        let failure: unknown = null;
+        let smaller = false;
+        report(0);
+
+        for (let i = 0; i < total && failure === null; i++) {
+            const picture = await sheetPdf.capture(sheets[i], DETAIL[level].detail);
+            bytes += picture.bytes;
+            // Judged from the pages so far, so a stack too big is caught early, not at the end.
+            if ((bytes / (i + 1)) * total > MAX_BYTES && level < DETAIL.length - 1) {
+                smaller = true;
+                break;
+            }
+            if (bytes > MAX_BYTES) {
+                Toast.Error(TOO_LARGE);
+                return null;
+            }
+
+            const upload: Promise<void> = UploadWithRetries(uploadId, i, picture)
+                .then(() => report(++sent))
+                .catch((error: unknown) => {
+                    failure ??= error;
+                })
+                .finally(() => uploading.delete(upload));
+            uploading.add(upload);
+            if (uploading.size >= UPLOADS_AT_ONCE) await Promise.race(uploading);
+        }
+        // The pages already on their way finish either way.
+        await Promise.all(uploading);
+        if (smaller) continue;
+
+        if (failure !== null) {
+            if (WorthRetrying(failure)) Toast.Error(CONNECTION_DROPPED);
+            else HandleAxiosError(failure);
+            return null;
+        }
+        return uploadId;
+    }
+    Toast.Error(TOO_LARGE);
+    return null;
+};
+
+/**
+ * An upload the server still holds after a send it couldn't deliver, by what was being sent, so
+ * trying again needn't upload the pages again.
+ */
+const keptUploads = new Map<string, { uploadId: string; pages: number }>();
+
+/**
+ * Emails the sheets: their pictures are uploaded page by page as they are made, and the server
+ * makes them into one PDF and sends it. A failure is reported to the user rather than thrown.
+ * @param key What is being sent, e.g. "event:12"; a failed send's pages are kept under it.
+ * @param sheets The sheets, in page order.
+ * @param progress Told what it is doing.
+ * @param send Sends the uploaded pages; returns null when it failed and has said why.
+ * @returns What send returned, or null when anything failed.
+ */
+export const EmailSheets = async <T>(
+    key: string,
+    sheets: Sheet[],
+    progress: (status: string) => void,
+    send: (uploadId: string) => Promise<T | null>
+): Promise<T | null> => {
+    if (sheets.length === 0) {
+        Toast.Warning("There are no sheets to send.");
         return null;
     }
+
+    // Used once: if the second try fails too, the next starts afresh.
+    const kept = keptUploads.get(key);
+    keptUploads.delete(key);
+    let uploadId = kept?.pages === sheets.length ? kept.uploadId : null;
+
+    if (!uploadId) {
+        try {
+            uploadId = await UploadSheets(sheets, progress);
+        } catch (error) {
+            console.error("Taking the sheets' pictures failed", error);
+            Toast.Error(FailureMessage(error, "The sheets couldn't be made ready. Try again."));
+            return null;
+        }
+        if (!uploadId) return null;
+    }
+
+    progress("Emailing...");
+    const result = await send(uploadId);
+    if (result === null && !kept) keptUploads.set(key, { uploadId, pages: sheets.length });
+    return result;
 };
 
 /**
