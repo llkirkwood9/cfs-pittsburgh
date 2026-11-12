@@ -10,8 +10,15 @@ import { PrintedInitials } from "@shared/Lib/Orders";
 import { ReceiptModel } from "@shared/Lib/Receipt";
 import { ChoicesText, LineDiscountText, LineHasDiscount } from "@shared/Lib/Pricing";
 import { SHEET_WIDTH } from "../../Lib/SheetPdf";
+
 import type { SalesTermKey } from "@shared/Models/GeneralSettings";
 import type { Order } from "@shared/Models/Order";
+
+/**
+ * Extra points on every item row beyond the shared row height, so iOS has room for each line's
+ * full height and nothing is clipped. The sheet is scaled to fit the page when printed.
+ */
+const ROW_ROOM = 4;
 
 type Props = {
     order: Order;
@@ -69,47 +76,47 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
         return (
             <View>
                 <Row>
-                    <Cell flex={1} height={22}>
+                    <Cell flex={1} height={26}>
                         {field("Name:", get("Name"), 11)}
                     </Cell>
                 </Row>
                 <Row>
-                    <Cell flex={1} height={22}>
+                    <Cell flex={1} height={26}>
                         {field("Address:", get("Address"), 11)}
                     </Cell>
                 </Row>
                 <Row>
-                    <Cell width="33.4%" height={20}>
+                    <Cell width="33.4%" height={24}>
                         {field("Unit #:", get("Unit"))}
                     </Cell>
-                    <Cell width="33.3%" height={20}>
+                    <Cell width="33.3%" height={24}>
                         {field("Floor:", get("Floor"))}
                     </Cell>
-                    <Cell flex={1} height={20}>
+                    <Cell flex={1} height={24}>
                         {field("Suite #:", get("Suite"))}
                     </Cell>
                 </Row>
                 <Row>
-                    <Cell width="33.4%" height={20}>
+                    <Cell width="33.4%" height={24}>
                         {field("City:", get("City"))}
                     </Cell>
-                    <Cell width="33.3%" height={20}>
+                    <Cell width="33.3%" height={24}>
                         {field("State:", get("State"))}
                     </Cell>
-                    <Cell flex={1} height={20}>
+                    <Cell flex={1} height={24}>
                         {field("Zip:", get("Zip"))}
                     </Cell>
                 </Row>
                 <Row>
-                    <Cell width="66.7%" height={20}>
+                    <Cell width="66.7%" height={24}>
                         {field("Cell #:", get("Cell"))}
                     </Cell>
-                    <Cell flex={1} height={20}>
+                    <Cell flex={1} height={24}>
                         {field("Alt. #:", get("Alt"))}
                     </Cell>
                 </Row>
                 <Row>
-                    <Cell flex={1} height={20}>
+                    <Cell flex={1} height={24}>
                         {field("Email:", get("Email"))}
                     </Cell>
                 </Row>
@@ -144,7 +151,7 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
         <Cell
             width={width as `${number}%` | undefined}
             flex={width ? undefined : 1}
-            height={rowPx}
+            height={rowPx + ROW_ROOM}
             align={align}
             middle={compact}
             style={[compact ? { paddingVertical: 0 } : null, extra]}
@@ -154,12 +161,7 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
     );
 
     const item = (text: React.ReactNode, align?: "left" | "center" | "right", bold = false) => (
-        <SheetText
-            size={rowFont}
-            align={align}
-            semibold={bold}
-            style={{ lineHeight: rowFont * 1.1 }}
-        >
+        <SheetText size={rowFont} align={align} semibold={bold}>
             {text}
         </SheetText>
     );
@@ -273,19 +275,19 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
                     ))}
                 </Row>
                 <Row>
-                    <Cell width="14%" height={24} align="center" middle>
+                    <Cell width="14%" height={28} align="center" middle>
                         <SheetText size={11}>{FormatShortDate(order.saleDate)}</SheetText>
                     </Cell>
-                    <Cell width="22%" height={24} align="center" middle>
+                    <Cell width="22%" height={28} align="center" middle>
                         <SheetText size={11}>{order.organization}</SheetText>
                     </Cell>
-                    <Cell width="20%" height={24} align="center" middle>
+                    <Cell width="20%" height={28} align="center" middle>
                         <SheetText size={11}>{order.advertisingSource}</SheetText>
                     </Cell>
-                    <Cell width="22%" height={24} align="center" middle>
+                    <Cell width="22%" height={28} align="center" middle>
                         <SheetText size={11}>{order.referralName}</SheetText>
                     </Cell>
-                    <Cell flex={1} height={24} align="center" middle>
+                    <Cell flex={1} height={28} align="center" middle>
                         {showCheckout ? (
                             <>
                                 {salesName ? (
@@ -358,7 +360,7 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
                         <SheetText semibold>Qty</SheetText>
                     </Cell>
                     <Cell width={COLUMNS.takeWith} align="center">
-                        <SheetText size={8} semibold align="center" style={{ lineHeight: 8 }}>
+                        <SheetText size={8} semibold align="center">
                             Take{"\n"}With
                         </SheetText>
                     </Cell>
@@ -493,7 +495,7 @@ const ReceiptSheet = ({ order, sheetRef }: Props) => {
                                 key={col}
                                 width={width}
                                 flex={width ? undefined : 1}
-                                height={rowPx}
+                                height={rowPx + ROW_ROOM}
                             />
                         ))}
                     </Row>

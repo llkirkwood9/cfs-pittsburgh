@@ -30,7 +30,10 @@ const Checkbox = ({ label, checked, onChange, hint, disabled = false, className 
                 className
             )}
         >
-            <View className="flex-1">
+            {/* Grows to fill a full-width row but keeps its own width in a wrapping row of
+                switches (a crew member's territories), where a zero-based flex-1 label would
+                shrink to nothing on iOS. */}
+            <View className="min-w-0 shrink grow">
                 {typeof label === "string" ? (
                     <Text className="text-sm font-medium text-zinc-800 dark:text-zinc-100">
                         {label}
@@ -51,7 +54,10 @@ const Checkbox = ({ label, checked, onChange, hint, disabled = false, className 
                 value={checked}
                 onValueChange={onChange}
                 disabled={disabled}
-                trackColor={{ true: "#0284c7", false: Platform.OS === "android" ? "#a1a1aa" : undefined }}
+                trackColor={{
+                    true: "#0284c7",
+                    false: Platform.OS === "android" ? "#a1a1aa" : undefined,
+                }}
                 thumbColor={Platform.OS === "android" ? "#ffffff" : undefined}
             />
         </Pressable>
